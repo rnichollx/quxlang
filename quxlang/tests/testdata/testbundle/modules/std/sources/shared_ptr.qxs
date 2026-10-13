@@ -44,7 +44,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       IF (control->.strong_count.COMPARE_EXCHANGE#(
         @SUCCESS ATOMIC_ACQREL,
         @FAILURE ATOMIC_ACQUIRE
-      )(% [observed, observed + (1 AS SZ)]))
+      )(@EXPECTED observed, @DESIRED observed + (1 AS SZ)))
       {
         RETURN;
       }
@@ -87,7 +87,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       IF (control->.weak_count.COMPARE_EXCHANGE#(
         @SUCCESS ATOMIC_ACQREL,
         @FAILURE ATOMIC_ACQUIRE
-      )(% [observed, observed + (1 AS SZ)]))
+      )(@EXPECTED observed, @DESIRED observed + (1 AS SZ)))
       {
         RETURN;
       }
@@ -307,7 +307,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
         IF (.control->.strong_count.COMPARE_EXCHANGE#(
           @SUCCESS ATOMIC_ACQREL,
           @FAILURE ATOMIC_ACQUIRE
-        )(% [observed, observed + (1 AS SZ)]))
+        )(@EXPECTED observed, @DESIRED observed + (1 AS SZ)))
         {
           RETURN strong_ptr#(T)(@control .control);
         }
@@ -403,7 +403,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
         IF (allocation.count.COMPARE_EXCHANGE#(
           @SUCCESS ATOMIC_ACQREL,
           @FAILURE ATOMIC_ACQUIRE
-        )(% [observed, observed + (1 AS SZ)]))
+        )(@EXPECTED observed, @DESIRED observed + (1 AS SZ)))
         {
           RETURN;
         }

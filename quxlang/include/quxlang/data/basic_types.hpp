@@ -963,7 +963,7 @@ namespace quxlang
     /// Returns true when a builtin name denotes an atomic member operation.
     inline auto is_builtin_atomic_member_name(std::string_view name) -> bool
     {
-        return name == "LOAD" || name == "STORE" || name == "COMPARE_EXCHANGE" || name == "FETCH_ADD" || name == "FETCH_SUB" || name == "FETCH_AND" || name == "FETCH_OR" || name == "FETCH_XOR" || name == "ADD" || name == "SUB" || name == "AND" || name == "OR" || name == "XOR";
+        return name == "LOAD" || name == "STORE" || name == "EXCHANGE" || name == "COMPARE_EXCHANGE" || name == "FETCH_ADD" || name == "FETCH_SUB" || name == "FETCH_AND" || name == "FETCH_OR" || name == "FETCH_XOR" || name == "ADD" || name == "SUB" || name == "AND" || name == "OR" || name == "XOR";
     }
 
     /// Returns true when a builtin name denotes a nominal ENUM type.

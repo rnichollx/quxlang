@@ -11,24 +11,24 @@ LANGUAGE QUXLANG EN 0.0;
     VAR empty MUT->I32;
     value.STORE#ATOMIC_RELAXED(first<-);
     VAR expected MUT->I32 := second<-;
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, empty]) == FALSE);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@EXPECTED expected, @DESIRED empty) == FALSE);
     TEST_ASSERT(expected == first<-);
     TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == first<-);
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, (second<-)]));
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@EXPECTED expected, @DESIRED (second<-)));
     TEST_ASSERT(expected == first<-);
     TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == second<-);
     VAR loaded MUT->I32 := value.LOAD#ATOMIC_ACQUIRE();
     loaded-> := 29;
     TEST_ASSERT(first == 17);
     TEST_ASSERT(second == 29);
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, empty]) == FALSE);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@EXPECTED expected, @DESIRED empty) == FALSE);
     TEST_ASSERT(expected == second<-);
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, empty]));
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@EXPECTED expected, @DESIRED empty));
     TEST_ASSERT(expected == second<-);
     TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == empty);
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, (first<-)]) == FALSE);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@EXPECTED expected, @DESIRED (first<-)) == FALSE);
     TEST_ASSERT(expected == empty);
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, (first<-)]));
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@EXPECTED expected, @DESIRED (first<-)));
     TEST_ASSERT(expected == empty);
     TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == first<-);
   }
@@ -61,9 +61,9 @@ LANGUAGE QUXLANG EN 0.0;
     VAR selected MUT& ATOMIC#I32 := values[1].left;
     TEST_ASSERT(selected.FETCH_ADD#ATOMIC_ACQREL(5) == 33);
     VAR expected I32 := 33;
-    TEST_ASSERT(selected.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_ACQUIRE)(% [expected, 49]) == FALSE);
+    TEST_ASSERT(selected.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_ACQUIRE)(@EXPECTED expected, @DESIRED 49) == FALSE);
     TEST_ASSERT(expected == 38);
-    TEST_ASSERT(selected.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_ACQUIRE)(% [expected, 49]));
+    TEST_ASSERT(selected.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_ACQUIRE)(@EXPECTED expected, @DESIRED 49));
     TEST_ASSERT(expected == 38);
     TEST_ASSERT(values[0].left.LOAD#ATOMIC_ACQUIRE() == 11);
     TEST_ASSERT(values[0].right.LOAD#ATOMIC_ACQUIRE() == 22);
@@ -72,5 +72,16 @@ LANGUAGE QUXLANG EN 0.0;
     values[0].right.SUB#ATOMIC_RELEASE(2);
     TEST_ASSERT(values[0].right.LOAD#ATOMIC_ACQUIRE() == 20);
     TEST_ASSERT(selected.LOAD#ATOMIC_ACQUIRE() == 49);
+  }
+  ::exchange_identity DOC <$ Exchange returns the previous pointer and supports transitions to and from null. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR first I32 := 17;
+    VAR value ATOMIC#(MUT->I32);
+    VAR empty MUT->I32;
+    value.STORE#NONATOMIC(empty);
+    TEST_ASSERT(value.EXCHANGE#ATOMIC_ACQUIRE(first<-) == empty);
+    TEST_ASSERT(value.EXCHANGE#ATOMIC_RELEASE(empty) == first<-);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == empty);
   }
 }

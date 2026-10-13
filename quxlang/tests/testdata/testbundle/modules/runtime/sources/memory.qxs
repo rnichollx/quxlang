@@ -78,14 +78,14 @@ PRIVATE(MODULE) ::layer5_mapping_size DOC <$
     VAR expected I32 := 0;
     RETURN .state.COMPARE_EXCHANGE#(
       @SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED
-    )(% [expected, 1]);
+    )(@EXPECTED expected, @DESIRED 1);
   }
 
   .lock DOC <$ Acquires the mutex, blocking or yielding while another thread owns it. $>
     FUNCTION()
   {
     VAR expected I32 := 0;
-    IF (.state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, 1]))
+    IF (.state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(@EXPECTED expected, @DESIRED 1))
     {
       RETURN;
     }
@@ -96,7 +96,7 @@ PRIVATE(MODULE) ::layer5_mapping_size DOC <$
       .state.COMPARE_EXCHANGE#(
         @SUCCESS ATOMIC_ACQREL,
         @FAILURE ATOMIC_ACQUIRE
-      )(% [expected_uncontended, 2]);
+      )(@EXPECTED expected_uncontended, @DESIRED 2);
 
       VAR observed I32 := .state.LOAD#ATOMIC_ACQUIRE();
       IF (observed == 0)
@@ -105,7 +105,7 @@ PRIVATE(MODULE) ::layer5_mapping_size DOC <$
         IF (.state.COMPARE_EXCHANGE#(
           @SUCCESS ATOMIC_ACQREL,
           @FAILURE ATOMIC_ACQUIRE
-        )(% [expected_unlocked, 2]))
+        )(@EXPECTED expected_unlocked, @DESIRED 2))
         {
           RETURN;
         }
@@ -142,7 +142,7 @@ PRIVATE(MODULE) ::layer5_mapping_size DOC <$
     IF (.state.COMPARE_EXCHANGE#(
       @SUCCESS ATOMIC_ACQREL,
       @FAILURE ATOMIC_ACQUIRE
-    )(% [expected_uncontended, 0]))
+    )(@EXPECTED expected_uncontended, @DESIRED 0))
     {
       RETURN;
     }
@@ -204,13 +204,6 @@ PRIVATE(MODULE) ::layer2_full_plate_slot_count DOC <$
 ::allocator_thread_cache_refill_absolute_minimum OPTION NUMBER DEFAULT_VALUE(4);
 
 
-PRIVATE(MODULE) ::allocator_null_address DOC <$ Returns a null ADDRESS. $>
-  FUNCTION(): ADDRESS
-{
-  VAR null_address ADDRESS;
-  RETURN null_address;
-}
-
 PRIVATE(MODULE) ::allocator_checked_bytes DOC <$
   Multiplies element size and count, terminating instead of wrapping.
   $>
@@ -247,7 +240,7 @@ PRIVATE(MODULE) ::layer5_try_map_region DOC <$ Maps a page-rounded region or ret
   FUNCTION(@bytes SZ) NOEXCEPT: ADDRESS
 {
   VAR maximum_size SZ := (0 AS SZ) #!!;
-  IF (bytes > maximum_size - (allocator_page_size - 1)) { RETURN allocator_null_address(); }
+  IF (bytes > maximum_size - (allocator_page_size - 1)) { RETURN NULL; }
   VAR mapping_size SZ := layer5_mapping_size(@size bytes);
   VAR mapping_address ADDRESS;
   STATIC_IF(OS_LINUX)
@@ -260,7 +253,7 @@ PRIVATE(MODULE) ::layer5_try_map_region DOC <$ Maps a page-rounded region or ret
   }
   STATIC_IF(OS_WINDOWS)
   {
-    VAR requested_address ADDRESS := allocator_null_address();
+    VAR requested_address ADDRESS := NULL;
     mapping_address := virtual_alloc(
       @address requested_address,
       @size mapping_size,
@@ -465,7 +458,7 @@ PRIVATE(MODULE) ::layer2_plate_slots DOC <$
       VAR index SZ := (start + offset) % slot_count;
       VAR empty MUT->addr_cache_node#(@count count);
       IF ((.slots[index].LOAD#ATOMIC_RELAXED()??) == FALSE
-        && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(% [empty, node]))
+        && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(@EXPECTED empty, @DESIRED node))
       { RETURN TRUE; }
     }
     RETURN FALSE;
@@ -480,7 +473,7 @@ PRIVATE(MODULE) ::layer2_plate_slots DOC <$
     {
       VAR index SZ := (start + offset) % slot_count;
       VAR observed MUT->addr_cache_node#(@count count) := .slots[index].LOAD#ATOMIC_RELAXED();
-      IF (observed?? && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(% [observed, empty]))
+      IF (observed?? && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(@EXPECTED observed, @DESIRED empty))
       { RETURN observed; }
     }
     RETURN empty;

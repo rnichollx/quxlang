@@ -105,6 +105,10 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     {
         co_return builtin_function_kind::builtin_special;
     }
+    if (member.name == "EXCHANGE" && (is_atomic_type(member.of) || typeis< initguard_type >(member.of)))
+    {
+        co_return builtin_function_kind::builtin_special;
+    }
     if (typeis< initguard_type >(member.of))
     {
         if (member.name == "LOAD" || member.name == "STORE" || member.name == "COMPARE_EXCHANGE")

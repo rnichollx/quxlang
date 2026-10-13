@@ -9997,7 +9997,7 @@ TEST(quxlang, atomic_builtin_codegen_preserves_access_modes)
 {
    VAR x ATOMIC#I32 := seed;
    VAR expected I32 := seed;
-   RETURN x.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, desired]);
+   RETURN x.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(@EXPECTED expected, @DESIRED desired);
 }
 )QX");
     quxlang::type_symbol mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});

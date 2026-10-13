@@ -1192,7 +1192,7 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::swap swp)
     {
-        return "SWAP %" + std::to_string(swp.a) + ", %" + std::to_string(swp.b);
+        return "SWAP" + atomic_access_mode_suffix(swp.access_mode) + " %" + std::to_string(swp.a) + ", %" + std::to_string(swp.b);
     }
     std::string assembler::to_string_internal(vmir2::relocate_value inst)
     {

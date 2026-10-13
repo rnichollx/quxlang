@@ -33,7 +33,7 @@ PRIVATE(MODULE)
     IF (state == 0)
     {
       VAR expected UINTPTR := 0;
-      IF (guard.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, 1]))
+      IF (guard.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(@EXPECTED expected, @DESIRED 1))
       {
         RETURN TRUE;
       }

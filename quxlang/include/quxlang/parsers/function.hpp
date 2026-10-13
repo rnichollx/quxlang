@@ -18,7 +18,7 @@ namespace quxlang::parsers
     template < typename It >
     std::string parse_argument_name(It& pos, It end, bool required = true)
     {
-        static constexpr std::array< std::string_view, 55 > argument_keywords = {
+        static constexpr std::array< std::string_view, 57 > argument_keywords = {
             "T",
             "BITS",
             "EXPONENT",
@@ -65,6 +65,8 @@ namespace quxlang::parsers
             "EXCEPTION",
             "SUCCESS",
             "FAILURE",
+            "EXPECTED",
+            "DESIRED",
             "EXPLICIT",
             "REINTERPRET",
             "CHECKED",

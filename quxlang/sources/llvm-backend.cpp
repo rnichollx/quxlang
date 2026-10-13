@@ -9174,16 +9174,37 @@ namespace quxlang::llvm_backend::detail
                 quxlang::type_symbol const b_pointee_type = quxlang::remove_ref(b_type);
                 llvm::Type* a_storage_type = value_storage_type(a_pointee_type);
                 llvm::Type* b_storage_type = value_storage_type(b_pointee_type);
-                if (a_storage_type != b_storage_type)
+                if (value_storage_type(quxlang::atomic_storage_type_or_self(a_pointee_type)) != b_storage_type)
                 {
                     throw quxlang::semantic_compilation_error("SWAP on references requires matching pointee storage types for LLVM lowering");
                 }
 
                 llvm::Value* a_pointer = load_reference_pointer(state, builder, inst.a);
                 llvm::Value* b_pointer = load_reference_pointer(state, builder, inst.b);
-                llvm::Value* a_value = load_typed_value(builder, a_pointee_type, a_pointer, slot_has_ibc_access(state, inst.a));
                 llvm::Value* b_value = load_typed_value(builder, b_pointee_type, b_pointer, slot_has_ibc_access(state, inst.b));
-                store_typed_value(builder, a_pointee_type, b_value, a_pointer, slot_has_ibc_access(state, inst.a));
+                if (quxlang::is_atomic_type(a_pointee_type))
+                {
+                    b_value = logical_atomic_value_to_storage(builder, a_pointee_type, b_value);
+                }
+                llvm::Value* a_value;
+                if (inst.access_mode == quxlang::atomic_access_mode::nonatomic)
+                {
+                    a_value = load_typed_value(builder, a_pointee_type, a_pointer, slot_has_ibc_access(state, inst.a));
+                    store_typed_value(builder, a_pointee_type, b_value, a_pointer, slot_has_ibc_access(state, inst.a));
+                }
+                else
+                {
+                    std::uint64_t storage_bits = a_storage_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(a_storage_type)->getBitWidth();
+                    if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                    {
+                        throw quxlang::compiler_bug("Non-native atomic swap lowering is not implemented for storage width " + std::to_string(storage_bits));
+                    }
+                    a_value = builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg, a_pointer, b_value, llvm::Align(slot_alignment(a_pointee_type)), llvm_rmw_ordering(inst.access_mode));
+                }
+                if (quxlang::is_atomic_type(a_pointee_type))
+                {
+                    a_value = storage_atomic_value_to_logical(builder, a_pointee_type, a_value);
+                }
                 store_typed_value(builder, b_pointee_type, a_value, b_pointer, slot_has_ibc_access(state, inst.b));
                 return;
             }

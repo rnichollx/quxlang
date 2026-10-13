@@ -22,7 +22,7 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
         }
 
         static std::set< std::string > const single_mode_members = {
-            "LOAD", "STORE", "FETCH_ADD", "FETCH_SUB", "FETCH_AND", "FETCH_OR", "FETCH_XOR", "ADD", "SUB", "AND", "OR", "XOR",
+            "LOAD", "STORE", "EXCHANGE", "FETCH_ADD", "FETCH_SUB", "FETCH_AND", "FETCH_OR", "FETCH_XOR", "ADD", "SUB", "AND", "OR", "XOR",
         };
 
         builtin_template_info info;

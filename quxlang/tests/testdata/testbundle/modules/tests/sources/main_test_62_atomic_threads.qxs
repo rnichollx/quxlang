@@ -87,7 +87,7 @@ IMPORT std;
       LOOP WHILE (count < 1000) DO
       {
         VAR expected I32 := counter.LOAD#ATOMIC_RELAXED();
-        LOOP WHILE (counter.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(% [expected, expected + 1]) == FALSE) DO { }
+        LOOP WHILE (counter.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(@EXPECTED expected, @DESIRED expected + 1) == FALSE) DO { }
         count++;
       }
     };

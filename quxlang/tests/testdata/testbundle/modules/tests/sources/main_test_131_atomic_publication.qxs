@@ -72,7 +72,7 @@ IMPORT std;
     LOOP WHILE (round <= 1000) DO
     {
       VAR expected I32 := 0;
-      LOOP WHILE (state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_ACQUIRE)(% [expected, 0])) DO
+      LOOP WHILE (state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_ACQUIRE)(@EXPECTED expected, @DESIRED 0)) DO
       {
         TEST_ASSERT(expected == 0);
       }

@@ -248,7 +248,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                         co_return allowed_operations;
                     }
 
-                    add_overload({make_mref(state_type), state_type}, {{"THIS", make_mref(member.of)}}, bool_type{});
+                    add_overload({}, {{"EXPECTED", make_mref(state_type)}, {"DESIRED", state_type}, {"THIS", make_mref(member.of)}}, bool_type{});
                     co_return allowed_operations;
                 }
 
@@ -270,6 +270,11 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                     {
                         add_overload({}, {{"THIS", make_cref(member.of)}}, state_type);
                     }
+                    co_return allowed_operations;
+                }
+                if (member_name == "EXCHANGE")
+                {
+                    add_overload({}, {{"ARG", state_type}, {"THIS", make_mref(member.of)}}, state_type);
                     co_return allowed_operations;
                 }
                 if (member_name == "STORE")
@@ -310,7 +315,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                         co_return allowed_operations;
                     }
 
-                    add_overload({make_mref(*atomic_value_type), *atomic_value_type}, {{"THIS", make_mref(member.of)}}, bool_type{});
+                    add_overload({}, {{"EXPECTED", make_mref(*atomic_value_type)}, {"DESIRED", *atomic_value_type}, {"THIS", make_mref(member.of)}}, bool_type{});
                     co_return allowed_operations;
                 }
 
@@ -332,6 +337,11 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                     {
                         add_overload({}, {{"THIS", make_cref(member.of)}}, *atomic_value_type);
                     }
+                    co_return allowed_operations;
+                }
+                if (member_name == "EXCHANGE")
+                {
+                    add_overload({}, {{"ARG", *atomic_value_type}, {"THIS", make_mref(member.of)}}, *atomic_value_type);
                     co_return allowed_operations;
                 }
                 if (member_name == "STORE")

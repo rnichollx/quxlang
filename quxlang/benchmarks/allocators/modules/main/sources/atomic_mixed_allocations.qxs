@@ -26,7 +26,7 @@ IMPORT std;
     benchmark_barrier::write_byte(IBC_GETADDR(@PTR replacement));
     VAR cell MUT& ATOMIC#(->TYPED_STORAGE(block)) := PUN .pointers[index] AS ATOMIC#(->TYPED_STORAGE(block));
     VAR previous ->TYPED_STORAGE(block) := cell.LOAD#ATOMIC_RELAXED();
-    LOOP WHILE (cell.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [previous, replacement]) == FALSE) DO { }
+    LOOP WHILE (cell.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(@EXPECTED previous, @DESIRED replacement) == FALSE) DO { }
     IF (previous != NULL)
     { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::DEALLOC(@PTR previous); }
   }
@@ -40,7 +40,7 @@ IMPORT std;
       VAR cell MUT& ATOMIC#(->TYPED_STORAGE(block)) := PUN .pointers[index] AS ATOMIC#(->TYPED_STORAGE(block));
       VAR empty ->TYPED_STORAGE(block);
       VAR previous ->TYPED_STORAGE(block) := cell.LOAD#ATOMIC_RELAXED();
-      LOOP WHILE (cell.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [previous, empty]) == FALSE) DO { }
+      LOOP WHILE (cell.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(@EXPECTED previous, @DESIRED empty) == FALSE) DO { }
       IF (previous != NULL)
       {
         RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::DEALLOC(@PTR previous);

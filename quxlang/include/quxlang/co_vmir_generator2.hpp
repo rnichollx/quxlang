@@ -4423,6 +4423,26 @@ namespace quxlang
                     co_return;
                 }
 
+                if (instanciation_reference const* operation = what.temploid.templexoid.cast_ptr< instanciation_reference >())
+                {
+                    submember const* member = operation->temploid.templexoid.cast_ptr< submember >();
+                    if (member != nullptr && member->name == "EXCHANGE" && (is_atomic_type(member->of) || typeis< initguard_type >(member->of)))
+                    {
+                        value_index result = args.named.at("RETURN");
+                        this->emit(bidx, vmir2::relocate_value{
+                            .source = get_local_index(args.named.at("ARG")),
+                            .target = get_local_index(result),
+                        });
+                        value_index result_reference = this->create_reference(bidx, result, make_mref(concrete_call.named.at("ARG")));
+                        this->emit(bidx, vmir2::swap{
+                            .a = get_local_index(args.named.at("THIS")),
+                            .b = get_local_index(result_reference),
+                            .access_mode = single_atomic_mode_from_instanciation(*operation),
+                        });
+                        co_return;
+                    }
+                }
+
                 if (co_await this->co_try_emit_interface_builtin(bidx, what, concrete_call, args))
                 {
                     co_return;
@@ -5364,12 +5384,12 @@ namespace quxlang
                         throw compiler_bug("atomic compare_exchange intrinsic expects a member template instantiation");
                     }
                     std::pair< atomic_access_mode, atomic_access_mode > modes = compare_exchange_atomic_modes_from_instanciation(*member_template_instanciation);
-                    if (args.named.contains("THIS") && args.named.contains("RETURN") && args.positional.size() == 2 && args.size() == 4)
+                    if (args.named.contains("THIS") && args.named.contains("RETURN") && args.named.contains("EXPECTED") && args.named.contains("DESIRED") && args.positional.empty() && args.size() == 4)
                     {
                         return vmir2::compare_exchange{
                             .target_reference = get_local_index(args.named.at("THIS")),
-                            .expected_reference = get_local_index(args.positional.at(0)),
-                            .desired_value = get_local_index(args.positional.at(1)),
+                            .expected_reference = get_local_index(args.named.at("EXPECTED")),
+                            .desired_value = get_local_index(args.named.at("DESIRED")),
                             .result = get_local_index(args.named.at("RETURN")),
                             .success_mode = modes.first,
                             .failure_mode = modes.second,

@@ -73,7 +73,7 @@ PRIVATE(MODULE) ::exception_retain DOC <$ Acquires ownership while an existing r
     ASSERT(observed != ((0 AS SZ) #!!), "Exception reference count overflow.");
     IF (frame->.refcount.COMPARE_EXCHANGE#(
       @SUCCESS ATOMIC_RELAXED, @FAILURE ATOMIC_RELAXED
-    )(% [observed, observed + (1 AS SZ)])) { RETURN; }
+    )(@EXPECTED observed, @DESIRED observed + (1 AS SZ))) { RETURN; }
   };
 }
 

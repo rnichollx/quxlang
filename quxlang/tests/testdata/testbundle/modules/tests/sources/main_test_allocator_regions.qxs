@@ -66,7 +66,7 @@ IMPORT std;
     VAR replacement MUT->payload := NEW payload;
     LOOP ITEM(word) IN(replacement->.words) DO { word := identity; }
     VAR previous MUT->payload := .cells[slot].LOAD#ATOMIC_RELAXED();
-    LOOP WHILE (.cells[slot].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [previous, replacement]) == FALSE) DO { }
+    LOOP WHILE (.cells[slot].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(@EXPECTED previous, @DESIRED replacement) == FALSE) DO { }
     IF (previous != NULL) { .return_pointer(@pointer previous); }
   }
 
@@ -88,7 +88,7 @@ IMPORT std;
     {
       VAR empty MUT->payload;
       VAR previous MUT->payload := cell.LOAD#ATOMIC_RELAXED();
-      LOOP WHILE (cell.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [previous, empty]) == FALSE) DO { }
+      LOOP WHILE (cell.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(@EXPECTED previous, @DESIRED empty) == FALSE) DO { }
       IF (previous != NULL) { .return_pointer(@pointer previous); }
       TEST_ASSERT(cell.LOAD#ATOMIC_RELAXED() == NULL);
     }

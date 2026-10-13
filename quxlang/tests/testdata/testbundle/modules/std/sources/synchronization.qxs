@@ -113,7 +113,7 @@ PRIVATE(MODULE)
       IF (.atomic_state.COMPARE_EXCHANGE#(
         @SUCCESS ATOMIC_ACQREL,
         @FAILURE ATOMIC_ACQUIRE
-      )(% [expected, 1]))
+      )(@EXPECTED expected, @DESIRED 1))
       {
         RETURN;
       }
@@ -124,7 +124,7 @@ PRIVATE(MODULE)
         .atomic_state.COMPARE_EXCHANGE#(
           @SUCCESS ATOMIC_ACQREL,
           @FAILURE ATOMIC_ACQUIRE
-        )(% [expected_uncontended, 2]);
+        )(@EXPECTED expected_uncontended, @DESIRED 2);
 
         VAR observed I32 := .atomic_state.LOAD#ATOMIC_ACQUIRE();
         IF (observed == 0)
@@ -133,7 +133,7 @@ PRIVATE(MODULE)
           IF (.atomic_state.COMPARE_EXCHANGE#(
             @SUCCESS ATOMIC_ACQREL,
             @FAILURE ATOMIC_ACQUIRE
-          )(% [expected_unlocked, 2]))
+          )(@EXPECTED expected_unlocked, @DESIRED 2))
           {
             RETURN;
           }
@@ -163,7 +163,7 @@ PRIVATE(MODULE)
       RETURN .atomic_state.COMPARE_EXCHANGE#(
         @SUCCESS ATOMIC_ACQREL,
         @FAILURE ATOMIC_ACQUIRE
-      )(% [expected, 1]);
+      )(@EXPECTED expected, @DESIRED 1);
     }
     STATIC_ELSE STATIC_IF(OS_MACOS)
     {
@@ -184,7 +184,7 @@ PRIVATE(MODULE)
       IF (.atomic_state.COMPARE_EXCHANGE#(
         @SUCCESS ATOMIC_ACQREL,
         @FAILURE ATOMIC_ACQUIRE
-      )(% [expected_uncontended, 0]))
+      )(@EXPECTED expected_uncontended, @DESIRED 0))
       {
         RETURN;
       }

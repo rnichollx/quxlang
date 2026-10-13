@@ -2366,6 +2366,21 @@ namespace quxlang::cortado_backend
                 {
                     throw compiler_bug("Quxlang's Cortado backend SWAP has no assigned JVM scratch slots");
                 }
+                if (instruction.access_mode != atomic_access_mode::nonatomic)
+                {
+                    type_symbol reference_type = unwrapped_type(m_routine.local_types.at(local_slot(instruction.a)).type);
+                    if (!reference_type.type_is< ptrref_type >() || reference_type.get_as< ptrref_type >().target != type_symbol(initguard_type{}))
+                    {
+                        throw rpnx::unimplemented();
+                    }
+                    emit_call_argument(instruction.a);
+                    m_code.checkcast("quxlang/runtime/QuxlangReference");
+                    emit_unboxed_managed_reference_value(instruction.b, jvm_value_kind::long_);
+                    m_code.invokestatic("quxlang/runtime/JavaInterop", "ATOMIC_EXCHANGE_LONG", "(Lquxlang/runtime/QuxlangReference;J)J");
+                    m_code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;").astore(*m_swap_a_value_slot);
+                    store_boxed_managed_reference_value(instruction.b, *m_swap_a_value_slot);
+                    return;
+                }
                 load_boxed_managed_reference_value(instruction.a, *m_swap_a_value_slot);
                 load_boxed_managed_reference_value(instruction.b, *m_swap_b_value_slot);
                 store_boxed_managed_reference_value(instruction.a, *m_swap_b_value_slot);
@@ -6619,6 +6634,9 @@ namespace quxlang::cortado_backend
             code_builder atomic_store_long;
             atomic_store_long.aload({0}).getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").astore({3}).aload({0}).getfield("quxlang/runtime/QuxlangReference", "index", "J").invokestatic("java/lang/Math", "toIntExact", "(J)I").istore({4}).aload({3}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").iload({4}).lload({1}).invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;").append< opcode::aastore >().aload({3}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").iload({4}).append< opcode::iconst_1 >().append< opcode::bastore >().append< opcode::return_ >();
 
+            code_builder atomic_exchange_long;
+            atomic_exchange_long.aload({0}).invokestatic("quxlang/runtime/JavaInterop", "atomicLoadLong", "(Lquxlang/runtime/QuxlangReference;)J").lstore({3}).aload({0}).lload({1}).invokestatic("quxlang/runtime/JavaInterop", "atomicStoreLong", "(Lquxlang/runtime/QuxlangReference;J)V").lload({3}).append< opcode::lreturn >();
+
             code_builder atomic_compare_exchange_long;
             label const compare_exchange_complete = atomic_compare_exchange_long.new_label();
             atomic_compare_exchange_long.aload({0}).getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").astore({5}).aload({0}).getfield("quxlang/runtime/QuxlangReference", "index", "J").invokestatic("java/lang/Math", "toIntExact", "(J)I").istore({6}).aload({5}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").iload({6}).append< opcode::aaload >().checkcast("java/lang/Long").invokevirtual("java/lang/Long", "longValue", "()J").lstore({7}).lload({7}).lload({1}).append< opcode::lcmp >().branch< opcode::ifne >(compare_exchange_complete).aload({5}).getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").iload({6}).lload({3}).invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;").append< opcode::aastore >().aload({5}).getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z").iload({6}).append< opcode::iconst_1 >().append< opcode::bastore >().bind(compare_exchange_complete).lload({7}).append< opcode::lreturn >();
@@ -6630,6 +6648,7 @@ namespace quxlang::cortado_backend
             static_cast< void >(builder.add_method("atomicLoadLong", "(Lquxlang/runtime/QuxlangReference;)J", public_static_synchronized, atomic_load_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             static_cast< void >(builder.add_method("atomicStoreLong", "(Lquxlang/runtime/QuxlangReference;J)V", public_static_synchronized, atomic_store_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             static_cast< void >(builder.add_method("atomicCompareExchangeLong", "(Lquxlang/runtime/QuxlangReference;JJ)J", public_static_synchronized, atomic_compare_exchange_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
+            static_cast< void >(builder.add_method("ATOMIC_EXCHANGE_LONG", "(Lquxlang/runtime/QuxlangReference;J)J", public_static_synchronized, atomic_exchange_long, {}, rpnx::cortado::class_hierarchy_resolver_ref(hierarchy)));
             return builder.build();
         }
 

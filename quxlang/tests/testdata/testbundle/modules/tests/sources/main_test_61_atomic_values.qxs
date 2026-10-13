@@ -6,7 +6,9 @@ LANGUAGE QUXLANG EN 0.0;
     TEMPLATE(@T TYPE AUTO, @mode TYPE AUTO) FUNCTION()
   {
     VAR value ATOMIC#T;
-    value.STORE#ATOMIC_RELEASE(12);
+    value.STORE#ATOMIC_RELEASE(7);
+    TEST_ASSERT(value.EXCHANGE#mode(12) == 7);
+    TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 12);
     TEST_ASSERT(value.FETCH_ADD#mode(3) == 12);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 15);
     TEST_ASSERT(value.FETCH_SUB#mode(5) == 15);
@@ -59,16 +61,16 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value ATOMIC#I32;
     value.STORE#ATOMIC_RELAXED(17);
     VAR expected I32 := 3;
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]) == FALSE);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@EXPECTED expected, @DESIRED 29) == FALSE);
     TEST_ASSERT(expected == 17);
     TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == 17);
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]));
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@DESIRED 29, @EXPECTED expected));
     TEST_ASSERT(expected == 17);
     TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == 29);
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 41]) == FALSE);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@EXPECTED expected, @DESIRED 41) == FALSE);
     TEST_ASSERT(expected == 29);
     TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == 29);
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(% [expected, 29]));
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS success, @FAILURE failure)(@EXPECTED expected, @DESIRED 29));
     TEST_ASSERT(expected == 29);
   }
 
@@ -92,14 +94,35 @@ LANGUAGE QUXLANG EN 0.0;
     VAR value ATOMIC#BOOL;
     value.STORE#ATOMIC_SEQCST(FALSE);
     VAR expected BOOL := TRUE;
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, TRUE]) == FALSE);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(@EXPECTED expected, @DESIRED TRUE) == FALSE);
     TEST_ASSERT(expected == FALSE);
     TEST_ASSERT(value.LOAD#ATOMIC_SEQCST() == FALSE);
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, TRUE]));
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(@EXPECTED expected, @DESIRED TRUE));
     TEST_ASSERT(expected == FALSE);
     TEST_ASSERT(value.LOAD#ATOMIC_SEQCST());
-    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(% [expected, FALSE]) == FALSE);
+    TEST_ASSERT(value.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_SEQCST, @FAILURE ATOMIC_SEQCST)(@EXPECTED expected, @DESIRED FALSE) == FALSE);
     TEST_ASSERT(expected);
     TEST_ASSERT(value.LOAD#ATOMIC_SEQCST());
+  }
+  ::exchange_constant_values DOC <$ Exchange returns the previous value and updates integer and boolean storage during constant evaluation and native execution. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR value ATOMIC#I24;
+    value.STORE#NONATOMIC(-7);
+    TEST_ASSERT(value.EXCHANGE#NONATOMIC(29) == -7);
+    TEST_ASSERT(value.EXCHANGE#ATOMIC_SEQCST(-13) == 29);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == -13);
+    VAR flag ATOMIC#BOOL;
+    flag.STORE#NONATOMIC(FALSE);
+    TEST_ASSERT(flag.EXCHANGE#ATOMIC_ACQREL(TRUE) == FALSE);
+    TEST_ASSERT(flag.EXCHANGE#ATOMIC_RELEASE(FALSE));
+    TEST_ASSERT(flag.LOAD#NONATOMIC() == FALSE);
+  }
+  ::compare_exchange_requires_names DOC <$ Compare-exchange rejects positional expected and desired operands. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value ATOMIC#I32;
+    VAR expected I32 := 0;
+    value.COMPARE_EXCHANGE#(@SUCCESS NONATOMIC, @FAILURE NONATOMIC)(% [expected, 1]);
   }
 }

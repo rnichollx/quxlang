@@ -32,7 +32,7 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
     LOOP WHILE ((observed #&& layer3_region_exclusive) == 0
       && (observed #&& layer3_region_readers) != layer3_region_readers) DO
     {
-      IF (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(% [observed, observed + 1]))
+      IF (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(@EXPECTED observed, @DESIRED observed + 1))
       { RETURN TRUE; }
     }
     RETURN FALSE;
@@ -47,7 +47,7 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
       LOOP WHILE ((observed #&& layer3_region_exclusive) != 0) DO
       {
         VAR requested U32 := observed #|| layer3_region_requested;
-        IF (observed == requested || .semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELAXED, @FAILURE ATOMIC_RELAXED)(% [observed, requested]))
+        IF (observed == requested || .semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELAXED, @FAILURE ATOMIC_RELAXED)(@EXPECTED observed, @DESIRED requested))
         {
           wait_at_u32_address(@address IBC_GETADDR(@PTR .semaphore<-), @expected requested);
           BREAK;
@@ -66,7 +66,7 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
     LOOP WHILE ((observed #&& layer3_region_exclusive) == 0) DO
     {
-      IF (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(% [observed, observed #|| layer3_region_exclusive]))
+      IF (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(@EXPECTED observed, @DESIRED observed #|| layer3_region_exclusive))
       {
         LOOP WHILE ((.semaphore.LOAD#ATOMIC_ACQUIRE() #&& layer3_region_readers) != 0) DO { yield_thread_execution(); }
         RETURN TRUE;
@@ -79,7 +79,7 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
     FUNCTION()
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
-    LOOP WHILE (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(% [observed, 0]) == FALSE) DO { }
+    LOOP WHILE (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(@EXPECTED observed, @DESIRED 0) == FALSE) DO { }
     IF ((observed #&& layer3_region_requested) != 0)
     { notify_all_at_address(@address IBC_GETADDR(@PTR .semaphore<-), @size SIZEOF(U32)); }
   }
@@ -387,7 +387,7 @@ PRIVATE(MODULE) ::layer3_region_refill DOC <$
           clear := clear #^^ bit;
           selected_count++;
         }
-        IF (region->.bitmap[word].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(% [observed, observed #|| selected]))
+        IF (region->.bitmap[word].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_RELAXED)(@EXPECTED observed, @DESIRED observed #|| selected))
         {
           observed := observed #|| selected;
           VAR bit_index SZ := 0;

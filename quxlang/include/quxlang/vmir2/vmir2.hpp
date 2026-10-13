@@ -671,7 +671,10 @@ namespace quxlang
             local_index a;
             local_index b;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(swap, a, b);
+            /** Orders the exchange of the first referenced value with the second, privately owned value. */
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(swap, a, b, access_mode);
         };
 
         // fence_byte_acquire (FBA) causes values of type BYTE that were written to memory to be visible

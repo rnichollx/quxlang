@@ -2163,7 +2163,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     std::swap(local_a->data, local_b->data);
     std::swap(local_a->negative, local_b->negative);
-    std::swap(local_a->actual_type, local_b->actual_type);
+    if (remove_ref(get_local_type(swp.a)) == remove_ref(get_local_type(swp.b)))
+    {
+        std::swap(local_a->actual_type, local_b->actual_type);
+    }
     std::swap(local_a->procedure, local_b->procedure);
     std::swap(local_a->interface_value, local_b->interface_value);
     std::swap(local_a->type_index_value, local_b->type_index_value);
