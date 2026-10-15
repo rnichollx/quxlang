@@ -491,17 +491,9 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR DOC <$ Transfers the allocation owned by OTHER. $>
     FUNCTION(@OTHER TEMP& dynarr#(T))
   {
-    VAR empty_data MUT=>>TYPED_STORAGE(T);
-    .data := empty_data;
-    .length := 0;
-    .allocated_count := 0;
-    VAR other_data MUT& MUT=>>TYPED_STORAGE(T) :=
-      OTHER.data AS MUT& MUT=>>TYPED_STORAGE(T);
-    VAR other_length MUT& SZ := OTHER.length AS MUT& SZ;
-    VAR other_allocated_count MUT& SZ := OTHER.allocated_count AS MUT& SZ;
-    .data <-> other_data;
-    .length <-> other_length;
-    .allocated_count <-> other_allocated_count;
+    .data <-> OTHER.data;
+    .length <-> OTHER.length;
+    .allocated_count <-> OTHER.allocated_count;
   }
 
   .DESTRUCTOR DOC <$ Destroys all elements and releases the backing allocation. $>
