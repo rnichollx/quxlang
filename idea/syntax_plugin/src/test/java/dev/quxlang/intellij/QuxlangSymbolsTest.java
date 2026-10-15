@@ -159,8 +159,27 @@ final class QuxlangSymbolsTest {
         assertUnresolved("::value VAR I32; ::run FUNCTION(@value I32) { VAR f AUTO := -< { RETURN <r>value; }; }");
     }
 
+    @Test void castsPreserveTypeLookup() {
+        assertResolution("::<d>constructor_conversion_choice STRUCT {} ::run FUNCTION() { VAR x AUTO := 1 AS <r>constructor_conversion_choice; }", TYPE);
+        assertResolution("::<d>constructor_conversion_choice STRUCT {} ::run FUNCTION() { VAR x AUTO := 1 AS constructor_conversion_choice; <r>constructor_conversion_choice(1); }", TYPE);
+    }
+
+    @Test void loopBindingsShadowOnlyWithinTheirLoop() {
+        for (String clause : new String[]{"VALUE", "ITEM", "INDEX", "ITER"}) {
+            assertResolution("::value VAR I32; ::run FUNCTION() { LOOP " + clause + "(<d>value) IN(items) DO { RETURN <r>value; } }", LOCAL);
+            assertResolution("::<d>value VAR I32; ::run FUNCTION() { LOOP " + clause + "(value) IN(<r>value) DO {} }", GLOBAL);
+            assertResolution("::<d>value VAR I32; ::run FUNCTION() { LOOP " + clause + "(value) IN(items) DO {} RETURN <r>value; }", GLOBAL);
+            assertResolution("::run FUNCTION() { LOOP " + clause + "(<d>value) IN(items) FILTER(<r>value) DO {} }", LOCAL);
+        }
+        assertResolution("::run FUNCTION() { LOOP VALUE(<d>value) FROM(0) UNTIL(2) DO { LOOP VALUE(value) FROM(0) UNTIL(2) DO {} RETURN <r>value; } }", LOCAL);
+        assertResolution("::run FUNCTION() { LOOP VALUE(value) FROM(0) UNTIL(2) DO { LOOP VALUE(<d>value) FROM(0) UNTIL(2) DO { RETURN <r>value; } } }", LOCAL);
+        assertUnresolved("::run FUNCTION() { LOOP VALUE(value) FROM(0) UNTIL(2) DO {} RETURN <r>value; }");
+        assertResolution("::run FUNCTION() { LOOP ITER(cursor) INDEX(index) ITEM(<d>item) IN(items) DO { RETURN <r>item; } }", LOCAL);
+        assertResolution("::run FUNCTION() { LOOP ITER(<d>cursor) INIT { prepare(); } START(0) STEP { advance(<r>cursor); } DO {} }", LOCAL);
+    }
+
     @Test void unfinishedSyntaxIsTolerated() {
-        for (String source : new String[]{"", "::", "::f FUNCTION(@x I32", "::f FUNCTION() { VAR x I32 :=", "-<(@x I32) {", "{ [ ( ] }"}) {
+        for (String source : new String[]{"", "::", "::f FUNCTION(@x I32", "::f FUNCTION() { VAR x I32 :=", "-<(@x I32) {", "{ [ ( ] }", "::f FUNCTION() { LOOP VALUE(x", "::f FUNCTION() { LOOP VALUE(x) DO {"}) {
             assertDoesNotThrow(() -> new QuxlangSymbols(source), source);
         }
     }

@@ -154,9 +154,13 @@ final class QuxlangSymbols {
                 symbol.typeStart = i + 2;
                 symbol.typeEnd = typeEnd(i + 2, end);
             }
-            // Unsupported binding constructs shadow outer names conservatively.
-            if (text.equals("AS") && isWord(i + 1)) {
-                declare(i + 1, Kind.UNKNOWN, region.scope(), false, i + 2, false);
+            if (region.mode() == Mode.STATEMENTS && text.equals("LOOP")) {
+                int after = parseLoop(i, region);
+                if (after > i) {
+                    i = after;
+                    statementStart = true;
+                    continue;
+                }
             }
             if (text.equals("PROCEDURE")) {
                 int args = i + 1;
@@ -354,6 +358,42 @@ final class QuxlangSymbols {
         int end = block ? Math.min(close[cursor], region.end()) : parameterEnd(cursor + 1, region.end());
         pending.push(new Region(cursor + 1, end, lambda, block ? Mode.STATEMENTS : Mode.EXPRESSION));
         return block ? Math.min(end + 1, region.end()) : end;
+    }
+
+    /** Keeps loop bindings in the body and iteration clauses, outside input expressions. */
+    private int parseLoop(int start, Region region) {
+        int body = start + 1;
+        while (body < region.end() && !text(body).equals("DO") && !text(body).equals(";")) {
+            body = isOpen(body) ? Math.min(close[body] + 1, region.end()) : body + 1;
+        }
+        if (!text(body).equals("DO") || !text(body + 1).equals("{")) {
+            return start;
+        }
+        Scope loop = new Scope(region.scope(), false);
+        assign(start, body + 2, region.scope());
+        for (int i = start + 1; i < body; ++i) {
+            if (!isOpen(i)) {
+                continue;
+            }
+            int end = Math.min(close[i], body);
+            String clause = text(i - 1);
+            if (Set.of("VALUE", "ITEM", "INDEX", "ITER").contains(clause)
+                && text(i).equals("(") && end == i + 2 && isWord(i + 1)) {
+                declare(i + 1, Kind.LOCAL, loop, false, 0, false);
+                suppressed[i] = true;
+            } else {
+                Scope scope = Set.of("FILTER", "WHILE", "POSTTEST", "STEP", "EVAL").contains(clause)
+                    ? loop : region.scope();
+                boolean block = text(i).equals("{");
+                pending.push(new Region(i + 1, end, block ? new Scope(scope, false) : scope,
+                    block ? Mode.STATEMENTS : Mode.EXPRESSION));
+                suppressed[i] = true;
+            }
+            i = end;
+        }
+        int end = Math.min(close[body + 1], region.end());
+        pending.push(new Region(body + 2, end, loop, Mode.STATEMENTS));
+        return Math.min(end + 1, region.end());
     }
 
     private Symbol declare(int token, Kind kind, Scope scope, boolean member, int visibleFrom, boolean dependent) {

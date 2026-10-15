@@ -25,6 +25,38 @@ public final class QuxlangIdeTest extends BasePlatformTestCase {
         myFixture.doHighlighting();
     }
 
+    public void testCastPreservesTypeNavigationAndColor() {
+        String source = "::constructor_conversion_choice STRUCT {} ::run FUNCTION() { VAR value AUTO := 1 AS constructor_conversion_choice; constructor_conversion_choice(1); }";
+        myFixture.configureByText(QuxlangFileType.INSTANCE, source);
+        int use = source.lastIndexOf("constructor_conversion_choice");
+        PsiReference reference = myFixture.getFile().findElementAt(use).getParent().getReference();
+        assertNotNull(reference);
+        PsiElement target = reference.resolve();
+        assertNotNull(target);
+        assertEquals(source.indexOf("constructor_conversion_choice"), target.getTextOffset());
+        assertTrue(myFixture.doHighlighting().stream().anyMatch(info -> info.startOffset == use
+            && info.forcedTextAttributesKey == QuxlangHighlighter.COLORS.get(QuxlangToken.TYPE)));
+    }
+
+    public void testLoopBindingNavigationAndColor() {
+        for (String clause : new String[]{"VALUE", "ITEM", "INDEX", "ITER"}) {
+            String source = "::value VAR I32; ::run FUNCTION() { LOOP " + clause + "(value) IN(values) DO { consume(value); } consume(value); }";
+            myFixture.configureByText(QuxlangFileType.INSTANCE, source);
+            int use = source.indexOf("consume(value)") + 8;
+            PsiReference reference = myFixture.getFile().findElementAt(use).getParent().getReference();
+            assertNotNull(reference);
+            PsiElement target = reference.resolve();
+            assertNotNull(target);
+            assertEquals(source.indexOf(clause + "(value)") + clause.length() + 1, target.getTextOffset());
+            assertTrue(myFixture.doHighlighting().stream().anyMatch(info -> info.startOffset == use
+                && info.forcedTextAttributesKey == QuxlangHighlighter.COLORS.get(QuxlangToken.LOCAL)));
+            PsiReference outside = myFixture.getFile().findElementAt(source.lastIndexOf("value")).getParent().getReference();
+            assertNotNull(outside);
+            assertNotNull(outside.resolve());
+            assertEquals(source.indexOf("value"), outside.resolve().getTextOffset());
+        }
+    }
+
     public void testEditingInvalidatesScopeLookup() {
         String source = "::run FUNCTION(@value I32) { RETURN value; }";
         myFixture.configureByText(QuxlangFileType.INSTANCE, source);
