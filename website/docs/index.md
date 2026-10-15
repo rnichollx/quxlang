@@ -1,7 +1,7 @@
 # Quxlang
 
-Quxlang (pronounced like "k-whuh-ks-lang" /ˈkwʌks.læŋɡ/) is a systems programming langauge focused on providing fast
-cross-platform deterministic and reproducible builds. Quxlang is a proper noun, simliar to Erlang, the language is never called "Qux".
+Quxlang is a systems programming langauge focused on providing fast
+cross-platform deterministic and reproducible builds.
 
 This website documents the current compiler surface with feature-focused pages
 and source examples. Quxlang remains under active development and has not yet
@@ -55,6 +55,10 @@ representation, which makes translation relatively trivial.
 - [Syntax at a Glance](overview/syntax-examples.md) is a compact lookup page.
 - [Design Philosophy](philosophy/index.md) explains the goals behind
   determinism, value semantics, safety boundaries, and control flow.
+
+## Pronunciation & Notes
+
+Quxlang is pronounced like "k-whuh-ks-lang" /ˈkwʌks.læŋɡ/.  Quxlang is a proper noun, simliar to Erlang, the language is never called "Qux".
 
 ## Explore the language
 
