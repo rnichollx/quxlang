@@ -12,7 +12,7 @@ PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
   TEST_ASSERT(values.back() == 6);
   values.erase(@index 0);
   TEST_ASSERT(values[0] == 4);
-  values.resize(@size 4);
+  values.resize(4);
   TEST_ASSERT(values.size() == 4);
   VAR index_total SZ := 0;
   LOOP INDEX(index) IN(values) DO

@@ -18,7 +18,7 @@ IMPORT std;
   TEST_ASSERT(moved.size() == 0);
   moved.push_back(@value 65);
   TEST_ASSERT(moved == "A");
-  copied.reserve(@capacity 8);
+  copied.reserve(8);
   copied.push_back(@value 66);
   TEST_ASSERT(copied == "B");
 }

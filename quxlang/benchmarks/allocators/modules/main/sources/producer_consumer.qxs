@@ -89,7 +89,7 @@ IMPORT std;
     state->.io_mutex := io_mutex<-;
   }
   VAR workers std::dynarr#std::thread;
-  workers.reserve(@capacity pairs * 2);
+  workers.reserve(pairs * 2);
   VAR start U64 := benchmark_barrier::ticks();
   LOOP VALUE(identity) FROM(0 AS SZ) UNTIL(pairs) DO
   {

@@ -469,7 +469,7 @@ LANGUAGE QUXLANG EN 0.0;
           next_capacity *= 2;
         }
       }
-      .reserve(@capacity next_capacity);
+      .reserve(next_capacity);
     }
   }
 
@@ -481,7 +481,7 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR DOC <$ Copies every element from OTHER in order. $>
     FUNCTION(@OTHER CONST& dynarr#(T))
   {
-    .reserve(@capacity OTHER.length);
+    .reserve(OTHER.length);
     LOOP WHILE (.length < OTHER.length) DO
     {
       PLACE AT(.data[.length]) T := PUN OTHER.data[.length] AS T;
@@ -537,7 +537,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .reserve DOC <$ Ensures capacity elements fit without changing the logical size. $>
-    FUNCTION(@capacity SZ) MUT: VOID
+    FUNCTION(@ARG:capacity SZ) MUT: VOID
   {
     IF (capacity <= .allocated_count)
     {
@@ -649,7 +649,7 @@ LANGUAGE QUXLANG EN 0.0;
     Shrinks by destroying trailing elements or grows by default-constructing
     elements until size is reached.
     $>
-    FUNCTION(@size SZ) MUT: VOID
+    FUNCTION(@ARG:size SZ) MUT: VOID
   {
     LOOP WHILE (.length > size) DO
     {

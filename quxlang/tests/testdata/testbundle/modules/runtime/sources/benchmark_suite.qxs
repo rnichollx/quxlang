@@ -19,8 +19,8 @@ IMPORT std;
   VAR channels SZ;
   STATIC_IF(SAME_TYPES(SZ, U64)) { channels := BENCHMARK_MEASUREMENT_OFFSETS[index + 1] - BENCHMARK_MEASUREMENT_OFFSETS[index]; }
   STATIC_ELSE { channels := (BENCHMARK_MEASUREMENT_OFFSETS[index + 1] - BENCHMARK_MEASUREMENT_OFFSETS[index]) AS CHECKED SZ; }
-  state.durations.resize(@size channels);
-  state.counts.resize(@size channels);
+  state.durations.resize(channels);
+  state.counts.resize(channels);
   VAR start U64 := BENCHMARK_CLOCK();
   BENCHMARK_PROC[ACTIVE_STEPPING * BENCHMARK_COUNT + index](@STATE state);
   state.wall_time := BENCHMARK_CLOCK() -? start;

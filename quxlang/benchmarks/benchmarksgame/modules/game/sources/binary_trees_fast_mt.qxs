@@ -30,7 +30,7 @@ IMPORT std;
     {
       VAR capacity SZ := 64;
       IF (.block != 0) { capacity := .blocks[.block - 1].size() * 3 / 2; }
-      .blocks[.block].resize(@size capacity);
+      .blocks[.block].resize(capacity);
     }
     VAR result MUT->binary_tree_raw := .blocks[.block][.used]<-;
     .used++;

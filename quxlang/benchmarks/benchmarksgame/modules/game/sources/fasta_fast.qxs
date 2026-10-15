@@ -37,7 +37,7 @@ IMPORT std;
     @seed MUT& U32, @length SZ, @output MUT& std::buffered_writer)
   {
     VAR lookup std::dynarr#BYTE;
-    lookup.resize(@size 139968);
+    lookup.resize(139968);
     VAR choice SZ := 0;
     VAR cumulative F32 := probabilities[0];
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(139968) DO
@@ -77,7 +77,7 @@ IMPORT std;
   output.write(">ONE Homo sapiens alu\n");
   fasta_lookup::repeat_sequence(@length n *? 2, @output output);
   VAR probabilities std::dynarr#F32;
-  probabilities.resize(@size 15);
+  probabilities.resize(15);
   probabilities[0] := 0.27 AS APPROXIMATE F32;
   probabilities[1] := 0.12 AS APPROXIMATE F32;
   probabilities[2] := 0.12 AS APPROXIMATE F32;
@@ -87,7 +87,7 @@ IMPORT std;
   output.write(">TWO IUB ambiguity codes\n");
   fasta_lookup::random_sequence(@letters "acgtBDHKMNRSVWY", @probabilities probabilities,
     @seed seed, @length n *? 3, @output output);
-  probabilities.resize(@size 4);
+  probabilities.resize(4);
   probabilities[0] := 0.3029549426680 AS APPROXIMATE F32;
   probabilities[1] := 0.1979883004921 AS APPROXIMATE F32;
   probabilities[2] := 0.1975473066391 AS APPROXIMATE F32;

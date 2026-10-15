@@ -8,7 +8,7 @@ IMPORT std;
   DUAL_TEST
 {
   VAR values std::dynarr#(std::string);
-  values.reserve(@capacity 1);
+  values.reserve(1);
   values.push_back(@value ("first" AS std::string));
   values.push_back(@value values[0]);
   TEST_ASSERT(values.size() == 2);
@@ -23,12 +23,12 @@ IMPORT std;
   DUAL_TEST
 {
   VAR values std::dynarr#(std::string);
-  values.reserve(@capacity 1);
+  values.reserve(1);
   values.push_back(@value ("first" AS std::string));
   values.push_back(@value values[0]);
   TEST_ASSERT(values[0] == "first" && values[1] == "first");
   values[1] := ("second" AS std::string);
-  values.reserve(@capacity 8);
+  values.reserve(8);
   values.insert(@index 0, @value values[1]);
   TEST_ASSERT(values.size() == 3);
   TEST_ASSERT(values[0] == "second");
@@ -41,7 +41,7 @@ IMPORT std;
   TEST_ASSERT(values[2] == "first" && values[3].size() == 0);
   values.erase(@index 0);
   TEST_ASSERT(values[0] == "second" && values[1] == "first");
-  values.resize(@size 1);
+  values.resize(1);
   TEST_ASSERT(values[0] == "second");
   values.clear();
   values.push_back(@value ("reused" AS std::string));
@@ -271,7 +271,7 @@ IMPORT std;
   VAR values std::dynarr#(I32);
   TEST_ASSERT(values.empty());
   TEST_ASSERT(values.size() == 0);
-  values.reserve(@capacity 1);
+  values.reserve(1);
   TEST_ASSERT(values.capacity() >= 1);
 
   values.push_back(@value 10);
@@ -286,7 +286,7 @@ IMPORT std;
   values.erase(@index 1);
   TEST_ASSERT(values.size() == 2);
   TEST_ASSERT(values.front() == 2 && values.back() == 6);
-  values.resize(@size 4);
+  values.resize(4);
   TEST_ASSERT(values[2] == 0 && values[3] == 0);
 
   LOOP VALUE(value) IN(values) DO
@@ -342,7 +342,7 @@ IMPORT std;
     @index 1,
     @value container_move_only_value(@value 13)
   );
-  values.reserve(@capacity 64);
+  values.reserve(64);
   values.erase(@index 0);
   TEST_ASSERT(values.size() == 2);
   TEST_ASSERT(values[0].value == 13);
@@ -646,7 +646,7 @@ IMPORT std;
     TEST_ASSERT(alive == 3);
     array_values.insert(@index 1, @value original);
     TEST_ASSERT(alive == 4);
-    array_values.reserve(@capacity 32);
+    array_values.reserve(32);
     TEST_ASSERT(alive == 4);
     array_values.erase(@index 0);
     TEST_ASSERT(alive == 3);

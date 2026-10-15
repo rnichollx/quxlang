@@ -152,7 +152,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR original SZ := .segments.size();
     VAR committed BOOL := FALSE;
     DEFER { IF (committed == FALSE) { .trim(original); } }
-    .segments.reserve(@capacity required);
+    .segments.reserve(required);
     LOOP WHILE (.segments.size() < required) DO
     {
       VAR segment geometric_array#(T)::segment :(@EXPLICIT (1 AS SZ) #++ .segments.size());

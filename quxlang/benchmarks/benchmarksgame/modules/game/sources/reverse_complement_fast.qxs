@@ -57,7 +57,7 @@ IMPORT std;
   VAR input std::file_ref := std::standard_input();
   VAR bytes std::dynarr#BYTE;
   VAR capacity SZ := 8192;
-  bytes.resize(@size capacity);
+  bytes.resize(capacity);
   VAR length SZ := 0;
   LOOP DO
   {
@@ -71,7 +71,7 @@ IMPORT std;
     IF (length >= capacity - 256)
     {
       IF (capacity >= 1048576) { capacity += 1048576; } ELSE { capacity *= 2; }
-      bytes.resize(@size capacity);
+      bytes.resize(capacity);
     }
   }
   IF (length == 0) { RETURN; }

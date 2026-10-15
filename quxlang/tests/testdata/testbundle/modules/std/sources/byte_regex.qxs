@@ -38,8 +38,8 @@ LANGUAGE QUXLANG EN 0.0;
       .active VAR dynarr#SZ;
       .CONSTRUCTOR FUNCTION(@EXPLICIT:count SZ)
       {
-        .starts.resize(@size count);
-        .active.reserve(@capacity count);
+        .starts.resize(count);
+        .active.reserve(count);
         LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO { .starts[index] := (0 AS SZ) #!!; }
       }
       .clear FUNCTION() MUT
@@ -213,7 +213,7 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@input CONST& dynarr#BYTE, @replacement STRING_CONSTANT) CONST: dynarr#BYTE
   {
     VAR output dynarr#BYTE;
-    output.reserve(@capacity input.size());
+    output.reserve(input.size());
     VAR current state :(@EXPLICIT .program.size());
     VAR next state :(@EXPLICIT .program.size());
     VAR result match;

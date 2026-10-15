@@ -37,7 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR count SZ := other.limbs.size();
       IF (.limbs.size() > count) { count := .limbs.size(); }
-      .limbs.resize(@size count);
+      .limbs.resize(count);
       VAR carry U64 := 0;
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
       {

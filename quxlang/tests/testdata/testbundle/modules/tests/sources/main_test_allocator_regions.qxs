@@ -111,7 +111,7 @@ IMPORT std;
   VAR ready ATOMIC#U32;
   VAR start ATOMIC#BOOL;
   VAR workers std::dynarr#std::thread;
-  workers.reserve(@capacity 4);
+  workers.reserve(4);
   LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
   {
     VAR worker_identity SZ := worker_index;
@@ -166,7 +166,7 @@ IMPORT std;
   VAR ready [4]ATOMIC#U32;
   VAR returned [4]ATOMIC#U32;
   VAR workers std::dynarr#std::thread;
-  workers.reserve(@capacity 4);
+  workers.reserve(4);
   LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
   {
     VAR identity SZ := worker_index;

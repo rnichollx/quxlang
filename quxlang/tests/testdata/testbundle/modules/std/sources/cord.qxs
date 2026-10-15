@@ -126,7 +126,7 @@ PRIVATE(MODULE)
     IF (materialized.size() != 0)
     {
       VAR elements dynarr#(T);
-      elements.reserve(@capacity materialized.size());
+      elements.reserve(materialized.size());
       VAR index SZ := 0;
       LOOP WHILE (index < materialized.size()) DO
       {
@@ -281,7 +281,7 @@ PRIVATE(MODULE)
     FUNCTION() CONST: dynarr#(T)
   {
     VAR result dynarr#(T);
-    result.reserve(@capacity .size());
+    result.reserve(.size());
     .copy_elements_to(@destination result);
     RETURN result;
   }
@@ -292,7 +292,7 @@ PRIVATE(MODULE)
     VAR this_value MUT& cord#(T) := THIS AS MUT& cord#(T);
     VAR owned cord#(T) := MOVE(this_value);
     VAR result dynarr#(T);
-    result.reserve(@capacity owned.size());
+    result.reserve(owned.size());
     owned.move_elements_to(@destination result);
     RETURN MOVE(result);
   }

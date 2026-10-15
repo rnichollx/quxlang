@@ -7,8 +7,8 @@ IMPORT std;
   ::counts DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR state RUNTIME_MODULE::BENCHMARK_STATE;
-    state.durations.resize(@size 2);
-    state.counts.resize(@size 2);
+    state.durations.resize(2);
+    state.counts.resize(2);
     RUNTIME_MODULE::BENCHMARK_ACCUMULATE(@ELAPSED 15, @COUNT 3, @CHANNEL 0, @STATE state);
     RUNTIME_MODULE::BENCHMARK_ACCUMULATE(@ELAPSED 21, @COUNT 7, @CHANNEL 0, @STATE state);
     RUNTIME_MODULE::BENCHMARK_ACCUMULATE(@ELAPSED 17, @COUNT 1, @CHANNEL 1, @STATE state);

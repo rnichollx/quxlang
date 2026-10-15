@@ -86,7 +86,7 @@ IMPORT std;
   IF (n == 0 || slots == 0 || slots > 536870912 || threads == 0 || threads > slots)
   { THROW (1 AS I32); }
   VAR states std::dynarr#mixed_worker_state;
-  states.resize(@size threads);
+  states.resize(threads);
   VAR input std::buffered_reader :(@EXPLICIT std::standard_input());
   VAR checksum U64 := 0;
   LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(threads) DO
@@ -95,7 +95,7 @@ IMPORT std;
     state.slots := slots / threads;
     IF (worker_index < slots % threads) { state.slots++; }
     VAR count SZ := n;
-    state.sequence.reserve(@capacity count);
+    state.sequence.reserve(count);
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
     {
       VAR word U32 := 0;
@@ -110,17 +110,17 @@ IMPORT std;
       state.sequence.push_back(@value word);
       checksum := checksum #^^ (word AS U64);
     }
-    state.size_8.pointers.resize(@size state.slots);
-    state.size_16.pointers.resize(@size state.slots);
-    state.size_24.pointers.resize(@size state.slots);
-    state.size_32.pointers.resize(@size state.slots);
-    state.size_48.pointers.resize(@size state.slots);
-    state.size_64.pointers.resize(@size state.slots);
-    state.size_128.pointers.resize(@size state.slots);
-    state.size_256.pointers.resize(@size state.slots);
+    state.size_8.pointers.resize(state.slots);
+    state.size_16.pointers.resize(state.slots);
+    state.size_24.pointers.resize(state.slots);
+    state.size_32.pointers.resize(state.slots);
+    state.size_48.pointers.resize(state.slots);
+    state.size_64.pointers.resize(state.slots);
+    state.size_128.pointers.resize(state.slots);
+    state.size_256.pointers.resize(state.slots);
   }
   VAR workers std::dynarr#std::thread;
-  workers.reserve(@capacity threads);
+  workers.reserve(threads);
   VAR start U64 := benchmark_barrier::ticks();
   LOOP ITEM(state) IN(states) DO
   {

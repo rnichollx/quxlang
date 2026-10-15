@@ -53,7 +53,7 @@ IMPORT std;
     {
       VAR state MUT& reverse_complement_chunks := .state->;
       VAR chunk std::dynarr#BYTE;
-      chunk.resize(@size 499712);
+      chunk.resize(499712);
       VAR chunk_data MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR chunk[0]<-));
       LOOP DO
       {
@@ -138,7 +138,7 @@ IMPORT std;
     IF (letter >= 65 && letter <= 90) { complement[(letter + 32) AS SZ] := pairs.BEGIN()[index + 1] AS U8; }
   }
   VAR table_storage std::dynarr#U16;
-  table_storage.resize(@size 65536);
+  table_storage.resize(65536);
   VAR table MUT=>>U16 := IBC_PUN#(MUT=>>U16)(@ADDR IBC_GETADDR(@PTR table_storage[0]<-));
   LOOP VALUE(high) FROM(0 AS SZ) UNTIL(256) DO
   {
@@ -149,7 +149,7 @@ IMPORT std;
   VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
   VAR bytes std::dynarr#BYTE;
   VAR capacity SZ := 65536;
-  bytes.resize(@size capacity);
+  bytes.resize(capacity);
   VAR length SZ := 0;
   LOOP DO
   {
@@ -172,7 +172,7 @@ IMPORT std;
       }
       position++;
     }
-    IF (length > capacity - 65536) { capacity *= 2; bytes.resize(@size capacity); }
+    IF (length > capacity - 65536) { capacity *= 2; bytes.resize(capacity); }
   }
   IF (length != 0)
   {

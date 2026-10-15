@@ -39,9 +39,9 @@ IMPORT std;
     {
       VAR state MUT& fasta_parallel := .state->;
       VAR randoms std::dynarr#U32;
-      randoms.resize(@size 62464);
+      randoms.resize(62464);
       VAR bytes std::dynarr#BYTE;
-      bytes.resize(@size 63507);
+      bytes.resize(63507);
       VAR byte_data MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR bytes[0]<-));
       LOOP DO
       {

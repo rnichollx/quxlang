@@ -113,7 +113,7 @@ IMPORT std;
   shared.size_128.initialize(@count slots);
   shared.size_256.initialize(@count slots);
   VAR states std::dynarr#atomic_mixed_worker_state;
-  states.resize(@size threads);
+  states.resize(threads);
   VAR input std::buffered_reader :(@EXPLICIT std::standard_input());
   VAR checksum U64 := 0;
   LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(threads) DO
@@ -121,7 +121,7 @@ IMPORT std;
     VAR state MUT& atomic_mixed_worker_state := states[worker_index];
     state.shared := shared<-;
     VAR count SZ := n;
-    state.sequence.reserve(@capacity count);
+    state.sequence.reserve(count);
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
     {
       VAR word U32 := 0;
@@ -138,7 +138,7 @@ IMPORT std;
     }
   }
   VAR workers std::dynarr#std::thread;
-  workers.reserve(@capacity threads);
+  workers.reserve(threads);
   VAR start U64 := benchmark_barrier::ticks();
   LOOP ITEM(state) IN(states) DO
   {

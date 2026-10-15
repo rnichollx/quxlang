@@ -32,7 +32,7 @@ IMPORT std;
     IF (index % 60 == 59 || index + 1 == n * 2) { output.write_byte(10); }
   }
   VAR probabilities std::dynarr#F64;
-  probabilities.resize(@size 15);
+  probabilities.resize(15);
   probabilities[0] := 0.27 AS APPROXIMATE F64;
   probabilities[1] := 0.12 AS APPROXIMATE F64;
   probabilities[2] := 0.12 AS APPROXIMATE F64;
@@ -42,7 +42,7 @@ IMPORT std;
   VAR seed U32 := 42;
   output.write(">TWO IUB ambiguity codes\n");
   fasta_generator::random_sequence(@letters "acgtBDHKMNRSVWY", @probabilities probabilities, @seed seed, @length n *? 3, @output output);
-  probabilities.resize(@size 4);
+  probabilities.resize(4);
   probabilities[0] := 0.3029549426680 AS APPROXIMATE F64;
   probabilities[1] := 0.1979883004921 AS APPROXIMATE F64;
   probabilities[2] := 0.1975473066391 AS APPROXIMATE F64;

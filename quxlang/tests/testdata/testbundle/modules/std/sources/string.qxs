@@ -17,7 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR FUNCTION(@OTHER STRING_CONSTANT)
   {
     VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
-    .reserve(@capacity len);
+    .reserve(len);
     LOOP WHILE (.length < len) DO
     {
       PLACE AT(.data[.length]) BYTE := OTHER.BEGIN()[.length];
@@ -27,7 +27,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   .CONSTRUCTOR FUNCTION(@OTHER CONST& string)
   {
-    .reserve(@capacity OTHER.length);
+    .reserve(OTHER.length);
     LOOP WHILE (.length < OTHER.length) DO
     {
       .push_back(@value OTHER[.length]);
@@ -73,7 +73,7 @@ LANGUAGE QUXLANG EN 0.0;
       {
         next_capacity := 1;
       }
-      .reserve(@capacity next_capacity);
+      .reserve(next_capacity);
     }
     PLACE AT(.data[.length]) BYTE := value;
     .length++;
@@ -84,7 +84,7 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN .length;
   }
 
-  .reserve FUNCTION(@capacity SZ)
+  .reserve FUNCTION(@ARG:capacity SZ)
   {
     IF (.capacity < capacity)
     {
@@ -126,7 +126,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR result string;
     VAR total_length SZ := .length + OTHER.length;
-    result.reserve(@capacity total_length);
+    result.reserve(total_length);
     VAR i SZ := 0;
     LOOP WHILE (i < .length) DO
     {
@@ -186,7 +186,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       .pop_back();
     }
-    .reserve(@capacity len);
+    .reserve(len);
     VAR i SZ := 0;
     LOOP WHILE (i < len) DO
     {

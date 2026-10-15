@@ -46,9 +46,9 @@ IMPORT std;
   VAR u std::dynarr#F64;
   VAR v std::dynarr#F64;
   VAR scratch std::dynarr#F64;
-  u.resize(@size n);
-  v.resize(@size n);
-  scratch.resize(@size n);
+  u.resize(n);
+  v.resize(n);
+  scratch.resize(n);
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO { u[index] := 1.0; }
   LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(10) DO
   {

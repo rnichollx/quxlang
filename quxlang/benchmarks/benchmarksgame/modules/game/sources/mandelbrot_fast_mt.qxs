@@ -72,7 +72,7 @@ IMPORT std;
     VAR raster_real F64 := 2.0 / (.width AS APPROXIMATE F64);
     VAR raster_imaginary F64 := 2.0 / (.height AS APPROXIMATE F64);
     VAR origins std::dynarr#([8]F64);
-    origins.resize(@size .width / 8);
+    origins.resize(.width / 8);
     LOOP VALUE(x) FROM(0 AS SZ) UNTIL(.width / 8) DO
     {
       LOOP VALUE(lane) FROM(0 AS SZ) UNTIL(8) DO
@@ -97,7 +97,7 @@ IMPORT std;
   VAR width SZ := n + ((8 - (n % 8)) % 8);
   VAR height SZ := n + ((threads - (n % threads)) % threads);
   VAR data std::dynarr#BYTE;
-  data.resize(@size width *? height / 8);
+  data.resize(width *? height / 8);
   VAR pixels MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR data[0]<-));
   VAR workers [32]TYPED_STORAGE(std::thread);
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
