@@ -25,6 +25,26 @@ The clauses select one of three loop forms:
 `VALUE` belongs to a numeric sequence when used with `FROM`. It is an iterator
 projection when an iterator-selecting clause such as `IN` is also present.
 
+## Binding syntax
+
+The four binding clauses accept a name followed by an optional type:
+
+```text
+VALUE(name [type])
+INDEX(name [type])
+ITEM(name [type])
+ITER(name [type])
+```
+
+The brackets denote optional syntax. The type uses ordinary Quxlang type
+syntax, including reference types and template instantiations such as
+`std::dynarr#I32`. An explicit type is resolved in the loop's scope, and
+initialization uses ordinary construction and reference-binding rules.
+An incompatible initializer or an invalid type causes a compilation error.
+
+The effect of an omitted type depends on the loop form and binding clause,
+as specified below.
+
 ## Conventional loops
 
 A conventional loop can use these clauses:
@@ -91,7 +111,7 @@ ASSERT(count == 4);
 
 A numeric sequence requires all of the following:
 
-- `VALUE(name)` binds the current sequence value.
+- `VALUE(name)` or `VALUE(name type)` binds the current sequence value.
 - `FROM(expression)` supplies the first value.
 - Exactly one of `TO(expression)` or `UNTIL(expression)` supplies the bound.
 
@@ -101,23 +121,25 @@ increment is one.
 
 ```quxlang
 VAR inclusive_total I32 := 0;
-LOOP VALUE(value) FROM(0 AS I32) TO(10) BY(2 AS I32) DO
+LOOP VALUE(value I32) FROM(0) TO(10) BY(2) DO
 {
   inclusive_total += value;
 };
 ASSERT(inclusive_total == 30);
 
 VAR exclusive_total I32 := 0;
-LOOP VALUE(value) FROM(0 AS I32) UNTIL(5) DO
+LOOP VALUE(value I32) FROM(0) UNTIL(5) DO
 {
   exclusive_total += value;
 };
 ASSERT(exclusive_total == 10);
 ```
 
-The `FROM` expression determines the sequence type. It must have a concrete
-type, so an untyped numeric literal must be converted, for example with
-`0 AS I32`. The bound and step are constructed as that type. The compiler does
+An explicit `VALUE` type determines the sequence type. The `FROM` value,
+bound, and step are constructed as that type, so `VALUE(index SZ) FROM(0)`
+accepts an untyped numeric literal. When `VALUE` omits its type, the sequence
+type is the non-reference type of the `FROM` expression. That expression must
+have a concrete type, for example `0 AS I32`. The compiler does
 not infer a descending comparison from a negative step: sequence continuation
 still uses `<=` or `<`, and each step still applies `current + BY`.
 
@@ -127,7 +149,7 @@ sequence loop cannot also contain `INIT`, `EVAL`, `WHILE`, `POSTTEST`, or
 
 ```quxlang
 VAR even_total I32 := 0;
-LOOP VALUE(value) FROM(0 AS I32) TO(6)
+LOOP VALUE(value I32) FROM(0) TO(6)
     FILTER((value % 2) == 0)
     DO
 {
@@ -164,9 +186,21 @@ LOOP ITER(iterator) ITEM(item)
 };
 ```
 
-The iterator is copied from the `START` or `.BEGIN()` result and has the
-concrete non-reference type of that expression. `ITER(name)` exposes that
-mutable loop iterator to the body. All iterator binding names must be distinct.
+`ITER(name type)` constructs the loop iterator from the `START` or `.BEGIN()`
+result using the declared type. Without an explicit `ITER` type, the iterator
+has the concrete non-reference type of that result. `ITER` exposes the loop
+iterator to the body and clause expressions. All iterator binding names must
+be distinct. The types of the `END` and `LIMIT` values are determined by their
+own expressions.
+
+```quxlang
+VAR total I32 := 0;
+LOOP ITER(cursor I32) START(1) LIMIT(4) DO
+{
+  total += cursor;
+};
+ASSERT(total == 6);
+```
 
 ### Range projections
 
@@ -206,6 +240,30 @@ The result of iterator `OPERATOR->` determines the binding:
   selected range.
 - With both `INDEX` and `VALUE`, the dereferenced result must provide `.INDEX()`
   and `.VALUE()`; their results become the two bindings.
+
+An explicit `ITEM`, `INDEX`, or `VALUE` type constructs the corresponding
+binding from its dereferenced or projected result on each iteration, before
+`WHILE` and `FILTER` are evaluated. A reference type retains an alias when
+ordinary reference-binding rules permit it. A value type constructs a separate
+object. When the type is omitted, the binding retains the result's type and
+reference behavior.
+
+```quxlang
+VAR values std::dynarr#I32;
+values.push_back(@value 4);
+values.push_back(@value 5);
+LOOP INDEX(index SZ) VALUE(value MUT& I32) IN(values) DO
+{
+  value += 10;
+  ASSERT(value == values[index]);
+};
+LOOP VALUE(value I32) IN(values) DO
+{
+  value := 0;
+};
+ASSERT(values[0] == 14);
+ASSERT(values[1] == 15);
+```
 
 The names `VALUES`, `INDEXES`, and `IV_PAIRS` describe protocol members. They do
 not require a particular container representation or require indices to be
@@ -262,9 +320,9 @@ the increment for a sequence loop.
 A label follows `LOOP` and can be named by `BREAK` or `CONTINUE`:
 
 ```quxlang
-LOOP :outer VALUE(row) FROM(0 AS I32) UNTIL(4) DO
+LOOP :outer VALUE(row I32) FROM(0) UNTIL(4) DO
 {
-  LOOP VALUE(column) FROM(0 AS I32) UNTIL(4) DO
+  LOOP VALUE(column I32) FROM(0) UNTIL(4) DO
   {
     IF (should_skip_remaining_columns(row, column))
     {
