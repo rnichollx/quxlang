@@ -89,7 +89,7 @@ namespace quxlang::detail
             throw semantic_compilation_error("COMPOSITE_FIELD_TYPE requires a composite type");
         }
         composite_type const& schema = record.get_as< composite_type >();
-        constexpr_result_v3 selection = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
+        constexpr_routine_v3_result const& selection = co_await rpnx::querygraph::request< constexpr_routine_v3_query >(constexpr_input_v3{
             .expr = type.selector, .context = input.context, .expected_result_type = type_symbol(auto_temploidic{}),
         });
         type_symbol selector_type = remove_ref(selection.deduced_type.value());
@@ -135,7 +135,7 @@ namespace quxlang::detail
         }
         type_symbol owner = remove_ref(*subject);
         std::vector< struct_field_declaration > const& fields = co_await rpnx::querygraph::request< public_struct_field_declaration_list_query >(owner);
-        constexpr_result_v3 selection = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
+        constexpr_routine_v3_result const& selection = co_await rpnx::querygraph::request< constexpr_routine_v3_query >(constexpr_input_v3{
             .expr = type.selector, .context = input.context, .expected_result_type = type_symbol(auto_temploidic{}),
         });
         type_symbol selector_type = remove_ref(selection.deduced_type.value());

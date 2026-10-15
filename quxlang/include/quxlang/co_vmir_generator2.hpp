@@ -38,6 +38,7 @@
 #include "quxlang/queries/class_type.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
 #include "quxlang/queries/constexpr_eval_v3.hpp"
+#include <quxlang/queries/constexpr_routine_v3.hpp>
 #include "quxlang/queries/constexpr_u64.hpp"
 #include "quxlang/queries/declaration_is_accessible.hpp"
 #include "quxlang/queries/ensig_argument_initialize.hpp"
@@ -3580,8 +3581,11 @@ namespace quxlang
         /** Resolves a compile-time name or canonical ordinal, rejecting absent fields. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_composite_selector(block_index& block, composite_type const& type, expression const& selector) -> co_type< std::string >
         {
-            constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(auto_temploidic{}), static_eval_access::readonly_view);
-            type_symbol selector_type = remove_ref(evaluated.deduced_type.value());
+            expression prepared = selector;
+            co_await co_prepare_expression(prepared);
+            constexpr_routine_v3_result const& selection = co_await rpnx::querygraph::request< constexpr_routine_v3_query >(
+                build_static_eval_input(std::move(prepared), type_symbol(auto_temploidic{}), static_eval_access::readonly_view));
+            type_symbol selector_type = remove_ref(selection.deduced_type.value());
             bool string_selector = typeis< string_literal_type >(selector_type) ||
                 (typeis< readonly_constant >(selector_type) && as< readonly_constant >(selector_type).kind == constant_kind::string);
             if (!string_selector)
@@ -3645,8 +3649,11 @@ namespace quxlang
         /** Selects a direct public field by compile-time name or declaration index. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_public_field_index(block_index& block, std::vector< struct_field_declaration > const& fields, expression const& selector) -> co_type< std::size_t >
         {
-            constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(auto_temploidic{}), static_eval_access::readonly_view);
-            type_symbol selector_type = remove_ref(evaluated.deduced_type.value());
+            expression prepared = selector;
+            co_await co_prepare_expression(prepared);
+            constexpr_routine_v3_result const& selection = co_await rpnx::querygraph::request< constexpr_routine_v3_query >(
+                build_static_eval_input(std::move(prepared), type_symbol(auto_temploidic{}), static_eval_access::readonly_view));
+            type_symbol selector_type = remove_ref(selection.deduced_type.value());
             bool string_selector = selector_type.type_is< string_literal_type >() ||
                 (selector_type.type_is< readonly_constant >() && selector_type.get_as< readonly_constant >().kind == constant_kind::string);
             if (!string_selector)

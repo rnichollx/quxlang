@@ -31,6 +31,7 @@
 #include <quxlang/queries/struct_virtual_slots.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
+#include <quxlang/queries/constexpr_routine_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/declaration_is_accessible.hpp>
 #include <quxlang/queries/ensig_argument_initialize.hpp>
@@ -115,6 +116,7 @@ namespace quxlang
         struct_virtual_slots_query,
         constexpr_bool_query,
         constexpr_eval_v3_query,
+        constexpr_routine_v3_query,
         constexpr_u64_query,
         declaration_is_accessible_query,
         ensig_argument_initialize_query,
@@ -187,6 +189,7 @@ namespace quxlang
         struct_virtual_slots_query,
         constexpr_bool_query,
         constexpr_eval_v3_query,
+        constexpr_routine_v3_query,
         constexpr_u64_query,
         declaration_is_accessible_query,
         ensig_argument_initialize_query,

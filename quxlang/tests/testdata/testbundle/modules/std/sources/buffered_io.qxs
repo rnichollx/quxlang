@@ -186,3 +186,47 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 }
+
+PRIVATE(MODULE)
+{
+  ::open_standard_output_writer INCLUDE_IF(ARCH_IS_JVM == FALSE) DOC <$
+    Opens a buffered byte writer for the native standard output interface.
+    $> FUNCTION(): buffered_writer
+  {
+    RETURN standard_output() AS buffered_writer;
+  }
+
+  ::jvm_output_error INCLUDE_IF(ARCH_IS_JVM)
+    EXTERN_PROCEDURE["java/io/PrintStream":"checkError"]
+    CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> RUNTIME_MODULE::java_print_stream; RETURN BOOL);
+
+  ::jvm_standard_output_writer INCLUDE_IF(ARCH_IS_JVM) DOC <$
+    Borrows Java standard output through the byte-writer interface.
+    $> STRUCT
+  {
+    .stream VAR ~> RUNTIME_MODULE::java_print_stream;
+
+    .CONSTRUCTOR DOC <$ Captures the current Java standard output stream. $>
+      FUNCTION() { .stream := RUNTIME_MODULE::jvm_system_out(); }
+
+    .write_byte DOC <$ Writes one byte without character-set conversion. $>
+      FUNCTION(@ARG:value BYTE) MUT
+    {
+      RUNTIME_MODULE::jvm_printstream_write(@THIS .stream, @VALUE (value AS U8 AS I32));
+    }
+
+    .flush DOC <$ Flushes output and throws I32(1) when the stream reports an error. $>
+      FUNCTION() MUT
+    {
+      RUNTIME_MODULE::jvm_printstream_flush(@THIS .stream);
+      IF (jvm_output_error(@THIS .stream)) { THROW (1 AS I32); }
+    }
+  }
+
+  ::open_standard_output_writer INCLUDE_IF(ARCH_IS_JVM) DOC <$
+    Opens a byte writer for the Java standard output interface.
+    $> FUNCTION(): jvm_standard_output_writer
+  {
+    RETURN jvm_standard_output_writer();
+  }
+}

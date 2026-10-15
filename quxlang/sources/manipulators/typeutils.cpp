@@ -1903,6 +1903,10 @@ namespace quxlang
 
     std::string constexpr_parameter_value_to_string(type_symbol const& type, constexpr_value const& value)
     {
+        if (!typeis< antestatal_value >(value))
+        {
+            return "<constexpr>";
+        }
         auto const& antestatal = constexpr_value_as_antestatal(value);
         if (typeis< bool_type >(type) && typeis< antestatal_primitive >(antestatal))
         {

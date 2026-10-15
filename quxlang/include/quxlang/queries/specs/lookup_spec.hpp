@@ -5,6 +5,7 @@
 
 #include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
+#include <quxlang/queries/constexpr_routine_v3.hpp>
 #include <quxlang/queries/declaration_is_accessible.hpp>
 #include <quxlang/queries/exists.hpp>
 #include <quxlang/queries/function_declaration.hpp>
@@ -29,7 +30,7 @@ namespace quxlang
     struct lookup_spec
     {
         using query = lookup_query;
-        using dependencies = rpnx::typelist< body_parent, published_name_info, vm_procedure3_query, functanoid_return_type_query, constexpr_eval_v3_query, constexpr_u64_query, declaration_is_accessible_query, exists_query, function_declaration_query, function_pack_info_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, public_struct_field_declaration_list_query, subtag_binding_query, symboid_query, symbol_type_query, type_is_stringlike_query >;
+        using dependencies = rpnx::typelist< body_parent, published_name_info, vm_procedure3_query, functanoid_return_type_query, constexpr_eval_v3_query, constexpr_routine_v3_query, constexpr_u64_query, declaration_is_accessible_query, exists_query, function_declaration_query, function_pack_info_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, public_struct_field_declaration_list_query, subtag_binding_query, symboid_query, symbol_type_query, type_is_stringlike_query >;
     };
 
     /** @brief Resolves a type reference using exhaustive variant dispatch. */

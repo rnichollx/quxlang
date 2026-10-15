@@ -1,0 +1,201 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::format_tests NAMESPACE
+{
+  ::literal_and_escapes DUAL_TEST
+  {
+    TEST_ASSERT(fmt#("")() == "");
+    TEST_ASSERT(fmt#("a\0b {{hello}}")() == "a\0b {hello}");
+    STATIC text STRING_CONSTANT := "{value}";
+    TEST_ASSERT(fmt#text(@value "a\0b") == "a\0b");
+  }
+
+  ::arguments DUAL_TEST
+  {
+    VAR number I32 := -42;
+    VAR text string := "owned";
+    TEST_ASSERT(fmt#("{} {} {} {}")(% [number, text, TRUE, "literal"]) == "-42 owned true literal");
+  }
+
+  ::indices DUAL_TEST
+  {
+    TEST_ASSERT(fmt#("{1}/{0}/{1}")(% [11, 22]) == "22/11/22");
+    TEST_ASSERT(fmt#("{10} {0} {1} {2} {3} {4} {5} {6} {7} {8} {9}")(
+      % [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) == "10 0 1 2 3 4 5 6 7 8 9");
+  }
+
+  ::names DUAL_TEST
+  {
+    TEST_ASSERT(fmt#("{name}: {} {count} {name}")(% [FALSE], @count 7, @name "item") == "item: false 7 item");
+  }
+
+  ::argument_event DOC <$ Records argument evaluation order and returns the supplied value. $>
+    FUNCTION(@events MUT& I32, @value I32): I32
+  {
+    events := events * 10 + value;
+    RETURN value;
+  }
+
+  ::evaluation_order DUAL_TEST
+  {
+    VAR events I32 := 0;
+    AUTO text := fmt#("{1} {0} {last} {1}")(
+      % [argument_event(@events events, @value 1), argument_event(@events events, @value 2)],
+      @last argument_event(@events events, @value 3));
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(text == "2 1 3 2");
+  }
+
+  ::integers DUAL_TEST
+  {
+    TEST_ASSERT(fmt#("{}")(% [-9223372036854775808 AS I64]) == "-9223372036854775808");
+    TEST_ASSERT(fmt#("{}")(% [18446744073709551615 AS U64]) == "18446744073709551615");
+    TEST_ASSERT(fmt#("{} {}")(% [-1 AS I1, 7 AS U3]) == "-1 7");
+    TEST_ASSERT(fmt#("{}")(% [340282366920938463463374607431768211455 AS U128]) == "340282366920938463463374607431768211455");
+    TEST_ASSERT(fmt#("{}")(% [0 AS I32]) == "0");
+  }
+
+  ::floating DUAL_TEST
+  {
+    TEST_ASSERT(fmt#("{} {}")(% [1.25 AS F64, -0.5 AS F32]) == "1.250000 -0.500000");
+    TEST_ASSERT(fmt#("{}")(% [1000000000000000000000000000000.0 AS APPROXIMATE F64]) == "1.000000e+30");
+    TEST_ASSERT(fmt#("{}")(% [0.000000000000000000000000000001 AS APPROXIMATE F64]) == "1.000000e-30");
+    TEST_ASSERT(fmt#("{}")(% [binary64::decode(9223372036854775808)]) == "-0.000000");
+    TEST_ASSERT(fmt#("{}")(% [binary64::decode(9218868437227405312)]) == "inf");
+    TEST_ASSERT(fmt#("{}")(% [binary64::decode(18442240474082181120)]) == "-inf");
+    TEST_ASSERT(fmt#("{}")(% [binary64::decode(9221120237041090560)]) == "nan");
+  }
+
+  ::computed_name_contains DUAL_TEST
+  {
+    STATIC_VAR name string := "val";
+    STATIC_EVAL name.push_back('u');
+    STATIC_EVAL name.push_back('e');
+    AUTO record := :{ .value = 7 AS I32; };
+    TEST_ASSERT(COMPOSITE_CONTAINS(TYPEOF(record), name));
+  }
+
+  ::computed_name_get DUAL_TEST
+  {
+    STATIC_VAR name string := "val";
+    STATIC_EVAL name.push_back('u');
+    STATIC_EVAL name.push_back('e');
+    AUTO record := :{ .value = 7 AS I32; };
+    TEST_ASSERT(COMPOSITE_FIELD_GET(record, name) == 7);
+    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(TYPEOF(record), name), I32));
+  }
+
+  ::named_record DOC <$ Provides public fields for computed-selector regression coverage. $> STRUCT
+  {
+    .value VAR I32;
+    .other VAR I64;
+  }
+
+  ::computed_public_name DUAL_TEST
+  {
+    STATIC_VAR name string := "val";
+    STATIC_EVAL name.push_back('u');
+    STATIC_EVAL name.push_back('e');
+    VAR record named_record;
+    record.value := 13;
+    record.other := 17;
+    TEST_ASSERT(PUBLIC_FIELD_GET(record, name) == 13);
+    TEST_ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(named_record, name), I32));
+    STATIC_EVAL name := "other";
+    TEST_ASSERT(PUBLIC_FIELD_GET(record, name) == 17);
+    TEST_ASSERT(SAME_TYPES(PUBLIC_FIELD_TYPE(named_record, name), I64));
+  }
+
+  ::missing_name STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { printf#("{missing}")(@present 3); }
+  ::missing_position STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{}")(); }
+  ::unused_name STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { printf#("text")(@unused 3); }
+  ::unused_position STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("")(% [1]); }
+  ::unclosed_field STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{name")(@name 1); }
+  ::closing_brace STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("}")(); }
+  ::nested_field STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{{{name{}}}")(@name 1); }
+  ::mixed_indices STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{} {0}")(% [1]); }
+  ::large_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{999999999999999999999999999999}")(% [1]); }
+  ::unsupported_value STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{value}")(@value :{ .member = 1; }); }
+  ::runtime_format STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR text STRING_CONSTANT := "{value}";
+    AUTO result := fmt#text(@value 1);
+  }
+  ::printf_unsupported_value STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { printf#("{value}")(@value :{ .member = 1; }); }
+  ::unsupported_specification STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{:q}")(% [1]); }
+  ::integer_with_float_modifier STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{:e}")(% [1 AS I32]); }
+  ::float_with_integer_modifier STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { printf#("{value:x}")(@value 1.0 AS F64); }
+  ::string_with_numeric_modifier STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{:d}")(% ["hello"]); }
+  ::integer_precision STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{:.2d}")(% [12]); }
+  ::missing_precision STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{:.f}")(% [1.0]); }
+  ::excess_precision STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{:.999999999999999999999f}")(% [1.0]); }
+  ::trailing_modifier STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{:ff}")(% [1.0]); }
+  ::fractional_integer_literal STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { AUTO text := fmt#("{:x}")(% [1.25]); }
+
+  ::integer_modifiers DUAL_TEST
+  {
+    TEST_ASSERT(fmt#("{0:d} {0:b} {0:B} {0:o} {0:x} {0:X}")(% [42 AS I32]) == "42 101010 101010 52 2a 2A");
+    TEST_ASSERT(fmt#("{0:b} {0:o} {0:x}")(% [-42 AS I32]) == "-101010 -52 -2a");
+    TEST_ASSERT(fmt#("{value:X}/{value:d}")(@value 255 AS U8) == "FF/255");
+    TEST_ASSERT(fmt#("{:b} {:x}")(% [-1 AS I1, 7 AS U3]) == "-1 7");
+    TEST_ASSERT(fmt#("{:x}")(% [-9223372036854775808 AS I64]) == "-8000000000000000");
+    TEST_ASSERT(fmt#("{:X}")(% [340282366920938463463374607431768211455 AS U128]) == "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+    TEST_ASSERT(fmt#("{:} {:x}")(% [0 AS I32, 0 AS U64]) == "0 0");
+  }
+
+  ::literal_modifiers DUAL_TEST
+  {
+    TEST_ASSERT(fmt#("{0:d} {0:b} {0:o} {0:x} {0:X}")(% [42]) == "42 101010 52 2a 2A");
+    TEST_ASSERT(fmt#("{:b} {:x}")(% [-42, 0]) == "-101010 0");
+    TEST_ASSERT(fmt#("{:X}")(% [340282366920938463463374607431768211456]) == "100000000000000000000000000000000");
+    TEST_ASSERT(fmt#("{:.2f} {:.1e}")(% [1.25, 125.0]) == "1.25 1.3e+02");
+  }
+
+  ::floating_modifiers DUAL_TEST
+  {
+    TEST_ASSERT(fmt#("{0:f} {0:e} {0:E}")(% [12.5 AS F64]) == "12.500000 1.250000e+01 1.250000E+01");
+    TEST_ASSERT(fmt#("{value:.2f}/{value:.1E}")(@value 12.5 AS F32) == "12.50/1.3E+01");
+    TEST_ASSERT(fmt#("{:.0f} {:.0e}")(% [-2.5 AS F64, 9.5 AS F32]) == "-3 1e+01");
+    TEST_ASSERT(fmt#("{:.18f}")(% [0.1 AS APPROXIMATE F64]) == "0.100000000000000006");
+    TEST_ASSERT(fmt#("{:.0f}")(% [1208925819614629174706176.0 AS F64]) == "1208925819614629174706176");
+    TEST_ASSERT(fmt#("{:.2e}")(% [0.0 AS F64]) == "0.00e+00");
+    TEST_ASSERT(fmt#("{:.0f}")(% [binary64::decode(9223372036854775808)]) == "-0");
+    TEST_ASSERT(fmt#("{:F} {:E}")(% [binary64::decode(18442240474082181120), binary64::decode(9221120237041090560)]) == "-INF NAN");
+  }
+
+  ::floating_extreme_modifiers UNIT_TEST
+  {
+    TEST_ASSERT(fmt#("{:e}")(% [binary64::decode(1)]) == "4.940656e-324");
+    TEST_ASSERT(fmt#("{:e}")(% [binary64::decode(9218868437227405311)]) == "1.797693e+308");
+  }
+
+
+  ::output UNIT_TEST
+  {
+    print("format output: ");
+    VAR text string := "owned ";
+    print(text);
+    printf#("{name}={}\n")(% [42], @name "value");
+    printf#("modifiers: {hex:X} {scientific:.2e}\n")(@hex 255 AS U8, @scientific 12.5 AS F64);
+  }
+}

@@ -1,0 +1,462 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE)
+{
+  ::format_string_writer DOC <$ Collects formatted bytes in an owned string. $> STRUCT
+  {
+    .text VAR string;
+    .write_byte DOC <$ Appends one byte to the formatted result. $>
+      FUNCTION(@ARG:value BYTE) MUT { .text.push_back(value); }
+  }
+
+  ::format_value DOC <$ Writes a constant byte sequence through a byte writer. $>
+    FUNCTION(@output MUT& AUTO, @value STRING_CONSTANT)
+  {
+    LOOP INIT { VAR cursor CONST=>>BYTE := value.BEGIN(); }
+      WHILE (cursor != value.END()) STEP { cursor++; } DO
+    { output.write_byte(cursor[0]); }
+  }
+
+  ::format_value DOC <$ Writes an owned string through a byte writer. $>
+    FUNCTION(@output MUT& AUTO, @value CONST& AUTO(text_type)) ENABLE_IF(SAME_TYPES(text_type, string))
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(value.size()) DO
+    { output.write_byte(value[index]); }
+  }
+
+  ::format_value DOC <$ Formats Boolean values as true or false. $>
+    FUNCTION(@output MUT& AUTO, @value BOOL)
+  {
+    IF (value) { format_value(@output output, @value "true"); }
+    ELSE { format_value(@output output, @value "false"); }
+  }
+
+  ::format_integer DOC <$ Writes an integer in the selected radix, including the minimum signed value. $>
+    TEMPLATE(@radix VALUE U8, @uppercase VALUE BOOL)
+    FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
+  {
+    STATIC_IF(BITS(integer_type) < 8)
+    {
+      format_integer#(@radix radix, @uppercase uppercase)(@output output, @value (value AS I16));
+    }
+    STATIC_ELSE
+    {
+      VAR digits [BITS(integer_type)]BYTE;
+      VAR begin SZ := BITS(integer_type);
+      VAR remaining integer_type := value;
+      STATIC_IF(IS_SIGNED(integer_type))
+      { IF (remaining < 0) { output.write_byte(45); } }
+      LOOP DO
+      {
+        VAR digit integer_type := remaining % (radix AS integer_type);
+        STATIC_IF(IS_SIGNED(integer_type))
+        { IF (digit < 0) { digit := 0 - digit; } }
+        begin--;
+        VAR code U8 := digit AS CHECKED U8;
+        IF (code < 10) { code += 48; }
+        ELSE { code += STATIC_CHOOSE(uppercase, 55 AS U8, 87 AS U8); }
+        digits[begin] := code AS BYTE;
+        remaining /= radix AS integer_type;
+        IF (remaining == 0) { BREAK; }
+      }
+      LOOP VALUE(index) FROM(begin) UNTIL(BITS(integer_type) AS SZ) DO
+      { output.write_byte(digits[index]); }
+    }
+  }
+
+  ::format_value DOC <$ Writes the exact decimal spelling of a numeric constant. $>
+    FUNCTION(@output MUT& AUTO, @value NUMERIC_CONSTANT)
+  { format_value(@output output, @value (value AS STRING_CONSTANT)); }
+
+  ::format_value DOC <$ Writes an integer in decimal. $>
+    FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
+  { format_integer#(@radix 10, @uppercase FALSE)(@output output, @value value); }
+
+  ::format_float DOC <$
+    Formats binary floating values as fixed or scientific decimal with the
+    selected fractional precision. Exact integer ratios preserve the source
+    value through decimal rounding; halfway values round away from zero.
+    The 1152-bit intermediates cover every binary64 exponent with up to eighteen
+    fractional digits. Uppercase styles capitalize the exponent and nonfinite
+    values. Style zero selects scientific notation outside [0.0001, 10^16).
+    $>
+    TEMPLATE(@style VALUE BYTE, @precision VALUE SZ)
+    FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
+    ENABLE_IF(SAME_TYPES(float_type, F32) || SAME_TYPES(float_type, F64))
+  {
+    STATIC uppercase BOOL := style == 'E' || style == 'F';
+    STATIC encoding_size SZ := STATIC_CHOOSE(SAME_TYPES(float_type, F32), 4 AS SZ, 8 AS SZ);
+    STATIC fraction_bits SZ := STATIC_CHOOSE(SAME_TYPES(float_type, F32), 23 AS SZ, 52 AS SZ);
+    STATIC exponent_bits SZ := STATIC_CHOOSE(SAME_TYPES(float_type, F32), 8 AS SZ, 11 AS SZ);
+    STATIC bias I32 := STATIC_CHOOSE(SAME_TYPES(float_type, F32), 127 AS I32, 1023 AS I32);
+    VAR bytes [encoding_size]BYTE;
+    value.SERIALIZE(@OUTPUT_ITERATOR bytes[&0]);
+    VAR encoding U64 := 0;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(encoding_size) DO
+    { encoding := encoding #|| ((bytes[index] AS U8 AS U64) #++ (index * 8)); }
+    VAR significand U64 := encoding #&& ((1 AS U64 #++ fraction_bits) - 1);
+    VAR exponent U64 := (encoding #-- fraction_bits) #&& ((1 AS U64 #++ exponent_bits) - 1);
+    IF (exponent == ((1 AS U64 #++ exponent_bits) - 1) && significand != 0)
+    {
+      format_value(@output output, @value STATIC_CHOOSE(uppercase, "NAN", "nan"));
+      RETURN;
+    }
+    IF ((encoding #-- (encoding_size * 8 - 1)) != 0) { output.write_byte(45); }
+    IF (exponent == ((1 AS U64 #++ exponent_bits) - 1))
+    {
+      format_value(@output output, @value STATIC_CHOOSE(uppercase, "INF", "inf"));
+      RETURN;
+    }
+    VAR binary_exponent I32 := 1 - bias - (fraction_bits AS CHECKED I32);
+    IF (exponent != 0)
+    {
+      significand := significand #|| (1 AS U64 #++ fraction_bits);
+      binary_exponent := (exponent AS CHECKED I32) - bias - (fraction_bits AS CHECKED I32);
+    }
+    VAR numerator U1152 := significand AS U1152;
+    VAR denominator U1152 := 1;
+    IF (binary_exponent >= 0) { numerator := numerator #++ (binary_exponent AS CHECKED SZ); }
+    ELSE { denominator := denominator #++ ((0 - binary_exponent) AS CHECKED SZ); }
+    VAR scientific BOOL := style == 'e' || style == 'E';
+    STATIC_IF(style == 0)
+    { scientific := numerator != 0 && (numerator * 10000 < denominator || numerator >= denominator * 10000000000000000); }
+    VAR decimal_exponent I32 := 0;
+    IF (scientific && numerator != 0)
+    {
+      LOOP WHILE (numerator >= denominator * 10) DO { denominator *= 10; decimal_exponent++; }
+      LOOP WHILE (numerator < denominator) DO { numerator *= 10; decimal_exponent--; }
+    }
+    VAR scale U1152 := 1;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(precision) DO { scale *= 10; }
+    numerator *= scale;
+    VAR rounded U1152 := numerator / denominator;
+    IF ((numerator % denominator) * 2 >= denominator) { rounded++; }
+    IF (scientific && rounded >= scale * 10) { rounded /= 10; decimal_exponent++; }
+    format_integer#(@radix 10, @uppercase FALSE)(@output output, @value (rounded / scale));
+    STATIC_IF(precision != 0)
+    {
+      output.write_byte(46);
+      VAR fraction U1152 := rounded % scale;
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(precision) DO
+      {
+        scale /= 10;
+        output.write_byte(((fraction / scale) AS CHECKED U8 + 48) AS BYTE);
+        fraction %= scale;
+      }
+    }
+    IF (scientific)
+    {
+      output.write_byte(STATIC_CHOOSE(uppercase, 'E', 'e'));
+      IF (decimal_exponent < 0) { output.write_byte(45); decimal_exponent := 0 - decimal_exponent; }
+      ELSE { output.write_byte(43); }
+      STATIC_IF(style != 0)
+      { IF (decimal_exponent < 10) { output.write_byte(48); } }
+      format_integer#(@radix 10, @uppercase FALSE)(@output output, @value decimal_exponent);
+    }
+  }
+
+  ::format_value DOC <$ Formats binary floating values with six fractional digits and automatic scientific notation. $>
+    FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
+    ENABLE_IF(SAME_TYPES(float_type, F32) || SAME_TYPES(float_type, F64))
+  { format_float#(@style 0, @precision 6)(@output output, @value value); }
+
+  ::format_specification DOC <$ Dispatches typed arguments for one compile-time numeric format specification. $>
+    TEMPLATE(@style VALUE BYTE, @precision VALUE SZ) STRUCT
+  {
+    ::write DOC <$ Validates and applies a numeric modifier to a typed integer. $>
+      FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
+    {
+      STATIC_IF(style != 'd' && style != 'b' && style != 'B' && style != 'o' && style != 'x' && style != 'X')
+      { COMPILATION_ERROR "Integer format arguments require d, b, B, o, x or X."; }
+      STATIC radix U8 := STATIC_CHOOSE(style == 'b' || style == 'B', 2 AS U8,
+        STATIC_CHOOSE(style == 'o', 8 AS U8, STATIC_CHOOSE(style == 'x' || style == 'X', 16 AS U8, 10 AS U8)));
+      format_integer#(@radix radix, @uppercase (style == 'X'))(@output output, @value value);
+    }
+
+    ::write DOC <$ Validates and applies fixed or scientific formatting to a binary floating value. $>
+      FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
+      ENABLE_IF(SAME_TYPES(float_type, F32) || SAME_TYPES(float_type, F64))
+    {
+      STATIC_IF(style != 'f' && style != 'F' && style != 'e' && style != 'E')
+      { COMPILATION_ERROR "Floating format arguments require f, F, e or E."; }
+      format_float#(@style style, @precision precision)(@output output, @value value);
+    }
+
+    ::write DOC <$
+      Formats numeric literals using exact decimal digit division for integer
+      radices. Floating modifiers convert literals to binary64 before formatting.
+      $>
+      FUNCTION(@output MUT& AUTO, @value NUMERIC_LITERAL_ANY(literal_type))
+    {
+      STATIC_IF(style == 'f' || style == 'F' || style == 'e' || style == 'E')
+      { format_float#(@style style, @precision precision)(@output output, @value (value AS APPROXIMATE F64)); }
+      STATIC_ELSE
+      {
+        STATIC text STRING_CONSTANT := value AS NUMERIC_CONSTANT AS STRING_CONSTANT;
+        STATIC length SZ := (text.END() - text.BEGIN()) AS ASSUME SZ;
+        STATIC_VAR digits [length]BYTE;
+        STATIC_VAR copy_index SZ := 0;
+        STATIC_WHILE(copy_index < length)
+        {
+          STATIC_EVAL digits[copy_index] := text.BEGIN()[copy_index];
+          STATIC_EVAL copy_index++;
+        }
+        STATIC_VAR begin SZ := 0;
+        STATIC_IF(digits[0] == '-') { output.write_byte(45); STATIC_EVAL begin := 1; }
+        STATIC_VAR index SZ := begin;
+        STATIC_WHILE(index < length)
+        {
+          STATIC_IF(digits[index] < '0' || digits[index] > '9')
+          { COMPILATION_ERROR "Integer format modifiers require an integer literal."; }
+          STATIC_EVAL index++;
+        }
+        STATIC radix U16 := STATIC_CHOOSE(style == 'b' || style == 'B', 2 AS U16,
+          STATIC_CHOOSE(style == 'o', 8 AS U16, STATIC_CHOOSE(style == 'x' || style == 'X', 16 AS U16, 10 AS U16)));
+        STATIC_VAR reversed string;
+        STATIC_WHILE(begin < length)
+        {
+          STATIC_VAR remainder U16 := 0;
+          STATIC_EVAL index := begin;
+          STATIC_WHILE(index < length)
+          {
+            STATIC_EVAL remainder := remainder * 10 + ((digits[index] AS U8 AS U16) - 48);
+            STATIC_EVAL digits[index] := ((remainder / radix) + 48) AS CHECKED U8 AS BYTE;
+            STATIC_EVAL remainder %= radix;
+            STATIC_EVAL index++;
+          }
+          STATIC_EVAL reversed.push_back((remainder + STATIC_CHOOSE(remainder < 10, 48 AS U16,
+            STATIC_CHOOSE(style == 'X', 55 AS U16, 87 AS U16))) AS CHECKED U8 AS BYTE);
+          STATIC_WHILE(begin < length && digits[begin] == '0') { STATIC_EVAL begin++; }
+        }
+        STATIC_VAR remaining SZ := reversed.size();
+        STATIC_WHILE(remaining != 0)
+        {
+          STATIC_EVAL remaining--;
+          STATIC code BYTE := reversed[remaining];
+          output.write_byte(code);
+        }
+      }
+    }
+  }
+
+  ::format_selected_value DOC <$ Dispatches an unmodified or explicitly modified field after compile-time parsing. $>
+    TEMPLATE(@style VALUE BYTE, @precision VALUE SZ)
+    FUNCTION(@output MUT& AUTO, @value CONST& AUTO)
+  {
+    STATIC_IF(style == 0) { format_value(@output output, @value value); }
+    STATIC_ELSE { format_specification#(@style style, @precision precision)::write(@output output, @value value); }
+  }
+
+  ::format_arguments DOC <$
+    Evaluates brace syntax and argument selection during compilation. Empty
+    fields consume positional arguments in order. Decimal fields select a
+    positional index; other fields select an exact keyword name. Automatic and
+    explicit positional indices cannot be mixed. Doubled braces emit one brace.
+    Missing arguments, unused arguments, unsupported types and malformed fields
+    cause compilation errors. Numeric modifiers follow a colon; floating modifiers
+    accept a fractional precision from zero through eighteen.
+    $>
+    TEMPLATE(@T:text VALUE STRING_CONSTANT)
+    FUNCTION(@output MUT& AUTO, @positional CONST& AUTO(positional_type), @named CONST& AUTO(named_type))
+  {
+    STATIC_VAR cursor SZ := 0;
+    STATIC_VAR automatic SZ := 0;
+    STATIC_VAR has_automatic BOOL := FALSE;
+    STATIC_VAR has_explicit BOOL := FALSE;
+    STATIC_VAR used_positions [COMPOSITE_FIELD_COUNT(positional_type)]BOOL;
+    STATIC_VAR used_names [COMPOSITE_FIELD_COUNT(named_type)]BOOL;
+    STATIC length SZ := (text.END() - text.BEGIN()) AS ASSUME SZ;
+    STATIC_WHILE(cursor < length)
+    {
+      STATIC_IF(text.BEGIN()[cursor] == '{')
+      {
+        STATIC_EVAL cursor++;
+        STATIC_IF(cursor < length && text.BEGIN()[cursor] == '{')
+        {
+          output.write_byte(123);
+          STATIC_EVAL cursor++;
+        }
+        STATIC_ELSE
+        {
+          STATIC_VAR field string;
+          STATIC_WHILE(cursor < length && text.BEGIN()[cursor] != '}' && text.BEGIN()[cursor] != ':')
+          {
+            STATIC_IF(text.BEGIN()[cursor] == '{')
+            { COMPILATION_ERROR "Nested braces are not supported in format fields."; }
+            STATIC_EVAL field.push_back(text.BEGIN()[cursor]);
+            STATIC_EVAL cursor++;
+          }
+          STATIC_VAR style BYTE := 0;
+          STATIC_VAR precision SZ := 6;
+          STATIC_VAR has_precision BOOL := FALSE;
+          STATIC_IF(cursor < length && text.BEGIN()[cursor] == ':')
+          {
+            STATIC_EVAL cursor++;
+            STATIC_IF(cursor < length && text.BEGIN()[cursor] == '.')
+            {
+              STATIC_EVAL has_precision := TRUE;
+              STATIC_EVAL precision := 0;
+              STATIC_EVAL cursor++;
+              STATIC_VAR precision_digits SZ := 0;
+              STATIC_WHILE(cursor < length && text.BEGIN()[cursor] >= '0' && text.BEGIN()[cursor] <= '9')
+              {
+                STATIC_EVAL precision := precision * 10 + ((text.BEGIN()[cursor] AS U8) - 48 AS SZ);
+                STATIC_IF(precision > 18) { COMPILATION_ERROR "Format precision must be between zero and eighteen."; }
+                STATIC_EVAL precision_digits++;
+                STATIC_EVAL cursor++;
+              }
+              STATIC_IF(precision_digits == 0) { COMPILATION_ERROR "Format precision requires decimal digits."; }
+            }
+            STATIC_IF(cursor < length && text.BEGIN()[cursor] != '}')
+            {
+              STATIC_EVAL style := text.BEGIN()[cursor];
+              STATIC_EVAL cursor++;
+              STATIC_IF(style != 'd' && style != 'b' && style != 'B' && style != 'o' && style != 'x' && style != 'X' &&
+                style != 'f' && style != 'F' && style != 'e' && style != 'E')
+              { COMPILATION_ERROR "Unknown format modifier."; }
+            }
+            STATIC_IF(has_precision && style != 'f' && style != 'F' && style != 'e' && style != 'E')
+            { COMPILATION_ERROR "Format precision requires f, F, e or E."; }
+            STATIC_IF(cursor < length && text.BEGIN()[cursor] != '}')
+            { COMPILATION_ERROR "Unexpected character after format modifier."; }
+          }
+          STATIC_IF(cursor == length)
+          { COMPILATION_ERROR "Unterminated format field."; }
+          STATIC_EVAL cursor++;
+          STATIC_VAR index SZ := 0;
+          STATIC_VAR numeric BOOL := field.size() != 0;
+          STATIC_VAR digit SZ := 0;
+          STATIC_WHILE(digit < field.size())
+          {
+            STATIC_IF(field[digit] < '0' || field[digit] > '9')
+            { STATIC_EVAL numeric := FALSE; }
+            STATIC_EVAL digit++;
+          }
+          STATIC_IF(field.size() == 0)
+          {
+            STATIC_EVAL has_automatic := TRUE;
+            STATIC_EVAL index := automatic;
+            STATIC_EVAL automatic++;
+          }
+          STATIC_ELSE STATIC_IF(numeric)
+          {
+            STATIC_EVAL has_explicit := TRUE;
+            STATIC_EVAL digit := 0;
+            STATIC_WHILE(digit < field.size())
+            {
+              STATIC_IF(index >= COMPOSITE_FIELD_COUNT(positional_type))
+              { COMPILATION_ERROR "Format positional index is out of range."; }
+              STATIC_EVAL index := index * 10 + ((field[digit] AS U8) - 48 AS SZ);
+              STATIC_EVAL digit++;
+            }
+          }
+          STATIC_IF(has_automatic && has_explicit)
+          { COMPILATION_ERROR "Automatic and explicit positional format fields cannot be mixed."; }
+          STATIC_IF(field.size() == 0 || numeric)
+          {
+            STATIC_IF(index >= COMPOSITE_FIELD_COUNT(positional_type))
+            { COMPILATION_ERROR "Format positional index is out of range."; }
+            STATIC_EVAL used_positions[index] := TRUE;
+            format_selected_value#(@style style, @precision precision)(@output output, @value COMPOSITE_FIELD_GET(positional, index));
+          }
+          STATIC_ELSE
+          {
+            STATIC_VAR found BOOL := FALSE;
+            STATIC_VAR member SZ := 0;
+            STATIC_WHILE(member < COMPOSITE_FIELD_COUNT(named_type))
+            {
+              STATIC_IF(field == COMPOSITE_FIELD_NAME(named_type, member))
+              {
+                STATIC_EVAL found := TRUE;
+                STATIC_EVAL used_names[member] := TRUE;
+                format_selected_value#(@style style, @precision precision)(@output output, @value COMPOSITE_FIELD_GET(named, member));
+              }
+              STATIC_EVAL member++;
+            }
+            STATIC_IF(found == FALSE)
+            { COMPILATION_ERROR "Format field has no matching keyword argument."; }
+          }
+        }
+      }
+      STATIC_ELSE STATIC_IF(text.BEGIN()[cursor] == '}')
+      {
+        STATIC_EVAL cursor++;
+        STATIC_IF(cursor >= length || text.BEGIN()[cursor] != '}')
+        { COMPILATION_ERROR "Unmatched closing brace in format string."; }
+        output.write_byte(125);
+        STATIC_EVAL cursor++;
+      }
+      STATIC_ELSE
+      {
+        output.write_byte(text.BEGIN()[SNAPSHOT(cursor)]);
+        STATIC_EVAL cursor++;
+      }
+    }
+    STATIC_VAR member SZ := 0;
+    STATIC_WHILE(member < COMPOSITE_FIELD_COUNT(positional_type))
+    {
+      STATIC_IF(used_positions[member] == FALSE)
+      { COMPILATION_ERROR "Unused positional format argument."; }
+      STATIC_EVAL member++;
+    }
+    STATIC_EVAL member := 0;
+    STATIC_WHILE(member < COMPOSITE_FIELD_COUNT(named_type))
+    {
+      STATIC_IF(used_names[member] == FALSE)
+      { COMPILATION_ERROR "Unused keyword format argument."; }
+      STATIC_EVAL member++;
+    }
+  }
+}
+
+::fmt DOC <$
+  Returns an owned string formatted from a constant template argument. Fields
+  {}, {0} and {name} select positional or keyword arguments. Doubled braces
+  escape literal braces. All arguments and fields are checked at compile time.
+  Strings preserve their bytes, Boolean values use true and false, integers use
+  decimal, and numeric constants preserve their spelling. Floating values use
+  six fractional digits and scientific notation outside [0.0001, 10^16).
+  Missing or unused arguments, mixed automatic and explicit positional indices,
+  unsupported types and incompatible modifiers cause compilation errors.
+  Integer modifiers are d, b, B, o, x and X. Floating modifiers are f, F, e and E;
+  an optional .precision specifies zero through eighteen fractional digits.
+  Floating literals convert to binary64 for explicit floating modifiers.
+  Numeric rounding uses nearest values with ties away from zero. Uppercase
+  modifiers capitalize digits, exponent markers and nonfinite values.
+  $>
+  TEMPLATE(@T:text VALUE STRING_CONSTANT)
+  FUNCTION(%...args CONST& AUTO, @KWARGS ...): string
+{
+  VAR output format_string_writer;
+  format_arguments#text(@output output, @positional COMPOSITE_TIE(args), @named KWARGS);
+  RETURN output.text AS TEMP& string;
+}
+
+::printf DOC <$
+  Writes a compile-time-validated brace format to standard output and flushes
+  before returning. The positional pack and KWARGS must match the format fields.
+  Output failures throw. No newline is appended.
+  $>
+  TEMPLATE(@T:text VALUE STRING_CONSTANT)
+  FUNCTION(%...args CONST& AUTO, @KWARGS ...)
+{
+  AUTO output := open_standard_output_writer();
+  format_arguments#text(@output output, @positional COMPOSITE_TIE(args), @named KWARGS);
+  output.flush();
+}
+
+::print DOC <$ Writes a string constant to standard output without appending a newline. Output failures throw. $>
+  FUNCTION(@ARG:text STRING_CONSTANT)
+{
+  AUTO output := open_standard_output_writer();
+  format_value(@output output, @value text);
+  output.flush();
+}
+
+::print DOC <$ Writes an owned string to standard output without appending a newline. Output failures throw. $>
+  FUNCTION(@ARG:text CONST& AUTO(text_type)) ENABLE_IF(SAME_TYPES(text_type, string))
+{
+  AUTO output := open_standard_output_writer();
+  format_value(@output output, @value text);
+  output.flush();
+}
