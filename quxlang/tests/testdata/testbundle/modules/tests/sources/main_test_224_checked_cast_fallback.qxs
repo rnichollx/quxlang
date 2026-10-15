@@ -1,0 +1,97 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::checked_cast_fallback_tests NAMESPACE
+{
+    ::unrelated STRUCT { }
+
+    ::all_modes STRUCT
+    {
+        .value VAR I32;
+        .CONSTRUCTOR FUNCTION(@CHECKED I32) { .value := 1; }
+        .CONSTRUCTOR FUNCTION(@EXPLICIT I32) { .value := 2; }
+        .CONSTRUCTOR FUNCTION(@OTHER I32) { .value := 3; }
+    }
+
+    ::explicit_mode STRUCT
+    {
+        .value VAR I32;
+        .CONSTRUCTOR FUNCTION(@CHECKED CONST& unrelated) { .value := 1; }
+        .CONSTRUCTOR FUNCTION(@EXPLICIT I32) { .value := 2; }
+        .CONSTRUCTOR FUNCTION(@OTHER I32) { .value := 3; }
+    }
+
+    ::other_mode STRUCT
+    {
+        .value VAR I32;
+        .CONSTRUCTOR FUNCTION(@CHECKED CONST& unrelated) { .value := 1; }
+        .CONSTRUCTOR FUNCTION(@EXPLICIT CONST& unrelated) { .value := 2; }
+        .CONSTRUCTOR FUNCTION(@OTHER I32) { .value := 3; }
+    }
+
+    ::checked_preferred DUAL_TEST
+    {
+        VAR source I32 := 7;
+        VAR result all_modes := source AS CHECKED all_modes;
+        TEST_ASSERT(result.value == 1);
+    }
+
+    ::explicit_fallback DUAL_TEST
+    {
+        VAR source I32 := 7;
+        VAR result explicit_mode := source AS CHECKED explicit_mode;
+        TEST_ASSERT(result.value == 2);
+    }
+
+    ::other_fallback DUAL_TEST
+    {
+        VAR source I32 := 7;
+        VAR result other_mode := source AS CHECKED other_mode;
+        TEST_ASSERT(result.value == 3);
+    }
+
+    ::same_type DUAL_TEST
+    {
+        VAR source U32 := 4294967295;
+        TEST_ASSERT((source AS CHECKED U32) == source);
+        VAR size SZ := 42;
+        TEST_ASSERT((size AS CHECKED U32) == 42);
+    }
+    ::throwing_checked STRUCT
+    {
+        .CONSTRUCTOR FUNCTION(@CHECKED I32) { THROW I32(@OTHER 73); }
+        .CONSTRUCTOR FUNCTION(@EXPLICIT I32) { }
+        .CONSTRUCTOR FUNCTION(@OTHER I32) { }
+    }
+
+    ::selected_exception_propagates DUAL_TEST
+    {
+        VAR source I32 := 7;
+        VAR caught BOOL := FALSE;
+        TRY
+        {
+            VAR result throwing_checked := source AS CHECKED throwing_checked;
+            TEST_ASSERT(FALSE);
+        }
+        CATCH value CONST& I32 { caught := value == 73; }
+        TEST_ASSERT(caught);
+    }
+
+    ::private_checked STRUCT
+    {
+        PRIVATE(CLASS) .CONSTRUCTOR FUNCTION(@CHECKED I32) { }
+        .CONSTRUCTOR FUNCTION(@EXPLICIT I32) { }
+        .CONSTRUCTOR FUNCTION(@OTHER I32) { }
+    }
+
+    ::private_match_has_no_fallback STATIC_TEST EXPECT_COMPILATION_FAILURE
+    {
+        VAR source I32 := 7;
+        VAR result private_checked := source AS CHECKED private_checked;
+    }
+
+    ::no_match STATIC_TEST EXPECT_COMPILATION_FAILURE
+    {
+        VAR source all_modes := 7;
+        VAR result U32 := source AS CHECKED U32;
+    }
+}

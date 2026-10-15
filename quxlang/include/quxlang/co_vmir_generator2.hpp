@@ -3398,6 +3398,7 @@ namespace quxlang
 
             auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
                 .initializee = ctor,
+                .context = body_context(),
                 .parameters = instatype_from_invotype(calltype),
                 .adaptations = allowed_adaptations::destination_rebinding,
             });
@@ -9282,6 +9283,18 @@ namespace quxlang
             if (std::optional< value_index > flagset_cast = co_await co_try_generate_flagset_to_unsigned_cast(bidx, arg_val, target_class, input.mode); flagset_cast.has_value())
             {
                 co_return *flagset_cast;
+            }
+
+            if (input.mode == conversion_mode::checked)
+            {
+                for (std::string const& argument_name : {"CHECKED", "EXPLICIT", "OTHER"})
+                {
+                    std::optional< value_index > constructor = co_await co_try_gen_call_ctor_with_named_argument(bidx, target_class, argument_name, arg_val);
+                    if (constructor.has_value())
+                    {
+                        co_return *constructor;
+                    }
+                }
             }
 
             if (input.mode.has_value())
