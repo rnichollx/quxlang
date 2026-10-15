@@ -53,6 +53,9 @@ RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, conste
 /// Selects whether an atomic-capable VMIR access is plain or atomic, and if atomic, its memory ordering.
 RPNX_ENUM(quxlang, atomic_access_mode, std::uint8_t, nonatomic, atomic_relaxed, atomic_release, atomic_acquire, atomic_acqrel, atomic_seqcst);
 
+/** Identifies the lifecycle operation inspected by a non-throwing type trait. */
+RPNX_ENUM(quxlang, noexcept_operation, std::uint8_t, move, copy, swap);
+
 RPNX_ENUM(quxlang, integral_qualifier, std::uint8_t, none, signed_, unsigned_);
 RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, class_, value);
 RPNX_ENUM(quxlang, lambda_capture_mode, std::uint8_t, reference, value);
@@ -1883,6 +1886,15 @@ namespace quxlang
         type_symbol of_type;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_alignof, of_type);
+    };
+
+    /** Tests whether the selected lifecycle operation exists and cannot propagate exceptions. */
+    struct expression_is_noexcept_operation
+    {
+        type_symbol of_type;
+        noexcept_operation operation = noexcept_operation::move;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_is_noexcept_operation, of_type, operation);
     };
 
     struct expression_is_integral

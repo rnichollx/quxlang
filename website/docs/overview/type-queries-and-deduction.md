@@ -68,6 +68,26 @@ The query tests its type operand directly; the query does not follow a pointer
 to the pointee type. `TYPE_IS_POLYMORPHIC` does not construct an object and is
 available on layoutless targets.
 
+## Lifecycle exception traits
+
+`IS_NOEXCEPT_MOVABLE(T)`, `IS_NOEXCEPT_COPYABLE(T)`, and
+`IS_NOEXCEPT_SWAPPABLE(T)` inspect the exception contracts of move construction,
+copy construction, and swap:
+
+```quxlang
+::integer_operations STATIC_TEST
+{
+  ASSERT(IS_NOEXCEPT_MOVABLE(I32));
+  ASSERT(IS_NOEXCEPT_COPYABLE(I32));
+  ASSERT(IS_NOEXCEPT_SWAPPABLE(I32));
+}
+```
+
+These compile-time queries support generic operation selection and conditional
+function contracts through `NOEXCEPT_IF(condition)`. A user-defined operation
+advertises its non-throwing contract with `NOEXCEPT` or `NOEXCEPT_IF`. Generated
+operations account for the operations they invoke.
+
 ## Runtime type identification
 
 `TYPE_INDEX_OF(T)` identifies a statically named type. `DYNAMIC_TYPE_OF(ptr)`

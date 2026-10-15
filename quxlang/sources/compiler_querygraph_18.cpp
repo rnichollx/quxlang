@@ -1,6 +1,8 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "compiler_querygraph_internal.hpp"
+#include <quxlang/queries/specs/functanoid_is_noexcept_spec.hpp>
+#include <quxlang/queries/specs/type_operation_is_noexcept_spec.hpp>
 
 #include <quxlang/queries/specs/type_is_serialoid_spec.hpp>
 #include <quxlang/queries/specs/type_is_stringlike_spec.hpp>
@@ -15,6 +17,8 @@
 auto quxlang::detail::register_compiler_querygraph_handlers_16(compiler_querygraph& querygraph) -> void
 {
     auto& graph = querygraph.raw_graph();
+    graph.register_handler_function< functanoid_is_noexcept_spec >(functanoid_is_noexcept_impl);
+    graph.register_handler_function< type_operation_is_noexcept_spec >(type_operation_is_noexcept_impl);
     graph.register_handler_function< type_is_serialoid_spec >(type_is_serialoid_impl);
     graph.register_handler_function< type_is_stringlike_spec >(type_is_stringlike_impl);
     graph.register_handler_function< type_is_trivially_default_constructible_spec >(type_is_trivially_default_constructible_impl);

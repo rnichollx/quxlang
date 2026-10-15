@@ -529,6 +529,30 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr_is_integral);
             have_anything = true;
         }
+        else if (std::optional< std::string_view > trait = skip_keyword_if_one_of(pos, end, {"IS_NOEXCEPT_MOVABLE", "IS_NOEXCEPT_COPYABLE", "IS_NOEXCEPT_SWAPPABLE"}); trait.has_value())
+        {
+            expression_is_noexcept_operation operation;
+            operation.operation = *trait == "IS_NOEXCEPT_MOVABLE" ? noexcept_operation::move :
+                *trait == "IS_NOEXCEPT_COPYABLE" ? noexcept_operation::copy : noexcept_operation::swap;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after " + std::string(*trait));
+            }
+            std::optional< type_symbol > type = try_parse_type_symbol(ctx);
+            if (!type.has_value())
+            {
+                throw syntax_compilation_error("Expected type in " + std::string(*trait));
+            }
+            operation.of_type = std::move(*type);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after " + std::string(*trait) + " type");
+            }
+            *value_bind_point = std::move(operation);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "IS_INTEGRAL"))
         {
             expression_is_integral expr_is_integral;

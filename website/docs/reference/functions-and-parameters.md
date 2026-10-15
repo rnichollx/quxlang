@@ -41,6 +41,28 @@ An escaping exception terminates execution at this boundary; an outer caller
 cannot catch it. See [Exception Handling](exceptions.md#cleanup-and-noexcept)
 for local handling, cleanup, and constexpr behavior.
 
+`NOEXCEPT_IF(condition)` applies the same exception boundary when `condition`
+evaluates to `TRUE`. A `FALSE` condition permits exception propagation. The
+condition must be a constant expression accepted as `BOOL` and is evaluated in
+the selected function's context, including template arguments and deduced
+parameter types.
+
+```quxlang
+::exchange FUNCTION(@left MUT& AUTO(t), @right MUT& AUTO(t))
+  NOEXCEPT_IF(IS_NOEXCEPT_SWAPPABLE(t))
+{
+  left <-> right;
+}
+```
+
+The exception specification follows the parameter list and precedes `ENABLE_IF`,
+the return type, constructor delegates, and the body. A declaration accepts one
+exception specification. Duplicate specifications and combinations of `NOEXCEPT`
+and `NOEXCEPT_IF` are invalid. The evaluated specification determines the
+`NOEXCEPT` qualification of a procedure pointer formed from the function.
+An invalid condition is a compilation error. Destructors are implicitly
+non-throwing; an explicit `NOEXCEPT_IF(FALSE)` disables that implicit contract.
+
 ## Named parameters
 
 `@api_name Type` declares a named parameter. The API name is written explicitly

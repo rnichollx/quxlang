@@ -23,6 +23,25 @@ body:
 }
 ```
 
+## Conditional exception contracts
+
+A generic function can derive its exception contract from an operation on its
+argument type:
+
+```quxlang
+::exchange FUNCTION(@left MUT& AUTO(t), @right MUT& AUTO(t))
+  NOEXCEPT_IF(IS_NOEXCEPT_SWAPPABLE(t))
+{
+  left <-> right;
+}
+```
+
+`NOEXCEPT_IF(TRUE)` establishes a non-throwing boundary. An escaping exception
+terminates execution at that boundary. `NOEXCEPT_IF(FALSE)` permits propagation.
+The condition is evaluated at compile time for each selected instantiation.
+Destructors are implicitly `NOEXCEPT`; an explicit `NOEXCEPT_IF(FALSE)` permits
+a destructor to propagate exceptions.
+
 ## Parameter forms
 
 - `@name Type` declares a named parameter.

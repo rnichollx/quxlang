@@ -263,6 +263,14 @@ namespace quxlang
             return "IS_SIGNED(" + to_string(bits.of_type) + ")";
         }
 
+        /** Formats a lifecycle exception trait with its type argument. */
+        std::string operator()(expression_is_noexcept_operation const& trait) const
+        {
+            std::string name = trait.operation == noexcept_operation::move ? "IS_NOEXCEPT_MOVABLE" :
+                trait.operation == noexcept_operation::copy ? "IS_NOEXCEPT_COPYABLE" : "IS_NOEXCEPT_SWAPPABLE";
+            return name + "(" + to_string(trait.of_type) + ")";
+        }
+
         std::string operator()(expression_is_integral const& bits) const
         {
             return "IS_INTEGRAL(" + to_string(bits.of_type) + ")";

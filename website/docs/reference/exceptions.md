@@ -170,11 +170,16 @@ boundary. It may call potentially throwing functions and catch locally.
 An escaping exception terminates execution before an outer caller's catch can
 recover from it.
 
+`NOEXCEPT_IF(condition)` establishes the same boundary when its compile-time
+condition is true. The [function exception contract](functions-and-parameters.md#exception-contract)
+specifies condition evaluation and declaration syntax.
+
 Destructors and deferred actions are implicitly `NOEXCEPT`. This also applies
-to generated destruction of subobjects. A destructor may handle a throw in its
-own body, but cannot recover from an exception escaping a subobject's
-`NOEXCEPT` destructor. An exception escaping cleanup terminates even when no
-other exception was already propagating.
+to generated destruction of subobjects. A destructor can disable its implicit
+contract with `NOEXCEPT_IF(FALSE)`. An exception escaping a destructor whose
+contract remains `NOEXCEPT` terminates execution, including during ordinary
+scope exit. A destructor can handle exceptions locally. An exception escaping
+cleanup while another exception is propagating terminates execution.
 
 Procedure types can include `NOEXCEPT`; see
 [Procedure Pointers and Function Values](procedure-pointers-and-function-values.md).

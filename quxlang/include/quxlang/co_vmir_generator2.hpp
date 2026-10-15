@@ -7,6 +7,8 @@
 #include <quxlang/manipulators/code_alignment.hpp>
 #include <quxlang/queries/snapshot_value.hpp>
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
+#include <quxlang/queries/functanoid_is_noexcept.hpp>
+#include <quxlang/queries/type_operation_is_noexcept.hpp>
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/bytemath.hpp"
 #include "quxlang/compiler_fwd.hpp"
@@ -2123,16 +2125,7 @@ namespace quxlang
             procedure_type proc_type;
             proc_type.calling_convention = std::move(calling_convention);
 
-            if (typeis< instanciation_reference >(routine))
-            {
-                auto const& functanoid = as< instanciation_reference >(routine);
-                auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(functanoid);
-                proc_type.signature.params = invotype_from_instatype(concrete_params);
-                proc_type.signature.return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(functanoid);
-                std::optional< ast2_function_declaration > declaration = co_await rpnx::querygraph::request< function_declaration_query >(functanoid.temploid);
-                proc_type.is_noexcept = declaration.has_value() && declaration->header.is_noexcept;
-            }
-            else if (typeis< temploid_reference >(routine))
+            if (typeis< temploid_reference >(routine))
             {
                 auto const& selected_function = as< temploid_reference >(routine);
                 auto formal_ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(selected_function);
@@ -2162,27 +2155,27 @@ namespace quxlang
                     proc_type.signature.params.named[name] = arg.type;
                 }
 
-                auto decl = co_await rpnx::querygraph::request< function_declaration_query >(selected_function);
-                if (!decl.has_value())
-                {
-                    throw semantic_compilation_error("Procedure pointer target function declaration not found");
-                }
-
-                auto ret_type = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                    .context = selected_function,
-                    .type = decl->definition.return_type.value_or(type_symbol(void_type{})),
+                std::optional< instanciation_reference > const& instantiated = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
+                    .initializee = selected_function,
+                    .context = body_context(),
+                    .parameters = instatype_from_invotype(proc_type.signature.params),
+                    .adaptations = allowed_adaptations::none,
                 });
-                if (!ret_type.has_value())
+                if (!instantiated.has_value())
                 {
-                    throw semantic_compilation_error("Procedure pointer target return type could not be resolved");
+                    throw semantic_compilation_error("Procedure pointer target function could not be instantiated");
                 }
-                proc_type.signature.return_type = ret_type.value();
-                proc_type.is_noexcept = decl->header.is_noexcept;
+                routine = *instantiated;
             }
-            else
+            if (!typeis< instanciation_reference >(routine))
             {
                 throw semantic_compilation_error("Procedure pointers currently require a concrete function selection");
             }
+            instanciation_reference const& functanoid = as< instanciation_reference >(routine);
+            instatype const& concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(functanoid);
+            proc_type.signature.params = invotype_from_instatype(concrete_params);
+            proc_type.signature.return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(functanoid);
+            proc_type.is_noexcept = co_await rpnx::querygraph::request< functanoid_is_noexcept_query >(functanoid);
 
             auto pointer_value = create_local_value(ptrref_type{
                 .target = proc_type,
@@ -4755,6 +4748,12 @@ namespace quxlang
                 co_return true;
             }
 
+            if (member.name == "OPERATOR<->" && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+            {
+                this->emit(bidx, vmir2::swap{.a = get_local_index(args.named.at("THIS")), .b = get_local_index(args.named.at("OTHER"))});
+                co_return true;
+            }
+
             if (member.name == "OPERATOR:=" && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
             {
                 this->emit(bidx, vmir2::store_to_ref{.from_value = get_local_index(args.named.at("OTHER")), .to_reference = get_local_index(args.named.at("THIS"))});
@@ -6847,6 +6846,24 @@ namespace quxlang
 
             int_type const& inttype = attached_type.template as< int_type >();
             co_return this->create_bool_value(bidx, inttype.has_sign);
+        }
+
+        /** Evaluates a lifecycle exception trait without constructing runtime operands. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_is_noexcept_operation trait) -> co_type< value_index >
+        {
+            std::optional< value_index > value = co_await co_lookup_symbol(bidx, trait.of_type);
+            if (!value.has_value() || !state.genvalues.at(*value).template type_is< codegen_binding >())
+            {
+                throw semantic_compilation_error("A lifecycle exception trait requires a type");
+            }
+            codegen_binding const& binding = state.genvalues.at(*value).template get_as< codegen_binding >();
+            if (binding.bound_value != value_index(0))
+            {
+                throw semantic_compilation_error("A lifecycle exception trait requires an unattached type");
+            }
+            trait.of_type = binding.attached_symbol;
+            bool result = co_await rpnx::querygraph::request< type_operation_is_noexcept_query >(trait);
+            co_return create_bool_value(bidx, result);
         }
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_is_integral szof) -> co_type< value_index >
@@ -13087,6 +13104,16 @@ namespace quxlang
             this->generate_entry_block();
             block_index current_block = block_index(0);
 
+            if ((co_await rpnx::querygraph::request< function_builtin_query >(func.temploid)) == builtin_function_kind::builtin_special)
+            {
+                codegen_invocation_args arguments;
+                arguments.named["THIS"] = local_value_direct_lookup(current_block, "THIS").value();
+                arguments.named["OTHER"] = local_value_direct_lookup(current_block, "OTHER").value();
+                co_await co_gen_invoke_builtin(current_block, func, arguments);
+                co_await co_generate_builtin_return(current_block);
+                co_return get_result();
+            }
+
             if (typeis< submember >(func.temploid.templexoid))
             {
                 submember const& member = as< submember >(func.temploid.templexoid);
@@ -15659,7 +15686,7 @@ namespace quxlang
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_dtor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
-            this->state.is_noexcept = true;
+            this->state.is_noexcept = co_await rpnx::querygraph::request< functanoid_is_noexcept_query >(func);
             assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
@@ -15764,42 +15791,36 @@ namespace quxlang
                 std::optional< value_index > this_lookup = local_value_direct_lookup(current_block, "THIS");
                 QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value(), "Generated struct destructor is missing THIS");
                 value_index this_reference = create_reference(current_block, *this_lookup, make_mref(member.of));
-                if (co_await rpnx::querygraph::request< user_default_dtor_exists_query >(member.of))
-                {
-                    type_symbol destructor_body = submember{.of = member.of, .name = "DESTRUCTOR"};
-                    codegen_invocation_args body_arguments;
-                    body_arguments.named["THIS"] = copy_ref_value(current_block, this_reference);
-                    co_await co_gen_call_functum(current_block, std::move(destructor_body), std::move(body_arguments));
-                }
-
-                std::vector< struct_field > fields = co_await rpnx::querygraph::request< struct_field_list_query >(member.of);
-                for (std::vector< struct_field >::const_reverse_iterator field = fields.crbegin(); field != fields.crend(); ++field)
-                {
-                    std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(field->type);
-                    if (!field_storage_type.has_value())
-                    {
-                        continue;
-                    }
-
-                    std::optional< type_symbol > field_destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(*field_storage_type);
-                    if (!field_destructor.has_value())
-                    {
-                        continue;
-                    }
-
-                    value_index field_reference = co_await co_generate_dot_access(current_block, copy_ref_value(current_block, this_reference), field->name);
-                    if (typeis< attached_type_reference >(field->type))
-                    {
-                        field_reference = attached_binding_carrier_value(current_block, field_reference, field->type);
-                    }
-                    type_symbol field_reference_type = current_type(current_block, field_reference);
-                    state.non_trivial_dtors[field_reference_type] = *field_destructor;
-                    emit_deferred_destructor(current_block, field_reference, *field_destructor);
-                    emit(current_block, vmir2::destroy{.of = get_local_index(field_reference)});
-                }
-
+                std::vector< value_index > subobjects;
                 struct_inheritance_info const inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(member.of);
-                for (std::vector< struct_base_declaration >::const_reverse_iterator base = inheritance.direct_bases.crbegin(); base != inheritance.direct_bases.crend(); ++base)
+                if (member.name == "FULLOBJECT_DESTRUCTOR")
+                {
+                    for (std::vector< type_symbol >::const_iterator virtual_base = inheritance.virtual_base_order.cbegin(); virtual_base != inheritance.virtual_base_order.cend(); ++virtual_base)
+                    {
+                        std::optional< type_symbol > const base_destructor = co_await co_select_default_destructor_entry(*virtual_base, true);
+                        if (!base_destructor.has_value())
+                        {
+                            continue;
+                        }
+                        struct_subobject_path virtual_path = canonical_virtual_base_path(inheritance, *virtual_base);
+                        type_symbol const base_reference_type = make_mref(*virtual_base);
+                        value_index base_reference = create_local_value(base_reference_type);
+                        emit(current_block, vmir2::inheritance_cast{
+                                                .source = get_local_index(copy_ref_value(current_block, this_reference)),
+                                                .result = get_local_index(base_reference),
+                                                .path = std::move(virtual_path),
+                        });
+                        state.non_trivial_dtors[base_reference_type] = *base_destructor;
+                        std::size_t const virtual_ordinal = static_cast< std::size_t >(std::distance(inheritance.virtual_base_order.cbegin(), virtual_base));
+                        emit_deferred_destructor(current_block, base_reference, *base_destructor, vmir2::destructor_subobject_context{
+                            .enclosing_object = get_local_index(this_reference),
+                            .selector = vmir2::struct_init_virtual_base_selector{.virtual_base_ordinal = virtual_ordinal},
+                        });
+                        subobjects.push_back(base_reference);
+                    }
+                }
+
+                for (std::vector< struct_base_declaration >::const_iterator base = inheritance.direct_bases.cbegin(); base != inheritance.direct_bases.cend(); ++base)
                 {
                     if (base->kind == inheritance_kind::virtual_)
                     {
@@ -15828,34 +15849,46 @@ namespace quxlang
                         .enclosing_object = get_local_index(this_reference),
                         .selector = vmir2::struct_init_direct_base_selector{.direct_base_ordinal = base->declaration_ordinal},
                     });
-                    emit(current_block, vmir2::destroy{.of = get_local_index(base_reference)});
+                    subobjects.push_back(base_reference);
                 }
 
-                if (member.name == "FULLOBJECT_DESTRUCTOR")
+                std::vector< struct_field > fields = co_await rpnx::querygraph::request< struct_field_list_query >(member.of);
+                for (std::vector< struct_field >::const_iterator field = fields.cbegin(); field != fields.cend(); ++field)
                 {
-                    for (std::vector< type_symbol >::const_reverse_iterator virtual_base = inheritance.virtual_base_order.crbegin(); virtual_base != inheritance.virtual_base_order.crend(); ++virtual_base)
+                    std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(field->type);
+                    if (!field_storage_type.has_value())
                     {
-                        std::optional< type_symbol > const base_destructor = co_await co_select_default_destructor_entry(*virtual_base, true);
-                        if (!base_destructor.has_value())
-                        {
-                            continue;
-                        }
-                        struct_subobject_path virtual_path = canonical_virtual_base_path(inheritance, *virtual_base);
-                        type_symbol const base_reference_type = make_mref(*virtual_base);
-                        value_index base_reference = create_local_value(base_reference_type);
-                        emit(current_block, vmir2::inheritance_cast{
-                                                .source = get_local_index(copy_ref_value(current_block, this_reference)),
-                                                .result = get_local_index(base_reference),
-                                                .path = std::move(virtual_path),
-                        });
-                        state.non_trivial_dtors[base_reference_type] = *base_destructor;
-                        std::size_t const virtual_ordinal = static_cast< std::size_t >(std::distance(virtual_base, inheritance.virtual_base_order.crend()) - 1);
-                        emit_deferred_destructor(current_block, base_reference, *base_destructor, vmir2::destructor_subobject_context{
-                            .enclosing_object = get_local_index(this_reference),
-                            .selector = vmir2::struct_init_virtual_base_selector{.virtual_base_ordinal = virtual_ordinal},
-                        });
-                        emit(current_block, vmir2::destroy{.of = get_local_index(base_reference)});
+                        continue;
                     }
+
+                    std::optional< type_symbol > field_destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(*field_storage_type);
+                    if (!field_destructor.has_value())
+                    {
+                        continue;
+                    }
+
+                    value_index field_reference = co_await co_generate_dot_access(current_block, copy_ref_value(current_block, this_reference), field->name);
+                    if (typeis< attached_type_reference >(field->type))
+                    {
+                        field_reference = attached_binding_carrier_value(current_block, field_reference, field->type);
+                    }
+                    type_symbol field_reference_type = current_type(current_block, field_reference);
+                    state.non_trivial_dtors[field_reference_type] = *field_destructor;
+                    emit_deferred_destructor(current_block, field_reference, *field_destructor);
+                    subobjects.push_back(field_reference);
+                }
+
+                if (co_await rpnx::querygraph::request< user_default_dtor_exists_query >(member.of))
+                {
+                    type_symbol destructor_body = submember{.of = member.of, .name = "DESTRUCTOR"};
+                    codegen_invocation_args body_arguments;
+                    body_arguments.named["THIS"] = copy_ref_value(current_block, this_reference);
+                    co_await co_gen_call_functum(current_block, std::move(destructor_body), std::move(body_arguments));
+                }
+
+                for (std::vector< value_index >::const_reverse_iterator subobject = subobjects.crbegin(); subobject != subobjects.crend(); ++subobject)
+                {
+                    emit(current_block, vmir2::destroy{.of = get_local_index(*subobject)});
                 }
 
                 co_await co_generate_builtin_return(current_block);
@@ -15933,11 +15966,8 @@ namespace quxlang
             auto function_decl_opt = co_await rpnx::querygraph::request< function_declaration_query >(function_ref);
             assert(function_decl_opt.has_value());
             ast2_function_declaration& function_decl = function_decl_opt.value();
-            this->state.is_noexcept = function_decl.header.is_noexcept;
-            if (func.temploid.templexoid.type_is< submember >() && (func.temploid.templexoid.as< submember >().name == "DESTRUCTOR" || func.temploid.templexoid.as< submember >().name == "FULLOBJECT_DESTRUCTOR" || func.temploid.templexoid.as< submember >().name == "SUBOBJECT_DESTRUCTOR"))
-            {
-                this->state.is_noexcept = true;
-            }
+            this->state.is_noexcept = co_await rpnx::querygraph::request< functanoid_is_noexcept_query >(func);
+
 
             co_await co_generate_function_block(current_block, function_decl.definition.body, "body");
 

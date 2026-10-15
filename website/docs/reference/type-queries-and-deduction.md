@@ -196,3 +196,29 @@ TEST_ASSERT(SAME_TYPES(DECLTYPE(value), I32));
 TEST_ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
 TEST_ASSERT(SAME_TYPES(TYPEOF(MOVE(value)), TEMP& I32));
 ```
+
+## Lifecycle exception traits
+
+The following expressions return a compile-time `BOOL` without constructing
+objects or executing the selected operation:
+
+| Expression | Operation selected for `T` |
+| --- | --- |
+| `IS_NOEXCEPT_MOVABLE(T)` | Construction from `TEMP& T` into new storage |
+| `IS_NOEXCEPT_COPYABLE(T)` | Construction from `CONST& T` into new storage |
+| `IS_NOEXCEPT_SWAPPABLE(T)` | `OPERATOR<->` on two `MUT& T` operands |
+
+Each operand must name a type. Aliases resolve before selection. Ordinary
+overload selection and enabled-overload conditions determine the operation.
+An unavailable operation returns `FALSE`. These traits describe construction
+and swap; assignment has a separate operation contract.
+
+A user-defined operation returns `TRUE` when its declaration specifies
+`NOEXCEPT` or an applicable `NOEXCEPT_IF(TRUE)`. An unannotated user function
+returns `FALSE`, including a function with an empty body. Generated operations
+are inspected through their generated routines, including calls to member and
+base operations. Indirect calls and allocation paths without a proven
+non-throwing contract return `FALSE`.
+
+The traits can appear in `STATIC_IF`, `ENABLE_IF`, and `NOEXCEPT_IF` conditions.
+Their evaluation performs compiler work and adds no runtime trait test.

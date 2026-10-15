@@ -415,6 +415,9 @@ namespace quxlang
         std::vector< ast2_function_parameter > call_parameters;
         /** Prevents exceptions from escaping this callable. */
         bool is_noexcept = false;
+        /** Constant Boolean exception specification evaluated in the callable context. */
+        std::optional< expression > noexcept_if;
+
         std::optional< std::int64_t > priority;
         std::optional< expression > enable_if;
         /// Virtual-slot behavior explicitly requested by this declaration.
@@ -422,7 +425,7 @@ namespace quxlang
         /// True when a destructor explicitly opts out of polymorphic dispatch.
         bool is_nonvirtual = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, is_noexcept, priority, enable_if, virtual_specifier, is_nonvirtual);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, is_noexcept, noexcept_if, priority, enable_if, virtual_specifier, is_nonvirtual);
     };
 
     struct parameters

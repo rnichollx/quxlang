@@ -1187,6 +1187,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     for (std::size_t frame_index = stack.size(); frame_index-- != 0;)
     {
         stack_frame const& frame = stack.at(frame_index);
+        if (frame.propagation.has_value())
+        {
+            throw constexpr_logic_execution_error("Exception escaped cleanup while another exception was propagating");
+        }
         std::optional< exception_catcher > catcher = frame.ir3->blocks.at(frame.address.block).catcher;
         if (catcher.has_value())
         {

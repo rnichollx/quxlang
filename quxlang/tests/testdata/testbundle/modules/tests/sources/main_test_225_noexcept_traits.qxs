@@ -1,0 +1,186 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::noexcept_trait_tests NAMESPACE
+{
+  ::code ENUM BITS(8) [zero DEFAULT = 0, one = 1];
+  ::boxed VARIANT VALUELESS_DEFAULT [I32, VOID];
+  ::inline_value INLINE_VARIANT [I32 DEFAULT, VOID];
+  ::plain STRUCT { .value VAR I32; }
+  ::throwing STRUCT
+  {
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& THISTYPE) {}
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& THISTYPE) {}
+    .OPERATOR<-> FUNCTION(@OTHER MUT& THISTYPE) {}
+  }
+  ::nonthrowing STRUCT
+  {
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& THISTYPE) NOEXCEPT {}
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& THISTYPE) NOEXCEPT {}
+    .OPERATOR<-> FUNCTION(@OTHER MUT& THISTYPE) NOEXCEPT {}
+  }
+  ::conditional TEMPLATE(@T TYPE AUTO) STRUCT
+  {
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& THISTYPE) NOEXCEPT_IF(IS_NOEXCEPT_COPYABLE(T)) {}
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& THISTYPE) NOEXCEPT_IF(IS_NOEXCEPT_MOVABLE(T)) {}
+    .OPERATOR<-> FUNCTION(@OTHER MUT& THISTYPE) NOEXCEPT_IF(IS_NOEXCEPT_SWAPPABLE(T)) {}
+  }
+  ::nested STRUCT { .value VAR throwing; }
+  ::immovable STRUCT ROOTED {}
+  ::contains_immovable STRUCT { .value VAR immovable; }
+
+  ::lifecycle_contracts STATIC_TEST
+  {
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(code));
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(code));
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(code));
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(boxed));
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(boxed));
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(boxed) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(inline_value));
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(inline_value));
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(inline_value));
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(I32));
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(I32));
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(I32));
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(plain));
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(plain));
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(plain));
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(nonthrowing));
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(nonthrowing));
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(nonthrowing));
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(throwing) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(throwing) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(throwing) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(nested) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(nested) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(nested) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(immovable) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(immovable) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(immovable) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(contains_immovable) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(contains_immovable) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE([2]I32));
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE([2]I32));
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE([2]I32));
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE([2]throwing) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE([2]throwing) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE([2]throwing) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(CONST->I32));
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(MUT->I32));
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(MUT->I32));
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(conditional#I32));
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(conditional#I32));
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(conditional#I32));
+    TEST_ASSERT(IS_NOEXCEPT_MOVABLE(conditional#throwing) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_COPYABLE(conditional#throwing) == FALSE);
+    TEST_ASSERT(IS_NOEXCEPT_SWAPPABLE(conditional#throwing) == FALSE);
+  }
+
+  ::exchange FUNCTION(@left MUT& AUTO(t), @right MUT& AUTO(t)) NOEXCEPT_IF(IS_NOEXCEPT_SWAPPABLE(t))
+  { left <-> right; }
+
+  ::constant FUNCTION() NOEXCEPT_IF(TRUE): I32 { RETURN 7; }
+  ::propagate FUNCTION() NOEXCEPT_IF(FALSE) { THROW I32(@OTHER 42); }
+  ::conditional_call TEMPLATE(@T TYPE AUTO) FUNCTION() NOEXCEPT_IF(IS_NOEXCEPT_MOVABLE(T)): I32 { RETURN 9; }
+
+  ::conditional_execution DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR first code := code::zero;
+    VAR second code := code::one;
+    first <-> second;
+    TEST_ASSERT(first == code::one);
+    TEST_ASSERT(second == code::zero);
+    VAR left I32 := 1;
+    VAR right I32 := 2;
+    exchange(@left left, @right right);
+    TEST_ASSERT(left == 2 && right == 1);
+    TEST_ASSERT(constant() == 7);
+    TEST_ASSERT(conditional_call#I32() == 9);
+    VAR pointer CONST->PROCEDURE NOEXCEPT(: I32) := constant<-;
+    TEST_ASSERT(pointer() == 7);
+    VAR generic_pointer CONST->PROCEDURE NOEXCEPT(: I32) := conditional_call#I32<-;
+    TEST_ASSERT(generic_pointer() == 9);
+    TRY { propagate(); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 42); RETURN; }
+    TEST_ASSERT(FALSE);
+  }
+
+  ::throwing_instantiation_pointer_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR pointer CONST->PROCEDURE NOEXCEPT(: I32) := conditional_call#throwing<-;
+  }
+
+  ::throwing_pointer_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR pointer CONST->PROCEDURE NOEXCEPT() := propagate<-;
+  }
+
+  ::destruction_marker STRUCT
+  {
+    .count VAR MUT->I32;
+    .digit VAR I32;
+    .DESTRUCTOR FUNCTION() { .count-> := .count-> * 10 + .digit; }
+  }
+  ::throwing_owner STRUCT
+  {
+    .first VAR destruction_marker;
+    .second VAR destruction_marker;
+    .DESTRUCTOR FUNCTION() NOEXCEPT_IF(FALSE) { THROW I32(@OTHER 31); }
+  }
+  ::destructor_subobject_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR count I32 := 0;
+    TRY
+    {
+      VAR object throwing_owner;
+      object.first.count := count<-;
+      object.first.digit := 1;
+      object.second.count := count<-;
+      object.second.digit := 2;
+    }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 31);
+      TEST_ASSERT(count == 21);
+      RETURN;
+    }
+    TEST_ASSERT(FALSE);
+  }
+
+  ::throwing_destructor STRUCT
+  {
+    .DESTRUCTOR FUNCTION() NOEXCEPT_IF(FALSE) { THROW I32(@OTHER 23); }
+  }
+  ::destructor_override DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    TRY { VAR object throwing_destructor; }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 23); RETURN; }
+    TEST_ASSERT(FALSE);
+  }
+  ::destructor_during_unwind STATIC_TEST EXPECT_FAIL
+  {
+    TRY
+    {
+      VAR object throwing_destructor;
+      THROW I32(@OTHER 11);
+    }
+    CATCH DEFAULT {}
+  }
+  ::default_destructor STRUCT
+  {
+    .DESTRUCTOR FUNCTION() { THROW I32(@OTHER 23); }
+  }
+  ::default_destructor_remains_noexcept STATIC_TEST EXPECT_FAIL
+  {
+    TRY { VAR object default_destructor; }
+    CATCH DEFAULT {}
+  }
+
+  ::invalid_condition FUNCTION() NOEXCEPT_IF(missing_condition) {}
+  ::invalid_condition_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { invalid_condition(); }
+
+  ::escape FUNCTION() NOEXCEPT_IF(TRUE) { THROW I32(@OTHER 42); }
+  ::conditional_escape_fails STATIC_TEST EXPECT_FAIL
+  { escape(); }
+}

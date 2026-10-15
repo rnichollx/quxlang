@@ -174,6 +174,8 @@ namespace quxlang::llvm_backend::detail
         std::map< quxlang::vmir2::block_index, llvm::BasicBlock* > blocks;
         quxlang::vmir2::state_map current_state;
         std::optional< quxlang::vmir2::exception_catcher > catcher;
+        /** Indicates cleanup performed while another exception is propagating. */
+        bool unwinding = false;
         std::map< quxlang::vmir2::local_index, bool > fixed_cpu_attribute_references;
     };
 
@@ -5509,13 +5511,14 @@ namespace quxlang::llvm_backend::detail
                 builder.SetInsertPoint(ir_builder.GetInsertBlock());
                 install_struct_phase_descriptors(initializer.element_type, object, quxlang::struct_phase_kind::destruction, true);
             }
-            apply_calling_convention(ir_builder.CreateCall(abi.llvm_type, callee, {object}), abi);
+            llvm::BasicBlock* continuation = ir_builder.GetInsertBlock();
+            emit_unwindable_call(state, continuation, abi, callee, {object}, {}, false);
             ir_builder.CreateBr(test);
             ir_builder.SetInsertPoint(done);
         }
 
         /**
-         * Emits a direct call to the destructor associated with one live VMIR slot.
+         * Emits an exception-aware call to the destructor associated with one live VMIR slot.
          */
         void emit_slot_destructor_call(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot)
         {
@@ -5611,7 +5614,11 @@ namespace quxlang::llvm_backend::detail
             {
                 arguments = ordered_call_arguments(state, ir_builder, abi, args);
             }
-            apply_calling_convention(ir_builder.CreateCall(abi.llvm_type, callee, arguments), abi);
+            quxlang::vmir2::state_map saved_state = state.current_state;
+            state.current_state[slot].stage = quxlang::vmir2::slot_stage::dead;
+            llvm::BasicBlock* continuation = ir_builder.GetInsertBlock();
+            emit_unwindable_call(state, continuation, abi, callee, std::move(arguments), args);
+            state.current_state = std::move(saved_state);
             if (enclosing_group != nullptr)
             {
                 apply_struct_phase_group(enclosing_group, enclosing_pointer);
@@ -5636,7 +5643,10 @@ namespace quxlang::llvm_backend::detail
                                      quxlang::vmir2::state_map const& target_state,
                                      quxlang::vmir2::lifetime_transition_kind kind = quxlang::vmir2::lifetime_transition_kind::control_flow)
         {
-            for (quxlang::vmir2::lifetime_action action : quxlang::vmir2::codegen_state_engine::plan_transition(*state.routine, current_state, target_state, kind))
+            std::vector< quxlang::vmir2::lifetime_action > actions = quxlang::vmir2::codegen_state_engine::plan_transition(*state.routine, current_state, target_state, kind);
+            quxlang::vmir2::state_map saved_state = state.current_state;
+            state.current_state = current_state;
+            for (quxlang::vmir2::lifetime_action action : actions)
             {
                 switch (action.kind)
                 {
@@ -5653,7 +5663,9 @@ namespace quxlang::llvm_backend::detail
                     poison_slot_storage(state, ir_builder, action.slot);
                     break;
                 }
+                state.current_state[action.slot].stage = quxlang::vmir2::slot_stage::dead;
             }
+            state.current_state = std::move(saved_state);
         }
 
         /**
@@ -6134,8 +6146,26 @@ namespace quxlang::llvm_backend::detail
         /** Emits an exceptional call edge using the same parameter and local lifetime rules as VMIR. */
         auto emit_unwindable_call(function_codegen_state& state, llvm::BasicBlock*& current_block, callable_abi const& abi,
                                  llvm::Value* callee, std::vector< llvm::Value* > arguments,
-                                 quxlang::vmir2::invocation_args const& invocation) -> llvm::CallBase*
+                                 quxlang::vmir2::invocation_args const& invocation, bool consumes_arguments = true) -> llvm::CallBase*
         {
+            if (state.unwinding && !abi.is_noexcept)
+            {
+                using quxlang::llvm_backend::runtime_procedure;
+                state.function->setPersonalityFn(get_or_create_runtime_function(runtime_procedure::exception_personality));
+                llvm::BasicBlock* normal = llvm::BasicBlock::Create(context, "cleanup.cont", state.function);
+                llvm::BasicBlock* failure = llvm::BasicBlock::Create(context, "cleanup.terminate", state.function);
+                llvm::InvokeInst* call = builder.CreateInvoke(abi.llvm_type, callee, normal, failure, arguments);
+                apply_calling_convention(call, abi);
+                builder.SetInsertPoint(failure);
+                llvm::LandingPadInst* landing = builder.CreateLandingPad(llvm::StructType::get(context, {opaque_pointer_type(), llvm::Type::getInt32Ty(context)}), 1);
+                landing->setCleanup(true);
+                landing->addClause(llvm::ConstantPointerNull::get(opaque_pointer_type()));
+                builder.CreateCall(get_or_create_runtime_function(runtime_procedure::exception_terminate), {});
+                builder.CreateUnreachable();
+                builder.SetInsertPoint(normal);
+                current_block = normal;
+                return call;
+            }
             std::vector< quxlang::vmir2::lifetime_action > unwind_actions = quxlang::vmir2::codegen_state_engine::plan_transition(*state.routine, state.current_state, {});
             bool needs_cleanup = std::ranges::any_of(unwind_actions, [&](quxlang::vmir2::lifetime_action action)
             {
@@ -6169,13 +6199,15 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* selector = builder.CreateExtractValue(landing, 1, "exception.selector");
             quxlang::vmir2::state_map saved_state = state.current_state;
             quxlang::vmir2::routine_parameters call_parameters;
-            for (std::size_t i = 0; i < abi.source_ordered.size(); ++i)
+            for (std::size_t i = 0; consumes_arguments && i < abi.source_ordered.size(); ++i)
             {
                 abi_parameter const& parameter = abi.source_ordered.at(i);
                 quxlang::vmir2::routine_parameter mapped{.type = parameter.type, .local_index = source_argument_slot(abi, invocation, i)};
                 call_parameters.positional.push_back(std::move(mapped));
             }
             quxlang::vmir2::codegen_state_engine(state.current_state, state.routine->local_types, call_parameters).apply_exception_exit();
+            bool saved_unwinding = state.unwinding;
+            state.unwinding = true;
             quxlang::vmir2::state_map exit_state;
             quxlang::vmir2::codegen_state_engine(exit_state, state.routine->local_types, state.routine->parameters).apply_exception_exit();
             if (state.catcher.has_value())
@@ -6217,6 +6249,7 @@ namespace quxlang::llvm_backend::detail
                 builder.CreateUnreachable();
             }
             state.current_state = std::move(saved_state);
+            state.unwinding = saved_unwinding;
             builder.SetInsertPoint(normal);
             current_block = normal;
             return call;
@@ -8869,6 +8902,7 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             quxlang::vmir2::local_index const slot = instruction.of;
             emit_slot_destructor_call(state, builder, slot);
+            current_block = builder.GetInsertBlock();
             poison_slot_storage(state, builder, slot);
             return;
         }
@@ -9751,6 +9785,7 @@ namespace quxlang::llvm_backend::detail
                     state_engine.apply(inst);
                     emit_post_instruction_array_initializer_progress(state, builder, previous_state, state.current_state);
                     emit_post_instruction_poison_cleanup(state, builder, previous_state, state.current_state, inst);
+                    current_block = builder.GetInsertBlock();
                 }
 
                 if (current_block->getTerminator() != nullptr)

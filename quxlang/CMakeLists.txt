@@ -398,6 +398,8 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/type_is_stringlike_spec.hpp
         include/quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp
         include/quxlang/queries/specs/type_is_trivially_default_constructible_spec.hpp
+        include/quxlang/queries/specs/functanoid_is_noexcept_spec.hpp
+        include/quxlang/queries/specs/type_operation_is_noexcept_spec.hpp
         include/quxlang/queries/specs/type_is_trivially_relocatable_spec.hpp
         include/quxlang/data/pseudotype_match.hpp
         include/quxlang/queries/pseudotype_match.hpp
@@ -618,6 +620,8 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/type_is_stringlike.cpp
         sources/queries/type_is_implicitly_datatype.cpp
         sources/queries/type_is_trivially_default_constructible.cpp
+        sources/queries/functanoid_is_noexcept.cpp
+        sources/queries/type_operation_is_noexcept.cpp
         sources/queries/type_is_trivially_relocatable.cpp
         sources/queries/class_placement_info.cpp
         sources/queries/type_should_autogen_deserialize.cpp

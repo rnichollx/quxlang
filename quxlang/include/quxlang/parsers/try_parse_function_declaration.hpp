@@ -141,11 +141,30 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (skip_keyword_if_is(pos, end, "NOEXCEPT"))
             {
-                if (out->header.is_noexcept)
+                if (out->header.is_noexcept || out->header.noexcept_if.has_value())
                 {
                     throw syntax_compilation_error("A function cannot declare NOEXCEPT more than once");
                 }
                 out->header.is_noexcept = true;
+                continue;
+            }
+            if (skip_keyword_if_is(pos, end, "NOEXCEPT_IF"))
+            {
+                if (out->header.is_noexcept || out->header.noexcept_if.has_value())
+                {
+                    throw syntax_compilation_error("A function cannot declare more than one exception specification");
+                }
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "("))
+                {
+                    throw syntax_compilation_error("Expected '(' after NOEXCEPT_IF");
+                }
+                out->header.noexcept_if = parse_expression(ctx);
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ')' after NOEXCEPT_IF expression");
+                }
                 continue;
             }
             if (skip_keyword_if_is(pos, end, "NONVIRTUAL"))

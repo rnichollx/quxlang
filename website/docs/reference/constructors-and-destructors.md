@@ -146,7 +146,9 @@ structs are specified in [Inheritance](inheritance.md).
 If construction throws, already constructed subobjects are cleaned up. The
 incomplete object does not receive a complete-object destructor call.
 Destructors, including generated subobject destruction, are implicitly
-`NOEXCEPT`. A destructor may catch exceptions internally; an exception that
-escapes its boundary terminates execution. See
+`NOEXCEPT`. An explicit `NOEXCEPT_IF(FALSE)` permits a user-defined destructor
+to propagate exceptions. A destructor may catch exceptions internally. An
+exception escaping a destructor whose contract remains `NOEXCEPT` terminates
+execution. See
 [Exception Handling](exceptions.md#cleanup-and-noexcept) for cleanup and
 nested-handler rules.
