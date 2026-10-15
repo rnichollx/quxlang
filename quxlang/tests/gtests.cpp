@@ -378,6 +378,46 @@ static quxlang::function_destroy_statement parse_destroy_statement_text(std::str
     return result;
 }
 
+TEST(parsing, numeric_type_keywords)
+{
+    using quxlang::parsers::try_parse_integral_keyword;
+    using quxlang::parsers::try_parse_float_keyword;
+
+    EXPECT_EQ(try_parse_integral_keyword("I32")->bits, 32);
+    EXPECT_EQ(try_parse_integral_keyword("U32")->bits, 32);
+    EXPECT_TRUE(try_parse_integral_keyword("I32")->has_sign);
+    EXPECT_FALSE(try_parse_integral_keyword("U32")->has_sign);
+    EXPECT_FALSE(try_parse_integral_keyword("BOOL").has_value());
+    EXPECT_FALSE(try_parse_integral_keyword("i32").has_value());
+    EXPECT_EQ(try_parse_float_keyword("F32")->bits, 32);
+    EXPECT_EQ(try_parse_float_keyword("F32")->exponent_bits, 8);
+    EXPECT_EQ(try_parse_float_keyword("F64")->bits, 64);
+    EXPECT_EQ(try_parse_float_keyword("F64")->exponent_bits, 11);
+    EXPECT_EQ(try_parse_float_keyword("F32E8")->bits, 32);
+    EXPECT_EQ(try_parse_float_keyword("F32E8")->exponent_bits, 8);
+}
+
+TEST(parsing, numeric_type_width_bounds)
+{
+    using quxlang::parsers::try_parse_integral_keyword;
+    using quxlang::parsers::try_parse_float_keyword;
+
+    EXPECT_EQ(try_parse_integral_keyword("I2147483648")->bits, UINT64_C(2147483648));
+    EXPECT_EQ(try_parse_integral_keyword("U2147483648")->bits, UINT64_C(2147483648));
+    EXPECT_EQ(try_parse_float_keyword("F2147483648E8")->bits, UINT64_C(2147483648));
+    EXPECT_EQ(try_parse_float_keyword("F4294967296E2147483648")->exponent_bits, UINT64_C(2147483648));
+    EXPECT_EQ(try_parse_integral_keyword("I18446744073709551615")->bits, UINT64_MAX);
+    EXPECT_EQ(try_parse_integral_keyword("U18446744073709551615")->bits, UINT64_MAX);
+    EXPECT_EQ(try_parse_float_keyword("F18446744073709551615E8")->bits, UINT64_MAX);
+    EXPECT_THROW(try_parse_float_keyword("F32E18446744073709551615"), quxlang::compilation_error);
+    EXPECT_THROW(try_parse_float_keyword("F18446744073709551615E18446744073709551615"), quxlang::compilation_error);
+    EXPECT_THROW(try_parse_integral_keyword("I18446744073709551616"), quxlang::compilation_error);
+    EXPECT_THROW(try_parse_integral_keyword("U18446744073709551616"), quxlang::compilation_error);
+    EXPECT_THROW(try_parse_float_keyword("F18446744073709551616E8"), quxlang::compilation_error);
+    EXPECT_THROW(try_parse_float_keyword("F32E18446744073709551616"), quxlang::compilation_error);
+    EXPECT_THROW(try_parse_integral_keyword("I" + std::string(200, '9')), quxlang::compilation_error);
+}
+
 TEST(parsing, parse_empty_struct)
 {
     std::optional< quxlang::ast2_struct_declaration > struct_decl = try_parse_struct_text("STRUCT { }");

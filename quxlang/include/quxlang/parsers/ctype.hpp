@@ -26,28 +26,7 @@ namespace quxlang::parsers
         return is_alpha(c) || is_digit(c);
     }
 
-    template <typename It>
-    constexpr std::optional<int> str_to_i(It str, It end)
-    {
-        int out = 0;
-        int sign = 1;
 
-        if (*str == '-')
-        {
-            sign = -1;
-            str++;
-        }
-
-        while (str != end)
-        {
-            if (!is_digit(*str)) return std::nullopt;
-            out *= 10;
-            out += *str - '0';
-            str++;
-        }
-
-        return out * sign;
-    }
 }
 
 #endif //CTYPE_HPP

@@ -6,13 +6,14 @@
 #include "quxlang/data/compilation_result.hpp"
 
 #include <optional>
+#include <quxlang/manipulators/numeric_literal_utils.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/ctype.hpp>
 
 namespace quxlang::parsers
 {
     template < typename It >
-    constexpr std::optional< int_type > try_parse_integral_keyword(It& pos, It end)
+    inline std::optional< int_type > try_parse_integral_keyword(It& pos, It end)
     {
         int_type ast{};
         auto it = pos;
@@ -33,7 +34,12 @@ namespace quxlang::parsers
                 return std::nullopt;
             }
 
-            ast.bits = str_to_i(dig_str.begin(), dig_str.end()).value();
+            auto [bits, representable] = bytemath::le_to_u< std::uint64_t >(literal_to_sle(dig_str).data);
+            if (!representable)
+            {
+                throw syntax_compilation_error("Integer type bit count is too large");
+            }
+            ast.bits = bits;
 
             pos = it;
             return ast;
@@ -42,14 +48,14 @@ namespace quxlang::parsers
         return std::nullopt;
     }
 
-    constexpr std::optional< int_type > try_parse_integral_keyword(std::string const& input)
+    inline std::optional< int_type > try_parse_integral_keyword(std::string const& input)
     {
         auto it = input.begin();
         return try_parse_integral_keyword(it, input.end());
     }
 
     template < typename It >
-    constexpr std::optional< float_type > try_parse_float_keyword(It& pos, It end)
+    inline std::optional< float_type > try_parse_float_keyword(It& pos, It end)
     {
         auto it = pos;
 
@@ -69,8 +75,12 @@ namespace quxlang::parsers
             return std::nullopt;
         }
 
-        auto bits = static_cast< std::size_t >(str_to_i(bits_start, it).value());
-        std::size_t exponent_bits = 0;
+        auto [bits, representable] = bytemath::le_to_u< std::uint64_t >(literal_to_sle(std::string(bits_start, it)).data);
+        if (!representable)
+        {
+            throw syntax_compilation_error("Floating point type bit count is too large");
+        }
+        std::uint64_t exponent_bits = 0;
 
         if (it != end && *it == 'E')
         {
@@ -84,7 +94,12 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected exponent bit count after floating point type exponent marker");
             }
-            exponent_bits = static_cast< std::size_t >(str_to_i(exponent_start, it).value());
+            auto [parsed_exponent_bits, exponent_representable] = bytemath::le_to_u< std::uint64_t >(literal_to_sle(std::string(exponent_start, it)).data);
+            if (!exponent_representable)
+            {
+                throw syntax_compilation_error("Floating point exponent bit count is too large");
+            }
+            exponent_bits = parsed_exponent_bits;
         }
         else if (bits == 32)
         {
@@ -99,7 +114,7 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Floating point type shorthand is only available for F32 and F64; use F<N>E<M> for other sizes");
         }
 
-        if (bits < 3 || exponent_bits == 0 || exponent_bits + 1 >= bits)
+        if (bits < 3 || exponent_bits == 0 || exponent_bits >= bits - 1)
         {
             throw syntax_compilation_error("Invalid floating point type bit layout");
         }
@@ -108,27 +123,12 @@ namespace quxlang::parsers
         return float_type{.bits = bits, .exponent_bits = exponent_bits};
     }
 
-    constexpr std::optional< float_type > try_parse_float_keyword(std::string const& input)
+    inline std::optional< float_type > try_parse_float_keyword(std::string const& input)
     {
         auto it = input.begin();
         return try_parse_float_keyword(it, input.end());
     }
 
-    static_assert(try_parse_integral_keyword("I32")->bits == 32);
-    static_assert(try_parse_integral_keyword("U32")->bits == 32);
-    static_assert(try_parse_integral_keyword("I32")->has_sign);
-    static_assert(!try_parse_integral_keyword("U32")->has_sign);
-    static_assert(!try_parse_integral_keyword("BOOL").has_value());
-    static_assert(!try_parse_integral_keyword("i32").has_value());
-    static_assert(try_parse_float_keyword("F32")->bits == 32);
-    static_assert(try_parse_float_keyword("F32")->exponent_bits == 8);
-    static_assert(try_parse_float_keyword("F64")->bits == 64);
-    static_assert(try_parse_float_keyword("F64")->exponent_bits == 11);
-    static_assert(try_parse_float_keyword("F32E8")->bits == 32);
-    static_assert(try_parse_float_keyword("F32E8")->exponent_bits == 8);
-
-    // TODO: Fix this
-    //static_assert(!try_parse_integral_keyword("I32U32").has_value());
 
 } // namespace quxlang
 

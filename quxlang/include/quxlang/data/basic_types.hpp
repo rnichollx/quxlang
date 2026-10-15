@@ -553,7 +553,7 @@ namespace quxlang
 
     struct int_type
     {
-        std::size_t bits = 0;
+        std::uint64_t bits = 0;
         bool has_sign = false;
 
         RPNX_MEMBER_METADATA(int_type, bits, has_sign);
@@ -561,8 +561,8 @@ namespace quxlang
 
     struct float_type
     {
-        std::size_t bits = 0;
-        std::size_t exponent_bits = 0;
+        std::uint64_t bits = 0;
+        std::uint64_t exponent_bits = 0;
 
         /** Reports whether LLVM has a floating-point type with this exact implicit-significand encoding. */
         bool has_llvm_representation() const
