@@ -30,7 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
     .reserve(OTHER.length);
     LOOP WHILE (.length < OTHER.length) DO
     {
-      .push_back(@value OTHER[.length]);
+      .push_back(OTHER[.length]);
     }
   }
 
@@ -64,7 +64,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  .push_back FUNCTION(@value BYTE)
+  .push_back FUNCTION(@ARG:value BYTE)
   {
     IF (.capacity <= .length)
     {
@@ -130,13 +130,13 @@ LANGUAGE QUXLANG EN 0.0;
     VAR i SZ := 0;
     LOOP WHILE (i < .length) DO
     {
-      result.push_back(@value THIS[i]);
+      result.push_back(THIS[i]);
       i++;
     }
     i := 0;
     LOOP WHILE (i < OTHER.length) DO
     {
-      result.push_back(@value OTHER[i]);
+      result.push_back(OTHER[i]);
       i++;
     }
     RETURN result;
@@ -190,7 +190,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR i SZ := 0;
     LOOP WHILE (i < len) DO
     {
-      .push_back(@value (input++)->);
+      .push_back((input++)->);
       i++;
     }
     RETURN input;

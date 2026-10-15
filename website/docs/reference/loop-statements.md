@@ -250,8 +250,8 @@ reference behavior.
 
 ```quxlang
 VAR values std::dynarr#I32;
-values.push_back(@value 4);
-values.push_back(@value 5);
+values.push_back(4);
+values.push_back(5);
 LOOP INDEX(index SZ) VALUE(value MUT& I32) IN(values) DO
 {
   value += 10;

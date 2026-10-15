@@ -3,8 +3,8 @@ LANGUAGE QUXLANG EN 0.0;
 PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
 {
   VAR values dynarr#(I32);
-  values.push_back(@value 2);
-  values.push_back(@value 6);
+  values.push_back(2);
+  values.push_back(6);
   values.insert(@index 1, @value (4 AS I32));
   TEST_ASSERT(values.size() == 3);
   TEST_ASSERT(values.front() == 2);
@@ -50,13 +50,13 @@ PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
   {
     VAR moved_values dynarr#(dynarr_move_lifecycle_test_value);
     moved_values.push_back(
-      @value dynarr_move_lifecycle_test_value(
+      dynarr_move_lifecycle_test_value(
         @value 11,
         @destruction_count destruction_count
       )
     );
     moved_values.push_back(
-      @value dynarr_move_lifecycle_test_value(
+      dynarr_move_lifecycle_test_value(
         @value 17,
         @destruction_count destruction_count
       )

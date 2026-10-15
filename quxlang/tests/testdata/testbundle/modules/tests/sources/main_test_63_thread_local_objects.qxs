@@ -32,7 +32,7 @@ IMPORT std;
     {
       TEST_ASSERT(local_state.text == "seed");
       local_state.destructions := .destructions;
-      local_state.text.push_back(@value .letter);
+      local_state.text.push_back(.letter);
       IF (.arrived??)
       {
         .arrived->.FETCH_ADD#ATOMIC_ACQREL(1);

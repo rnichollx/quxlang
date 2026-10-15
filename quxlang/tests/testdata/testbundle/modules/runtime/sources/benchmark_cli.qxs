@@ -21,24 +21,24 @@ IMPORT std;
   {
     VAR code U32 := text.read(@position position);
     IF (code == 0) { BREAK; }
-    IF (code < 128) { result.push_back(@value code AS CHECKED U8 AS BYTE); }
+    IF (code < 128) { result.push_back(code AS CHECKED U8 AS BYTE); }
     ELSE IF (code < 2048)
     {
-      result.push_back(@value (192 + (code / 64)) AS CHECKED U8 AS BYTE);
-      result.push_back(@value (128 + (code % 64)) AS CHECKED U8 AS BYTE);
+      result.push_back((192 + (code / 64)) AS CHECKED U8 AS BYTE);
+      result.push_back((128 + (code % 64)) AS CHECKED U8 AS BYTE);
     }
     ELSE IF (code < 65536)
     {
-      result.push_back(@value (224 + (code / 4096)) AS CHECKED U8 AS BYTE);
-      result.push_back(@value (128 + ((code / 64) % 64)) AS CHECKED U8 AS BYTE);
-      result.push_back(@value (128 + (code % 64)) AS CHECKED U8 AS BYTE);
+      result.push_back((224 + (code / 4096)) AS CHECKED U8 AS BYTE);
+      result.push_back((128 + ((code / 64) % 64)) AS CHECKED U8 AS BYTE);
+      result.push_back((128 + (code % 64)) AS CHECKED U8 AS BYTE);
     }
     ELSE
     {
-      result.push_back(@value (240 + (code / 262144)) AS CHECKED U8 AS BYTE);
-      result.push_back(@value (128 + ((code / 4096) % 64)) AS CHECKED U8 AS BYTE);
-      result.push_back(@value (128 + ((code / 64) % 64)) AS CHECKED U8 AS BYTE);
-      result.push_back(@value (128 + (code % 64)) AS CHECKED U8 AS BYTE);
+      result.push_back((240 + (code / 262144)) AS CHECKED U8 AS BYTE);
+      result.push_back((128 + ((code / 4096) % 64)) AS CHECKED U8 AS BYTE);
+      result.push_back((128 + ((code / 64) % 64)) AS CHECKED U8 AS BYTE);
+      result.push_back((128 + (code % 64)) AS CHECKED U8 AS BYTE);
     }
   }
   RETURN result;
@@ -55,10 +55,10 @@ IMPORT std;
   .REGISTER DOC <$ Appends one declared command-line parameter. $>
     FUNCTION(@NAME:name STRING_CONSTANT) MUT
   {
-    .names.push_back(@value name);
+    .names.push_back(name);
     VAR empty std::string;
-    .values.push_back(@value MOVE(empty));
-    .present.push_back(@value FALSE);
+    .values.push_back(MOVE(empty));
+    .present.push_back(FALSE);
   }
 
   .VALIDATE DOC <$ Loads options and rejects unknown, duplicate, or missing arguments. $>
@@ -72,7 +72,7 @@ IMPORT std;
       VAR end SZ := 2;
       LOOP WHILE (end < text.size() && text[end] != 61) STEP { end++; } DO { }
       VAR name std::string;
-      LOOP VALUE(position) FROM(2 AS SZ) UNTIL(end) DO { name.push_back(@value text[position]); }
+      LOOP VALUE(position) FROM(2 AS SZ) UNTIL(end) DO { name.push_back(text[position]); }
       VAR selected SZ := .names.size();
       LOOP INDEX(candidate) VALUE(candidate_name) IN(.names) DO
       {
@@ -83,7 +83,7 @@ IMPORT std;
       VAR value std::string;
       IF (end < text.size())
       {
-        LOOP VALUE(position) FROM(end + 1) UNTIL(text.size()) DO { value.push_back(@value text[position]); }
+        LOOP VALUE(position) FROM(end + 1) UNTIL(text.size()) DO { value.push_back(text[position]); }
       }
       ELSE
       {

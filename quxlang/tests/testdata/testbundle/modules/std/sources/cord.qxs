@@ -79,7 +79,7 @@ PRIVATE(MODULE)
           VAR element_index SZ := 0;
           LOOP WHILE (element_index < payload.size()) DO
           {
-            destination.push_back(@value payload[element_index]);
+            destination.push_back(payload[element_index]);
             element_index++;
           }
         }
@@ -100,7 +100,7 @@ PRIVATE(MODULE)
           LOOP WHILE (element_index < payload.size()) DO
           {
             VAR element MUT& T := payload[element_index];
-            destination.push_back(@value MOVE(element));
+            destination.push_back(MOVE(element));
             element_index++;
           }
         }
@@ -131,7 +131,7 @@ PRIVATE(MODULE)
       LOOP WHILE (index < materialized.size()) DO
       {
         VAR element T := materialized[index];
-        elements.push_back(@value MOVE(element));
+        elements.push_back(MOVE(element));
         index++;
       }
       .value := cord_value#(T)(@leaf MOVE(elements));
@@ -142,7 +142,7 @@ PRIVATE(MODULE)
     FUNCTION(@value CONST& T)
   {
     VAR elements dynarr#(T);
-    elements.push_back(@value value);
+    elements.push_back(value);
     .value := cord_value#(T)(@leaf MOVE(elements));
   }
 
@@ -150,7 +150,7 @@ PRIVATE(MODULE)
     FUNCTION(@value TEMP& T)
   {
     VAR elements dynarr#(T);
-    elements.push_back(@value FORWARD(value));
+    elements.push_back(FORWARD(value));
     .value := cord_value#(T)(@leaf MOVE(elements));
   }
 

@@ -20,8 +20,8 @@ PRIVATE(MODULE) ::addr_cache_tests NAMESPACE
     LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
     {
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4) DO
-      { source.push(@entry addresses[index]); }
-      destination.push(@entry addresses[4]);
+      { source.push(addresses[index]); }
+      destination.push(addresses[4]);
       source.move_entries_to(@destination destination, @entry_count 0);
       TEST_ASSERT(source.used == 4);
       TEST_ASSERT(destination.used == 1);
@@ -355,7 +355,7 @@ PRIVATE(MODULE) ::layer2_plate_slot_capacity_test
   store.acquire_cursor.STORE#ATOMIC_RELAXED(4294967280);
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(layer2_full_plate_slot_count) DO
   {
-    nodes[index].cache.push(@entry null_address + index);
+    nodes[index].cache.push(null_address + index);
     TEST_ASSERT(store.try_push(@node nodes[index]<-));
   }
   TEST_ASSERT(store.try_push(@node nodes[layer2_full_plate_slot_count]<-) == FALSE);
@@ -389,7 +389,7 @@ PRIVATE(MODULE) ::layer2_address_sort_test
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO
     {
       VAR offset SZ := (index * 11 + length) % 17;
-      cache.push(@entry null_address + offset);
+      cache.push(null_address + offset);
       counts[offset]++;
     }
     cache.sort();

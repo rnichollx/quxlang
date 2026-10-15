@@ -523,9 +523,9 @@ PRIVATE(MODULE)
     {
       VAR character BYTE := path[index];
       IF (character == 0) { THROW (-1 AS I32); }
-      native_path.push_back(@value character);
+      native_path.push_back(character);
     }
-    native_path.push_back(@value 0);
+    native_path.push_back(0);
     VAR address ADDRESS := IBC_GETADDR(@PTR native_path[0]<-);
     VAR bytes CONST=>>BYTE := IBC_PUN#(CONST=>>BYTE)(@ADDR address);
     VAR descriptor I32 := posix_filesystem::open(

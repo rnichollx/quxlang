@@ -156,7 +156,7 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP WHILE (.segments.size() < required) DO
     {
       VAR segment geometric_array#(T)::segment :(@EXPLICIT (1 AS SZ) #++ .segments.size());
-      .segments.push_back(@value MOVE(segment));
+      .segments.push_back(MOVE(segment));
     }
     committed := TRUE;
   }
@@ -174,7 +174,7 @@ LANGUAGE QUXLANG EN 0.0;
         COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS))
       );
       segment.count := 1;
-      .segments.push_back(@value MOVE(segment));
+      .segments.push_back(MOVE(segment));
     }
     ELSE
     {

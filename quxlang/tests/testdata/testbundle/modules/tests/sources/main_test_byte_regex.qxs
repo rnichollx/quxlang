@@ -11,7 +11,7 @@ IMPORT std;
     VAR bytes std::dynarr#BYTE;
     LOOP INIT { VAR cursor CONST=>>BYTE := input.BEGIN(); }
       WHILE (cursor != input.END()) STEP { cursor++; } DO
-    { bytes.push_back(@value cursor[0]); }
+    { bytes.push_back(cursor[0]); }
     TEST_ASSERT(expression.count(bytes) == count);
     VAR replaced std::dynarr#BYTE := expression.replace(@input bytes, @replacement "X");
     VAR expected_string std::string := expected;

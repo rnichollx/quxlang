@@ -107,7 +107,7 @@ IMPORT std;
         word += ((value AS U8) AS U32) * multiplier;
         IF (byte_index != 3) { multiplier *= 256; }
       }
-      state.sequence.push_back(@value word);
+      state.sequence.push_back(word);
       checksum := checksum #^^ (word AS U64);
     }
     state.size_8.pointers.resize(state.slots);
@@ -126,7 +126,7 @@ IMPORT std;
   {
     VAR entry mixed_worker_entry;
     entry.state := state<-;
-    workers.push_back(@value std::thread(entry));
+    workers.push_back(std::thread(entry));
   }
   LOOP ITEM(worker) IN(workers) DO { worker.join(); }
   VAR elapsed U64 := benchmark_barrier::ticks() - start;

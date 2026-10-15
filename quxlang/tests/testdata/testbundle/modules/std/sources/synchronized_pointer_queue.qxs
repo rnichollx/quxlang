@@ -18,7 +18,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .push DOC <$ Publishes a pointer after waiting for an available slot. $>
-    FUNCTION(@value MUT->T) MUT
+    FUNCTION(@ARG:value MUT->T) MUT
   {
     .mutex.lock();
     LOOP WHILE (.count == capacity) DO { .writable.wait(@locked_mutex .mutex); }

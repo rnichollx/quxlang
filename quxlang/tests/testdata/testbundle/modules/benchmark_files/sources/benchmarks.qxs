@@ -36,7 +36,7 @@ IMPORT std;
         IF (transfer.size == 0) { BREAK; }
         LOOP VALUE(index) FROM(0 AS SZ) UNTIL(transfer.size) DO
         {
-          result.bytes.push_back(@value bytes[index]);
+          result.bytes.push_back(bytes[index]);
         }
       }
       TEST_ASSERT(file.close());

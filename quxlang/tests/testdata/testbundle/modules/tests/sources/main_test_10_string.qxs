@@ -16,10 +16,10 @@ IMPORT std;
   VAR moved std::string := MOVE(empty);
   TEST_ASSERT(copied.size() == 0);
   TEST_ASSERT(moved.size() == 0);
-  moved.push_back(@value 65);
+  moved.push_back(65);
   TEST_ASSERT(moved == "A");
   copied.reserve(8);
-  copied.push_back(@value 66);
+  copied.push_back(66);
   TEST_ASSERT(copied == "B");
 }
 
@@ -73,7 +73,7 @@ IMPORT std;
   TEST_ASSERT(value == "overlapping ownership");
   value := MOVE(value);
   TEST_ASSERT(value == "overlapping ownership");
-  value.push_back(@value 33);
+  value.push_back(33);
   TEST_ASSERT(value == "overlapping ownership!");
 }
 
@@ -86,15 +86,15 @@ IMPORT std;
   VAR source std::string := "abc";
   VAR copy std::string := source;
   source.pop_back();
-  source.push_back(@value 100);
+  source.push_back(100);
   TEST_ASSERT(copy == "abc");
   TEST_ASSERT(source == "abd");
   VAR destination std::string := "a longer allocation";
   destination := MOVE(source);
   TEST_ASSERT(destination == "abd");
   TEST_ASSERT(source.size() == 0);
-  source.push_back(@value 120);
-  destination.push_back(@value 101);
+  source.push_back(120);
+  destination.push_back(101);
   TEST_ASSERT(source == "x");
   TEST_ASSERT(destination == "abde");
   TEST_ASSERT(copy == "abc");
@@ -107,8 +107,8 @@ IMPORT std;
   DUAL_TEST
 {
   VAR value std::string := "A";
-  value.push_back(@value 0);
-  value.push_back(@value 66);
+  value.push_back(0);
+  value.push_back(66);
   VAR copy std::string := value;
   TEST_ASSERT(copy.size() == 3);
   TEST_ASSERT(copy[0] == 65 && copy[1] == 0 && copy[2] == 66);
@@ -119,6 +119,6 @@ IMPORT std;
   TEST_ASSERT((empty + empty).size() == 0);
   value.pop_back();
   TEST_ASSERT((copy == value) == FALSE);
-  value.push_back(@value 67);
+  value.push_back(67);
   TEST_ASSERT((copy == value) == FALSE);
 }

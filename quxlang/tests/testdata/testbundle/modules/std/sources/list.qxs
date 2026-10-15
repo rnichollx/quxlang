@@ -184,7 +184,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     VAR source MUT->list_node#(T) := OTHER.head;
     LOOP WHILE (source??) DO
     {
-      .push_back(@value source->.value AS CONST& T);
+      .push_back(source->.value AS CONST& T);
       source := source->.next;
     }
   }
@@ -236,7 +236,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .push_front DOC <$ Copy-constructs value at the beginning of this list. $>
-    FUNCTION(@value CONST& T) MUT
+    FUNCTION(@ARG:value CONST& T) MUT
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) := NEW list_node#(T) :(@value value);
@@ -254,7 +254,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .push_front DOC <$ Move-constructs value at the beginning of this list. $>
-    FUNCTION(@value TEMP& T) MUT
+    FUNCTION(@ARG:value TEMP& T) MUT
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) :=
@@ -273,7 +273,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .push_back DOC <$ Copy-constructs value at the end of this list. $>
-    FUNCTION(@value CONST& T) MUT
+    FUNCTION(@ARG:value CONST& T) MUT
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) := NEW list_node#(T) :(@value value);
@@ -291,7 +291,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .push_back DOC <$ Move-constructs value at the end of this list. $>
-    FUNCTION(@value TEMP& T) MUT
+    FUNCTION(@ARG:value TEMP& T) MUT
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list_node#(T) :=

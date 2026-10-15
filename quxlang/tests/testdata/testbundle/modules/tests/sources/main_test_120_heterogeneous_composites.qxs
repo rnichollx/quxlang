@@ -7,7 +7,7 @@ IMPORT std;
     FUNCTION(@text MUT& std::string, @numbers MUT& [2]I32, @amount I32, @enabled BOOL): I32
   {
     TEST_ASSERT(enabled);
-    text.push_back(@value 90);
+    text.push_back(90);
     numbers[0] += amount;
     numbers[1] += amount * 2;
     RETURN numbers[0] + numbers[1];
@@ -48,14 +48,14 @@ IMPORT std;
     AUTO selected := COMPOSITE_SELECT(original, "borrowed", "text");
     TEST_ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(selected)) == 2);
     TEST_ASSERT(COMPOSITE_CONTAINS(DECLTYPE(selected), "amount") == FALSE);
-    selected.text.push_back(@value 65);
+    selected.text.push_back(65);
     selected.borrowed := 29;
     TEST_ASSERT(selected.text == "sourceA");
     TEST_ASSERT(original.text == "source");
     TEST_ASSERT(number == 29);
     TEST_ASSERT(original.borrowed == 29);
     TEST_ASSERT(selected.borrowed<- == number<-);
-    original.text.push_back(@value 66);
+    original.text.push_back(66);
     TEST_ASSERT(original.text == "sourceB");
     TEST_ASSERT(selected.text == "sourceA");
     TEST_ASSERT(original.amount == 7);

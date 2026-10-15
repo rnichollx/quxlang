@@ -151,8 +151,8 @@ LANGUAGE QUXLANG EN 0.0;
 ::filesystem_posix_embedded_null_test INCLUDE_IF(OS_LINUX || OS_MACOS) UNIT_TEST
 {
   VAR path std::string := "/dev/null";
-  path.push_back(@value 0);
-  path.push_back(@value 120);
+  path.push_back(0);
+  path.push_back(120);
   VAR caught BOOL := FALSE;
   TRY { VAR file std::file := std::open_read(@path path); }
   CATCH DEFAULT { caught := TRUE; }

@@ -98,9 +98,9 @@ IMPORT std;
   TEST_ASSERT(single_value[0] == 7);
 
   VAR source std::dynarr#(I32);
-  source.push_back(@value 11);
-  source.push_back(@value 13);
-  source.push_back(@value 17);
+  source.push_back(11);
+  source.push_back(13);
+  source.push_back(17);
   VAR constant_source CONST& std::dynarr#(I32) := source;
   VAR copied std::cord#(I32) := constant_source;
   copied[1] := 23;
@@ -151,8 +151,8 @@ IMPORT std;
 {
   VAR value std::cord#(I32) := std::cord#(I32)(@value (2 AS I32));
   VAR suffix_elements std::dynarr#(I32);
-  suffix_elements.push_back(@value 3);
-  suffix_elements.push_back(@value 5);
+  suffix_elements.push_back(3);
+  suffix_elements.push_back(5);
   VAR suffix std::cord#(I32) := MOVE(suffix_elements);
   value.concat(@suffix MOVE(suffix));
   TEST_ASSERT(suffix.empty());
@@ -275,12 +275,12 @@ IMPORT std;
   $> DUAL_TEST
 {
   VAR first_elements std::dynarr#(I32);
-  first_elements.push_back(@value 2);
-  first_elements.push_back(@value 3);
+  first_elements.push_back(2);
+  first_elements.push_back(3);
   VAR second_elements std::dynarr#(I32);
-  second_elements.push_back(@value 5);
-  second_elements.push_back(@value 7);
-  second_elements.push_back(@value 11);
+  second_elements.push_back(5);
+  second_elements.push_back(7);
+  second_elements.push_back(11);
 
   VAR first std::cord#(I32) := MOVE(first_elements);
   VAR second std::cord#(I32) := MOVE(second_elements);
@@ -312,11 +312,11 @@ IMPORT std;
   VAR alive I32 := 0;
   {
     VAR first_elements std::dynarr#(cord_move_only_value);
-    first_elements.push_back(@value cord_move_only_value(
+    first_elements.push_back(cord_move_only_value(
       @alive alive,
       @value 43
     ));
-    first_elements.push_back(@value cord_move_only_value(
+    first_elements.push_back(cord_move_only_value(
       @alive alive,
       @value 47
     ));

@@ -313,7 +313,7 @@ PRIVATE(MODULE) ::layer3_region_return DOC <$
   $> FUNCTION(@address ADDRESS)
 {
   VAR cache addr_cache#(@count 1);
-  cache.push(@entry address);
+  cache.push(address);
   layer3_region_return_batch#(@count 1)(@cache cache);
 }
 
@@ -397,7 +397,7 @@ PRIVATE(MODULE) ::layer3_region_refill DOC <$
           LOOP WHILE (selected != 0) DO
           {
             IF ((selected #&& 1) != 0)
-            { cache.push(@entry base + root.payload_offset + (word * layer3_bitmap_word_bits + bit_index) * root.block_size); }
+            { cache.push(base + root.payload_offset + (word * layer3_bitmap_word_bits + bit_index) * root.block_size); }
             selected := selected #-- 1;
             bit_index++;
           }

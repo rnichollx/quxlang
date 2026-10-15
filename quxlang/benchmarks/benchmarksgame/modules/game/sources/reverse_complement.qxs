@@ -45,7 +45,7 @@ IMPORT std;
     ELSE
     {
       LOOP ITEM(value) IN(line) DO
-      { IF (value != 13) { sequence.push_back(@value value); } }
+      { IF (value != 13) { sequence.push_back(value); } }
     }
   }
   IF (header.size() != 0) { fasta_record::write_complement(@header header, @sequence sequence, @complements complements, @output output); }

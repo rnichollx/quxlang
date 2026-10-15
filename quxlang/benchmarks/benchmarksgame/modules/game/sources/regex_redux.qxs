@@ -10,7 +10,7 @@ IMPORT std;
   {
     VAR byte BYTE;
     IF (input.read_byte(byte) == FALSE) { BREAK; }
-    bytes.push_back(@value byte);
+    bytes.push_back(byte);
   }
   VAR original_length SZ := bytes.size();
   VAR clean_pattern std::string := ">.*\n|\n";

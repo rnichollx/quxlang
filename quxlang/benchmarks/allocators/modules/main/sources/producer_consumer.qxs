@@ -44,9 +44,9 @@ IMPORT std;
         slot->.first := random.next();
         slot->.second := random.next() #|| 1;
       }
-      .queue.push(@value block);
+      .queue.push(block);
     }
-    .queue.push(@value NULL);
+    .queue.push(NULL);
   }
 
   .consume DOC <$ Computes two checksums, releases each batch and prints under the shared I/O mutex. $> FUNCTION() MUT
@@ -96,8 +96,8 @@ IMPORT std;
     VAR state MUT->producer_consumer_pair := (PUN states[identity] AS producer_consumer_pair)<-;
     AUTO produce := -< [=state] { state->.produce(); };
     AUTO consume := -< [=state] { state->.consume(); };
-    workers.push_back(@value std::thread(produce));
-    workers.push_back(@value std::thread(consume));
+    workers.push_back(std::thread(produce));
+    workers.push_back(std::thread(consume));
   }
   LOOP ITEM(worker) IN(workers) DO { worker.join(); }
   VAR elapsed U64 := benchmark_barrier::ticks() - start;

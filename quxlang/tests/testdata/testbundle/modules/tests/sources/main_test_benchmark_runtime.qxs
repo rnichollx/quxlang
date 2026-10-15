@@ -70,7 +70,7 @@ IMPORT std;
   {
     VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
     VAR input std::string := "0001";
-    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(@value 48); }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(48); }
     VAR suffix std::string := "e-400";
     input := input + suffix;
     VAR value F64;
@@ -85,7 +85,7 @@ IMPORT std;
   {
     VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
     VAR input std::string := "1.";
-    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(@value 48); }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(48); }
     VAR value F64;
     parser.PARSE#F64(@INPUT input, @OUTPUT value);
     TEST_ASSERT(value == 1.0);
@@ -94,7 +94,7 @@ IMPORT std;
     TEST_ASSERT(small == 1.0);
 
     input := "0.";
-    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(@value 48); }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(48); }
     VAR suffix std::string := "125e401";
     input := input + suffix;
     parser.PARSE#F64(@INPUT input, @OUTPUT value);
@@ -107,8 +107,8 @@ IMPORT std;
   {
     VAR parser RUNTIME_MODULE::DEFAULT_PARSER;
     VAR input std::string := "1.";
-    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(@value 48); }
-    input.push_back(@value 120);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(400) DO { input.push_back(48); }
+    input.push_back(120);
     VAR value F64;
     VAR caught BOOL := FALSE;
     TRY { parser.PARSE#F64(@INPUT input, @OUTPUT value); }

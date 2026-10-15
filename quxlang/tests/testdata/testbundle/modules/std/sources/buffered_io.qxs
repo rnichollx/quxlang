@@ -182,7 +182,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR value BYTE;
       IF (.read_byte(value) == FALSE) { RETURN line.size() != 0; }
       IF (value == 10) { RETURN TRUE; }
-      line.push_back(@value value);
+      line.push_back(value);
     }
   }
 }

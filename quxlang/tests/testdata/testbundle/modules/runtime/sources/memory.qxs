@@ -338,7 +338,7 @@ PRIVATE(MODULE) ::addr_cache DOC <$
   .used VAR SZ;
 
   .push DOC <$ Adds one address to the top of the cache. $>
-    FUNCTION(@entry ADDRESS)
+    FUNCTION(@ARG:entry ADDRESS)
   {
     ASSERT(.used < count, "An address cache cannot exceed its capacity.");
     PLACE AT(.entries[.used]) ADDRESS := entry;

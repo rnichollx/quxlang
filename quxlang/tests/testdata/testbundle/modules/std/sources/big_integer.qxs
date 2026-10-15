@@ -46,7 +46,7 @@ LANGUAGE QUXLANG EN 0.0;
         .limbs[index] := (sum % 1000000000) AS CHECKED U32;
         carry := sum / 1000000000;
       }
-      IF (carry != 0) { .limbs.push_back(@value carry AS CHECKED U32); }
+      IF (carry != 0) { .limbs.push_back(carry AS CHECKED U32); }
     }
 
     .subtract_magnitude DOC <$ Subtracts a magnitude no greater than this integer's magnitude. $>
@@ -87,7 +87,7 @@ LANGUAGE QUXLANG EN 0.0;
     IF (.negative) { magnitude := (0 AS U64) - magnitude; }
     LOOP WHILE (magnitude != 0) DO
     {
-      .limbs.push_back(@value (magnitude % 1000000000) AS CHECKED U32);
+      .limbs.push_back((magnitude % 1000000000) AS CHECKED U32);
       magnitude := magnitude / 1000000000;
     }
   }
@@ -113,7 +113,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
     LOOP WHILE (carry != 0) DO
     {
-      .limbs.push_back(@value (carry % 1000000000) AS CHECKED U32);
+      .limbs.push_back((carry % 1000000000) AS CHECKED U32);
       carry := carry / 1000000000;
     }
   }

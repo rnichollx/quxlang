@@ -44,7 +44,7 @@ IMPORT std;
         VAR item frequency;
         item.key := key;
         item.count := counts.at(key);
-        frequencies.push_back(@value item);
+        frequencies.push_back(item);
       }
     }
     LOOP VALUE(index) FROM(1 AS SZ) UNTIL(frequencies.size()) DO
@@ -108,10 +108,10 @@ IMPORT std;
           VAR code U8 := value AS U8;
           IF (code == 13) { CONTINUE; }
           code := code #&& 223;
-          IF (code == 65) { .bytes.push_back(@value 0); }
-          ELSE IF (code == 67) { .bytes.push_back(@value 1); }
-          ELSE IF (code == 71) { .bytes.push_back(@value 2); }
-          ELSE IF (code == 84) { .bytes.push_back(@value 3); }
+          IF (code == 65) { .bytes.push_back(0); }
+          ELSE IF (code == 67) { .bytes.push_back(1); }
+          ELSE IF (code == 71) { .bytes.push_back(2); }
+          ELSE IF (code == 84) { .bytes.push_back(3); }
           ELSE { THROW (1 AS I32); }
         }
       }

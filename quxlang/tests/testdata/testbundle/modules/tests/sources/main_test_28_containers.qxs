@@ -9,8 +9,8 @@ IMPORT std;
 {
   VAR values std::dynarr#(std::string);
   values.reserve(1);
-  values.push_back(@value ("first" AS std::string));
-  values.push_back(@value values[0]);
+  values.push_back(("first" AS std::string));
+  values.push_back(values[0]);
   TEST_ASSERT(values.size() == 2);
   TEST_ASSERT(values[0] == "first");
   TEST_ASSERT(values[1] == "first");
@@ -24,8 +24,8 @@ IMPORT std;
 {
   VAR values std::dynarr#(std::string);
   values.reserve(1);
-  values.push_back(@value ("first" AS std::string));
-  values.push_back(@value values[0]);
+  values.push_back(("first" AS std::string));
+  values.push_back(values[0]);
   TEST_ASSERT(values[0] == "first" && values[1] == "first");
   values[1] := ("second" AS std::string);
   values.reserve(8);
@@ -44,7 +44,7 @@ IMPORT std;
   values.resize(1);
   TEST_ASSERT(values[0] == "second");
   values.clear();
-  values.push_back(@value ("reused" AS std::string));
+  values.push_back(("reused" AS std::string));
   TEST_ASSERT(values.size() == 1 && values[0] == "reused");
 }
 
@@ -274,8 +274,8 @@ IMPORT std;
   values.reserve(1);
   TEST_ASSERT(values.capacity() >= 1);
 
-  values.push_back(@value 10);
-  values.push_back(@value values[0]);
+  values.push_back(10);
+  values.push_back(values[0]);
   values.insert(@index 1, @value values[0]);
   TEST_ASSERT(values.size() == 3);
   TEST_ASSERT(values[0] == 10 && values[1] == 10 && values[2] == 10);
@@ -336,8 +336,8 @@ IMPORT std;
 {
   VAR values std::dynarr#(container_move_only_value);
   VAR first container_move_only_value := container_move_only_value(@value 11);
-  values.push_back(@value MOVE(first));
-  values.push_back(@value container_move_only_value(@value 17));
+  values.push_back(MOVE(first));
+  values.push_back(container_move_only_value(@value 17));
   values.insert(
     @index 1,
     @value container_move_only_value(@value 13)
@@ -354,9 +354,9 @@ IMPORT std;
 {
   VAR values std::list#(I32);
   TEST_ASSERT(values.empty());
-  values.push_back(@value (2 AS I32));
-  values.push_front(@value (1 AS I32));
-  values.push_back(@value (4 AS I32));
+  values.push_back((2 AS I32));
+  values.push_front((1 AS I32));
+  values.push_back((4 AS I32));
 
   VAR position std::list_const_iterator#(I32) := values.BEGIN();
   position++;
@@ -405,8 +405,8 @@ IMPORT std;
 ::container_list_move_only_values UNIT_TEST
 {
   VAR values std::list#(container_move_only_value);
-  values.push_back(@value container_move_only_value(@value 5));
-  values.push_front(@value container_move_only_value(@value 3));
+  values.push_back(container_move_only_value(@value 5));
+  values.push_front(container_move_only_value(@value 3));
   TEST_ASSERT(values.front().value == 3);
   TEST_ASSERT(values.back().value == 5);
 }
@@ -637,9 +637,9 @@ IMPORT std;
     TEST_ASSERT(alive == 1);
 
     VAR array_values std::dynarr#(container_lifetime_value);
-    array_values.push_back(@value original);
+    array_values.push_back(original);
     TEST_ASSERT(alive == 2);
-    array_values.push_back(@value container_lifetime_value(
+    array_values.push_back(container_lifetime_value(
       @alive alive,
       @value 9
     ));
@@ -664,8 +664,8 @@ IMPORT std;
       @value 7
     );
     VAR list_values std::list#(container_lifetime_value);
-    list_values.push_back(@value original);
-    list_values.push_front(@value container_lifetime_value(
+    list_values.push_back(original);
+    list_values.push_front(container_lifetime_value(
       @alive alive,
       @value 5
     ));

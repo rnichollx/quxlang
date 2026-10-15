@@ -138,7 +138,7 @@ IMPORT std;
         ELSE { size_256.replace(@slot slot, @identity identity); }
       }
     };
-    workers.push_back(@value std::thread(action));
+    workers.push_back(std::thread(action));
   }
   LOOP WHILE (ready.LOAD#ATOMIC_ACQUIRE() != 4) DO { }
   start.STORE#ATOMIC_RELEASE(TRUE);
@@ -193,7 +193,7 @@ IMPORT std;
         LOOP WHILE (returned[previous].LOAD#ATOMIC_ACQUIRE() < round) DO { }
       }
     };
-    workers.push_back(@value std::thread(action));
+    workers.push_back(std::thread(action));
   }
   LOOP ITEM(worker) IN(workers) DO { worker.join(); }
 }

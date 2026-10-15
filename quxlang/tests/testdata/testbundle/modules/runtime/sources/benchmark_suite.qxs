@@ -101,7 +101,7 @@ IMPORT std;
 {
   VAR text std::string := BENCHMARK_ARGUMENT_TEXT(@INDEX argument);
   VAR value std::string;
-  LOOP VALUE(position) FROM(offset) UNTIL(text.size()) DO { value.push_back(@value text[position]); }
+  LOOP VALUE(position) FROM(offset) UNTIL(text.size()) DO { value.push_back(text[position]); }
   VAR parser DEFAULT_PARSER;
   VAR result U64;
   parser.PARSE#U64(@INPUT value, @OUTPUT result);
@@ -114,7 +114,7 @@ IMPORT std;
   VAR samples std::dynarr#BENCHMARK_STATE;
   LOOP VALUE(repetition) FROM(0 AS SZ) UNTIL(repetitions) DO
   {
-    samples.push_back(@value BENCHMARK_SAMPLE(@INDEX index, @ITERATIONS iterations));
+    samples.push_back(BENCHMARK_SAMPLE(@INDEX index, @ITERATIONS iterations));
   }
   VAR offset SZ;
   STATIC_IF(SAME_TYPES(SZ, U64)) { offset := BENCHMARK_MEASUREMENT_OFFSETS[index]; }
@@ -130,7 +130,7 @@ IMPORT std;
       IF (samples[repetition].counts[channel] != 0)
       {
         VAR ratio F64 := (samples[repetition].durations[channel] AS APPROXIMATE F64) / (samples[repetition].counts[channel] AS APPROXIMATE F64);
-        ratios.push_back(@value ratio);
+        ratios.push_back(ratio);
         LOOP INIT { VAR position SZ := ratios.size() - 1; }
           WHILE (position != 0 && ratios[position] < ratios[position - 1]) STEP { position--; } DO
         { ratios[position] <-> ratios[position - 1]; }

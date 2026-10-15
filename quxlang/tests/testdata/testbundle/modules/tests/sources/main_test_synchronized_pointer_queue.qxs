@@ -9,15 +9,15 @@ IMPORT std;
   VAR queue std::synchronized_pointer_queue#(@T SZ, @capacity 3);
   VAR values [6]SZ;
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(3 AS SZ) DO
-  { values[index] := index; queue.push(@value values[index]<-); }
+  { values[index] := index; queue.push(values[index]<-); }
   TEST_ASSERT(queue.pop() == values[0]<-);
   TEST_ASSERT(queue.pop() == values[1]<-);
-  queue.push(@value values[3]<-);
-  queue.push(@value values[4]<-);
+  queue.push(values[3]<-);
+  queue.push(values[4]<-);
   TEST_ASSERT(queue.pop() == values[2]<-);
   TEST_ASSERT(queue.pop() == values[3]<-);
-  queue.push(@value NULL);
-  queue.push(@value values[5]<-);
+  queue.push(NULL);
+  queue.push(values[5]<-);
   TEST_ASSERT(queue.pop() == values[4]<-);
   TEST_ASSERT(queue.pop() == NULL);
   TEST_ASSERT(queue.pop() == values[5]<-);
@@ -41,11 +41,11 @@ IMPORT std;
       {
         VAR value MUT->SZ := queue.pop();
         IF (value == NULL) { BREAK; }
-        result->.push_back(@value value->);
+        result->.push_back(value->);
         DELETE value;
       }
     };
-    consumers.push_back(@value std::thread(consume));
+    consumers.push_back(std::thread(consume));
     VAR producer_identity SZ := identity;
     AUTO produce := -< [queue, =producer_identity]
     {
@@ -53,14 +53,14 @@ IMPORT std;
       {
         VAR value MUT->SZ := NEW SZ;
         value-> := producer_identity * 512 + index;
-        queue.push(@value value);
+        queue.push(value);
       }
     };
-    producers.push_back(@value std::thread(produce));
+    producers.push_back(std::thread(produce));
   }
   LOOP ITEM(worker) IN(producers) DO { worker.join(); }
-  queue.push(@value NULL);
-  queue.push(@value NULL);
+  queue.push(NULL);
+  queue.push(NULL);
   LOOP ITEM(worker) IN(consumers) DO { worker.join(); }
   VAR seen [1024]BOOL;
   VAR count SZ := 0;

@@ -52,7 +52,7 @@ LANGUAGE QUXLANG EN 0.0;
       {
         LOOP INIT { VAR position SZ := index; } STEP { position++; } DO
         {
-          IF (.starts[position] == ((0 AS SZ) #!!)) { .active.push_back(@value position); }
+          IF (.starts[position] == ((0 AS SZ) #!!)) { .active.push_back(position); }
           IF (start < .starts[position]) { .starts[position] := start; }
           IF (program[position].optional == FALSE) { BREAK; }
         }
@@ -131,7 +131,7 @@ LANGUAGE QUXLANG EN 0.0;
   .CONSTRUCTOR DOC <$ Compiles pattern, throwing byte_regex::error for invalid syntax. $>
     FUNCTION(@EXPLICIT:pattern CONST& string)
   {
-    .alternatives.push_back(@value 0);
+    .alternatives.push_back(0);
     LOOP INIT { VAR index SZ := 0; } WHILE (index < pattern.size()) DO
     {
       VAR item token;
@@ -139,8 +139,8 @@ LANGUAGE QUXLANG EN 0.0;
       IF (first == 124)
       {
         item.accept := TRUE;
-        .program.push_back(@value item);
-        .alternatives.push_back(@value .program.size());
+        .program.push_back(item);
+        .alternatives.push_back(.program.size());
         index++;
         CONTINUE;
       }
@@ -184,11 +184,11 @@ LANGUAGE QUXLANG EN 0.0;
         IF (modifier == 42 || modifier == 43 || modifier == 63)
         { item.optional := modifier != 43; item.repeat := modifier != 63; index++; }
       }
-      .program.push_back(@value item);
+      .program.push_back(item);
     }
     VAR end token;
     end.accept := TRUE;
-    .program.push_back(@value end);
+    .program.push_back(end);
   }
 
   .count DOC <$ Counts nonoverlapping matches. An empty match advances by one byte, including one possible match at the input end. $>
@@ -221,16 +221,16 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP INIT { VAR offset SZ := 0; } WHILE (offset <= input.size()) DO
     {
       IF (.find(@input input, @offset offset, @current current, @next next, @result result) == FALSE) { BREAK; }
-      LOOP VALUE(index) FROM(copied) UNTIL(result.begin) DO { output.push_back(@value input[index]); }
+      LOOP VALUE(index) FROM(copied) UNTIL(result.begin) DO { output.push_back(input[index]); }
       LOOP INIT { VAR cursor CONST=>>BYTE := replacement.BEGIN(); }
         WHILE (cursor != replacement.END()) STEP { cursor++; } DO
-      { output.push_back(@value cursor[0]); }
+      { output.push_back(cursor[0]); }
       copied := result.end;
       offset := result.end;
       IF (result.begin == result.end)
       { IF (offset == input.size()) { BREAK; } offset++; }
     }
-    LOOP VALUE(index) FROM(copied) UNTIL(input.size()) DO { output.push_back(@value input[index]); }
+    LOOP VALUE(index) FROM(copied) UNTIL(input.size()) DO { output.push_back(input[index]); }
     RETURN MOVE(output);
   }
 }

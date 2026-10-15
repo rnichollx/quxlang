@@ -14,7 +14,7 @@ BODY
     TEST_ASSERT(values.size() == 0);
     MEASURE(insertion_time) COUNT(size)
     {
-      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO { values.push_back(@value index AS U64); }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO { values.push_back(index AS U64); }
     }
     TEST_ASSERT(values.size() == size);
     MEASURE(deletion_time) COUNT(size)

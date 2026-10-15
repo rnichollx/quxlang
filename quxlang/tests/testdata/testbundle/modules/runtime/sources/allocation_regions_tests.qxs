@@ -133,7 +133,7 @@ PRIVATE(MODULE) ::layer3_region_batch_return_test
   VAR second_control MUT->layer3_region_control := second_region->.control;
   VAR mixed addr_cache#(@count (layer3_bitmap_word_bits * 4 + 10));
   LOOP WHILE (first.used > 0) DO
-  { mixed.push(@entry first.pop()); mixed.push(@entry second.pop()); }
+  { mixed.push(first.pop()); mixed.push(second.pop()); }
   layer2_drain_cache#(@count (layer3_bitmap_word_bits * 4 + 10))(@cache mixed);
   TEST_ASSERT(mixed.used == 0);
   TEST_ASSERT(first_control->.region == first_region);
@@ -145,8 +145,8 @@ PRIVATE(MODULE) ::layer3_region_batch_return_test
     TEST_ASSERT(first_region->.bitmap[word].LOAD#ATOMIC_ACQUIRE() == expected);
     TEST_ASSERT(second_region->.bitmap[word].LOAD#ATOMIC_ACQUIRE() == expected);
   }
-  mixed.push(@entry held_first);
-  mixed.push(@entry held_second);
+  mixed.push(held_first);
+  mixed.push(held_second);
   layer2_drain_cache#(@count (layer3_bitmap_word_bits * 4 + 10))(@cache mixed);
   TEST_ASSERT((first_control->.region??) == FALSE);
   TEST_ASSERT((second_control->.region??) == FALSE);

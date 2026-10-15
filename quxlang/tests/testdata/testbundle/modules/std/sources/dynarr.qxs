@@ -584,7 +584,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   .push_back DOC <$ Takes ownership of value before growth and moves it into the array. $>
-    FUNCTION(@value T) MUT: VOID
+    FUNCTION(@ARG:value T) MUT: VOID
   {
     .insert(@index .length, @value MOVE(value));
   }

@@ -155,7 +155,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       STATIC_EVAL source := "second";
     }
-    STATIC_EVAL source.push_back(@value 33);
+    STATIC_EVAL source.push_back(33);
     TEST_ASSERT(SNAPSHOT(source) == "second!");
   }
 
