@@ -665,6 +665,11 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
                 add_functanoid(result, arithmetic_failure_function(arithmetic_mode));
             }
 
+            if (instruction.type_is< iconv >() && instruction.as< iconv >().convtype == conversion_class::checked)
+            {
+                add_functanoid(result, arithmetic_failure_function(overflow_mode::checked));
+            }
+
             if (instruction.type_is< invoke >())
             {
                 add_functanoid(result, instruction.as< invoke >().what);

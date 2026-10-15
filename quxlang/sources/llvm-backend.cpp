@@ -7999,12 +7999,36 @@ namespace quxlang::llvm_backend::detail
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::iconv const& instruction)
         {
-            (void)current_block;
             quxlang::vmir2::iconv const& inst = instruction;
             quxlang::type_symbol const& source_type = state.routine->local_types.at(local_slot_index(inst.from)).type;
             quxlang::type_symbol const& target_type = state.routine->local_types.at(local_slot_index(inst.to)).type;
             llvm::Value* value = integer_value(state, builder, inst.from);
             llvm::IntegerType* destination_type = llvm::cast< llvm::IntegerType >(value_storage_type(target_type));
+            bool signed_source = source_type.type_is< quxlang::int_type >() && source_type.get_as< quxlang::int_type >().has_sign;
+            bool signed_destination = target_type.type_is< quxlang::int_type >() && target_type.get_as< quxlang::int_type >().has_sign;
+            std::uint32_t source_width = llvm::cast< llvm::IntegerType >(value->getType())->getBitWidth();
+            std::uint32_t destination_width = destination_type->getBitWidth();
+            if (inst.convtype == quxlang::vmir2::conversion_class::checked)
+            {
+                llvm::Value* invalid = builder.getFalse();
+                if (signed_source && !signed_destination)
+                {
+                    invalid = builder.CreateICmpSLT(value, llvm::ConstantInt::get(value->getType(), 0));
+                }
+                if (source_width - signed_source > destination_width - signed_destination)
+                {
+                    llvm::APInt maximum = signed_destination ? llvm::APInt::getSignedMaxValue(destination_width) : llvm::APInt::getMaxValue(destination_width);
+                    llvm::Value* upper = llvm::ConstantInt::get(context, maximum.zextOrTrunc(source_width));
+                    llvm::Value* above = signed_source ? builder.CreateICmpSGT(value, upper) : builder.CreateICmpUGT(value, upper);
+                    invalid = builder.CreateOr(invalid, above);
+                }
+                if (signed_source && signed_destination && source_width > destination_width)
+                {
+                    llvm::APInt minimum = llvm::APInt::getSignedMinValue(destination_width).sext(source_width);
+                    invalid = builder.CreateOr(invalid, builder.CreateICmpSLT(value, llvm::ConstantInt::get(context, minimum)));
+                }
+                emit_arithmetic_failure(state, current_block, invalid, quxlang::vmir2::overflow_mode::checked);
+            }
             llvm::Value* converted = value;
             if (value->getType() == destination_type)
             {
@@ -8016,7 +8040,6 @@ namespace quxlang::llvm_backend::detail
             }
             else
             {
-                bool signed_source = source_type.type_is< quxlang::int_type >() && source_type.get_as< quxlang::int_type >().has_sign;
                 converted = signed_source ? builder.CreateSExt(value, destination_type) : builder.CreateZExt(value, destination_type);
             }
             store_slot_value(state, builder, inst.to, converted);

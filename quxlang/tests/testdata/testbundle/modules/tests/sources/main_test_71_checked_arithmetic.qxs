@@ -71,6 +71,154 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((a #-%! 3) == 3);
   }
 
+  ::addition_overflow DOC <$ Checked addition of two operands throws the arithmetic overflow exception. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR result T := a +? b;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
+    caught := FALSE;
+    VAR value T := a;
+    TRY
+    {
+      value +=? b;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(value == a);
+  }
+
+  ::addition_overflow_operands DOC <$ Signed, unsigned, and non-byte additions propagate typed range failures. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    addition_overflow#I8(@a 127, @b 1);
+    addition_overflow#I8(@a -128, @b -1);
+    addition_overflow#U8(@a 255, @b 1);
+    addition_overflow#I5(@a 15, @b 1);
+    addition_overflow#I5(@a -16, @b -1);
+    addition_overflow#U5(@a 31, @b 1);
+  }
+
+  ::subtraction_overflow DOC <$ Checked subtraction of two operands throws the arithmetic overflow exception. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR result T := a -? b;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
+    caught := FALSE;
+    VAR value T := a;
+    TRY
+    {
+      value -=? b;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(value == a);
+  }
+
+  ::multiplication_overflow DOC <$ Checked multiplication of two operands throws the arithmetic overflow exception. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR result T := a *? b;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
+    caught := FALSE;
+    VAR value T := a;
+    TRY
+    {
+      value *=? b;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(value == a);
+  }
+
+  ::division_overflow DOC <$ Checked division of two operands throws the arithmetic overflow exception. $>
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR result T := a /? b;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
+    caught := FALSE;
+    VAR value T := a;
+    TRY
+    {
+      value /=? b;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(value == a);
+  }
+
+  ::subtraction_overflow_operands DOC <$ Signed bounds and unsigned underflow produce typed subtraction failures. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    subtraction_overflow#I8(@a -128, @b 1);
+    subtraction_overflow#I8(@a 127, @b -1);
+    subtraction_overflow#U8(@a 0, @b 1);
+    subtraction_overflow#I5(@a -16, @b 1);
+    subtraction_overflow#I5(@a 15, @b -1);
+    subtraction_overflow#U5(@a 0, @b 1);
+  }
+
+  ::multiplication_overflow_operands DOC <$ Signed and unsigned products outside the destination range produce typed failures. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    multiplication_overflow#I8(@a 64, @b 2);
+    multiplication_overflow#I8(@a -65, @b 2);
+    multiplication_overflow#I8(@a -128, @b -1);
+    multiplication_overflow#U8(@a 128, @b 2);
+    multiplication_overflow#I5(@a 8, @b 2);
+    multiplication_overflow#I5(@a -9, @b 2);
+    multiplication_overflow#U5(@a 16, @b 2);
+  }
+
+  ::division_overflow_operands DOC <$ Dividing the minimum signed value by negative one produces a typed failure. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    division_overflow#I8(@a -128, @b -1);
+    division_overflow#I5(@a -16, @b -1);
+  }
+
+  ::division_by_zero DOC <$ Checked division by zero throws arithmetic overflow for signed and unsigned operands. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    division_overflow#I8(@a 0, @b 0);
+    division_overflow#I8(@a 1, @b 0);
+    division_overflow#I8(@a -1, @b 0);
+    division_overflow#U8(@a 0, @b 0);
+    division_overflow#U8(@a 1, @b 0);
+    division_overflow#I5(@a 0, @b 0);
+    division_overflow#I5(@a 1, @b 0);
+    division_overflow#I5(@a -1, @b 0);
+    division_overflow#U5(@a 0, @b 0);
+    division_overflow#U5(@a 1, @b 0);
+  }
+
   ::overflow_exceptions DOC <$ Range failures propagate as typed exceptions for signed and unsigned arithmetic. $>
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {

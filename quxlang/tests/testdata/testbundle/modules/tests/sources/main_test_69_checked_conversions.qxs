@@ -22,45 +22,140 @@ LANGUAGE QUXLANG EN 0.0;
     unsigned_limits#(U32)(@maximum 4294967295);
   }
 
-  ::signed_byte_above_maximum DOC <$ Checked signed narrowing rejects the first value above the positive bound. $>
-    STATIC_TEST EXPECT_FAIL
+  ::signed_endpoints DOC <$ Checked conversions preserve signed endpoints and valid signedness changes. $>
+    DUAL_TEST
   {
-    VAR source I16 := 128;
-    VAR result I8 := source AS CHECKED I8;
+    VAR low I16 := (0 AS I16) - 128;
+    VAR high I16 := 127;
+    TEST_ASSERT((low AS CHECKED I8) == (0 AS I8) - 127 - 1);
+    TEST_ASSERT((high AS CHECKED I8) == 127);
+    VAR narrow_low I16 := (0 AS I16) - 16;
+    VAR narrow_high I16 := 15;
+    TEST_ASSERT((narrow_low AS CHECKED I5) == (0 AS I5) - 15 - 1);
+    TEST_ASSERT((narrow_high AS CHECKED I5) == 15);
+    VAR unsigned_high U8 := 255;
+    TEST_ASSERT((unsigned_high AS CHECKED I16) == 255);
+    VAR positive I16 := 255;
+    TEST_ASSERT((positive AS CHECKED U8) == 255);
+    VAR same_width U8 := 127;
+    TEST_ASSERT((same_width AS CHECKED I8) == 127);
+  }
+
+  ::signed_byte_above_maximum DOC <$ Checked signed narrowing rejects the first value above the positive bound. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR source I16 := 128;
+      VAR result I8 := source AS CHECKED I8;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
   }
 
   ::signed_byte_below_minimum DOC <$ Checked signed narrowing rejects the first value below the negative bound. $>
-    STATIC_TEST EXPECT_FAIL
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
-    VAR source I16 := (0 AS I16) - 129;
-    VAR result I8 := source AS CHECKED I8;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR source I16 := (0 AS I16) - 129;
+      VAR result I8 := source AS CHECKED I8;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
   }
 
   ::negative_to_unsigned DOC <$ Checked conversion rejects a negative source even when its bit width fits the unsigned destination. $>
-    STATIC_TEST EXPECT_FAIL
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
-    VAR source I8 := (0 AS I8) - 1;
-    VAR result U64 := source AS CHECKED U64;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR source I8 := (0 AS I8) - 1;
+      VAR result U64 := source AS CHECKED U64;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
   }
 
   ::unsigned_byte_above_maximum DOC <$ Checked unsigned narrowing rejects the first value that loses a high bit. $>
-    STATIC_TEST EXPECT_FAIL
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
-    VAR source U16 := 256;
-    VAR result U8 := source AS CHECKED U8;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR source U16 := 256;
+      VAR result U8 := source AS CHECKED U8;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
   }
 
   ::nonbyte_signed_above_maximum DOC <$ Checked narrowing enforces a non-byte signed range rather than its storage-byte range. $>
-    STATIC_TEST EXPECT_FAIL
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
-    VAR source I16 := 16;
-    VAR result I5 := source AS CHECKED I5;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR source I16 := 16;
+      VAR result I5 := source AS CHECKED I5;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
   }
 
   ::nonbyte_unsigned_above_maximum DOC <$ Checked narrowing enforces a non-byte unsigned range rather than its storage-byte range. $>
-    STATIC_TEST EXPECT_FAIL
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
-    VAR source U16 := 32;
-    VAR result U5 := source AS CHECKED U5;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      VAR source U16 := 32;
+      VAR result U5 := source AS CHECKED U5;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught := TRUE; }
+    TEST_ASSERT(caught);
+  }
+
+  ::same_width_signedness DOC <$ Checked conversions reject values outside the range after a signedness change. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR caught U32 := 0;
+    TRY { VAR value U8 := 128; VAR result I8 := value AS CHECKED I8; TEST_ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR value I8 := (0 AS I8) - 1; VAR result U8 := value AS CHECKED U8; TEST_ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TRY { VAR value U64 := 18446744073709551615; VAR result I64 := value AS CHECKED I64; TEST_ASSERT(FALSE); }
+    CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
+    TEST_ASSERT(caught == 3);
+  }
+
+  ::conversion_cleanup DOC <$ Conversion failure unwinds deferred actions before entering the handler. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR cleaned U32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      DEFER { cleaned++; }
+      VAR value I16 := 128;
+      VAR result I8 := value AS CHECKED I8;
+      TEST_ASSERT(FALSE);
+    }
+    CATCH error CONST& ARITHMETIC_OVERFLOW
+    {
+      caught := TRUE;
+      TEST_ASSERT(cleaned == 1);
+    }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(cleaned == 1);
   }
 }

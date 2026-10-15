@@ -4178,7 +4178,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     else
     {
-        // conversion class checked triggers a fault, but the result is the same for constexpr
+        // Checked conversions propagate an exception when the value is out of range.
         to_opt.overflow_undefined = true;
     }
 
@@ -4189,7 +4189,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         if (icv.convtype == conversion_class::checked)
         {
-            raise_fault("CHECKED_CONVERSION_FAULT");
+            call_func(arithmetic_failure_function(overflow_mode::checked), {});
             return;
         }
         else
