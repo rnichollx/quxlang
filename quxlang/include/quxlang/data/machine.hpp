@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <quxlang/exception.hpp>
 #include <rpnx/macros.hpp>
 #include <stdexcept>
@@ -71,6 +72,12 @@ namespace quxlang
 
             throw quxlang::compiler_bug("Pointer size is not implemented for this CPU");
         };
+
+        /** Returns the largest object extent representable by the target address-sized unsigned integer. */
+        constexpr auto maximum_object_extent() const -> std::uint64_t
+        {
+            return std::numeric_limits< std::uint64_t >::max() >> (64 - pointer_size_bytes() * 8);
+        }
 
         /** Returns the largest integer ABI alignment supported by the target. */
         constexpr std::uint64_t max_int_align() const

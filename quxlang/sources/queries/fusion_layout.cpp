@@ -83,6 +83,7 @@ rpnx::querygraph::coroutine< quxlang::fusion_layout_spec > quxlang::fusion_layou
     {
         throw semantic_compilation_error("Physical fusion layout is unavailable for a layoutless target: " + to_string(input));
     }
+    std::uint64_t maximum_extent = machine.maximum_object_extent();
     std::uint64_t const pointer_size = machine.pointer_size_bytes();
     std::uint64_t const pointer_alignment = machine.pointer_align();
 
@@ -123,10 +124,10 @@ rpnx::querygraph::coroutine< quxlang::fusion_layout_spec > quxlang::fusion_layou
     result.tag_type = int_type{.bits = tag_bits, .has_sign = false};
     result.payload_offset = 0;
     result.tag_offset = result.payload_placement.size;
-    advance_to_alignment(result.tag_offset, tag_alignment);
+    advance_to_alignment(result.tag_offset, tag_alignment, maximum_extent);
 
     result.placement.alignment = std::max(result.payload_placement.alignment, tag_alignment);
-    result.placement.size = result.tag_offset + tag_size;
-    advance_to_alignment(result.placement.size, result.placement.alignment);
+    result.placement.size = add_object_extent(result.tag_offset, tag_size, maximum_extent);
+    advance_to_alignment(result.placement.size, result.placement.alignment, maximum_extent);
     co_return result;
 }

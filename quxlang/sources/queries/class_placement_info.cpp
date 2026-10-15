@@ -3,6 +3,7 @@
 #include "quxlang/data/machine.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/manipulators/struct_math.hpp>
 #include <quxlang/queries/specs/class_placement_info_spec.hpp>
 
 rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class_placement_info_impl(type_symbol input)
@@ -14,6 +15,16 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
     {
         throw semantic_compilation_error("Physical class placement is unavailable for a layoutless target: " + type_str);
     }
+
+    std::uint64_t maximum_extent = machine_info.maximum_object_extent();
+    auto validate_placement = [&](class_placement_info placement) -> class_placement_info
+    {
+        if (placement.size > maximum_extent || placement.alignment > maximum_extent)
+        {
+            throw semantic_compilation_error("Object layout exceeds the target size limit: " + type_str);
+        }
+        return placement;
+    };
 
     auto expr_u64 = [](expression const& expr) -> std::uint64_t
     {
@@ -40,32 +51,32 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
             result.size = sz;
             result.alignment = machine_info.atomic_integer_alignment_for_bits(int_kw.bits);
 
-            co_return result;
+            co_return validate_placement(result);
         }
         if (atomic_value_type->template type_is< byte_type >() || atomic_value_type->template type_is< bool_type >())
         {
-            co_return class_placement_info{.size = 1, .alignment = 1};
+            co_return validate_placement(class_placement_info{.size = 1, .alignment = 1});
         }
         if (atomic_value_type->template type_is< ptrref_type >())
         {
-            co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+            co_return validate_placement(class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()});
         }
         throw quxlang::compiler_bug("Unimplemented atomic class_placement_info for: " + quxlang::to_string(type));
     }
 
     if (type.template type_is< void_type >() || typeis< numeric_literal_type >(type) || typeis< string_literal_type >(type))
     {
-        co_return class_placement_info{.size = 0, .alignment = 1};
+        co_return validate_placement(class_placement_info{.size = 0, .alignment = 1});
     }
     else if (type.template type_is< attached_type_reference >())
     {
         attached_type_reference const& attached = as< attached_type_reference >(type);
         if (typeis< void_type >(attached.carrying_type))
         {
-            co_return class_placement_info{.size = 0, .alignment = 1};
+            co_return validate_placement(class_placement_info{.size = 0, .alignment = 1});
         }
 
-        co_return co_await rpnx::querygraph::request< class_placement_info_query >(attached.carrying_type);
+        co_return validate_placement(co_await rpnx::querygraph::request< class_placement_info_query >(attached.carrying_type));
     }
     else if (type.template type_is< ptrref_type >() || type.template type_is< procedure_type >())
     {
@@ -73,31 +84,31 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         result.alignment = machine_info.pointer_align();
         result.size = machine_info.pointer_size_bytes();
 
-        co_return result;
+        co_return validate_placement(result);
     }
     else if (type.template type_is< composite_type >() || type.template type_is< subsymbol >() || type.template type_is< submember >() || type.template type_is< instanciation_reference >() || type.template type_is< builtin_symbol >())
     {
         symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
         if (kind == symbol_kind::interface_)
         {
-            co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+            co_return validate_placement(class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()});
         }
         class_kind const concrete_kind = co_await rpnx::querygraph::request< class_type_query >(type);
         if (concrete_kind == class_kind::enum_)
         {
             enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
             std::uint64_t const storage_bytes = info.format.storage_bytes();
-            co_return class_placement_info{.size = storage_bytes, .alignment = machine_info.integer_alignment_for_bits(storage_bytes * 8)};
+            co_return validate_placement(class_placement_info{.size = storage_bytes, .alignment = machine_info.integer_alignment_for_bits(storage_bytes * 8)});
         }
         if (concrete_kind == class_kind::flagset)
         {
             flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(type);
-            co_return class_placement_info{.size = info.storage_bytes, .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)};
+            co_return validate_placement(class_placement_info{.size = info.storage_bytes, .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)});
         }
         if (concrete_kind == class_kind::union_ || concrete_kind == class_kind::variant)
         {
             fusion_layout const layout = co_await rpnx::querygraph::request< fusion_layout_query >(type);
-            co_return layout.placement;
+            co_return validate_placement(layout.placement);
         }
         if (concrete_kind != class_kind::struct_ && concrete_kind != class_kind::generic && concrete_kind != class_kind::generic_ref)
         {
@@ -110,7 +121,7 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         result.size = layout.complete_size;
         result.alignment = layout.complete_align;
 
-        co_return result;
+        co_return validate_placement(result);
     }
     else if (type.template type_is< int_type >())
     {
@@ -130,7 +141,7 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         result.size = sz;
         result.alignment = machine_info.integer_alignment_for_bits(int_kw.bits);
 
-        co_return result;
+        co_return validate_placement(result);
     }
     else if (type.template type_is< float_type >())
     {
@@ -146,43 +157,43 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         result.size = sz;
         result.alignment = machine_info.float_alignment_for_bits(float_kw.bits);
 
-        co_return result;
+        co_return validate_placement(result);
     }
     else if (type.template type_is< byte_type >() || type.template type_is< bool_type >())
     {
-        co_return class_placement_info{.size = 1, .alignment = 1};
+        co_return validate_placement(class_placement_info{.size = 1, .alignment = 1});
     }
     else if (type.template type_is< readonly_constant >())
     {
         std::uint64_t const pointer_size = machine_info.pointer_size_bytes();
         std::uint64_t const pointer_align = machine_info.pointer_align();
-        co_return class_placement_info{
+        co_return validate_placement(class_placement_info{
             .size = pointer_size * 2,
             .alignment = pointer_align,
-        };
+        });
     }
     else if (type.template type_is< array_type >())
     {
         auto const& array = as< array_type >(type);
         auto element_placement = co_await rpnx::querygraph::request< class_placement_info_query >(array.element_type);
         auto element_count = expr_u64(array.element_count);
-        co_return class_placement_info{.size = element_placement.size * element_count, .alignment = element_placement.alignment};
+        co_return validate_placement(class_placement_info{.size = multiply_object_extent(element_placement.size, element_count, maximum_extent), .alignment = element_placement.alignment});
     }
     else if (type.template type_is< initguard_type >() || type.template type_is< initguard_lock_type >())
     {
-        co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+        co_return validate_placement(class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()});
     }
     else if (type.template type_is< address_type >())
     {
-        co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+        co_return validate_placement(class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()});
     }
     else if (type.template type_is< type_index_type >())
     {
-        co_return class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+        co_return validate_placement(class_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()});
     }
     else if (type.template type_is< constexpr_proxy >())
     {
-        co_return class_placement_info{.size = 0, .alignment = 1};
+        co_return validate_placement(class_placement_info{.size = 0, .alignment = 1});
     }
     else if (type.template type_is< storage >())
     {
@@ -193,11 +204,11 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
             result.size = std::max< std::uint64_t >(result.size, child.size);
             result.alignment = std::max< std::uint64_t >(result.alignment, child.alignment);
         }
-        co_return result;
+        co_return validate_placement(result);
     }
     else if (type.template type_is< aligned_storage >())
     {
-        co_return class_placement_info{.size = expr_u64(as< aligned_storage >(type).size), .alignment = expr_u64(as< aligned_storage >(type).align)};
+        co_return validate_placement(class_placement_info{.size = expr_u64(as< aligned_storage >(type).size), .alignment = expr_u64(as< aligned_storage >(type).align)});
     }
     else if (type.template type_is< virtual_storage >())
     {

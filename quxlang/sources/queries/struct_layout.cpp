@@ -36,6 +36,15 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
     struct_inheritance_info inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(input);
     struct_runtime_requirements runtime_requirements = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(input);
     machine_target_info machine = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+    std::uint64_t maximum_extent = machine.maximum_object_extent();
+    auto subobject_offset = [](std::uint64_t offset) -> std::int64_t
+    {
+        if (offset > static_cast< std::uint64_t >(std::numeric_limits< std::int64_t >::max()))
+        {
+            throw semantic_compilation_error("Base offset exceeds the signed layout representation");
+        }
+        return static_cast< std::int64_t >(offset);
+    };
     std::vector< struct_field > struct_fields = co_await rpnx::querygraph::request< struct_field_list_query >(input);
     struct pending_struct_field
     {
@@ -105,9 +114,9 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
         };
         if (!primary_base_ordinal.has_value())
         {
-            advance_to_alignment(nonvirtual_cursor, machine.pointer_align());
+            advance_to_alignment(nonvirtual_cursor, machine.pointer_align(), maximum_extent);
             output.runtime_header->offset = nonvirtual_cursor;
-            nonvirtual_cursor += machine.pointer_size_bytes();
+            nonvirtual_cursor = add_object_extent(nonvirtual_cursor, machine.pointer_size_bytes(), maximum_extent);
             output.nonvirtual_align = std::max< std::uint64_t >(output.nonvirtual_align, machine.pointer_align());
         }
     }
@@ -120,18 +129,18 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
             offset = 0;
             while (occupied_base_addresses.contains(std::pair{base.base_type, offset}))
             {
-                offset += base_layout.nonvirtual_align;
+                offset = add_object_extent(offset, base_layout.nonvirtual_align, maximum_extent);
             }
         }
         else
         {
-            advance_to_alignment(nonvirtual_cursor, base_layout.nonvirtual_align);
+            advance_to_alignment(nonvirtual_cursor, base_layout.nonvirtual_align, maximum_extent);
             offset = nonvirtual_cursor;
-            nonvirtual_cursor += base_layout.nonvirtual_size;
+            nonvirtual_cursor = add_object_extent(nonvirtual_cursor, base_layout.nonvirtual_size, maximum_extent);
         }
         occupied_base_addresses.emplace(base.base_type, offset);
         output.nonvirtual_align = std::max(output.nonvirtual_align, base_layout.nonvirtual_align);
-        output.direct_bases.at(direct_layout_index_by_ordinal.at(base.declaration_ordinal)).offset = static_cast< std::int64_t >(offset);
+        output.direct_bases.at(direct_layout_index_by_ordinal.at(base.declaration_ordinal)).offset = subobject_offset(offset);
     };
 
     if (primary_base_ordinal.has_value())
@@ -161,16 +170,16 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
         this_field.type = std::move(pending_field.field.type);
         this_field.ibc_access = pending_field.field.ibc_access;
         this_field.declaration_ordinal = pending_field.declaration_ordinal;
-        advance_to_alignment(nonvirtual_cursor, pending_field.placement.alignment);
+        advance_to_alignment(nonvirtual_cursor, pending_field.placement.alignment, maximum_extent);
         this_field.offset = nonvirtual_cursor;
-        nonvirtual_cursor += pending_field.placement.size;
+        nonvirtual_cursor = add_object_extent(nonvirtual_cursor, pending_field.placement.size, maximum_extent);
         output.nonvirtual_align = std::max< std::uint64_t >(output.nonvirtual_align, pending_field.placement.alignment);
         output.fields.push_back(std::move(this_field));
     }
 
     if (is_ibc)
     {
-        advance_to_alignment(nonvirtual_cursor, output.nonvirtual_align);
+        advance_to_alignment(nonvirtual_cursor, output.nonvirtual_align, maximum_extent);
     }
 
     output.nonvirtual_size = nonvirtual_cursor;
@@ -187,14 +196,14 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
             offset = 0;
             while (occupied_base_addresses.contains(std::pair{virtual_type, offset}))
             {
-                offset += virtual_layout.nonvirtual_align;
+                offset = add_object_extent(offset, virtual_layout.nonvirtual_align, maximum_extent);
             }
         }
         else
         {
-            advance_to_alignment(complete_cursor, virtual_layout.nonvirtual_align);
+            advance_to_alignment(complete_cursor, virtual_layout.nonvirtual_align, maximum_extent);
             offset = complete_cursor;
-            complete_cursor += virtual_layout.nonvirtual_size;
+            complete_cursor = add_object_extent(complete_cursor, virtual_layout.nonvirtual_size, maximum_extent);
         }
         occupied_base_addresses.emplace(virtual_type, offset);
         virtual_base_offsets.emplace(virtual_type, offset);
@@ -203,18 +212,18 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
             .subobject = struct_subobject_id{.virtual_root = virtual_type},
             .type = virtual_type,
             .virtual_ordinal = virtual_ordinal,
-            .offset = static_cast< std::int64_t >(offset),
+            .offset = subobject_offset(offset),
         });
     }
     for (struct_base_declaration const& base : inheritance.direct_bases)
     {
         if (base.kind == inheritance_kind::virtual_)
         {
-            output.direct_bases.at(direct_layout_index_by_ordinal.at(base.declaration_ordinal)).offset = static_cast< std::int64_t >(virtual_base_offsets.at(base.base_type));
+            output.direct_bases.at(direct_layout_index_by_ordinal.at(base.declaration_ordinal)).offset = subobject_offset(virtual_base_offsets.at(base.base_type));
         }
     }
     output.complete_size = complete_cursor;
-    advance_to_alignment(output.complete_size, output.complete_align);
+    advance_to_alignment(output.complete_size, output.complete_align, maximum_extent);
 
     co_return output;
 }
