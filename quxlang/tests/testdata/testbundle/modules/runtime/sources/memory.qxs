@@ -523,7 +523,7 @@ PRIVATE(MODULE) ::layer2_release_empty_cache_node DOC <$
   IF (layer2_empty_cache_root_for#(@count count).try_push(@node node)) { RETURN; }
   VAR metadata MUT->layer2_metadata_region := node->.metadata;
   VAR mapping_bytes SZ := metadata->.mapping_bytes;
-  IF (metadata->.remaining.FETCH_SUB#ATOMIC_ACQREL(1) == 1)
+  IF (metadata->.remaining.FETCH_SUBTRACT#ATOMIC_ACQREL(1) == 1)
   { layer5_unmap_region(@address IBC_GETADDR(@PTR metadata), @bytes mapping_bytes); }
 }
 

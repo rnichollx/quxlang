@@ -97,4 +97,32 @@ IMPORT std;
     second.join();
     TEST_ASSERT(counter.LOAD#ATOMIC_ACQUIRE() == 2000);
   }
+  ::contended_fetch_multiply INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Compare-exchange multiplication preserves every update and returns each preceding power exactly once. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR counter ATOMIC#U64;
+    counter.STORE#ATOMIC_RELAXED(1);
+    VAR sum ATOMIC#U64;
+    sum.STORE#ATOMIC_RELAXED(0);
+    VAR ready ATOMIC#BOOL;
+    ready.STORE#ATOMIC_RELAXED(FALSE);
+    VAR action AUTO := -<
+    {
+      LOOP WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE) DO { }
+      VAR count SZ := 0;
+      LOOP WHILE (count < 1000) DO
+      {
+        sum.ADD#ATOMIC_RELAXED(counter.FETCH_MULTIPLY#ATOMIC_RELAXED(3));
+        count++;
+      }
+    };
+    VAR first std::thread := std::thread(action);
+    VAR second std::thread := std::thread(action);
+    ready.STORE#ATOMIC_RELEASE(TRUE);
+    first.join();
+    second.join();
+    TEST_ASSERT(counter.LOAD#ATOMIC_RELAXED() == 12724044099311663681);
+    TEST_ASSERT(sum.LOAD#ATOMIC_RELAXED() == 6362022049655831840);
+  }
+
 }

@@ -5201,8 +5201,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_shift_up const& op)
 {
     auto target = load_from_reference(op.target, true);
+    if (op.old_value.has_value())
+    {
+        local_set_data(output_local(*op.old_value), target->data);
+    }
     auto amount_bytes = consume_local_as_data(op.amount);
-    auto target_type = remove_ref(get_local_type(op.target));
+    auto target_type = atomic_storage_type_or_self(remove_ref(get_local_type(op.target)));
 
     std::size_t bits = get_bit_width_for_type(target_type);
     if (bits == 0)
@@ -5232,8 +5236,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_shift_down const& op)
 {
     auto target = load_from_reference(op.target, true);
+    if (op.old_value.has_value())
+    {
+        local_set_data(output_local(*op.old_value), target->data);
+    }
     auto amount_bytes = consume_local_as_data(op.amount);
-    auto target_type = remove_ref(get_local_type(op.target));
+    auto target_type = atomic_storage_type_or_self(remove_ref(get_local_type(op.target)));
 
     std::size_t bits = get_bit_width_for_type(target_type);
     if (bits == 0)
@@ -5263,8 +5271,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_rotate_up const& op)
 {
     auto target = load_from_reference(op.target, true);
+    if (op.old_value.has_value())
+    {
+        local_set_data(output_local(*op.old_value), target->data);
+    }
     auto amount_bytes = consume_local_as_data(op.amount);
-    auto target_type = remove_ref(get_local_type(op.target));
+    auto target_type = atomic_storage_type_or_self(remove_ref(get_local_type(op.target)));
 
     std::size_t bits = get_bit_width_for_type(target_type);
     if (bits == 0)
@@ -5305,8 +5317,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_rotate_down const& op)
 {
     auto target = load_from_reference(op.target, true);
+    if (op.old_value.has_value())
+    {
+        local_set_data(output_local(*op.old_value), target->data);
+    }
     auto amount_bytes = consume_local_as_data(op.amount);
-    auto target_type = remove_ref(get_local_type(op.target));
+    auto target_type = atomic_storage_type_or_self(remove_ref(get_local_type(op.target)));
 
     std::size_t bits = get_bit_width_for_type(target_type);
     if (bits == 0)

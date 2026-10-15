@@ -1241,21 +1241,37 @@ namespace quxlang::vmir2
         {
             consume(op.target);
             consume(op.amount);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_shift_down const& op)
         {
             consume(op.target);
             consume(op.amount);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_rotate_up const& op)
         {
             consume(op.target);
             consume(op.amount);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_rotate_down const& op)
         {
             consume(op.target);
             consume(op.amount);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::store_to_ref const& str)
         {

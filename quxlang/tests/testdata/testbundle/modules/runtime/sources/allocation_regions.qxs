@@ -58,7 +58,7 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
 
   .release_shared DOC <$ Completes all region accesses before dropping the reader count. $>
     FUNCTION()
-  { .semaphore.FETCH_SUB#ATOMIC_RELEASE(1); }
+  { .semaphore.FETCH_SUBTRACT#ATOMIC_RELEASE(1); }
 
   .try_exclusive DOC <$ Requests exclusive ownership and drains existing readers. $>
     FUNCTION(): BOOL
@@ -289,7 +289,7 @@ PRIVATE(MODULE) ::layer3_region_return_batch DOC <$
       mask := mask #|| bit;
       cache.pop();
     }
-    VAR previous layer3_bitmap_word := region->.bitmap[word].FETCH_AND#ATOMIC_RELEASE(mask #!!);
+    VAR previous layer3_bitmap_word := region->.bitmap[word].FETCH_BIT_AND#ATOMIC_RELEASE(mask #!!);
     ASSERT((previous #&& mask) == mask, "A region slot was returned twice.");
   }
   IF (region->.available.LOAD#ATOMIC_ACQUIRE() == 0)
@@ -343,8 +343,11 @@ PRIVATE(MODULE) ::layer3_region_refill DOC <$
         CONTINUE;
       }
       root.mtx.unlock();
-      IF (control->.try_exclusive() == FALSE) { yield_thread_execution(); CONTINUE; }
-      IF ((control->.region??) == FALSE)
+      IF (control->.try_exclusive() !!) {
+        yield_thread_execution();
+        CONTINUE;
+      }
+      IF (control->.region!?)
       {
         VAR region MUT->layer3_region := layer4_region_acquire();
         region->.control := control;

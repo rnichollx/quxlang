@@ -5620,6 +5620,21 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::mut_bitwise_shift_up >)
                                                 {
+                                                    if (selected.access_mode != atomic_access_mode::nonatomic)
+                                                    {
+                                                        throw rpnx::unimplemented();
+                                                    }
+                                                    if (selected.old_value.has_value())
+                                                    {
+                                                        if (m_reference_aliases.at(local_slot(selected.target)).has_value())
+                                                        {
+                                                            copy_local(resolved_reference(selected.target), *selected.old_value);
+                                                        }
+                                                        else
+                                                        {
+                                                            load_managed_reference(selected.target, *selected.old_value);
+                                                        }
+                                                    }
                                                     if (m_reference_aliases.at(local_slot(selected.target)).has_value())
                                                     {
                                                         vmir2::local_index const target = resolved_reference(selected.target);
@@ -5640,6 +5655,21 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::mut_bitwise_shift_down >)
                                                 {
+                                                    if (selected.access_mode != atomic_access_mode::nonatomic)
+                                                    {
+                                                        throw rpnx::unimplemented();
+                                                    }
+                                                    if (selected.old_value.has_value())
+                                                    {
+                                                        if (m_reference_aliases.at(local_slot(selected.target)).has_value())
+                                                        {
+                                                            copy_local(resolved_reference(selected.target), *selected.old_value);
+                                                        }
+                                                        else
+                                                        {
+                                                            load_managed_reference(selected.target, *selected.old_value);
+                                                        }
+                                                    }
                                                     if (m_reference_aliases.at(local_slot(selected.target)).has_value())
                                                     {
                                                         vmir2::local_index const target = resolved_reference(selected.target);
@@ -5660,6 +5690,21 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::mut_bitwise_rotate_up >)
                                                 {
+                                                    if (selected.access_mode != atomic_access_mode::nonatomic)
+                                                    {
+                                                        throw rpnx::unimplemented();
+                                                    }
+                                                    if (selected.old_value.has_value())
+                                                    {
+                                                        if (m_reference_aliases.at(local_slot(selected.target)).has_value())
+                                                        {
+                                                            copy_local(resolved_reference(selected.target), *selected.old_value);
+                                                        }
+                                                        else
+                                                        {
+                                                            load_managed_reference(selected.target, *selected.old_value);
+                                                        }
+                                                    }
                                                     if (m_reference_aliases.at(local_slot(selected.target)).has_value())
                                                     {
                                                         vmir2::local_index const target = resolved_reference(selected.target);
@@ -5680,6 +5725,21 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::mut_bitwise_rotate_down >)
                                                 {
+                                                    if (selected.access_mode != atomic_access_mode::nonatomic)
+                                                    {
+                                                        throw rpnx::unimplemented();
+                                                    }
+                                                    if (selected.old_value.has_value())
+                                                    {
+                                                        if (m_reference_aliases.at(local_slot(selected.target)).has_value())
+                                                        {
+                                                            copy_local(resolved_reference(selected.target), *selected.old_value);
+                                                        }
+                                                        else
+                                                        {
+                                                            load_managed_reference(selected.target, *selected.old_value);
+                                                        }
+                                                    }
                                                     if (m_reference_aliases.at(local_slot(selected.target)).has_value())
                                                     {
                                                         vmir2::local_index const target = resolved_reference(selected.target);

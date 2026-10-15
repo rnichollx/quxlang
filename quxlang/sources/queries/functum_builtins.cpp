@@ -354,24 +354,15 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                     co_return allowed_operations;
                 }
 
-                static std::set< std::string > const fetch_members = {
-                    "FETCH_ADD", "FETCH_SUB", "FETCH_AND", "FETCH_OR", "FETCH_XOR",
-                };
-                static std::set< std::string > const void_members = {
-                    "ADD", "SUB", "AND", "OR", "XOR",
-                };
-
-                if (is_atomic_rmw_value_type(*atomic_value_type) && fetch_members.contains(member_name))
+                if (is_atomic_rmw_value_type(*atomic_value_type) && is_builtin_atomic_rmw_member_name(member_name))
                 {
-                    add_overload({}, {{"ARG", *atomic_value_type}, {"THIS", make_mref(member.of)}}, *atomic_value_type);
-                    co_return allowed_operations;
+                    bool fetch = member_name.starts_with("FETCH_");
+                    std::string_view operation = fetch ? std::string_view(member_name).substr(6) : std::string_view(member_name);
+                    bool has_amount = operation.starts_with("BIT_SHIFT_") || operation.starts_with("BIT_ROTATE_");
+                    type_symbol operand_type = has_amount ? uintptr_type : *atomic_value_type;
+                    type_symbol result_type = fetch ? *atomic_value_type : type_symbol(void_type{});
+                    add_overload({}, {{"ARG", operand_type}, {"THIS", make_mref(member.of)}}, result_type);
                 }
-                if (is_atomic_rmw_value_type(*atomic_value_type) && void_members.contains(member_name))
-                {
-                    add_overload({}, {{"ARG", *atomic_value_type}, {"THIS", make_mref(member.of)}}, void_type{});
-                    co_return allowed_operations;
-                }
-
                 co_return allowed_operations;
             }
         }
@@ -829,6 +820,10 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     if (name.starts_with("OPERATOR"))
     {
+        if (is_atomic_type(parent))
+        {
+            co_return allowed_operations;
+        }
         std::string operator_name = name.substr(8);
         bool is_rhs = false;
         if (operator_name.ends_with("RHS"))

@@ -66,7 +66,7 @@ IMPORT std;
     {
       VAR pool binary_tree_pool;
       VAR checksum I64 := 0;
-      LOOP WHILE (.state->.remaining.FETCH_SUB#ATOMIC_SEQCST(1) > 0) DO
+      LOOP WHILE (.state->.remaining.FETCH_SUBTRACT#ATOMIC_SEQCST(1) > 0) DO
       {
         VAR tree MUT->binary_tree_raw := pool.build(.state->.depth);
         checksum += binary_tree_raw::check(tree);

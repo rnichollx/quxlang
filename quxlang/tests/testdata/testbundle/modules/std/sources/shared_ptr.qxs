@@ -58,13 +58,13 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->strong_control_block#(T))
   {
     VAR previous_strong SZ :=
-      control->.strong_count.FETCH_SUB#ATOMIC_ACQREL(1);
+      control->.strong_count.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
     ASSERT(previous_strong != 0, "Shared reference count underflow.");
     IF (previous_strong == 1)
     {
       DESTROY AT(control->.value_storage) T;
       VAR previous_weak SZ :=
-        control->.weak_count.FETCH_SUB#ATOMIC_ACQREL(1);
+        control->.weak_count.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
       ASSERT(previous_weak != 0, "Weak reference count underflow.");
       IF (previous_weak == 1)
       {
@@ -100,7 +100,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     $>
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->strong_control_block#(T))
   {
-    VAR previous SZ := control->.weak_count.FETCH_SUB#ATOMIC_ACQREL(1);
+    VAR previous SZ := control->.weak_count.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
     ASSERT(previous != 0, "Weak reference count underflow.");
     IF (previous == 1)
     {
@@ -433,7 +433,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       VAR released MUT->shared_allocation#(T) := .allocation;
       .allocation := NULL;
       VAR allocation MUT& shared_allocation#(T) := released->;
-      VAR previous SZ := allocation.count.FETCH_SUB#ATOMIC_ACQREL(1);
+      VAR previous SZ := allocation.count.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
       ASSERT(previous != 0, "Shared reference count underflow.");
       IF (previous == 1)
       {

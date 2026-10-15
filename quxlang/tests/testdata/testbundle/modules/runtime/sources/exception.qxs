@@ -81,7 +81,7 @@ PRIVATE(MODULE) ::exception_release DOC <$ Releases one reference and destroys t
   FUNCTION(@frame MUT->EXCEPTION_FRAME) NOEXCEPT
 {
   IF ((frame??) == FALSE) { RETURN; }
-  VAR previous SZ := frame->.refcount.FETCH_SUB#ATOMIC_ACQREL(1);
+  VAR previous SZ := frame->.refcount.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
   ASSERT(previous != 0, "Exception reference count underflow.");
   IF (previous == 1)
   {

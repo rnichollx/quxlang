@@ -5408,46 +5408,80 @@ namespace quxlang
                     local_index const target = get_local_index(args.named.at("THIS"));
                     local_index const value = get_local_index(args.named.at("ARG"));
 
-                    if (member->name == "FETCH_ADD" && has_return && args.size() == 3)
+                    std::string_view operation = member->name;
+                    if (has_return && operation.starts_with("FETCH_"))
+                    {
+                        operation.remove_prefix(6);
+                    }
+                    if (operation == "ADD" && args.size() == (has_return ? 3 : 2))
                     {
                         return vmir2::mut_int_add{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
-                    if (member->name == "FETCH_SUB" && has_return && args.size() == 3)
+                    if (operation == "SUBTRACT" && args.size() == (has_return ? 3 : 2))
                     {
                         return vmir2::mut_int_sub{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
-                    if (member->name == "FETCH_AND" && has_return && args.size() == 3)
+                    if (operation == "MULTIPLY" && args.size() == (has_return ? 3 : 2))
+                    {
+                        return vmir2::mut_int_mul{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (operation == "DIVIDE" && args.size() == (has_return ? 3 : 2))
+                    {
+                        return vmir2::mut_int_div{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (operation == "MODULO" && args.size() == (has_return ? 3 : 2))
+                    {
+                        return vmir2::mut_int_mod{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (operation == "BIT_AND" && args.size() == (has_return ? 3 : 2))
                     {
                         return vmir2::mut_bitwise_and{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
-                    if (member->name == "FETCH_OR" && has_return && args.size() == 3)
+                    if (operation == "BIT_OR" && args.size() == (has_return ? 3 : 2))
                     {
                         return vmir2::mut_bitwise_or{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
-                    if (member->name == "FETCH_XOR" && has_return && args.size() == 3)
+                    if (operation == "BIT_XOR" && args.size() == (has_return ? 3 : 2))
                     {
                         return vmir2::mut_bitwise_xor{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
-                    if (member->name == "ADD" && !has_return && args.size() == 2)
+                    if (operation == "BIT_NAND" && args.size() == (has_return ? 3 : 2))
                     {
-                        return vmir2::mut_int_add{.target = target, .value = value, .access_mode = mode};
+                        return vmir2::mut_bitwise_nand{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
-                    if (member->name == "SUB" && !has_return && args.size() == 2)
+                    if (operation == "BIT_NOR" && args.size() == (has_return ? 3 : 2))
                     {
-                        return vmir2::mut_int_sub{.target = target, .value = value, .access_mode = mode};
+                        return vmir2::mut_bitwise_nor{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
-                    if (member->name == "AND" && !has_return && args.size() == 2)
+                    if (operation == "BIT_NXOR" && args.size() == (has_return ? 3 : 2))
                     {
-                        return vmir2::mut_bitwise_and{.target = target, .value = value, .access_mode = mode};
+                        return vmir2::mut_bitwise_nxor{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
-                    if (member->name == "OR" && !has_return && args.size() == 2)
+                    if (operation == "BIT_IMPLIES" && args.size() == (has_return ? 3 : 2))
                     {
-                        return vmir2::mut_bitwise_or{.target = target, .value = value, .access_mode = mode};
+                        return vmir2::mut_bitwise_implies{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
-                    if (member->name == "XOR" && !has_return && args.size() == 2)
+                    if (operation == "BIT_IMPLIED" && args.size() == (has_return ? 3 : 2))
                     {
-                        return vmir2::mut_bitwise_xor{.target = target, .value = value, .access_mode = mode};
+                        return vmir2::mut_bitwise_implied{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
                     }
+                    if (operation == "BIT_SHIFT_UP" && args.size() == (has_return ? 3 : 2))
+                    {
+                        return vmir2::mut_bitwise_shift_up{.target = target, .amount = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (operation == "BIT_SHIFT_DOWN" && args.size() == (has_return ? 3 : 2))
+                    {
+                        return vmir2::mut_bitwise_shift_down{.target = target, .amount = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (operation == "BIT_ROTATE_UP" && args.size() == (has_return ? 3 : 2))
+                    {
+                        return vmir2::mut_bitwise_rotate_up{.target = target, .amount = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (operation == "BIT_ROTATE_DOWN" && args.size() == (has_return ? 3 : 2))
+                    {
+                        return vmir2::mut_bitwise_rotate_down{.target = target, .amount = value, .access_mode = mode, .old_value = old_value};
+                    }
+
                 }
             }
 

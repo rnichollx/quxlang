@@ -960,10 +960,23 @@ namespace quxlang
         return atomic_access_mode_from_name(name).has_value();
     }
 
+    /// Returns true when a member names an atomic read-modify-write operation.
+    inline auto is_builtin_atomic_rmw_member_name(std::string_view name) -> bool
+    {
+        if (name.starts_with("FETCH_"))
+        {
+            name.remove_prefix(6);
+        }
+        return name == "ADD" || name == "SUBTRACT" || name == "MULTIPLY" || name == "DIVIDE" || name == "MODULO"
+            || name == "BIT_AND" || name == "BIT_OR" || name == "BIT_XOR" || name == "BIT_NAND" || name == "BIT_NOR"
+            || name == "BIT_NXOR" || name == "BIT_IMPLIES" || name == "BIT_IMPLIED"
+            || name == "BIT_SHIFT_UP" || name == "BIT_SHIFT_DOWN" || name == "BIT_ROTATE_UP" || name == "BIT_ROTATE_DOWN";
+    }
+
     /// Returns true when a builtin name denotes an atomic member operation.
     inline auto is_builtin_atomic_member_name(std::string_view name) -> bool
     {
-        return name == "LOAD" || name == "STORE" || name == "EXCHANGE" || name == "COMPARE_EXCHANGE" || name == "FETCH_ADD" || name == "FETCH_SUB" || name == "FETCH_AND" || name == "FETCH_OR" || name == "FETCH_XOR" || name == "ADD" || name == "SUB" || name == "AND" || name == "OR" || name == "XOR";
+        return name == "LOAD" || name == "STORE" || name == "EXCHANGE" || name == "COMPARE_EXCHANGE" || is_builtin_atomic_rmw_member_name(name);
     }
 
     /// Returns true when a builtin name denotes a nominal ENUM type.

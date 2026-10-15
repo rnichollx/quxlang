@@ -443,7 +443,7 @@ PRIVATE(MODULE)
     .waiters.ADD#ATOMIC_RELEASE(1);
     locked_mutex.unlock();
     wait_while_atomic_equals(@state .sequence<-, @expected observed);
-    .waiters.SUB#ATOMIC_RELAXED(1);
+    .waiters.SUBTRACT#ATOMIC_RELAXED(1);
     locked_mutex.lock();
   }
 

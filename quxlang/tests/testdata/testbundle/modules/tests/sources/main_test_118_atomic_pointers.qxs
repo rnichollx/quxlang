@@ -69,7 +69,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[0].right.LOAD#ATOMIC_ACQUIRE() == 22);
     TEST_ASSERT(values[1].left.LOAD#ATOMIC_ACQUIRE() == 49);
     TEST_ASSERT(values[1].right.LOAD#ATOMIC_ACQUIRE() == 44);
-    values[0].right.SUB#ATOMIC_RELEASE(2);
+    values[0].right.SUBTRACT#ATOMIC_RELEASE(2);
     TEST_ASSERT(values[0].right.LOAD#ATOMIC_ACQUIRE() == 20);
     TEST_ASSERT(selected.LOAD#ATOMIC_ACQUIRE() == 49);
   }

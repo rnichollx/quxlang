@@ -2,6 +2,245 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::atomic_value_tests NAMESPACE
 {
+  ::integer_swap_rejected DOC <$ Atomic integers do not support the swap operator. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    left <-> right;
+  }
+
+  ::boolean_swap_rejected DOC <$ Atomic booleans do not support the swap operator. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#BOOL;
+    VAR right ATOMIC#BOOL;
+    left <-> right;
+  }
+
+  ::pointer_swap_rejected DOC <$ Atomic pointers do not support the swap operator. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#(MUT->I32);
+    VAR right ATOMIC#(MUT->I32);
+    left <-> right;
+  }
+
+  ::assignment_rejected DOC <$ Atomic values require named member operations for assignment. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    left := right;
+  }
+
+  ::value_assignment_rejected DOC <$ Atomic values require named member operations for value assignment. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    left := 7;
+  }
+
+  ::compound_assignment_rejected DOC <$ Atomic values require named member operations for compound assignment. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    left += 7;
+  }
+
+  ::increment_rejected DOC <$ Atomic values require named member operations for increment. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    left++;
+  }
+
+  ::arithmetic_rejected DOC <$ Atomic values require named member operations for arithmetic. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    VAR result AUTO := left + right;
+  }
+
+  ::equality_rejected DOC <$ Atomic values require named member operations for equality. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    VAR result BOOL := left == right;
+  }
+
+  ::comparison_rejected DOC <$ Atomic values require named member operations for comparison. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    VAR result AUTO := left <=> right;
+  }
+
+  ::implicit_load_rejected DOC <$ Atomic values require named member operations for implicit load. $>
+    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR left ATOMIC#I32;
+    VAR right ATOMIC#I32;
+    VAR result I32 := left;
+  }
+
+  ::extended_rmw_values DOC <$ Each named operation preserves its fetch result and stores the expected eight-bit value. $>
+    TEMPLATE(@mode TYPE AUTO) FUNCTION()
+  {
+    VAR value ATOMIC#U8;
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_ADD#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 15);
+    value.STORE#NONATOMIC(12);
+    value.ADD#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 15);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_SUBTRACT#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 9);
+    value.STORE#NONATOMIC(12);
+    value.SUBTRACT#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 9);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_MULTIPLY#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 36);
+    value.STORE#NONATOMIC(12);
+    value.MULTIPLY#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 36);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_DIVIDE#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 4);
+    value.STORE#NONATOMIC(12);
+    value.DIVIDE#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 4);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_MODULO#mode(5) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 2);
+    value.STORE#NONATOMIC(12);
+    value.MODULO#mode(5);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 2);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_AND#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 0);
+    value.STORE#NONATOMIC(12);
+    value.BIT_AND#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 0);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_OR#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 15);
+    value.STORE#NONATOMIC(12);
+    value.BIT_OR#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 15);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_XOR#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 15);
+    value.STORE#NONATOMIC(12);
+    value.BIT_XOR#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 15);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_NAND#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 255);
+    value.STORE#NONATOMIC(12);
+    value.BIT_NAND#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 255);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_NOR#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 240);
+    value.STORE#NONATOMIC(12);
+    value.BIT_NOR#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 240);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_NXOR#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 240);
+    value.STORE#NONATOMIC(12);
+    value.BIT_NXOR#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 240);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_IMPLIES#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 243);
+    value.STORE#NONATOMIC(12);
+    value.BIT_IMPLIES#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 243);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_IMPLIED#mode(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 252);
+    value.STORE#NONATOMIC(12);
+    value.BIT_IMPLIED#mode(3);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 252);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_SHIFT_UP#mode(2) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 48);
+    value.STORE#NONATOMIC(12);
+    value.BIT_SHIFT_UP#mode(2);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 48);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_SHIFT_DOWN#mode(2) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 3);
+    value.STORE#NONATOMIC(12);
+    value.BIT_SHIFT_DOWN#mode(2);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 3);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_ROTATE_UP#mode(2) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 48);
+    value.STORE#NONATOMIC(12);
+    value.BIT_ROTATE_UP#mode(2);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 48);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_ROTATE_DOWN#mode(2) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 3);
+    value.STORE#NONATOMIC(12);
+    value.BIT_ROTATE_DOWN#mode(2);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 3);
+  }
+
+  ::extended_rmw_constant_values DOC <$ Named operations agree during constant evaluation and native execution. $>
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    extended_rmw_values#(@mode NONATOMIC)();
+    extended_rmw_values#(@mode ATOMIC_SEQCST)();
+    VAR value ATOMIC#I24;
+    value.STORE#NONATOMIC(-21);
+    TEST_ASSERT(value.FETCH_MULTIPLY#ATOMIC_ACQREL(3) == -21);
+    TEST_ASSERT(value.FETCH_DIVIDE#ATOMIC_RELEASE(7) == -63);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == -9);
+    value.STORE#NONATOMIC(12);
+    TEST_ASSERT(value.FETCH_BIT_NOR#ATOMIC_RELAXED(3) == 12);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == -16);
+    TEST_ASSERT(value.FETCH_BIT_SHIFT_DOWN#ATOMIC_ACQUIRE(20) == -16);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 15);
+    VAR narrow ATOMIC#U8;
+    narrow.STORE#NONATOMIC(200);
+    TEST_ASSERT(narrow.FETCH_MULTIPLY#ATOMIC_SEQCST(3) == 200);
+    TEST_ASSERT(narrow.LOAD#NONATOMIC() == 88);
+    narrow.STORE#NONATOMIC(129);
+    TEST_ASSERT(narrow.FETCH_BIT_ROTATE_UP#ATOMIC_SEQCST(1) == 129);
+    TEST_ASSERT(narrow.FETCH_BIT_ROTATE_DOWN#ATOMIC_SEQCST(1) == 3);
+    TEST_ASSERT(narrow.LOAD#NONATOMIC() == 129);
+    TEST_ASSERT(narrow.FETCH_BIT_ROTATE_UP#ATOMIC_SEQCST(9) == 129);
+    TEST_ASSERT(narrow.LOAD#NONATOMIC() == 3);
+    TEST_ASSERT(narrow.FETCH_BIT_SHIFT_UP#ATOMIC_SEQCST(8) == 3);
+    TEST_ASSERT(narrow.LOAD#NONATOMIC() == 0);
+    value.STORE#NONATOMIC(1);
+    TEST_ASSERT(value.FETCH_BIT_ROTATE_DOWN#ATOMIC_SEQCST(1) == 1);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == -8388608);
+    TEST_ASSERT(value.FETCH_BIT_ROTATE_UP#ATOMIC_SEQCST(25) == -8388608);
+    TEST_ASSERT(value.LOAD#NONATOMIC() == 1);
+  }
+
+  ::extended_rmw_orderings DOC <$ Named RMW operations accept every supported atomic ordering. $>
+    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    extended_rmw_values#(@mode ATOMIC_RELAXED)();
+    extended_rmw_values#(@mode ATOMIC_ACQUIRE)();
+    extended_rmw_values#(@mode ATOMIC_RELEASE)();
+    extended_rmw_values#(@mode ATOMIC_ACQREL)();
+  }
+
   ::rmw_values DOC <$ Checks the previous value returned by each fetch operation and the resulting atomic state. $>
     TEMPLATE(@T TYPE AUTO, @mode TYPE AUTO) FUNCTION()
   {
@@ -11,23 +250,23 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 12);
     TEST_ASSERT(value.FETCH_ADD#mode(3) == 12);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 15);
-    TEST_ASSERT(value.FETCH_SUB#mode(5) == 15);
+    TEST_ASSERT(value.FETCH_SUBTRACT#mode(5) == 15);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 10);
-    TEST_ASSERT(value.FETCH_AND#mode(6) == 10);
+    TEST_ASSERT(value.FETCH_BIT_AND#mode(6) == 10);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 2);
-    TEST_ASSERT(value.FETCH_OR#mode(9) == 2);
+    TEST_ASSERT(value.FETCH_BIT_OR#mode(9) == 2);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 11);
-    TEST_ASSERT(value.FETCH_XOR#mode(3) == 11);
+    TEST_ASSERT(value.FETCH_BIT_XOR#mode(3) == 11);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 8);
     value.ADD#mode(4);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 12);
-    value.SUB#mode(2);
+    value.SUBTRACT#mode(2);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 10);
-    value.AND#mode(6);
+    value.BIT_AND#mode(6);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 2);
-    value.OR#mode(9);
+    value.BIT_OR#mode(9);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 11);
-    value.XOR#mode(3);
+    value.BIT_XOR#mode(3);
     TEST_ASSERT(value.LOAD#ATOMIC_ACQUIRE() == 8);
   }
 

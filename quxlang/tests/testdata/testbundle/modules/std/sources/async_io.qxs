@@ -122,7 +122,7 @@ PRIVATE(MODULE)
     )
   {
     VAR file_pending SZ :=
-      request->.file_control->.pending.FETCH_SUB#ATOMIC_ACQREL(1);
+      request->.file_control->.pending.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
     ASSERT(file_pending != 0, "Async file pending-operation count underflow.");
 
     VAR result transfer_result;
@@ -133,7 +133,7 @@ PRIVATE(MODULE)
 
     request->.context_control->.drain_mutex.lock();
     VAR context_outstanding SZ :=
-      request->.context_control->.outstanding.FETCH_SUB#ATOMIC_ACQREL(1);
+      request->.context_control->.outstanding.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
     ASSERT(context_outstanding != 0, "Async context outstanding-operation count underflow.");
     request->.context_control->.drain_mutex.unlock();
     IF (context_outstanding == 1)

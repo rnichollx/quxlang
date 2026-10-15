@@ -237,6 +237,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                     ast2_struct_declaration builtin_atomic_struct;
                     builtin_atomic_struct.struct_keywords.insert(keywords::no_implicit_assignment);
                     builtin_atomic_struct.struct_keywords.insert(keywords::not_copyable);
+                    builtin_atomic_struct.struct_keywords.insert(keywords::no_default_swap);
                     co_return builtin_atomic_struct;
                 }
 

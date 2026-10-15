@@ -1526,29 +1526,37 @@ namespace quxlang
         {
             local_index target;
             local_index amount;
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
             overflow_mode overflow = overflow_mode::wraparound;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_up, target, amount, overflow);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_up, target, amount, access_mode, old_value, overflow);
         };
         struct mut_bitwise_shift_down
         {
             local_index target;
             local_index amount;
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
             overflow_mode overflow = overflow_mode::wraparound;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_down, target, amount, overflow);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_down, target, amount, access_mode, old_value, overflow);
         };
         struct mut_bitwise_rotate_up
         {
             local_index target;
             local_index amount;
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
             overflow_mode overflow = overflow_mode::wraparound;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_up, target, amount, overflow);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_up, target, amount, access_mode, old_value, overflow);
         };
         struct mut_bitwise_rotate_down
         {
             local_index target;
             local_index amount;
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
             overflow_mode overflow = overflow_mode::wraparound;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_down, target, amount, overflow);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_down, target, amount, access_mode, old_value, overflow);
         };
 
         /** Compares two integer-represented values and produces ORDER. */

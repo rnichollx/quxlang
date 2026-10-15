@@ -21,12 +21,8 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
             co_return results;
         }
 
-        static std::set< std::string > const single_mode_members = {
-            "LOAD", "STORE", "EXCHANGE", "FETCH_ADD", "FETCH_SUB", "FETCH_AND", "FETCH_OR", "FETCH_XOR", "ADD", "SUB", "AND", "OR", "XOR",
-        };
-
         builtin_template_info info;
-        if (single_mode_members.contains(member.name))
+        if (member.name == "LOAD" || member.name == "STORE" || member.name == "EXCHANGE" || is_builtin_atomic_rmw_member_name(member.name))
         {
             info.template_args.named["T"] = declared_parameter{
                 .name = "T",

@@ -1400,19 +1400,19 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_shift_up op)
     {
-        return "MUT_BITWISE_SHIFT_UP %" + std::to_string(op.target) + ", %" + std::to_string(op.amount);
+        return "MUT_BITWISE_SHIFT_UP" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.amount) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_shift_down op)
     {
-        return "MUT_BITWISE_SHIFT_DOWN %" + std::to_string(op.target) + ", %" + std::to_string(op.amount);
+        return "MUT_BITWISE_SHIFT_DOWN" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.amount) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_rotate_up op)
     {
-        return "MUT_BITWISE_ROTATE_UP %" + std::to_string(op.target) + ", %" + std::to_string(op.amount);
+        return "MUT_BITWISE_ROTATE_UP" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.amount) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_rotate_down op)
     {
-        return "MUT_BITWISE_ROTATE_DOWN %" + std::to_string(op.target) + ", %" + std::to_string(op.amount);
+        return "MUT_BITWISE_ROTATE_DOWN" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.amount) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::load_const_zero inst)
     {
