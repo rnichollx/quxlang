@@ -4,6 +4,7 @@
 #define QUXLANG_LINKER_MACHO_LINKER_HEADER_GUARD
 
 #include <quxlang/data/machine.hpp>
+#include <quxlang/data/macho_configuration.hpp>
 
 #include <cstddef>
 #include <string>
@@ -29,6 +30,8 @@ namespace quxlang
     {
         /** Retains source debug sections and applies their relocations. */
         bool preserve_debug_information = false;
+        /** Deployment metadata supplied by the configured target. */
+        macho_configuration macho_config;
         /** Identifier stored in the ad-hoc code signature. */
         std::string signature_identifier = "qxc-output";
         /** Procedures resolved by dyld when the executable is loaded. */

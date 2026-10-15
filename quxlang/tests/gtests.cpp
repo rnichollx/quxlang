@@ -8614,6 +8614,7 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
     sources.outputs = std::map< std::string, quxlang::output_config >{
         {"app", quxlang::output_config{.target = "macos-arm64", .type = quxlang::output_kind::executable, .main_module = "main"}},
     };
+    target.macho_config.minimum_os_version = {14, 4, 2};
     sources.targets["macos-arm64"] = target;
 
     quxlang::compiler_querygraph graph(sources, "macos-arm64", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
@@ -8624,6 +8625,28 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
     EXPECT_EQ(artifact.at(1), std::byte{0xfa});
     EXPECT_EQ(artifact.at(2), std::byte{0xed});
     EXPECT_EQ(artifact.at(3), std::byte{0xfe});
+    auto read_u32 = [&](std::size_t offset) -> std::uint32_t
+    {
+        std::uint32_t value = 0;
+        for (std::size_t byte = 0; byte < 4; ++byte)
+        {
+            value |= std::to_integer< std::uint32_t >(artifact.at(offset + byte)) << (byte * 8);
+        }
+        return value;
+    };
+    bool found_build_version = false;
+    std::size_t offset = 32;
+    for (std::uint32_t command = 0; command < read_u32(16); ++command)
+    {
+        if (read_u32(offset) == 0x32)
+        {
+            EXPECT_EQ(read_u32(offset + 12), 0x000e0402U);
+            found_build_version = true;
+        }
+        offset += read_u32(offset + 4);
+    }
+    EXPECT_TRUE(found_build_version);
+
 }
 
 TEST(quxlang, value_template_parameter_is_available_in_struct_field_type)

@@ -55,6 +55,7 @@ The current target-level keys are:
 | `cpu` | `x64`, `x86`, `ARM32`, `ARM64`, `z_arch`, or `jvm` | Required for a native target |
 | `binary` | `elf`, `macho`, `pe`, or `wasm` on a native target | Derived from `platform` |
 | `environment` | `glibc`, `musl`, `bionic`, `msvc`, `ucrt`, `cygwin`, `static`, `libsystem`, or `freestanding` | Derived from `platform` |
+| `macho_config` | Mach-O metadata mapping with `minimum_os_version` | Minimum OS version `11.0.0`; valid only for Mach-O targets |
 | `backend` | `llvm` or `cortado` | `llvm` for native; `cortado` for JVM |
 | `backend_llvm_options` | `build_type` and `enable_strict_aliasing` | Inherit build type; build-dependent strict aliasing |
 | `backend_cortado_options` | Cortado defaults for the target | `mode: standard` |
@@ -85,6 +86,29 @@ format values must still have a matching backend and linker path.
 
 These fields supply the source predicates documented on
 [Availability and targets](availability-and-targets.md).
+
+### Mach-O deployment metadata
+
+`macho_config.minimum_os_version` sets the `minos` field of `LC_BUILD_VERSION`
+for the target's linked Mach-O executables. The version accepts one to three
+unsigned decimal components: `major`, `major.minor`, or `major.minor.patch`.
+Missing minor and patch components are zero. The major component ranges from
+0 to 65535; the minor and patch components range from 0 to 255. Omission retains
+`11.0.0`.
+
+```yaml
+targets:
+  macos-arm64:
+    platform: macos
+    cpu: ARM64
+    macho_config:
+      minimum_os_version: "14.4"
+```
+
+The mapping is rejected on non-Mach-O targets. Unknown fields and malformed or
+out-of-range versions are rejected. The setting controls output deployment
+metadata; it does not validate the availability of imported symbols or change
+the SDK version field.
 
 ## Module mappings
 

@@ -11,6 +11,8 @@
 
 #include "rpnx/unimplemented.hpp"
 
+#include <charconv>
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -467,7 +469,7 @@ namespace quxlang::detail
 
             // Validate target-level keys
             {
-                static const std::set< std::string > allowed_target_keys = {"build_type", "platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "backend_cortado_options", "unimplemented_compiles", "run_static_tests", "steppings", "modules"};
+                static const std::set< std::string > allowed_target_keys = {"build_type", "platform", "cpu", "binary", "macho_config", "environment", "backend", "backend_llvm_options", "backend_cortado_options", "unimplemented_compiles", "run_static_tests", "steppings", "modules"};
                 for (YAML::const_iterator iterator = target_config_node.begin(); iterator != target_config_node.end(); ++iterator)
                 {
                     std::string const key = iterator->first.as< std::string >();
@@ -580,6 +582,56 @@ namespace quxlang::detail
 
             target_configuration target_output;
             target_output.target_output_config = info;
+            if (target_config_node["macho_config"].IsDefined())
+            {
+                YAML::Node config = target_config_node["macho_config"];
+                if (info.binary_type != binary::macho || !config.IsMap())
+                {
+                    throw semantic_compilation_error("macho_config requires a mapping on a Mach-O target");
+                }
+                for (YAML::const_iterator entry = config.begin(); entry != config.end(); ++entry)
+                {
+                    if (entry->first.as< std::string >() != "minimum_os_version")
+                    {
+                        throw semantic_compilation_error("Unknown macho_config field: " + entry->first.as< std::string >());
+                    }
+                }
+                if (config["minimum_os_version"].IsDefined())
+                {
+                    if (!config["minimum_os_version"].IsScalar())
+                    {
+                        throw semantic_compilation_error("macho_config.minimum_os_version must be a version string");
+                    }
+                    std::string version = config["minimum_os_version"].as< std::string >();
+                    std::array< std::uint32_t, 3 > components{};
+                    std::size_t begin = 0;
+                    std::size_t component = 0;
+                    while (true)
+                    {
+                        std::size_t end = version.find('.', begin);
+                        if (end == std::string::npos) end = version.size();
+                        if (component == components.size() || begin == end)
+                        {
+                            throw semantic_compilation_error("Invalid macho_config.minimum_os_version: " + version);
+                        }
+                        std::from_chars_result parsed = std::from_chars(version.data() + begin, version.data() + end, components[component]);
+                        if (parsed.ec != std::errc{} || parsed.ptr != version.data() + end ||
+                            components[component] > (component == 0 ? 65535U : 255U))
+                        {
+                            throw semantic_compilation_error("Invalid macho_config.minimum_os_version: " + version);
+                        }
+                        ++component;
+                        if (end == version.size()) break;
+                        begin = end + 1;
+                    }
+                    target_output.macho_config.minimum_os_version = macho_version{
+                        .major = static_cast< std::uint16_t >(components[0]),
+                        .minor = static_cast< std::uint8_t >(components[1]),
+                        .patch = static_cast< std::uint8_t >(components[2]),
+                    };
+                }
+            }
+
             target_output.backend = target_is_jvm ? quxlang::backend_kind::cortado : quxlang::backend_kind::llvm;
 
             if (target_config_node["backend"].IsDefined())

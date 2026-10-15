@@ -5,6 +5,7 @@
 #include "machine.hpp"
 #include "rpnx/cow.hpp"
 #include <quxlang/data/build_type.hpp>
+#include <quxlang/data/macho_configuration.hpp>
 #include <quxlang/data/compilation_policy.hpp>
 
 #include <cstdint>
@@ -172,6 +173,8 @@ namespace quxlang
         // Key=LogicalModuleName Value=SourceModuleName
         //std::map< std::string, std::string > logical_module_mappings;
         machine_target_info target_output_config;
+        /** Mach-O metadata shared by the target outputs. */
+        macho_configuration macho_config;
         backend_kind backend = backend_kind::llvm;
         /// Default compilation policy inherited by outputs.
         quxlang::build_type build_type = quxlang::build_type::development;
@@ -190,7 +193,7 @@ namespace quxlang
          */
         std::optional< std::vector< cpu_stepping_configuration > > steppings;
 
-        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, build_type, llvm_options, cortado_options, unimplemented_compiles, run_static_tests, steppings);
+        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, macho_config, backend, build_type, llvm_options, cortado_options, unimplemented_compiles, run_static_tests, steppings);
     };
 
     struct source_bundle

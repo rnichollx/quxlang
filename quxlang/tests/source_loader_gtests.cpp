@@ -11,6 +11,8 @@
 #include <filesystem>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 
 TEST(source_loader, reproducibility_error_is_not_a_compilation_error)
@@ -452,5 +454,36 @@ TEST(source_loader, rejects_invalid_benchmark_configuration)
         SCOPED_TRACE(output);
         quxlang::source_bundle bundle;
         EXPECT_THROW(quxlang::detail::parse_build_configuration(YAML::Load(prefix + output), bundle, std::nullopt), quxlang::compilation_error);
+    }
+}
+
+TEST(source_loader, parses_macho_minimum_os_version)
+{
+    for (std::pair< std::string, quxlang::macho_version > const& item : std::vector< std::pair< std::string, quxlang::macho_version > >{
+        {"11", {11, 0, 0}}, {"14.4", {14, 4, 0}}, {"14.4.2", {14, 4, 2}}, {"65535.255.255", {65535, 255, 255}}})
+    {
+        YAML::Node config = YAML::Load("outputs: {}\ntargets: {app: {platform: macos, cpu: ARM64, macho_config: {minimum_os_version: '" + item.first + "'}}}");
+        quxlang::source_bundle bundle;
+        quxlang::detail::parse_build_configuration(config, bundle, std::nullopt);
+        quxlang::macho_version version = bundle.targets.at("app").macho_config.minimum_os_version;
+        EXPECT_EQ(version.major, item.second.major);
+        EXPECT_EQ(version.minor, item.second.minor);
+        EXPECT_EQ(version.patch, item.second.patch);
+    }
+}
+
+TEST(source_loader, rejects_invalid_macho_configuration)
+{
+    for (std::string const& value : {"''", "'14.'", "'14..4'", "'-1'", "'14.4.1.2'", "'65536'", "'14.256'", "'14.4.256'", "'14x'", "[]", "{}"})
+    {
+        SCOPED_TRACE(value);
+        YAML::Node config = YAML::Load("outputs: {}\ntargets: {app: {platform: macos, cpu: ARM64, macho_config: {minimum_os_version: " + value + "}}}");
+        quxlang::source_bundle bundle;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::nullopt), quxlang::compilation_error);
+    }
+    for (std::string const& target : {"{platform: linux, cpu: x64, macho_config: {}}", "{platform: macos, cpu: ARM64, macho_config: []}", "{platform: macos, cpu: ARM64, macho_config: {typo: 14}}"})
+    {
+        quxlang::source_bundle bundle;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(YAML::Load("outputs: {}\ntargets: {app: " + target + "}"), bundle, std::nullopt), quxlang::compilation_error);
     }
 }

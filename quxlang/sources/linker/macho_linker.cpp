@@ -2199,7 +2199,9 @@ namespace quxlang::detail
             write_u32(result, command_offset, llvm::MachO::LC_BUILD_VERSION);
             write_u32(result, command_offset + 4, sizeof(llvm::MachO::build_version_command));
             write_u32(result, command_offset + 8, llvm::MachO::PLATFORM_MACOS);
-            write_u32(result, command_offset + 12, 0x000b0000);
+            macho_version version = options.macho_config.minimum_os_version;
+            write_u32(result, command_offset + 12, (static_cast< std::uint32_t >(version.major) << 16) |
+                (static_cast< std::uint32_t >(version.minor) << 8) | version.patch);
             write_u32(result, command_offset + 16, 0x000b0000);
             write_u32(result, command_offset + 20, 0);
             command_offset += sizeof(llvm::MachO::build_version_command);

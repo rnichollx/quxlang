@@ -138,6 +138,7 @@ set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/string_literal.hpp
         include/quxlang/parsers/symbol.hpp
         include/quxlang/parsers/procedure_ref.hpp
+        include/quxlang/data/macho_configuration.hpp
         include/quxlang/data/target_configuration.hpp
         include/quxlang/data/interp_value.hpp
         include/quxlang/parsers/declaration.hpp
@@ -663,6 +664,7 @@ list(APPEND QUXLANG_SOURCES sources/compiler_querygraph_01.cpp
         ${QUXLANG_QUERY_SPEC_HEADERS}
         include/quxlang/data/dependencies.hpp
         include/quxlang/data/functanoid_requirements.hpp
+        include/quxlang/data/macho_configuration.hpp
         include/quxlang/data/target_configuration.hpp
         include/quxlang/data/argument_adaptation_types.hpp
         include/quxlang/data/adaptation_types.hpp

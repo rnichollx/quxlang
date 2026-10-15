@@ -185,6 +185,8 @@ targets:
           option_num: 5
         source: tests
   macos-arm64:
+    macho_config:
+      minimum_os_version: "14.4"
     platform: macos
     cpu: ARM64
     backend: llvm

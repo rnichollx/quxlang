@@ -191,6 +191,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
         co_return linker.link_macos_executable(target_config.target_output_config, object_files, entry_symbol,
                                                macho_link_options{
                                                    .preserve_debug_information = build_type_has_debug_information(*llvm_options.build_type),
+                                                   .macho_config = target_config.macho_config,
                                                    .signature_identifier = input,
                                                    .dynamic_imports = std::move(imports),
                                                });
