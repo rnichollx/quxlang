@@ -3,7 +3,7 @@
 #ifndef QUXLANG_QUERIES_SPECS_STRUCT_DIRECT_BASES_SPEC_HEADER_GUARD
 #define QUXLANG_QUERIES_SPECS_STRUCT_DIRECT_BASES_SPEC_HEADER_GUARD
 
-#include <quxlang/queries/active_symboid_subdeclaroids.hpp>
+#include <quxlang/queries/active_symboid_subdeclarations.hpp>
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/struct_direct_bases.hpp>
@@ -17,7 +17,7 @@ namespace quxlang
     struct struct_direct_bases_spec
     {
         using query = struct_direct_bases_query;
-        using dependencies = rpnx::typelist< active_symboid_subdeclaroids_query, class_type_query, lookup_query, struct_tags_query, symboid_query >;
+        using dependencies = rpnx::typelist< active_symboid_subdeclarations_query, class_type_query, lookup_query, struct_tags_query, symboid_query >;
     };
 
     /** Resolves and validates the active direct bases declared by one struct. */

@@ -25,15 +25,15 @@ rpnx::querygraph::coroutine< quxlang::struct_constructor_forms_spec > quxlang::s
     std::vector< parsed_constructor > constructor_templates;
     std::map< temploid_ensig, parsed_constructor > full_declarations;
     std::map< temploid_ensig, parsed_constructor > subobject_declarations;
-    std::vector< subdeclaroid > declarations = co_await rpnx::querygraph::request< active_symboid_subdeclaroids_query >(input);
+    std::vector< subdeclaration > declarations = co_await rpnx::querygraph::request< active_symboid_subdeclarations_query >(input);
 
-    for (subdeclaroid const& declaration_entry : declarations)
+    for (subdeclaration const& declaration_entry : declarations)
     {
-        if (!declaration_entry.type_is< member_subdeclaroid >())
+        if (!declaration_entry.type_is< member_subdeclaration >())
         {
             continue;
         }
-        member_subdeclaroid const& member = declaration_entry.get_as< member_subdeclaroid >();
+        member_subdeclaration const& member = declaration_entry.get_as< member_subdeclaration >();
         bool is_template = member.name == "CONSTRUCTOR";
         bool is_full = member.name == "FULLOBJECT_CONSTRUCTOR";
         bool is_subobject = member.name == "SUBOBJECT_CONSTRUCTOR";

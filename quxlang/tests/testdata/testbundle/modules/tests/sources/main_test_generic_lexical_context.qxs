@@ -1,0 +1,80 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::generic_lexical_context_tests NAMESPACE
+{
+    ::origin NAMESPACE
+    {
+        ::item ALIAS I32;
+
+        ::contract GENERIC_REF
+        {
+            .echo FUNCTION(@ARG CONST& item) CONST: item;
+            .read FUNCTION() CONST: item;
+        }
+
+        ::service STRUCT
+        {
+            .echo FUNCTION(@ARG:value CONST& item) CONST: item { RETURN value; }
+            .read FUNCTION() CONST: item { RETURN 7; }
+        }
+    }
+
+    ::missing NAMESPACE
+    {
+        ::contract GENERIC_REF { IMPLEMENTS origin::contract; }
+
+        ::dispatch DUAL_TEST
+        {
+            VAR source origin::service;
+            VAR handle contract := source;
+            VAR value I32 := 11;
+            TEST_ASSERT(handle.echo(value) == 11);
+            TEST_ASSERT(handle.read() == 7);
+            TEST_ASSERT(SAME_TYPES(TYPEOF(handle.read()), I32));
+        }
+    }
+
+    ::conflicting NAMESPACE
+    {
+        ::item ALIAS I64;
+        ::contract GENERIC_REF { IMPLEMENTS origin::contract; }
+        ::owning_contract GENERIC { IMPLEMENTS origin::contract; }
+
+        ::owning_dispatch DUAL_TEST
+        {
+            VAR source origin::service;
+            VAR handle owning_contract := source;
+            VAR value I32 := 19;
+            TEST_ASSERT(handle.echo(value) == 19);
+            TEST_ASSERT(SAME_TYPES(TYPEOF(handle.read()), I32));
+        }
+
+        ::dispatch DUAL_TEST
+        {
+            VAR source origin::service;
+            VAR handle contract := source;
+            VAR value I32 := 13;
+            TEST_ASSERT(handle.echo(value) == 13);
+            TEST_ASSERT(SAME_TYPES(TYPEOF(handle.read()), I32));
+        }
+    }
+
+    ::transitive NAMESPACE
+    {
+        ::item ALIAS U8;
+        ::contract GENERIC_REF
+        {
+            IMPLEMENTS missing::contract;
+            IMPLEMENTS conflicting::contract;
+        }
+
+        ::dispatch DUAL_TEST
+        {
+            VAR source origin::service;
+            VAR handle contract := source;
+            VAR value I32 := 17;
+            TEST_ASSERT(handle.echo(value) == 17);
+            TEST_ASSERT(SAME_TYPES(TYPEOF(handle.read()), I32));
+        }
+    }
+}

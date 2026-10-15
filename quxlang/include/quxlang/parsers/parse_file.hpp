@@ -58,14 +58,14 @@ namespace quxlang::parsers
         }
         skip_whitespace_and_comments(pos, end);
 
-        auto decl = parse_subdeclaroids(ctx);
+        auto decl = parse_subdeclarations(ctx);
         skip_whitespace_and_comments(pos, end);
 
         output.declarations = std::move(decl);
 
         if (pos != end)
         {
-            throw syntax_compilation_error("Expected parse_subdeclaroids to consume the remainder of the file");
+            throw syntax_compilation_error("Expected parse_subdeclarations to consume the remainder of the file");
         }
 
         output.location = ctx.get_location_optional(begin, ctx.iter_pos);

@@ -24,7 +24,8 @@
 #include <quxlang/queries/specs/output_llvm_catalog_spec.hpp>
 #include <quxlang/queries/specs/output_llvm_type_ordinals_spec.hpp>
 #include <quxlang/queries/specs/output_steppings_spec.hpp>
-#include <quxlang/queries/specs/symboid_subdeclaroids_spec.hpp>
+#include <quxlang/queries/specs/subdeclarations_of_spec.hpp>
+#include <quxlang/queries/specs/generic_interface_spec.hpp>
 #include <quxlang/queries/specs/symbol_tempars_spec.hpp>
 #include <quxlang/queries/specs/symbol_type_spec.hpp>
 #include <quxlang/queries/specs/target_backend_spec.hpp>
@@ -37,7 +38,8 @@
 auto quxlang::detail::register_compiler_querygraph_handlers_14(compiler_querygraph& querygraph) -> void
 {
     auto& graph = querygraph.raw_graph();
-    graph.register_handler_function< symboid_subdeclaroids_spec >(symboid_subdeclaroids_impl);
+    graph.register_handler_function< generic_interface_spec >(generic_interface_impl);
+    graph.register_handler_function< subdeclarations_of_spec >(subdeclarations_of_impl);
     graph.register_handler_function< symbol_tempars_spec >(symbol_tempars_impl);
     graph.register_handler_function< symbol_type_spec >(symbol_type_impl);
     graph.register_handler_function< class_type_spec >(class_type_impl);

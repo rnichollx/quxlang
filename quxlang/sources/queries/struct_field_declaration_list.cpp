@@ -62,18 +62,18 @@ rpnx::querygraph::coroutine< quxlang::struct_field_declaration_list_spec > quxla
 
     // Step 2: get all the member declarations
 
-    std::vector< subdeclaroid > const& decls = co_await rpnx::querygraph::request< active_symboid_subdeclaroids_query >(input);
+    std::vector< subdeclaration > const& decls = co_await rpnx::querygraph::request< active_symboid_subdeclarations_query >(input);
 
     for (auto& decl : decls)
     {
         // Filter out static members
-        if (!typeis< member_subdeclaroid >(decl))
+        if (!typeis< member_subdeclaration >(decl))
         {
             // Filter out globals here
             continue;
         }
 
-        member_subdeclaroid const& member_decl = as< member_subdeclaroid >(decl);
+        member_subdeclaration const& member_decl = as< member_subdeclaration >(decl);
 
         // Filter out functions and etc.
         if (!typeis< ast2_variable_declaration >(member_decl.decl))

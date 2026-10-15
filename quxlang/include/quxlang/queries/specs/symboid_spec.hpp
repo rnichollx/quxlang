@@ -4,7 +4,9 @@
 #define QUXLANG_QUERIES_SPECS_SYMBOID_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/benchmark_function.hpp>
-#include <quxlang/queries/declaroids.hpp>
+#include <quxlang/queries/declarations.hpp>
+#include <quxlang/queries/generic_interface.hpp>
+#include <quxlang/queries/struct_field_declaration_list.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
@@ -24,7 +26,7 @@ namespace quxlang
     struct symboid_spec
     {
         using query = symboid_query;
-        using dependencies = rpnx::typelist< benchmark_function_query, snapshot_value_subquery, vm_procedure3_query, declaroids_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, symbol_type_query, symboid_query, template_builtin_query >;
+        using dependencies = rpnx::typelist< benchmark_function_query, snapshot_value_subquery, vm_procedure3_query, declarations_query, generic_interface_query, struct_field_declaration_list_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, symbol_type_query, symboid_query, template_builtin_query >;
     };
 
     rpnx::querygraph::coroutine< symboid_spec > symboid_impl(type_symbol input);

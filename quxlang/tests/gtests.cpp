@@ -531,10 +531,10 @@ TEST(parsing, parse_generic_declarations)
 
     quxlang::ast2_file_declaration file = parse_file_text("::foobar GENERIC {} ::foobar_ref GENERIC_REF CONST {}");
     ASSERT_EQ(file.declarations.size(), 2);
-    ASSERT_TRUE(file.declarations.at(0).type_is< quxlang::global_subdeclaroid >());
-    EXPECT_TRUE(file.declarations.at(0).get_as< quxlang::global_subdeclaroid >().decl.type_is< quxlang::ast2_generic_declaration >());
-    ASSERT_TRUE(file.declarations.at(1).type_is< quxlang::global_subdeclaroid >());
-    EXPECT_TRUE(file.declarations.at(1).get_as< quxlang::global_subdeclaroid >().decl.type_is< quxlang::ast2_generic_declaration >());
+    ASSERT_TRUE(file.declarations.at(0).type_is< quxlang::global_subdeclaration >());
+    EXPECT_TRUE(file.declarations.at(0).get_as< quxlang::global_subdeclaration >().decl.type_is< quxlang::ast2_generic_declaration >());
+    ASSERT_TRUE(file.declarations.at(1).type_is< quxlang::global_subdeclaration >());
+    EXPECT_TRUE(file.declarations.at(1).get_as< quxlang::global_subdeclaration >().decl.type_is< quxlang::ast2_generic_declaration >());
 
     EXPECT_THROW(try_parse_generic_text("GENERIC CONST {}"), std::logic_error);
     EXPECT_THROW(try_parse_generic_text("GENERIC MOVE_ONLY MOVE_ONLY {}"), std::logic_error);
@@ -553,8 +553,8 @@ TEST(parsing, parse_implementation_declaration)
     ASSERT_TRUE(parsed.has_value());
     EXPECT_EQ(parsed->interface_type, quxlang::type_symbol(quxlang::freebound_identifier{"foo"}));
     ASSERT_EQ(parsed->declarations.size(), 2);
-    ASSERT_TRUE(parsed->declarations.at(0).type_is< quxlang::global_subdeclaroid >());
-    EXPECT_EQ(parsed->declarations.at(0).get_as< quxlang::global_subdeclaroid >().name, "value");
+    ASSERT_TRUE(parsed->declarations.at(0).type_is< quxlang::global_subdeclaration >());
+    EXPECT_EQ(parsed->declarations.at(0).get_as< quxlang::global_subdeclaration >().name, "value");
 }
 
 TEST(parsing, parse_enum_and_flagset_declarations)
@@ -571,7 +571,7 @@ TEST(parsing, parse_enum_and_flagset_declarations)
 
     ASSERT_EQ(file.declarations.size(), 3);
 
-    quxlang::global_subdeclaroid const& enum_global = file.declarations.at(0).get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& enum_global = file.declarations.at(0).get_as< quxlang::global_subdeclaration >();
     ASSERT_TRUE(enum_global.decl.type_is< quxlang::ast2_enum_declaration >());
     quxlang::ast2_enum_declaration const& enum_decl = enum_global.decl.get_as< quxlang::ast2_enum_declaration >();
     EXPECT_TRUE(enum_decl.bit_width.has_value());
@@ -585,13 +585,13 @@ TEST(parsing, parse_enum_and_flagset_declarations)
     ASSERT_TRUE(enum_decl.entries.at(2).type_is< quxlang::ast2_enum_reserved_range_declaration >());
     ASSERT_EQ(enum_decl.declarations.size(), 1);
 
-    quxlang::global_subdeclaroid const& ibc_enum_global = file.declarations.at(1).get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& ibc_enum_global = file.declarations.at(1).get_as< quxlang::global_subdeclaration >();
     ASSERT_TRUE(ibc_enum_global.decl.type_is< quxlang::ast2_enum_declaration >());
     quxlang::ast2_enum_declaration const& ibc_enum_decl = ibc_enum_global.decl.get_as< quxlang::ast2_enum_declaration >();
     EXPECT_TRUE(ibc_enum_decl.is_ibc);
     ASSERT_EQ(ibc_enum_decl.entries.size(), 2);
 
-    quxlang::global_subdeclaroid const& flagset_global = file.declarations.at(2).get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& flagset_global = file.declarations.at(2).get_as< quxlang::global_subdeclaration >();
     ASSERT_TRUE(flagset_global.decl.type_is< quxlang::ast2_flagset_declaration >());
     quxlang::ast2_flagset_declaration const& flagset_decl = flagset_global.decl.get_as< quxlang::ast2_flagset_declaration >();
     EXPECT_TRUE(flagset_decl.bit_width.has_value());
@@ -651,11 +651,11 @@ TEST(parsing, parse_struct_with_variables)
     auto member2 = cl2.declarations[1];
     auto global = cl2.declarations[2];
 
-    quxlang::subdeclaroid member1_expected = quxlang::member_subdeclaroid{.decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "a"};
+    quxlang::subdeclaration member1_expected = quxlang::member_subdeclaration{.decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "a"};
 
-    quxlang::subdeclaroid member2_expected = quxlang::member_subdeclaroid{.decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{64, true})}, .name = "b"};
+    quxlang::subdeclaration member2_expected = quxlang::member_subdeclaration{.decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{64, true})}, .name = "b"};
 
-    quxlang::subdeclaroid global_expected = quxlang::global_subdeclaroid{.decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "c"};
+    quxlang::subdeclaration global_expected = quxlang::global_subdeclaration{.decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "c"};
 
     ASSERT_TRUE(member1 == member1_expected);
     ASSERT_TRUE(member2 == member2_expected);
@@ -677,10 +677,10 @@ TEST(parsing, parse_struct_bracket_operators)
 
     ASSERT_TRUE(cl.has_value());
     ASSERT_EQ(cl->declarations.size(), 2);
-    ASSERT_TRUE(cl->declarations.at(0).type_is< quxlang::member_subdeclaroid >());
-    ASSERT_TRUE(cl->declarations.at(1).type_is< quxlang::member_subdeclaroid >());
-    EXPECT_EQ(cl->declarations.at(0).get_as< quxlang::member_subdeclaroid >().name, "OPERATOR[]");
-    EXPECT_EQ(cl->declarations.at(1).get_as< quxlang::member_subdeclaroid >().name, "OPERATOR[&]");
+    ASSERT_TRUE(cl->declarations.at(0).type_is< quxlang::member_subdeclaration >());
+    ASSERT_TRUE(cl->declarations.at(1).type_is< quxlang::member_subdeclaration >());
+    EXPECT_EQ(cl->declarations.at(0).get_as< quxlang::member_subdeclaration >().name, "OPERATOR[]");
+    EXPECT_EQ(cl->declarations.at(1).get_as< quxlang::member_subdeclaration >().name, "OPERATOR[&]");
 }
 
 TEST(parsing, parse_struct_constructor_delegates)
@@ -690,7 +690,7 @@ TEST(parsing, parse_struct_constructor_delegates)
     auto cl = try_parse_struct_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
-    quxlang::member_subdeclaroid const& constructor = quxlang::as< quxlang::member_subdeclaroid >(cl->declarations.front());
+    quxlang::member_subdeclaration const& constructor = quxlang::as< quxlang::member_subdeclaration >(cl->declarations.front());
     quxlang::ast2_function_declaration const& declaration = quxlang::as< quxlang::ast2_function_declaration >(constructor.decl);
     ASSERT_EQ(declaration.definition.delegates.size(), 1);
     ASSERT_EQ(declaration.definition.delegates.front().args.size(), 1);
@@ -733,7 +733,7 @@ TEST(parsing, declaration_doc_block)
     auto file = parse_file_text(test_string);
 
     ASSERT_EQ(file.declarations.size(), 1);
-    auto const& global = file.declarations[0].get_as< quxlang::global_subdeclaroid >();
+    auto const& global = file.declarations[0].get_as< quxlang::global_subdeclaration >();
     ASSERT_TRUE(global.doc.has_value());
     EXPECT_EQ(*global.doc, "\nasdf jlk\nthe quick brown fox jumped over the fence\n");
 }
@@ -745,7 +745,7 @@ TEST(parsing, declaration_doc_block_after_include_if)
     auto file = parse_file_text(test_string);
 
     ASSERT_EQ(file.declarations.size(), 1);
-    auto const& global = file.declarations[0].get_as< quxlang::global_subdeclaroid >();
+    auto const& global = file.declarations[0].get_as< quxlang::global_subdeclaration >();
     ASSERT_TRUE(global.include_if.has_value());
     ASSERT_TRUE(global.doc.has_value());
     EXPECT_EQ(*global.doc, "x");
@@ -812,7 +812,7 @@ TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_ins
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     EXPECT_EQ(declaration.kind, quxlang::ast2_asm_declaration_kind::procedure);
     EXPECT_EQ(declaration.architecture, "X64");
@@ -866,7 +866,7 @@ TEST(parsing, parse_asm_procedure_callable_named_arguments)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     ASSERT_EQ(declaration.callable_interfaces.size(), 1);
     quxlang::ast2_asm_callable const& callable = declaration.callable_interfaces.front();
@@ -896,7 +896,7 @@ TEST(parsing, parse_x86_asm_procedure)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     EXPECT_EQ(declaration.architecture, "X86");
     ASSERT_EQ(declaration.instructions.size(), 2);
@@ -926,9 +926,9 @@ TEST(parsing, parse_arm32_arm64_and_z_arch_asm_procedures)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 3);
-    quxlang::global_subdeclaroid const& arm32_global = file.declarations.at(0).get_as< quxlang::global_subdeclaroid >();
-    quxlang::global_subdeclaroid const& arm64_global = file.declarations.at(1).get_as< quxlang::global_subdeclaroid >();
-    quxlang::global_subdeclaroid const& z_arch_global = file.declarations.at(2).get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& arm32_global = file.declarations.at(0).get_as< quxlang::global_subdeclaration >();
+    quxlang::global_subdeclaration const& arm64_global = file.declarations.at(1).get_as< quxlang::global_subdeclaration >();
+    quxlang::global_subdeclaration const& z_arch_global = file.declarations.at(2).get_as< quxlang::global_subdeclaration >();
     EXPECT_EQ(arm32_global.decl.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM32");
     EXPECT_EQ(arm64_global.decl.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM64");
     EXPECT_EQ(z_arch_global.decl.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "Z_ARCH");
@@ -968,7 +968,7 @@ TEST(parsing, parse_asm_procedure_callable_defaults_to_ccall)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     ASSERT_EQ(declaration.callable_interfaces.size(), 1);
     EXPECT_EQ(declaration.callable_interfaces.front().calling_conv, "CCALL");
@@ -984,7 +984,7 @@ TEST(parsing, parse_program_start_asm_procedure_global_declaration)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     EXPECT_EQ(global.name, "PROGRAM_START");
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     EXPECT_EQ(declaration.kind, quxlang::ast2_asm_declaration_kind::procedure);
@@ -1003,7 +1003,7 @@ TEST(parsing, parse_unit_test_main_function_global_declaration)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     EXPECT_EQ(global.name, "UNIT_TEST_MAIN");
     EXPECT_TRUE(global.decl.type_is< quxlang::ast2_function_declaration >());
 }
@@ -1018,7 +1018,7 @@ TEST(parsing, parse_extern_procedure)
 )QX");
 
         ASSERT_EQ(file.declarations.size(), 1);
-        quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+        quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
         EXPECT_EQ(global.name, "malloc");
         quxlang::ast2_extern_procedure const& declaration = global.decl.get_as< quxlang::ast2_extern_procedure >();
         EXPECT_EQ(declaration.external_scope_name, "glibc");
@@ -1048,7 +1048,7 @@ TEST(parsing, parse_lowercase_extern_type_identifier)
 ::java_string EXTERN_TYPE["java.base":"java/lang/String"];
 )QX");
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     EXPECT_EQ(global.name, "java_string");
     quxlang::ast2_extern_type const& declaration = global.decl.get_as< quxlang::ast2_extern_type >();
     EXPECT_EQ(declaration.source_name, "java.base");
@@ -1161,15 +1161,15 @@ TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 9);
-    EXPECT_EQ(file.declarations.at(0).get_as< quxlang::global_subdeclaroid >().name, "DETECT_X64_FEATURE_AVX2");
-    EXPECT_EQ(file.declarations.at(1).get_as< quxlang::global_subdeclaroid >().name, "ASSERT_FAIL");
-    EXPECT_EQ(file.declarations.at(2).get_as< quxlang::global_subdeclaroid >().name, "INITGUARD_TRY_ACQUIRE");
-    EXPECT_EQ(file.declarations.at(3).get_as< quxlang::global_subdeclaroid >().name, "INITGUARD_COMPLETE");
-    EXPECT_EQ(file.declarations.at(4).get_as< quxlang::global_subdeclaroid >().name, "INITGUARD_ABORT");
-    EXPECT_EQ(file.declarations.at(5).get_as< quxlang::global_subdeclaroid >().name, "DEFAULT_ALLOCATOR");
-    EXPECT_EQ(file.declarations.at(6).get_as< quxlang::global_subdeclaroid >().name, "PROGRAM_START");
-    EXPECT_EQ(file.declarations.at(7).get_as< quxlang::global_subdeclaroid >().name, "CHECK_STACK");
-    EXPECT_EQ(file.declarations.at(8).get_as< quxlang::global_subdeclaroid >().name, "UNIT_TEST_MAIN");
+    EXPECT_EQ(file.declarations.at(0).get_as< quxlang::global_subdeclaration >().name, "DETECT_X64_FEATURE_AVX2");
+    EXPECT_EQ(file.declarations.at(1).get_as< quxlang::global_subdeclaration >().name, "ASSERT_FAIL");
+    EXPECT_EQ(file.declarations.at(2).get_as< quxlang::global_subdeclaration >().name, "INITGUARD_TRY_ACQUIRE");
+    EXPECT_EQ(file.declarations.at(3).get_as< quxlang::global_subdeclaration >().name, "INITGUARD_COMPLETE");
+    EXPECT_EQ(file.declarations.at(4).get_as< quxlang::global_subdeclaration >().name, "INITGUARD_ABORT");
+    EXPECT_EQ(file.declarations.at(5).get_as< quxlang::global_subdeclaration >().name, "DEFAULT_ALLOCATOR");
+    EXPECT_EQ(file.declarations.at(6).get_as< quxlang::global_subdeclaration >().name, "PROGRAM_START");
+    EXPECT_EQ(file.declarations.at(7).get_as< quxlang::global_subdeclaration >().name, "CHECK_STACK");
+    EXPECT_EQ(file.declarations.at(8).get_as< quxlang::global_subdeclaration >().name, "UNIT_TEST_MAIN");
 
     EXPECT_THROW(parse_runtime_file_text(R"QX(
 ::DETECT_X64_FEATURE_AVX2 STRUCT
@@ -1308,7 +1308,7 @@ TEST(parsing, parse_asm_object_ref_main_function_array_operand)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     ASSERT_EQ(declaration.instructions.size(), 1);
     quxlang::ast2_asm_instruction const& instruction = declaration.instructions.front().get_as< quxlang::ast2_asm_instruction >();
@@ -1333,7 +1333,7 @@ TEST(parsing, parse_asm_object_ref_unit_test_builtin_operands)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     ASSERT_EQ(declaration.instructions.size(), 3);
 
@@ -1361,7 +1361,7 @@ TEST(parsing, parse_asm_inline_function_callable_registers_and_clobbers)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaration const& global = file.declarations.front().get_as< quxlang::global_subdeclaration >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
     EXPECT_EQ(declaration.kind, quxlang::ast2_asm_declaration_kind::inline_function);
     ASSERT_EQ(declaration.callable_interfaces.size(), 1);
@@ -1580,7 +1580,7 @@ TEST(parsing, parse_new_template_parameter_kinds)
 {
     auto file = parse_file_text("::foo TEMPLATE(%t TYPE, %object CLASS, %count VALUE I32, @u TYPE AUTO, @v CLASS, @n VALUE I32) STRUCT {}");
     ASSERT_EQ(file.declarations.size(), 1);
-    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     auto const& tmpl = quxlang::as< quxlang::ast2_template_declaration >(decl.decl);
 
     ASSERT_EQ(tmpl.m_template_args.positional.at(0).name, std::optional< std::string >{"t"});
@@ -1600,7 +1600,7 @@ TEST(parsing, parse_new_template_parameter_kinds)
     ASSERT_EQ(tmpl.m_template_args.named.at("n").type, parse_type_symbol("I32"));
 
     auto local_file = parse_file_text("::local_name TEMPLATE(@api:local CLASS) STRUCT {}");
-    auto const& local_decl = quxlang::as< quxlang::global_subdeclaroid >(local_file.declarations.front());
+    auto const& local_decl = quxlang::as< quxlang::global_subdeclaration >(local_file.declarations.front());
     auto const& local_tmpl = quxlang::as< quxlang::ast2_template_declaration >(local_decl.decl);
     ASSERT_EQ(local_tmpl.m_template_args.named.at("api").name, std::optional< std::string >{"local"});
     ASSERT_EQ(local_tmpl.m_template_args.named.at("api").kind, quxlang::template_parameter_kind::class_);
@@ -1677,9 +1677,9 @@ TEST(parsing, parse_global_constexpr_variable_declaration)
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
 
     ASSERT_EQ(file.declarations.size(), 1);
-    ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaroid >(file.declarations.front()));
+    ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaration >(file.declarations.front()));
 
-    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     ASSERT_EQ(decl.name, "foobar");
     ASSERT_TRUE(quxlang::typeis< quxlang::ast2_variable_declaration >(decl.decl));
 
@@ -1698,9 +1698,9 @@ TEST(parsing, parse_global_static_variable_declaration)
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
 
     ASSERT_EQ(file.declarations.size(), 1);
-    ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaroid >(file.declarations.front()));
+    ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaration >(file.declarations.front()));
 
-    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     ASSERT_EQ(decl.name, "foo");
     ASSERT_TRUE(quxlang::typeis< quxlang::ast2_variable_declaration >(decl.decl));
 
@@ -1719,9 +1719,9 @@ TEST(parsing, parse_global_per_thread_variable_declaration)
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
 
     ASSERT_EQ(file.declarations.size(), 1);
-    ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaroid >(file.declarations.front()));
+    ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaration >(file.declarations.front()));
 
-    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     ASSERT_EQ(decl.name, "foo");
     ASSERT_TRUE(quxlang::typeis< quxlang::ast2_variable_declaration >(decl.decl));
 
@@ -1765,7 +1765,7 @@ TEST(parsing, parse_function_local_static_statements)
 
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
     ASSERT_EQ(file.declarations.size(), 1);
-    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     auto const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     ASSERT_EQ(test.mode, quxlang::ast2_test_mode::static_only);
     auto const& statements = test.definition.body.statements;
@@ -1794,7 +1794,7 @@ TEST(parsing, parse_unit_test_declaration)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    quxlang::global_subdeclaration const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     EXPECT_EQ(decl.name, "case_a");
     quxlang::ast2_test const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     EXPECT_EQ(test.mode, quxlang::ast2_test_mode::unit_only);
@@ -1818,7 +1818,7 @@ TEST(parsing, parse_dual_test_declaration)
 )QX");
 
     ASSERT_EQ(file.declarations.size(), 1);
-    quxlang::global_subdeclaroid const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    quxlang::global_subdeclaration const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     EXPECT_EQ(decl.name, "case_a");
     quxlang::ast2_test const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     EXPECT_EQ(test.mode, quxlang::ast2_test_mode::dual);
@@ -1845,7 +1845,7 @@ TEST(parsing, parse_assert_statement_preserves_expression_text)
 
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
     ASSERT_EQ(file.declarations.size(), 1);
-    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     auto const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     auto const& statements = test.definition.body.statements;
 
@@ -1884,7 +1884,7 @@ TEST(parsing, parse_loop_statement_clauses)
 
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
     ASSERT_EQ(file.declarations.size(), 1);
-    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     auto const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     auto const& statements = test.definition.body.statements;
 
@@ -1944,7 +1944,7 @@ TEST(parsing, parse_labeled_control_flow_statements)
 
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
     ASSERT_EQ(file.declarations.size(), 1);
-    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& decl = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     auto const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     auto const& statements = test.definition.body.statements;
 
@@ -8090,7 +8090,7 @@ TEST(parsing, explicit_call_arguments_and_arg_form)
     }
 
     quxlang::ast2_file_declaration file = parse_file_text("::value VAR foo :[1, 2];");
-    quxlang::global_subdeclaroid const& declaration = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    quxlang::global_subdeclaration const& declaration = quxlang::as< quxlang::global_subdeclaration >(file.declarations.front());
     quxlang::ast2_variable_declaration const& variable = quxlang::as< quxlang::ast2_variable_declaration >(declaration.decl);
     ASSERT_EQ(variable.init_args.size(), 2);
     EXPECT_FALSE(variable.init_args.at(0).name.has_value());

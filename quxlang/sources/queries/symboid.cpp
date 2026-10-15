@@ -64,7 +64,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         ast2_struct_declaration declaration;
         for (std::pair< std::string const, type_symbol > const& field : input.get_as< composite_type >().fields)
         {
-            declaration.declarations.push_back(member_subdeclaroid{
+            declaration.declarations.push_back(member_subdeclaration{
                 .decl = ast2_variable_declaration{.type = field.second},
                 .name = field.first,
             });
@@ -98,7 +98,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         throw compiler_bug("Unsupported asm procedure architecture during merge selection: " + declaration.architecture);
     };
 
-    auto selected_template_decl_to_symboid = [](declaroid const& decl) -> ast2_symboid
+    auto selected_template_decl_to_symboid = [](declaration const& decl) -> ast2_symboid
     {
         if (typeis< ast2_alias_declaration >(decl))
         {
@@ -168,7 +168,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         }
         else
         {
-            throw compiler_bug("Unsupported selected template declaroid");
+            throw compiler_bug("Unsupported selected template declaration");
         }
     };
 
@@ -201,7 +201,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                     type_symbol callable_type = inst.params.named.at("T").get_as< parameter_type_instantiation >().type;
                     ast2_struct_declaration guard;
                     guard.struct_keywords.insert(keywords::rooted);
-                    guard.declarations.push_back(member_subdeclaroid{
+                    guard.declarations.push_back(member_subdeclaration{
                         .decl = ast2_variable_declaration{.type = callable_type},
                         .name = "__CALLABLE",
                     });
@@ -217,14 +217,14 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                             .target = submember{.of = freebound_identifier{"THIS"}, .name = "__CALLABLE"},
                             .args = {expression_arg{.name = "OTHER", .value = expression_forward{.symbol = freebound_identifier{"OTHER"}}}},
                         });
-                        guard.declarations.push_back(member_subdeclaroid{.decl = std::move(constructor), .name = "CONSTRUCTOR"});
+                        guard.declarations.push_back(member_subdeclaration{.decl = std::move(constructor), .name = "CONSTRUCTOR"});
                     }
                     ast2_function_declaration destructor;
                     destructor.definition.return_type = void_type{};
                     destructor.definition.body.statements.push_back(function_expression_statement{
                         .expr = expression_call{.callee = expression_thisdot_reference{.field_name = "__CALLABLE"}},
                     });
-                    guard.declarations.push_back(member_subdeclaroid{.decl = std::move(destructor), .name = "DESTRUCTOR"});
+                    guard.declarations.push_back(member_subdeclaration{.decl = std::move(destructor), .name = "DESTRUCTOR"});
                     co_return guard;
                 }
                 if (auto atomic_value_type = atomic_type_argument(input); atomic_value_type.has_value())
@@ -263,7 +263,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                 throw quxlang::compiler_bug("Template overload id is out of range for instanciation symboid lookup");
             }
 
-            co_return selected_template_decl_to_symboid(templex.templates.at(static_cast< std::vector< ast2_template_declaration >::size_type >(template_index)).m_declaroid);
+            co_return selected_template_decl_to_symboid(templex.templates.at(static_cast< std::vector< ast2_template_declaration >::size_type >(template_index)).m_declaration);
         }
     }
 
@@ -306,12 +306,36 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         co_return interface_declaration;
     }
 
-    auto declaroids = co_await rpnx::querygraph::request< declaroids_query >(input);
+    if (input.type_is< subsymbol >() || input.type_is< submember >())
+    {
+        type_symbol parent = *type_parent(input);
+        ast2_symboid const& parent_declaration = co_await rpnx::querygraph::request< symboid_query >(parent);
+        if (parent_declaration.type_is< ast2_generic_declaration >())
+        {
+            if (input.type_is< subsymbol >() && input.get_as< subsymbol >().name == "__INTERFACE")
+            {
+                co_return co_await rpnx::querygraph::request< generic_interface_query >(parent);
+            }
+            if (input.type_is< submember >())
+            {
+                std::vector< struct_field_declaration > const& fields = co_await rpnx::querygraph::request< struct_field_declaration_list_query >(parent);
+                for (struct_field_declaration const& field : fields)
+                {
+                    if (field.name == input.get_as< submember >().name)
+                    {
+                        co_return ast2_variable_declaration{.type = field.type};
+                    }
+                }
+            }
+        }
+    }
+
+    auto declarations = co_await rpnx::querygraph::request< declarations_query >(input);
     machine_target_info const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
 
     ast2_symboid output;
 
-    for (auto& decl : declaroids)
+    for (auto& decl : declarations)
     {
         if (decl.type_is< ast2_asm_procedure_declaration >() && !asm_procedure_matches_target(decl.get_as< ast2_asm_procedure_declaration >(), machine_info))
         {

@@ -14,7 +14,7 @@
 
 namespace quxlang::parsers
 {
-    declaroid parse_declaroid(parsing_context& ctx);
+    declaration parse_declaration(parsing_context& ctx);
 
     inline auto parse_template_parameter_kind(parsing_context& ctx) -> template_parameter_kind
     {
@@ -177,7 +177,7 @@ namespace quxlang::parsers
                 }
                 skip_whitespace_and_comments(pos, end);
             }
-            ct->m_declaroid = parse_declaroid(ctx);
+            ct->m_declaration = parse_declaration(ctx);
             ct->location = ctx.get_location_optional(begin, pos);
             return ct;
         }

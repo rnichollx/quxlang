@@ -28,7 +28,7 @@ find_package(benchmark REQUIRED)
 
 
 # Legacy LLVM backend / VMIR v1 sources remain in the tree, but are not built.
-set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/struct_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/struct_layout.hpp include/quxlang/data/fusion_info.hpp include/quxlang/data/fusion_layout.hpp include/quxlang/data/class_type.hpp include/quxlang/data/struct_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/class_placement_info.hpp include/quxlang/data/privacy.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
+set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/generic_contract.hpp include/quxlang/data/struct_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/struct_layout.hpp include/quxlang/data/fusion_info.hpp include/quxlang/data/fusion_layout.hpp include/quxlang/data/class_type.hpp include/quxlang/data/struct_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/class_placement_info.hpp include/quxlang/data/privacy.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
         include/quxlang/variant_utils.hpp
         include/quxlang/data/benchmark.hpp
         include/quxlang/parsers/parse_benchmark.hpp
@@ -221,8 +221,8 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/benchmark_entries_spec.hpp
         include/quxlang/queries/specs/benchmark_function_spec.hpp
         include/quxlang/queries/specs/list_benchmarks_spec.hpp
-        include/quxlang/queries/specs/active_subdeclaroids_spec.hpp
-        include/quxlang/queries/specs/active_symboid_subdeclaroids_spec.hpp
+        include/quxlang/queries/specs/active_subdeclarations_spec.hpp
+        include/quxlang/queries/specs/active_symboid_subdeclarations_spec.hpp
         include/quxlang/queries/specs/declaration_is_accessible_spec.hpp
         include/quxlang/queries/specs/declaration_privacy_spec.hpp
         include/quxlang/queries/specs/argument_adaptation_is_better_fit_spec.hpp
@@ -284,7 +284,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/constexpr_routine_spec.hpp
         include/quxlang/queries/specs/constexpr_u64_spec.hpp
         include/quxlang/queries/specs/convertible_by_call_spec.hpp
-        include/quxlang/queries/specs/declaroids_spec.hpp
+        include/quxlang/queries/specs/declarations_spec.hpp
         include/quxlang/queries/specs/ensig_argument_initialize_spec.hpp
         include/quxlang/queries/specs/ensig_tempars_spec.hpp
         include/quxlang/queries/specs/enum_info_spec.hpp
@@ -383,7 +383,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/numeric_static_value_spec.hpp
         include/quxlang/queries/specs/subtag_binding_spec.hpp
         include/quxlang/queries/specs/symboid_spec.hpp
-        include/quxlang/queries/specs/symboid_subdeclaroids_spec.hpp
+        include/quxlang/queries/specs/subdeclarations_of_spec.hpp
         include/quxlang/queries/specs/symbol_tempars_spec.hpp
         include/quxlang/queries/specs/symbol_type_spec.hpp
         include/quxlang/queries/specs/template_instanciation_spec.hpp
@@ -420,8 +420,8 @@ set(QUXLANG_QUERY_SPEC_HEADERS
 )
 
 set(QUXLANG_QUERY_SOURCES
-        sources/queries/active_subdeclaroids.cpp
-        sources/queries/active_symboid_subdeclaroids.cpp
+        sources/queries/active_subdeclarations.cpp
+        sources/queries/active_symboid_subdeclarations.cpp
         sources/queries/declaration_is_accessible.cpp
         sources/queries/declaration_privacy.cpp
         sources/queries/argument_adaptation_is_better_fit.cpp
@@ -483,7 +483,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/constexpr_routine.cpp
         sources/queries/constexpr_u64.cpp
         sources/queries/convertible_by_call.cpp
-        sources/queries/declaroids.cpp
+        sources/queries/declarations.cpp
         sources/queries/ensig_argument_initialize.cpp
         sources/queries/ensig_initialize.cpp
         sources/queries/ensig_tempars.cpp
@@ -594,7 +594,11 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/sintpointer_type.cpp
         sources/queries/subtag_binding.cpp
         sources/queries/symboid.cpp
-        sources/queries/symboid_subdeclaroids.cpp
+        include/quxlang/queries/subdeclarations_of.hpp
+        include/quxlang/queries/generic_interface.hpp
+        include/quxlang/queries/specs/generic_interface_spec.hpp
+        sources/queries/generic_interface.cpp
+        sources/queries/subdeclarations_of.cpp
         sources/queries/symbol_tempars.cpp
         sources/queries/symbol_type.cpp
         sources/queries/template_builtin.cpp

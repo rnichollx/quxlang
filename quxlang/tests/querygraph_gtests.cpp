@@ -28,7 +28,7 @@
 #include <quxlang/queries/constexpr_routine.hpp>
 #include <quxlang/queries/constexpr_routine_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
-#include <quxlang/queries/declaroids.hpp>
+#include <quxlang/queries/declarations.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/functum_builtins.hpp>
@@ -77,7 +77,9 @@
 #include <quxlang/queries/struct_member_lookup.hpp>
 #include <quxlang/queries/struct_runtime_info.hpp>
 #include <quxlang/queries/symboid.hpp>
-#include <quxlang/queries/symboid_subdeclaroids.hpp>
+#include <quxlang/queries/subdeclarations_of.hpp>
+#include <quxlang/queries/generic_interface.hpp>
+#include <quxlang/queries/active_subdeclarations.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/target_backend.hpp>
 #include <quxlang/queries/target_llvm_backend_options.hpp>
@@ -383,8 +385,8 @@ TEST(querygraph_queries, binary_keywords_filter_include_if_declarations)
     quxlang::type_symbol const selected = quxlang::type_symbol(quxlang::subsymbol{main, "selected"});
     quxlang::type_symbol const filtered = quxlang::type_symbol(quxlang::subsymbol{main, "filtered"});
 
-    EXPECT_EQ(graph.make_request< quxlang::declaroids_query >(selected).size(), 1);
-    EXPECT_TRUE(graph.make_request< quxlang::declaroids_query >(filtered).empty());
+    EXPECT_EQ(graph.make_request< quxlang::declarations_query >(selected).size(), 1);
+    EXPECT_TRUE(graph.make_request< quxlang::declarations_query >(filtered).empty());
 }
 
 TEST(querygraph_queries, architecture_keywords_reflect_machine_info)
@@ -678,8 +680,8 @@ TEST(querygraph_queries, unwind_format_keywords_filter_include_if_declarations)
     quxlang::type_symbol const selected = quxlang::type_symbol(quxlang::subsymbol{main, "selected"});
     quxlang::type_symbol const filtered = quxlang::type_symbol(quxlang::subsymbol{main, "filtered"});
 
-    EXPECT_EQ(graph.make_request< quxlang::declaroids_query >(selected).size(), 1);
-    EXPECT_TRUE(graph.make_request< quxlang::declaroids_query >(filtered).empty());
+    EXPECT_EQ(graph.make_request< quxlang::declarations_query >(selected).size(), 1);
+    EXPECT_TRUE(graph.make_request< quxlang::declarations_query >(filtered).empty());
 }
 
 TEST(querygraph_queries, output_list_returns_configured_outputs_for_target)
@@ -2168,7 +2170,61 @@ TEST(querygraph_queries, test_declaration_modes_drive_static_and_unit_discovery)
     EXPECT_TRUE(unit_tests.contains(dual_case));
 }
 
-TEST(querygraph_queries, nested_namespace_subdeclaroids_resolve)
+TEST(querygraph_queries, subdeclarations_of_preserves_stored_declarations)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::container STRUCT
+{
+    .first INCLUDE_IF(BINARY_ELF) VAR I32;
+    .second INCLUDE_IF(BINARY_MACHO) VAR missing_type;
+    ::nested NAMESPACE { ::value VAR I64; }
+}
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol container = quxlang::subsymbol{main, "container"};
+    quxlang::ast2_symboid stored = graph.make_request< quxlang::symboid_query >(container);
+    std::vector< quxlang::subdeclaration > declarations = graph.make_request< quxlang::subdeclarations_of_query >(container);
+
+    ASSERT_EQ(declarations.size(), 3);
+    EXPECT_EQ(declarations, stored.get_as< quxlang::ast2_struct_declaration >().declarations);
+    EXPECT_EQ(declarations.at(0).get_as< quxlang::member_subdeclaration >().name, "first");
+    EXPECT_EQ(declarations.at(1).get_as< quxlang::member_subdeclaration >().name, "second");
+    EXPECT_EQ(declarations.at(2).get_as< quxlang::global_subdeclaration >().name, "nested");
+    EXPECT_TRUE(declarations.at(1).get_as< quxlang::member_subdeclaration >().include_if.has_value());
+    EXPECT_TRUE(graph.make_request< quxlang::active_subdeclarations_query >(quxlang::submember{container, "second"}).empty());
+}
+
+TEST(querygraph_queries, subdeclarations_of_does_not_synthesize_generic_interfaces)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::invalid GENERIC_REF { IMPLEMENTS missing_contract; }
+::contract GENERIC_REF { .read FUNCTION() CONST: I32; }
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol invalid = quxlang::subsymbol{main, "invalid"};
+    quxlang::type_symbol contract = quxlang::subsymbol{main, "contract"};
+    quxlang::type_symbol interface = quxlang::subsymbol{contract, "__INTERFACE"};
+
+    EXPECT_TRUE(graph.make_request< quxlang::subdeclarations_of_query >(invalid).empty());
+    EXPECT_THROW(graph.make_request< quxlang::generic_interface_query >(invalid), std::logic_error);
+    EXPECT_TRUE(graph.make_request< quxlang::subdeclarations_of_query >(contract).empty());
+    quxlang::ast2_symboid stored = graph.make_request< quxlang::symboid_query >(contract);
+    quxlang::ast2_interface_declaration erased = graph.make_request< quxlang::generic_interface_query >(contract);
+    ASSERT_EQ(erased.functions.size(), 4);
+    EXPECT_EQ(erased.functions.front().name, "read");
+    EXPECT_EQ(erased.functions.front().header.call_parameters.front().api_name, "GENERIC_THIS");
+    EXPECT_EQ(stored.get_as< quxlang::ast2_generic_declaration >().functions.front().header.call_parameters.front().api_name, "THIS");
+    EXPECT_EQ(graph.make_request< quxlang::symboid_query >(interface).get_as< quxlang::ast2_interface_declaration >(), erased);
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(interface), quxlang::symbol_kind::interface_);
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(quxlang::submember{contract, "__VALUE"}), quxlang::symbol_kind::member_variable);
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(quxlang::submember{contract, "__INTERFACE_VAL"}), quxlang::symbol_kind::member_variable);
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(quxlang::submember{contract, "read"}), quxlang::symbol_kind::functum);
+    EXPECT_TRUE(graph.make_request< quxlang::subdeclarations_of_query >(contract).empty());
+}
+
+TEST(querygraph_queries, nested_namespace_subdeclarations_resolve)
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::outer NAMESPACE
@@ -2463,10 +2519,10 @@ TEST(querygraph_queries, inheritance_bases_are_members_and_runtime_info_uses_can
     quxlang::type_symbol const right = quxlang::subsymbol{main, "right"};
     quxlang::type_symbol const diamond = quxlang::subsymbol{main, "diamond"};
 
-    std::vector< quxlang::subdeclaroid > const left_declarations = graph.make_request< quxlang::symboid_subdeclaroids_query >(left);
+    std::vector< quxlang::subdeclaration > const left_declarations = graph.make_request< quxlang::subdeclarations_of_query >(left);
     ASSERT_FALSE(left_declarations.empty());
-    ASSERT_TRUE(left_declarations.front().type_is< quxlang::member_subdeclaroid >());
-    quxlang::member_subdeclaroid const& parsed_base_member = left_declarations.front().get_as< quxlang::member_subdeclaroid >();
+    ASSERT_TRUE(left_declarations.front().type_is< quxlang::member_subdeclaration >());
+    quxlang::member_subdeclaration const& parsed_base_member = left_declarations.front().get_as< quxlang::member_subdeclaration >();
     EXPECT_EQ(parsed_base_member.name, "shared");
     ASSERT_TRUE(parsed_base_member.decl.type_is< quxlang::ast2_base_declaration >());
     EXPECT_EQ(parsed_base_member.decl.get_as< quxlang::ast2_base_declaration >().kind, quxlang::inheritance_kind::virtual_);
@@ -2663,7 +2719,7 @@ TEST(querygraph_queries, fusion_info_and_layout_normalize_all_declaration_forms)
     EXPECT_FALSE(boxed_info.properties.is_inline);
     EXPECT_FALSE(boxed_info.properties.generate_copy);
     EXPECT_EQ(graph.make_request< quxlang::class_type_query >(boxed), quxlang::class_kind::union_);
-    EXPECT_EQ(graph.make_request< quxlang::symboid_subdeclaroids_query >(boxed).size(), 1);
+    EXPECT_EQ(graph.make_request< quxlang::subdeclarations_of_query >(boxed).size(), 1);
 
     quxlang::variant_info const boxed_variant_info = graph.make_request< quxlang::variant_info_query >(boxed_variant);
     ASSERT_EQ(boxed_variant_info.alternatives.size(), 2);
@@ -2699,7 +2755,7 @@ TEST(querygraph_queries, fusion_info_and_layout_normalize_all_declaration_forms)
     EXPECT_TRUE(inline_variant_layout.is_inline);
     ASSERT_TRUE(inline_variant_layout.valueless_tag.has_value());
     EXPECT_EQ(*inline_variant_layout.valueless_tag, 2);
-    EXPECT_EQ(graph.make_request< quxlang::symboid_subdeclaroids_query >(inline_variant).size(), 1);
+    EXPECT_EQ(graph.make_request< quxlang::subdeclarations_of_query >(inline_variant).size(), 1);
 
     quxlang::fusion_layout const inline_voids_layout = graph.make_request< quxlang::fusion_layout_query >(inline_voids);
     EXPECT_EQ(inline_voids_layout.payload_placement.size, 0);

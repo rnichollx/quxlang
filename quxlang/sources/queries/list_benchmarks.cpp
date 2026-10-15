@@ -4,25 +4,25 @@
 
 rpnx::querygraph::coroutine< quxlang::list_benchmarks_spec > quxlang::list_benchmarks_impl(type_symbol input)
 {
-    std::vector< subdeclaroid > const& input_subdeclaroids = co_await rpnx::querygraph::request< active_symboid_subdeclaroids_query >(input);
+    std::vector< subdeclaration > const& input_subdeclarations = co_await rpnx::querygraph::request< active_symboid_subdeclarations_query >(input);
 
     std::set< type_symbol > result;
 
-    for (subdeclaroid const& sdcl : input_subdeclaroids)
+    for (subdeclaration const& sdcl : input_subdeclarations)
     {
-        declaroid const* decl = nullptr;
+        declaration const* decl = nullptr;
         std::string const* name = nullptr;
         bool is_member = false;
 
-        if (sdcl.type_is< global_subdeclaroid >())
+        if (sdcl.type_is< global_subdeclaration >())
         {
-            global_subdeclaroid const& global = sdcl.as< global_subdeclaroid >();
+            global_subdeclaration const& global = sdcl.as< global_subdeclaration >();
             decl = &global.decl;
             name = &global.name;
         }
-        else if (sdcl.type_is< member_subdeclaroid >())
+        else if (sdcl.type_is< member_subdeclaration >())
         {
-            member_subdeclaroid const& member = sdcl.as< member_subdeclaroid >();
+            member_subdeclaration const& member = sdcl.as< member_subdeclaration >();
             decl = &member.decl;
             name = &member.name;
             is_member = true;

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <quxlang/data/compilation_result.hpp>
 
-void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
+void quxlang::merge_entity(ast2_symboid& destination, declaration const& source)
 {
 
     std::string kind = source.type().name();

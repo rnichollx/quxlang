@@ -21,8 +21,8 @@
 
 namespace quxlang::parsers
 {
-    std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx);
-    std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx);
+    std::vector< subdeclaration > parse_subdeclarations(parsing_context& ctx);
+    std::optional< subdeclaration > try_parse_subdeclaration(parsing_context& ctx);
 
     /// Parses the modifiers shared by all fusion declarations.
     inline auto parse_fusion_keywords(parsing_context& ctx) -> std::set< std::string >
@@ -116,7 +116,7 @@ namespace quxlang::parsers
                 continue;
             }
 
-            std::optional< subdeclaroid > declaration = try_parse_subdeclaroid(ctx);
+            std::optional< subdeclaration > declaration = try_parse_subdeclaration(ctx);
             if (!declaration.has_value())
             {
                 break;
@@ -183,7 +183,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (skip_symbol_if_is(pos, end, "{"))
         {
-            result.declarations = parse_subdeclaroids(ctx);
+            result.declarations = parse_subdeclarations(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "}"))
             {

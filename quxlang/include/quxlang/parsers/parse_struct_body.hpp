@@ -23,10 +23,10 @@
 
 namespace quxlang::parsers
 {
-    std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx, std::optional< privacy_scope > privacy);
+    std::optional< subdeclaration > try_parse_subdeclaration(parsing_context& ctx, std::optional< privacy_scope > privacy);
 
     /** Parses one direct base declaration without consuming non-base member syntax. */
-    inline auto try_parse_struct_base_declaration(parsing_context& ctx, std::optional< privacy_scope > privacy) -> std::optional< member_subdeclaroid >
+    inline auto try_parse_struct_base_declaration(parsing_context& ctx, std::optional< privacy_scope > privacy) -> std::optional< member_subdeclaration >
     {
         parsing_context trial = ctx;
         parse_iterator const begin = trial.iter_pos;
@@ -94,7 +94,7 @@ namespace quxlang::parsers
         std::optional< source_location > location = ctx.get_location_optional(begin, trial.iter_pos);
         declaration.location = location;
         ctx.iter_pos = trial.iter_pos;
-        return member_subdeclaroid{
+        return member_subdeclaration{
             .decl = std::move(declaration),
             .name = std::move(member_name),
             .include_if = std::move(include_if),
@@ -105,9 +105,9 @@ namespace quxlang::parsers
     }
 
     /** Parses a STRUCT body while preserving direct bases as ordered semantic declarations. */
-    inline auto parse_struct_subdeclaroids(parsing_context& ctx, std::optional< privacy_scope > inherited_privacy = std::nullopt) -> std::vector< subdeclaroid >
+    inline auto parse_struct_subdeclarations(parsing_context& ctx, std::optional< privacy_scope > inherited_privacy = std::nullopt) -> std::vector< subdeclaration >
     {
-        std::vector< subdeclaroid > output;
+        std::vector< subdeclaration > output;
         while (true)
         {
             skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
@@ -122,7 +122,7 @@ namespace quxlang::parsers
                 skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
                 if (skip_symbol_if_is(ctx.iter_pos, ctx.iter_end, "{"))
                 {
-                    std::vector< subdeclaroid > nested = parse_struct_subdeclaroids(ctx, declaration_privacy);
+                    std::vector< subdeclaration > nested = parse_struct_subdeclarations(ctx, declaration_privacy);
                     skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
                     if (!skip_symbol_if_is(ctx.iter_pos, ctx.iter_end, "}"))
                     {
@@ -134,14 +134,14 @@ namespace quxlang::parsers
             }
 
             std::optional< privacy_scope > effective_privacy = declaration_privacy.has_value() ? declaration_privacy : inherited_privacy;
-            std::optional< member_subdeclaroid > base = try_parse_struct_base_declaration(ctx, effective_privacy);
+            std::optional< member_subdeclaration > base = try_parse_struct_base_declaration(ctx, effective_privacy);
             if (base.has_value())
             {
                 output.push_back(std::move(*base));
                 continue;
             }
 
-            std::optional< subdeclaroid > declaration = try_parse_subdeclaroid(ctx, std::move(effective_privacy));
+            std::optional< subdeclaration > declaration = try_parse_subdeclaration(ctx, std::move(effective_privacy));
             if (!declaration.has_value())
             {
                 if (declaration_privacy.has_value())
@@ -232,7 +232,7 @@ namespace quxlang::parsers
         }
 
         skip_whitespace_and_comments(pos, end);
-        std::vector< subdeclaroid > subdecls = parse_struct_subdeclaroids(ctx);
+        std::vector< subdeclaration > subdecls = parse_struct_subdeclarations(ctx);
 
         for (auto& decl : subdecls)
         {

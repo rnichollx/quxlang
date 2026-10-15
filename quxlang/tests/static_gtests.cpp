@@ -192,24 +192,24 @@ namespace
     };
 
     /// Recursively discovers STATIC_TEST declarations and records the source location for each test symbol.
-    auto collect_static_test_symbols(quxlang::type_symbol context, std::vector< quxlang::subdeclaroid > const& declarations, std::filesystem::path const& source_file_path,
+    auto collect_static_test_symbols(quxlang::type_symbol context, std::vector< quxlang::subdeclaration > const& declarations, std::filesystem::path const& source_file_path,
                                      std::string const& contents, static_test_discovery_map& output) -> void
     {
-        for (quxlang::subdeclaroid const& declaration : declarations)
+        for (quxlang::subdeclaration const& declaration : declarations)
         {
-            quxlang::declaroid const* decl = nullptr;
+            quxlang::declaration const* decl = nullptr;
             std::string const* name = nullptr;
             bool is_member = false;
 
-            if (declaration.type_is< quxlang::global_subdeclaroid >())
+            if (declaration.type_is< quxlang::global_subdeclaration >())
             {
-                auto const& global = declaration.get_as< quxlang::global_subdeclaroid >();
+                auto const& global = declaration.get_as< quxlang::global_subdeclaration >();
                 decl = &global.decl;
                 name = &global.name;
             }
-            else if (declaration.type_is< quxlang::member_subdeclaroid >())
+            else if (declaration.type_is< quxlang::member_subdeclaration >())
             {
-                auto const& member = declaration.get_as< quxlang::member_subdeclaroid >();
+                auto const& member = declaration.get_as< quxlang::member_subdeclaration >();
                 decl = &member.decl;
                 name = &member.name;
                 is_member = true;

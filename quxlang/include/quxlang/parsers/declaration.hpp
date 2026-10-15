@@ -49,18 +49,18 @@ namespace quxlang::parsers
     std::optional< ast2_test > try_parse_test(parsing_context& ctx);
     std::optional< ast2_variable_declaration > try_parse_variable_declaration(parsing_context& ctx);
     std::optional< ast2_option > try_parse_option(parsing_context& ctx);
-    std::optional< declaroid > try_parse_declaroid(parsing_context& ctx);
-    declaroid parse_declaroid(parsing_context& ctx);
-    std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx);
-    std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx, std::optional< privacy_scope > privacy);
+    std::optional< declaration > try_parse_declaration(parsing_context& ctx);
+    declaration parse_declaration(parsing_context& ctx);
+    std::optional< subdeclaration > try_parse_subdeclaration(parsing_context& ctx);
+    std::optional< subdeclaration > try_parse_subdeclaration(parsing_context& ctx, std::optional< privacy_scope > privacy);
     std::optional< ast2_namespace_declaration > try_parse_namespace(parsing_context& ctx);
 
     /** Parses declarations, flattening a scoped PRIVATE block into its declarations. */
-    inline std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx, std::optional< privacy_scope > inherited_privacy)
+    inline std::vector< subdeclaration > parse_subdeclarations(parsing_context& ctx, std::optional< privacy_scope > inherited_privacy)
     {
         parse_iterator& pos = ctx.iter_pos;
         parse_iterator const end = ctx.iter_end;
-        std::vector< subdeclaroid > output;
+        std::vector< subdeclaration > output;
 
         while (true)
         {
@@ -76,7 +76,7 @@ namespace quxlang::parsers
                 skip_whitespace_and_comments(pos, end);
                 if (skip_symbol_if_is(pos, end, "{"))
                 {
-                    std::vector< subdeclaroid > nested = parse_subdeclaroids(ctx, declaration_privacy);
+                    std::vector< subdeclaration > nested = parse_subdeclarations(ctx, declaration_privacy);
                     skip_whitespace_and_comments(pos, end);
                     if (!skip_symbol_if_is(pos, end, "}"))
                     {
@@ -87,7 +87,7 @@ namespace quxlang::parsers
                 }
             }
 
-            std::optional< subdeclaroid > decl = try_parse_subdeclaroid(ctx, declaration_privacy.has_value() ? std::move(declaration_privacy) : inherited_privacy);
+            std::optional< subdeclaration > decl = try_parse_subdeclaration(ctx, declaration_privacy.has_value() ? std::move(declaration_privacy) : inherited_privacy);
             if (!decl)
             {
                 if (declaration_privacy.has_value())
@@ -103,18 +103,18 @@ namespace quxlang::parsers
     }
 
     /** Parses declarations without an inherited privacy scope. */
-    inline std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx)
+    inline std::vector< subdeclaration > parse_subdeclarations(parsing_context& ctx)
     {
-        return parse_subdeclaroids(ctx, std::nullopt);
+        return parse_subdeclarations(ctx, std::nullopt);
     }
 
     /** Parses named declarations and import shorthand with shared inclusion and privacy metadata. */
-    inline std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx, std::optional< privacy_scope > privacy)
+    inline std::optional< subdeclaration > try_parse_subdeclaration(parsing_context& ctx, std::optional< privacy_scope > privacy)
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
         auto begin = pos;
-        std::optional< subdeclaroid > output;
+        std::optional< subdeclaration > output;
 
         auto name_opt = try_parse_name(pos, end);
         skip_whitespace_and_comments(pos, end);
@@ -125,7 +125,7 @@ namespace quxlang::parsers
             ifl = try_parse_include_if(ctx);
             doc = try_parse_single_doc(ctx);
         }
-        std::optional< global_subdeclaroid > import = try_parse_import_declaration(
+        std::optional< global_subdeclaration > import = try_parse_import_declaration(
             ctx, name_opt.has_value() ? std::optional< std::string >(name_opt->second) : std::nullopt);
         if (!name_opt.has_value() && !import.has_value())
         {
@@ -143,7 +143,7 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Runtime declaration ::" + name + " is only allowed in the runtime module");
         }
 
-        declaroid decl;
+        declaration decl;
         if (import.has_value())
         {
             if (privacy.has_value() &&
@@ -164,7 +164,7 @@ namespace quxlang::parsers
         }
         else
         {
-            decl = parse_declaroid(ctx);
+            decl = parse_declaration(ctx);
         }
 
         if (is_cpu_attribute_detector && !decl.type_is< ast2_function_declaration >())
@@ -174,10 +174,10 @@ namespace quxlang::parsers
 
         if (member)
         {
-            declaroid const* payload = &decl;
+            declaration const* payload = &decl;
             while (payload->type_is< ast2_template_declaration >())
             {
-                payload = &payload->get_as< ast2_template_declaration >().m_declaroid;
+                payload = &payload->get_as< ast2_template_declaration >().m_declaration;
             }
             if (keywords::is_constructor_name(name) && payload->type_is< ast2_function_declaration >())
             {
@@ -199,20 +199,20 @@ namespace quxlang::parsers
                 throw syntax_compilation_error("PER_THREAD variables must be global declarations");
             }
 
-            output = member_subdeclaroid{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .privacy = std::move(privacy), .location = ctx.get_location_optional(begin, pos)};
+            output = member_subdeclaration{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .privacy = std::move(privacy), .location = ctx.get_location_optional(begin, pos)};
         }
         else
         {
-            output = global_subdeclaroid{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .privacy = std::move(privacy), .location = ctx.get_location_optional(begin, pos)};
+            output = global_subdeclaration{.decl = std::move(decl), .name = std::move(name), .include_if = std::move(ifl), .doc = std::move(doc), .privacy = std::move(privacy), .location = ctx.get_location_optional(begin, pos)};
         }
 
         return output;
     }
 
     /** Tries to parse one declaration without an explicit privacy scope. */
-    inline std::optional< subdeclaroid > try_parse_subdeclaroid(parsing_context& ctx)
+    inline std::optional< subdeclaration > try_parse_subdeclaration(parsing_context& ctx)
     {
-        return try_parse_subdeclaroid(ctx, std::nullopt);
+        return try_parse_subdeclaration(ctx, std::nullopt);
     }
 
     /** Parses an ALIAS target and its required terminating semicolon. */
@@ -238,12 +238,12 @@ namespace quxlang::parsers
         return declaration;
     }
 
-    inline std::optional< declaroid > try_parse_declaroid(parsing_context& ctx)
+    inline std::optional< declaration > try_parse_declaration(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
         skip_whitespace_and_comments(pos, end);
-        std::optional< declaroid > output;
+        std::optional< declaration > output;
         output = try_parse_alias_declaration(ctx);
         if (output)
         {
@@ -345,13 +345,13 @@ namespace quxlang::parsers
         return output;
     }
 
-    inline declaroid parse_declaroid(parsing_context& ctx)
+    inline declaration parse_declaration(parsing_context& ctx)
     {
-        auto decl = try_parse_declaroid(ctx);
+        auto decl = try_parse_declaration(ctx);
 
         if (!decl.has_value())
         {
-            throw syntax_compilation_error("expected declaroid");
+            throw syntax_compilation_error("expected declaration");
         }
         return std::move(*decl);
     }
@@ -375,7 +375,7 @@ namespace quxlang::parsers
             throw syntax_compilation_error("expected { after namespace");
         }
 
-        out.declarations = parse_subdeclaroids(ctx);
+        out.declarations = parse_subdeclarations(ctx);
 
         skip_whitespace_and_comments(pos, end);
 

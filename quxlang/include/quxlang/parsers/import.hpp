@@ -17,7 +17,7 @@ namespace quxlang::parsers
 {
     /** Parses a module-private import alias, retaining its optional inclusion condition. */
     inline auto try_parse_import_declaration(parsing_context& ctx, std::optional< std::string > declared_name)
-        -> std::optional< global_subdeclaroid >
+        -> std::optional< global_subdeclaration >
     {
         parse_iterator& pos = ctx.iter_pos;
         parse_iterator end = ctx.iter_end;
@@ -56,7 +56,7 @@ namespace quxlang::parsers
         }
         ast2_alias_declaration declaration{.target = absolute_module_reference{.module_name = std::move(module_name)}};
         declaration.location = ctx.get_location_optional(begin, pos);
-        return global_subdeclaroid{
+        return global_subdeclaration{
             .decl = std::move(declaration),
             .name = std::move(name),
             .include_if = std::move(condition),

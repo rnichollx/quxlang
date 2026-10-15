@@ -58,22 +58,22 @@ rpnx::querygraph::coroutine< quxlang::struct_virtual_slots_spec > quxlang::struc
             polymorphism.emplace(hierarchy_type, struct_polymorphism_kind::none);
         }
 
-        std::vector< subdeclaroid > active_declarations = co_await rpnx::querygraph::request< active_symboid_subdeclaroids_query >(hierarchy_type);
+        std::vector< subdeclaration > active_declarations = co_await rpnx::querygraph::request< active_symboid_subdeclarations_query >(hierarchy_type);
         std::map< std::string, std::size_t > overload_ordinals;
         bool has_destructor = false;
-        for (subdeclaroid const& declaration_entry : active_declarations)
+        for (subdeclaration const& declaration_entry : active_declarations)
         {
-            if (!declaration_entry.type_is< member_subdeclaroid >())
+            if (!declaration_entry.type_is< member_subdeclaration >())
             {
                 continue;
             }
-            member_subdeclaroid const& member = declaration_entry.get_as< member_subdeclaroid >();
+            member_subdeclaration const& member = declaration_entry.get_as< member_subdeclaration >();
             if (member.decl.type_is< ast2_template_declaration >())
             {
                 ast2_template_declaration const& function_template = member.decl.get_as< ast2_template_declaration >();
-                if (function_template.m_declaroid.type_is< ast2_function_declaration >())
+                if (function_template.m_declaration.type_is< ast2_function_declaration >())
                 {
-                    ast2_function_declaration const& function = function_template.m_declaroid.get_as< ast2_function_declaration >();
+                    ast2_function_declaration const& function = function_template.m_declaration.get_as< ast2_function_declaration >();
                     if (function.header.virtual_specifier.has_value() || function.header.is_nonvirtual)
                     {
                         throw semantic_compilation_error("Virtual functions and NONVIRTUAL destructors cannot be templates: " + to_string(submember{hierarchy_type, member.name}) + source_location_suffix(member.location));

@@ -90,33 +90,33 @@ namespace quxlang
     }
 
     /** Returns the declaration payload from a member or global wrapper. */
-    static auto declaration_payload(subdeclaroid const& declaration) -> declaroid const&
+    static auto declaration_payload(subdeclaration const& declaration) -> quxlang::declaration const&
     {
-        if (declaration.type_is< member_subdeclaroid >())
+        if (declaration.type_is< member_subdeclaration >())
         {
-            return declaration.get_as< member_subdeclaroid >().decl;
+            return declaration.get_as< member_subdeclaration >().decl;
         }
-        return declaration.get_as< global_subdeclaroid >().decl;
+        return declaration.get_as< global_subdeclaration >().decl;
     }
 
     /** Returns the source privacy from a member or global wrapper. */
-    static auto source_privacy(subdeclaroid const& declaration) -> std::optional< privacy_scope > const&
+    static auto source_privacy(subdeclaration const& declaration) -> std::optional< privacy_scope > const&
     {
-        if (declaration.type_is< member_subdeclaroid >())
+        if (declaration.type_is< member_subdeclaration >())
         {
-            return declaration.get_as< member_subdeclaroid >().privacy;
+            return declaration.get_as< member_subdeclaration >().privacy;
         }
-        return declaration.get_as< global_subdeclaroid >().privacy;
+        return declaration.get_as< global_subdeclaration >().privacy;
     }
 
     /** Returns the source location from a member or global wrapper. */
-    static auto declaration_location(subdeclaroid const& declaration) -> std::optional< source_location > const&
+    static auto declaration_location(subdeclaration const& declaration) -> std::optional< source_location > const&
     {
-        if (declaration.type_is< member_subdeclaroid >())
+        if (declaration.type_is< member_subdeclaration >())
         {
-            return declaration.get_as< member_subdeclaroid >().location;
+            return declaration.get_as< member_subdeclaration >().location;
         }
-        return declaration.get_as< global_subdeclaroid >().location;
+        return declaration.get_as< global_subdeclaration >().location;
     }
 } // namespace quxlang
 
@@ -170,7 +170,7 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
         co_return co_await resolve_privacy_scope(*parent, *selected_function.privacy, selected_function.location);
     }
 
-    std::vector< subdeclaroid > const& declarations = co_await rpnx::querygraph::request< active_subdeclaroids_query >(declaration);
+    std::vector< subdeclaration > const& declarations = co_await rpnx::querygraph::request< active_subdeclarations_query >(declaration);
     if (declarations.empty())
     {
         co_return std::nullopt;
@@ -178,7 +178,7 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
 
     if (!has_selected_overload)
     {
-        declaroid const& first_payload = declaration_payload(declarations.front());
+        quxlang::declaration const& first_payload = declaration_payload(declarations.front());
         if (first_payload.type_is< ast2_function_declaration >() || first_payload.type_is< ast2_template_declaration >())
         {
             co_return std::nullopt;
@@ -192,7 +192,7 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
         {
             co_return std::nullopt;
         }
-        subdeclaroid const& selected = declarations.at(index);
+        subdeclaration const& selected = declarations.at(index);
         if (!source_privacy(selected).has_value())
         {
             co_return std::nullopt;
@@ -202,7 +202,7 @@ rpnx::querygraph::coroutine< quxlang::declaration_privacy_spec > quxlang::declar
 
     std::optional< resolved_privacy_scope > first_privacy;
     bool first = true;
-    for (subdeclaroid const& candidate : declarations)
+    for (subdeclaration const& candidate : declarations)
     {
         std::optional< resolved_privacy_scope > candidate_privacy;
         if (source_privacy(candidate).has_value())

@@ -18,18 +18,18 @@ rpnx::querygraph::coroutine< quxlang::struct_direct_bases_spec > quxlang::struct
     }
 
     ast2_struct_declaration const& input_declaration = input_symboid.get_as< ast2_struct_declaration >();
-    std::vector< subdeclaroid > active_declarations = co_await rpnx::querygraph::request< active_symboid_subdeclaroids_query >(input);
+    std::vector< subdeclaration > active_declarations = co_await rpnx::querygraph::request< active_symboid_subdeclarations_query >(input);
     std::set< std::string > member_names;
     std::size_t active_base_count = 0;
     bool has_anonymous_base = false;
 
-    for (subdeclaroid const& declaration : active_declarations)
+    for (subdeclaration const& declaration : active_declarations)
     {
-        if (!declaration.type_is< member_subdeclaroid >())
+        if (!declaration.type_is< member_subdeclaration >())
         {
             continue;
         }
-        member_subdeclaroid const& member = declaration.get_as< member_subdeclaroid >();
+        member_subdeclaration const& member = declaration.get_as< member_subdeclaration >();
         if (!member.decl.type_is< ast2_base_declaration >())
         {
             member_names.insert(member.name);
@@ -54,13 +54,13 @@ rpnx::querygraph::coroutine< quxlang::struct_direct_bases_spec > quxlang::struct
     std::set< std::string > selector_names;
     std::set< type_symbol > direct_virtual_types;
 
-    for (subdeclaroid const& declaration : active_declarations)
+    for (subdeclaration const& declaration : active_declarations)
     {
-        if (!declaration.type_is< member_subdeclaroid >())
+        if (!declaration.type_is< member_subdeclaration >())
         {
             continue;
         }
-        member_subdeclaroid const& member = declaration.get_as< member_subdeclaroid >();
+        member_subdeclaration const& member = declaration.get_as< member_subdeclaration >();
         if (!member.decl.type_is< ast2_base_declaration >())
         {
             continue;

@@ -117,8 +117,8 @@ namespace
         register_type< quxlang::constexpr_u64_spec::query_spec::output_type >(viewer);
         register_type< quxlang::convertible_by_call_spec::query_spec::input_type >(viewer);
         register_type< quxlang::convertible_by_call_spec::query_spec::output_type >(viewer);
-        register_type< quxlang::declaroids_spec::query_spec::input_type >(viewer);
-        register_type< quxlang::declaroids_spec::query_spec::output_type >(viewer);
+        register_type< quxlang::declarations_spec::query_spec::input_type >(viewer);
+        register_type< quxlang::declarations_spec::query_spec::output_type >(viewer);
         register_type< quxlang::ensig_argument_initialize_spec::query_spec::input_type >(viewer);
         register_type< quxlang::ensig_argument_initialize_spec::query_spec::output_type >(viewer);
         register_type< quxlang::ensig_tempars_spec::query_spec::input_type >(viewer);
@@ -199,8 +199,8 @@ namespace
         register_type< quxlang::sintpointer_type_spec::query_spec::output_type >(viewer);
         register_type< quxlang::symboid_spec::query_spec::input_type >(viewer);
         register_type< quxlang::symboid_spec::query_spec::output_type >(viewer);
-        register_type< quxlang::symboid_subdeclaroids_spec::query_spec::input_type >(viewer);
-        register_type< quxlang::symboid_subdeclaroids_spec::query_spec::output_type >(viewer);
+        register_type< quxlang::symboid_subdeclarations_spec::query_spec::input_type >(viewer);
+        register_type< quxlang::symboid_subdeclarations_spec::query_spec::output_type >(viewer);
         register_type< quxlang::symbol_tempars_spec::query_spec::input_type >(viewer);
         register_type< quxlang::symbol_tempars_spec::query_spec::output_type >(viewer);
         register_type< quxlang::symbol_type_spec::query_spec::input_type >(viewer);

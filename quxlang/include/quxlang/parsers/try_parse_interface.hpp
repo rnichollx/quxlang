@@ -20,7 +20,7 @@
 
 namespace quxlang::parsers
 {
-    std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx);
+    std::vector< subdeclaration > parse_subdeclarations(parsing_context& ctx);
 
     /** Tries to parse one interface function with the supplied privacy annotation. */
     inline std::optional< ast2_interface_function_declaration > try_parse_interface_function_declaration(parsing_context& ctx, std::optional< privacy_scope > privacy)
@@ -300,7 +300,7 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Expected '{' after implementation interface type");
         }
 
-        out.declarations = parse_subdeclaroids(ctx);
+        out.declarations = parse_subdeclarations(ctx);
 
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "}"))

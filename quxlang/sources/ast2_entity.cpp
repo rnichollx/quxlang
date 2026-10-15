@@ -11,7 +11,7 @@ std::string quxlang::to_string(ast2_function_declaration const& ref)
     return "FUNCTION(" + std::to_string(ref.header.call_parameters.size()) + " parameters)";
 }
 
-std::string quxlang::to_string(declaroid const& ref)
+std::string quxlang::to_string(declaration const& ref)
 {
     return "";
 }

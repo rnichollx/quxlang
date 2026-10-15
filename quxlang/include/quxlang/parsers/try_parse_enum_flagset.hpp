@@ -16,7 +16,7 @@
 
 namespace quxlang::parsers
 {
-    std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx);
+    std::vector< subdeclaration > parse_subdeclarations(parsing_context& ctx);
 
     /// Parses an optional BITS(width) clause following ENUM or FLAGSET.
     inline auto try_parse_nominal_bits_clause(parsing_context& ctx) -> std::optional< expression >
@@ -46,7 +46,7 @@ namespace quxlang::parsers
     }
 
     /// Parses the optional associated declaration body, or requires the list-only trailing semicolon.
-    inline auto parse_nominal_body_or_semicolon(parsing_context& ctx) -> std::vector< subdeclaroid >
+    inline auto parse_nominal_body_or_semicolon(parsing_context& ctx) -> std::vector< subdeclaration >
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
@@ -54,7 +54,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (skip_symbol_if_is(pos, end, "{"))
         {
-            std::vector< subdeclaroid > declarations = parse_subdeclaroids(ctx);
+            std::vector< subdeclaration > declarations = parse_subdeclarations(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "}"))
             {

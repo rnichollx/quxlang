@@ -1,11 +1,11 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/queries/specs/active_subdeclaroids_spec.hpp>
+#include <quxlang/queries/specs/active_subdeclarations_spec.hpp>
 
 #include <optional>
 #include <utility>
 
-rpnx::querygraph::coroutine< quxlang::active_subdeclaroids_spec > quxlang::active_subdeclaroids_impl(type_symbol input)
+rpnx::querygraph::coroutine< quxlang::active_subdeclarations_spec > quxlang::active_subdeclarations_impl(type_symbol input)
 {
     type_symbol parent;
     std::string name;
@@ -29,24 +29,24 @@ rpnx::querygraph::coroutine< quxlang::active_subdeclaroids_spec > quxlang::activ
         co_return {};
     }
 
-    std::vector< subdeclaroid > output;
-    std::vector< subdeclaroid > const& declarations = co_await rpnx::querygraph::request< symboid_subdeclaroids_query >(parent);
+    std::vector< subdeclaration > output;
+    std::vector< subdeclaration > const& declarations = co_await rpnx::querygraph::request< subdeclarations_of_query >(parent);
 
-    for (subdeclaroid const& declaration : declarations)
+    for (subdeclaration const& declaration : declarations)
     {
         std::optional< expression > const* include_if;
-        if (is_member && declaration.type_is< member_subdeclaroid >())
+        if (is_member && declaration.type_is< member_subdeclaration >())
         {
-            member_subdeclaroid const& member = declaration.get_as< member_subdeclaroid >();
+            member_subdeclaration const& member = declaration.get_as< member_subdeclaration >();
             if (member.name != name)
             {
                 continue;
             }
             include_if = &member.include_if;
         }
-        else if (!is_member && declaration.type_is< global_subdeclaroid >())
+        else if (!is_member && declaration.type_is< global_subdeclaration >())
         {
-            global_subdeclaroid const& global = declaration.get_as< global_subdeclaroid >();
+            global_subdeclaration const& global = declaration.get_as< global_subdeclaration >();
             if (global.name != name)
             {
                 continue;

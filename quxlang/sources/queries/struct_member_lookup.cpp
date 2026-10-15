@@ -23,11 +23,11 @@ rpnx::querygraph::coroutine< quxlang::struct_member_lookup_spec > quxlang::struc
     for (type_symbol const& hierarchy_type : hierarchy_types)
     {
         direct_bases.emplace(hierarchy_type, co_await rpnx::querygraph::request< struct_direct_bases_query >(hierarchy_type));
-        std::vector< subdeclaroid > declarations = co_await rpnx::querygraph::request< active_symboid_subdeclaroids_query >(hierarchy_type);
+        std::vector< subdeclaration > declarations = co_await rpnx::querygraph::request< active_symboid_subdeclarations_query >(hierarchy_type);
         bool has_match = false;
-        for (subdeclaroid const& declaration : declarations)
+        for (subdeclaration const& declaration : declarations)
         {
-            if (declaration.type_is< member_subdeclaroid >() && declaration.get_as< member_subdeclaroid >().name == input.member_name)
+            if (declaration.type_is< member_subdeclaration >() && declaration.get_as< member_subdeclaration >().name == input.member_name)
             {
                 has_match = true;
                 break;
