@@ -31,7 +31,7 @@ PRIVATE(MODULE) ::dynarr_operations_and_lifecycle_static_test STATIC_TEST
   TEST_ASSERT(pair_index_total == 6);
   TEST_ASSERT(pair_value_total == 10);
   VAR constant_values CONST& dynarr#(I32) := values;
-  VAR constant_iterator dynarr_const_iterator#(I32) := constant_values.BEGIN();
+  VAR constant_iterator dynarr#(I32)::const_iterator := constant_values.BEGIN();
   TEST_ASSERT(constant_iterator-> == 5);
   VAR constant_total I32 := 0;
   LOOP VALUE(value) IN(constant_values) DO

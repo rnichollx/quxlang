@@ -225,13 +225,13 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN previous;
     }
     .OPERATOR-> DOC <$ Returns an immutable key and a mut mapped-value reference. $>
-      FUNCTION() CONST: map_item_ref#[INDEX:VALUE]
+      FUNCTION() CONST: map#[INDEX:VALUE]::item_ref
     {
       INVARIANT(.bucket < .owner->.buckets.size(), "Cannot dereference a hadix end iterator.");
       VAR record MUT->hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record;
       IF (.node??) { record := .node->.entry.record; }
       ELSE { record := .owner->.buckets[.bucket].records[.position]; }
-      RETURN map_item_ref#[INDEX:VALUE](@key record->.key, @value record->.value);
+      RETURN map#[INDEX:VALUE]::item_ref(@key record->.key, @value record->.value);
     }
   }
 
@@ -280,13 +280,13 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN previous;
     }
     .OPERATOR-> DOC <$ Returns an immutable key and a const mapped-value reference. $>
-      FUNCTION() CONST: map_const_item_ref#[INDEX:VALUE]
+      FUNCTION() CONST: map#[INDEX:VALUE]::const_item_ref
     {
       INVARIANT(.bucket < .owner->.buckets.size(), "Cannot dereference a hadix end iterator.");
       VAR record MUT->hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record;
       IF (.node??) { record := .node->.entry.record; }
       ELSE { record := .owner->.buckets[.bucket].records[.position]; }
-      RETURN map_const_item_ref#[INDEX:VALUE](@key record->.key, @value record->.value);
+      RETURN map#[INDEX:VALUE]::const_item_ref(@key record->.key, @value record->.value);
     }
 
   }

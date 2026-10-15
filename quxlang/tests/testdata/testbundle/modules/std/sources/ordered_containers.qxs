@@ -393,468 +393,468 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 }
 
-::map_item_ref DOC <$
-  Refers to one mutable map item while keeping its key immutable.
-  key and INDEX return the key; value and VALUE return the associated value.
-  $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(CLASS)
-  {
-    .key_pointer VAR CONST->INDEX;
-    .value_pointer VAR MUT->VALUE;
-  }
-
-  .CONSTRUCTOR DOC <$ Creates an item reference from a key and value. $>
-    FUNCTION(@key CONST& INDEX, @value MUT& VALUE)
-  {
-    .key_pointer := key<-;
-    .value_pointer := value<-;
-  }
-
-  .key DOC <$ Returns the immutable key. $>
-    FUNCTION() CONST: CONST& INDEX
-  {
-    RETURN .key_pointer->;
-  }
-
-  .INDEX DOC <$ Returns the immutable key for INDEX and VALUE iteration. $>
-    FUNCTION() CONST: CONST& INDEX
-  {
-    RETURN .key_pointer->;
-  }
-
-  .value DOC <$ Returns the mutable associated value. $>
-    FUNCTION() CONST: MUT& VALUE
-  {
-    RETURN .value_pointer->;
-  }
-
-  .VALUE DOC <$ Returns the mutable associated value. $>
-    FUNCTION() CONST: MUT& VALUE
-  {
-    RETURN .value_pointer->;
-  }
-}
-
-::map_const_item_ref DOC <$
-  Refers read-only to one map item. key and INDEX return the key, while value
-  and VALUE return the associated value.
-  $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(CLASS)
-  {
-    .key_pointer VAR CONST->INDEX;
-    .value_pointer VAR CONST->VALUE;
-  }
-
-  .CONSTRUCTOR DOC <$ Creates a constant item reference from a key and value. $>
-    FUNCTION(@key CONST& INDEX, @value CONST& VALUE)
-  {
-    .key_pointer := key<-;
-    .value_pointer := value<-;
-  }
-
-  .key DOC <$ Returns the immutable key. $>
-    FUNCTION() CONST: CONST& INDEX
-  {
-    RETURN .key_pointer->;
-  }
-
-  .INDEX DOC <$ Returns the immutable key for INDEX and VALUE iteration. $>
-    FUNCTION() CONST: CONST& INDEX
-  {
-    RETURN .key_pointer->;
-  }
-
-  .VALUE DOC <$ Returns the associated value. $>
-    FUNCTION() CONST: CONST& VALUE
-  {
-    RETURN .value_pointer->;
-  }
-
-  .value DOC <$ Returns the associated value. $>
-    FUNCTION() CONST: CONST& VALUE
-  {
-    RETURN .value_pointer->;
-  }
-}
-
-::map_iterator DOC <$ Traverses mutable map values in ascending key order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .node := node;
-    }
-  }
-
-  .CONSTRUCTOR DOC <$ Creates an unpositioned iterator. $>
-    FUNCTION()
-  {
-  }
-
-  .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
-  {
-    RETURN .node == OTHER.node;
-  }
-
-  .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    INVARIANT(.node??, "A map end iterator cannot be incremented.");
-    VAR previous map_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
-    .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
-    RETURN previous;
-  }
-
-  .OPERATOR-> DOC <$ Returns a key-and-value reference for the current item. $>
-    FUNCTION() CONST: map_item_ref#(@INDEX INDEX, @VALUE VALUE)
-  {
-    INVARIANT(.node??, "A map end iterator cannot be dereferenced.");
-    RETURN map_item_ref#(@INDEX INDEX, @VALUE VALUE)(
-      @key .node->.entry.key,
-      @value .node->.entry.value
-    );
-  }
-}
-
-::map_const_iterator DOC <$ Traverses a constant map in ascending key order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .node := node;
-    }
-  }
-
-  .CONSTRUCTOR DOC <$ Creates an unpositioned constant iterator. $>
-    FUNCTION()
-  {
-  }
-
-  .CONSTRUCTOR DOC <$ Converts a mutable iterator to a constant iterator. $>
-    FUNCTION(@OTHER CONST& map_iterator#(@INDEX INDEX, @VALUE VALUE))
-  {
-    .node := OTHER.node;
-  }
-
-  .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_const_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
-  {
-    RETURN .node == OTHER.node;
-  }
-
-  .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    INVARIANT(.node??, "A map end iterator cannot be incremented.");
-    VAR previous map_const_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
-    .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
-    RETURN previous;
-  }
-
-  .OPERATOR-> DOC <$ Returns a read-only key-and-value reference for the current item. $>
-    FUNCTION() CONST: map_const_item_ref#(@INDEX INDEX, @VALUE VALUE)
-  {
-    INVARIANT(.node??, "A map end iterator cannot be dereferenced.");
-    RETURN map_const_item_ref#(@INDEX INDEX, @VALUE VALUE)(
-      @key .node->.entry.key,
-      @value .node->.entry.value
-    );
-  }
-}
-
-::map_key_iterator DOC <$ Traverses immutable map keys in ascending order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .node := node;
-    }
-  }
-
-  .CONSTRUCTOR DOC <$ Creates an unpositioned key iterator. $>
-    FUNCTION()
-  {
-  }
-
-  .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_key_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
-  {
-    RETURN .node == OTHER.node;
-  }
-
-  .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_key_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    INVARIANT(.node??, "A map key end iterator cannot be incremented.");
-    VAR previous map_key_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
-    .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
-    RETURN previous;
-  }
-
-  .OPERATOR-> DOC <$ Returns the current immutable key. $>
-    FUNCTION() CONST: CONST& INDEX
-  {
-    INVARIANT(.node??, "A map key end iterator cannot be dereferenced.");
-    RETURN .node->.entry.key;
-  }
-}
-
-::map_value_iterator DOC <$ Traverses mutable map values in ascending key order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .node := node;
-    }
-  }
-
-  .CONSTRUCTOR DOC <$ Creates an unpositioned value iterator. $>
-    FUNCTION()
-  {
-  }
-
-  .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_value_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
-  {
-    RETURN .node == OTHER.node;
-  }
-
-  .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_value_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    INVARIANT(.node??, "A map value end iterator cannot be incremented.");
-    VAR previous map_value_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
-    .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
-    RETURN previous;
-  }
-
-  .OPERATOR-> DOC <$ Returns the current mutable value. $>
-    FUNCTION() CONST: MUT& VALUE
-  {
-    INVARIANT(.node??, "A map value end iterator cannot be dereferenced.");
-    RETURN .node->.entry.value;
-  }
-}
-
-::map_const_value_iterator DOC <$ Traverses constant map values in ascending key order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .node := node;
-    }
-  }
-
-  .CONSTRUCTOR DOC <$ Creates an unpositioned constant value iterator. $>
-    FUNCTION()
-  {
-  }
-
-  .CONSTRUCTOR DOC <$ Converts a mutable value iterator to a constant value iterator. $>
-    FUNCTION(@OTHER CONST& map_value_iterator#(@INDEX INDEX, @VALUE VALUE))
-  {
-    .node := OTHER.node;
-  }
-
-  .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)) CONST: BOOL
-  {
-    RETURN .node == OTHER.node;
-  }
-
-  .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    INVARIANT(.node??, "A map value end iterator cannot be incremented.");
-    VAR previous map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE) := THIS;
-    .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
-    RETURN previous;
-  }
-
-  .OPERATOR-> DOC <$ Returns the current constant value. $>
-    FUNCTION() CONST: CONST& VALUE
-  {
-    INVARIANT(.node??, "A map value end iterator cannot be dereferenced.");
-    RETURN .node->.entry.value;
-  }
-}
-
-::map_item_range DOC <$ Provides mutable map items and INDEX/VALUE pairs in ascending key order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates an item range beginning at first. $>
-      FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .first := first;
-    }
-  }
-
-  .BEGIN DOC <$ Returns the first mutable item iterator. $>
-    FUNCTION() CONST: map_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
-  }
-
-  .END DOC <$ Returns the past-the-end mutable item iterator. $>
-    FUNCTION() CONST: map_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
-  }
-}
-
-::map_const_item_range DOC <$ Provides constant map items and INDEX/VALUE pairs in ascending key order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates a constant item range beginning at first. $>
-      FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .first := first;
-    }
-  }
-
-  .BEGIN DOC <$ Returns the first constant item iterator. $>
-    FUNCTION() CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
-  }
-
-  .END DOC <$ Returns the past-the-end constant item iterator. $>
-    FUNCTION() CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
-  }
-}
-
-::map_key_range DOC <$ Provides immutable map keys in ascending order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates a key range beginning at first. $>
-      FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .first := first;
-    }
-  }
-
-  .BEGIN DOC <$ Returns the first key iterator. $>
-    FUNCTION() CONST: map_key_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    RETURN map_key_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
-  }
-
-  .END DOC <$ Returns the past-the-end key iterator. $>
-    FUNCTION() CONST: map_key_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN map_key_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
-  }
-}
-
-::map_value_range DOC <$ Provides mutable map values in ascending key order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates a mutable value range beginning at first. $>
-      FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .first := first;
-    }
-  }
-
-  .BEGIN DOC <$ Returns the first mutable value iterator. $>
-    FUNCTION() CONST: map_value_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    RETURN map_value_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
-  }
-
-  .END DOC <$ Returns the past-the-end mutable value iterator. $>
-    FUNCTION() CONST: map_value_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN map_value_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
-  }
-}
-
-::map_const_value_range DOC <$ Provides constant map values in ascending key order. $>
-  TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates a constant value range beginning at first. $>
-      FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .first := first;
-    }
-  }
-
-  .BEGIN DOC <$ Returns the first constant value iterator. $>
-    FUNCTION() CONST: map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    RETURN map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)(@node .first);
-  }
-
-  .END DOC <$ Returns the past-the-end constant value iterator. $>
-    FUNCTION() CONST: map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)
-  {
-    VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN map_const_value_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
-  }
-}
-
 ::map DOC <$
   Owns unique keys and associated values in ascending key order. Lookup,
   insertion, and removal have worst-case logarithmic complexity.
   $>
   TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO) STRUCT
 {
+  ::item_ref DOC <$
+    Refers to one mutable map item while keeping its key immutable.
+    key and INDEX return the key; value and VALUE return the associated value.
+    $>
+    STRUCT
+  {
+    PRIVATE(CLASS)
+    {
+      .key_pointer VAR CONST->INDEX;
+      .value_pointer VAR MUT->VALUE;
+    }
+
+    .CONSTRUCTOR DOC <$ Creates an item reference from a key and value. $>
+      FUNCTION(@key CONST& INDEX, @value MUT& VALUE)
+    {
+      .key_pointer := key<-;
+      .value_pointer := value<-;
+    }
+
+    .key DOC <$ Returns the immutable key. $>
+      FUNCTION() CONST: CONST& INDEX
+    {
+      RETURN .key_pointer->;
+    }
+
+    .INDEX DOC <$ Returns the immutable key for INDEX and VALUE iteration. $>
+      FUNCTION() CONST: CONST& INDEX
+    {
+      RETURN .key_pointer->;
+    }
+
+    .value DOC <$ Returns the mutable associated value. $>
+      FUNCTION() CONST: MUT& VALUE
+    {
+      RETURN .value_pointer->;
+    }
+
+    .VALUE DOC <$ Returns the mutable associated value. $>
+      FUNCTION() CONST: MUT& VALUE
+    {
+      RETURN .value_pointer->;
+    }
+  }
+
+  ::const_item_ref DOC <$
+    Refers read-only to one map item. key and INDEX return the key, while value
+    and VALUE return the associated value.
+    $>
+    STRUCT
+  {
+    PRIVATE(CLASS)
+    {
+      .key_pointer VAR CONST->INDEX;
+      .value_pointer VAR CONST->VALUE;
+    }
+
+    .CONSTRUCTOR DOC <$ Creates a constant item reference from a key and value. $>
+      FUNCTION(@key CONST& INDEX, @value CONST& VALUE)
+    {
+      .key_pointer := key<-;
+      .value_pointer := value<-;
+    }
+
+    .key DOC <$ Returns the immutable key. $>
+      FUNCTION() CONST: CONST& INDEX
+    {
+      RETURN .key_pointer->;
+    }
+
+    .INDEX DOC <$ Returns the immutable key for INDEX and VALUE iteration. $>
+      FUNCTION() CONST: CONST& INDEX
+    {
+      RETURN .key_pointer->;
+    }
+
+    .VALUE DOC <$ Returns the associated value. $>
+      FUNCTION() CONST: CONST& VALUE
+    {
+      RETURN .value_pointer->;
+    }
+
+    .value DOC <$ Returns the associated value. $>
+      FUNCTION() CONST: CONST& VALUE
+    {
+      RETURN .value_pointer->;
+    }
+  }
+
+  ::iterator DOC <$ Traverses mutable map values in ascending key order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
+        FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .node := node;
+      }
+    }
+
+    .CONSTRUCTOR DOC <$ Creates an unpositioned iterator. $>
+      FUNCTION()
+    {
+    }
+
+    .OPERATOR== DOC <$ Compares iterator positions. $>
+      FUNCTION(@OTHER CONST& map#(@INDEX INDEX, @VALUE VALUE)::iterator) CONST: BOOL
+    {
+      RETURN .node == OTHER.node;
+    }
+
+    .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
+      FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::iterator
+    {
+      INVARIANT(.node??, "A map end iterator cannot be incremented.");
+      VAR previous map#(@INDEX INDEX, @VALUE VALUE)::iterator := THIS;
+      .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
+      RETURN previous;
+    }
+
+    .OPERATOR-> DOC <$ Returns a key-and-value reference for the current item. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::item_ref
+    {
+      INVARIANT(.node??, "A map end iterator cannot be dereferenced.");
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::item_ref(
+        @key .node->.entry.key,
+        @value .node->.entry.value
+      );
+    }
+  }
+
+  ::const_iterator DOC <$ Traverses a constant map in ascending key order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
+        FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .node := node;
+      }
+    }
+
+    .CONSTRUCTOR DOC <$ Creates an unpositioned constant iterator. $>
+      FUNCTION()
+    {
+    }
+
+    .CONSTRUCTOR DOC <$ Converts a mutable iterator to a constant iterator. $>
+      FUNCTION(@OTHER CONST& map#(@INDEX INDEX, @VALUE VALUE)::iterator)
+    {
+      .node := OTHER.node;
+    }
+
+    .OPERATOR== DOC <$ Compares iterator positions. $>
+      FUNCTION(@OTHER CONST& map#(@INDEX INDEX, @VALUE VALUE)::const_iterator) CONST: BOOL
+    {
+      RETURN .node == OTHER.node;
+    }
+
+    .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
+      FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::const_iterator
+    {
+      INVARIANT(.node??, "A map end iterator cannot be incremented.");
+      VAR previous map#(@INDEX INDEX, @VALUE VALUE)::const_iterator := THIS;
+      .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
+      RETURN previous;
+    }
+
+    .OPERATOR-> DOC <$ Returns a read-only key-and-value reference for the current item. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_item_ref
+    {
+      INVARIANT(.node??, "A map end iterator cannot be dereferenced.");
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_item_ref(
+        @key .node->.entry.key,
+        @value .node->.entry.value
+      );
+    }
+  }
+
+  ::key_iterator DOC <$ Traverses immutable map keys in ascending order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
+        FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .node := node;
+      }
+    }
+
+    .CONSTRUCTOR DOC <$ Creates an unpositioned key iterator. $>
+      FUNCTION()
+    {
+    }
+
+    .OPERATOR== DOC <$ Compares iterator positions. $>
+      FUNCTION(@OTHER CONST& map#(@INDEX INDEX, @VALUE VALUE)::key_iterator) CONST: BOOL
+    {
+      RETURN .node == OTHER.node;
+    }
+
+    .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
+      FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::key_iterator
+    {
+      INVARIANT(.node??, "A map key end iterator cannot be incremented.");
+      VAR previous map#(@INDEX INDEX, @VALUE VALUE)::key_iterator := THIS;
+      .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
+      RETURN previous;
+    }
+
+    .OPERATOR-> DOC <$ Returns the current immutable key. $>
+      FUNCTION() CONST: CONST& INDEX
+    {
+      INVARIANT(.node??, "A map key end iterator cannot be dereferenced.");
+      RETURN .node->.entry.key;
+    }
+  }
+
+  ::value_iterator DOC <$ Traverses mutable map values in ascending key order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
+        FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .node := node;
+      }
+    }
+
+    .CONSTRUCTOR DOC <$ Creates an unpositioned value iterator. $>
+      FUNCTION()
+    {
+    }
+
+    .OPERATOR== DOC <$ Compares iterator positions. $>
+      FUNCTION(@OTHER CONST& map#(@INDEX INDEX, @VALUE VALUE)::value_iterator) CONST: BOOL
+    {
+      RETURN .node == OTHER.node;
+    }
+
+    .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
+      FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::value_iterator
+    {
+      INVARIANT(.node??, "A map value end iterator cannot be incremented.");
+      VAR previous map#(@INDEX INDEX, @VALUE VALUE)::value_iterator := THIS;
+      .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
+      RETURN previous;
+    }
+
+    .OPERATOR-> DOC <$ Returns the current mutable value. $>
+      FUNCTION() CONST: MUT& VALUE
+    {
+      INVARIANT(.node??, "A map value end iterator cannot be dereferenced.");
+      RETURN .node->.entry.value;
+    }
+  }
+
+  ::const_value_iterator DOC <$ Traverses constant map values in ascending key order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .node VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
+        FUNCTION(@node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .node := node;
+      }
+    }
+
+    .CONSTRUCTOR DOC <$ Creates an unpositioned constant value iterator. $>
+      FUNCTION()
+    {
+    }
+
+    .CONSTRUCTOR DOC <$ Converts a mutable value iterator to a constant value iterator. $>
+      FUNCTION(@OTHER CONST& map#(@INDEX INDEX, @VALUE VALUE)::value_iterator)
+    {
+      .node := OTHER.node;
+    }
+
+    .OPERATOR== DOC <$ Compares iterator positions. $>
+      FUNCTION(@OTHER CONST& map#(@INDEX INDEX, @VALUE VALUE)::const_value_iterator) CONST: BOOL
+    {
+      RETURN .node == OTHER.node;
+    }
+
+    .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
+      FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::const_value_iterator
+    {
+      INVARIANT(.node??, "A map value end iterator cannot be incremented.");
+      VAR previous map#(@INDEX INDEX, @VALUE VALUE)::const_value_iterator := THIS;
+      .node := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
+      RETURN previous;
+    }
+
+    .OPERATOR-> DOC <$ Returns the current constant value. $>
+      FUNCTION() CONST: CONST& VALUE
+    {
+      INVARIANT(.node??, "A map value end iterator cannot be dereferenced.");
+      RETURN .node->.entry.value;
+    }
+  }
+
+  ::item_range DOC <$ Provides mutable map items and INDEX/VALUE pairs in ascending key order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates an item range beginning at first. $>
+        FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .first := first;
+      }
+    }
+
+    .BEGIN DOC <$ Returns the first mutable item iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::iterator
+    {
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::iterator(@node .first);
+    }
+
+    .END DOC <$ Returns the past-the-end mutable item iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::iterator
+    {
+      VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::iterator(@node end_node);
+    }
+  }
+
+  ::const_item_range DOC <$ Provides constant map items and INDEX/VALUE pairs in ascending key order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates a constant item range beginning at first. $>
+        FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .first := first;
+      }
+    }
+
+    .BEGIN DOC <$ Returns the first constant item iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_iterator
+    {
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_iterator(@node .first);
+    }
+
+    .END DOC <$ Returns the past-the-end constant item iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_iterator
+    {
+      VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_iterator(@node end_node);
+    }
+  }
+
+  ::key_range DOC <$ Provides immutable map keys in ascending order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates a key range beginning at first. $>
+        FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .first := first;
+      }
+    }
+
+    .BEGIN DOC <$ Returns the first key iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::key_iterator
+    {
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::key_iterator(@node .first);
+    }
+
+    .END DOC <$ Returns the past-the-end key iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::key_iterator
+    {
+      VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::key_iterator(@node end_node);
+    }
+  }
+
+  ::value_range DOC <$ Provides mutable map values in ascending key order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates a mutable value range beginning at first. $>
+        FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .first := first;
+      }
+    }
+
+    .BEGIN DOC <$ Returns the first mutable value iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::value_iterator
+    {
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::value_iterator(@node .first);
+    }
+
+    .END DOC <$ Returns the past-the-end mutable value iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::value_iterator
+    {
+      VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::value_iterator(@node end_node);
+    }
+  }
+
+  ::const_value_range DOC <$ Provides constant map values in ascending key order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .first VAR MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates a constant value range beginning at first. $>
+        FUNCTION(@first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .first := first;
+      }
+    }
+
+    .BEGIN DOC <$ Returns the first constant value iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_value_iterator
+    {
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_value_iterator(@node .first);
+    }
+
+    .END DOC <$ Returns the past-the-end constant value iterator. $>
+      FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_value_iterator
+    {
+      VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+      RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_value_iterator(@node end_node);
+    }
+  }
+
   PRIVATE(CLASS)
   {
     ::insert_value DOC <$ Constructs and inserts one map entry from forwarded arguments. $>
@@ -997,19 +997,19 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .find DOC <$ Returns a mutable iterator for key or END when absent. $>
-    FUNCTION(@key CONST& INDEX) MUT: map_iterator#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION(@key CONST& INDEX) MUT: map#(@INDEX INDEX, @VALUE VALUE)::iterator
   {
     VAR node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) :=
       ordered_tree#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))::find_node#(@INDEX INDEX)(@tree .tree, @key key);
-    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node node);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::iterator(@node node);
   }
 
   .find DOC <$ Returns a constant iterator for key or END when absent. $>
-    FUNCTION(@key CONST& INDEX) CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION(@key CONST& INDEX) CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_iterator
   {
     VAR node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) :=
       ordered_tree#(ordered_map_entry#(@INDEX INDEX, @VALUE VALUE))::find_node#(@INDEX INDEX)(@tree .tree, @key key);
-    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node node);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_iterator(@node node);
   }
 
   .insert DOC <$
@@ -1082,262 +1082,116 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .BEGIN DOC <$ Returns an iterator to the first mutable map item. $>
-    FUNCTION() MUT: map_iterator#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::iterator
   {
     VAR first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node first);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::iterator(@node first);
   }
 
   .BEGIN DOC <$ Returns an iterator to the first constant map item. $>
-    FUNCTION() CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_iterator
   {
     VAR first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node first);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_iterator(@node first);
   }
 
   .END DOC <$ Returns the past-the-end mutable map iterator. $>
-    FUNCTION() MUT: map_iterator#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::iterator
   {
     VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN map_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::iterator(@node end_node);
   }
 
   .END DOC <$ Returns the past-the-end constant map iterator. $>
-    FUNCTION() CONST: map_const_iterator#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_iterator
   {
     VAR end_node MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN map_const_iterator#(@INDEX INDEX, @VALUE VALUE)(@node end_node);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_iterator(@node end_node);
   }
 
   .items DOC <$ Returns a mutable item range in ascending key order. $>
-    FUNCTION() MUT: map_item_range#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::item_range
   {
     VAR first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN map_item_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::item_range(@first first);
   }
 
   .items DOC <$ Returns a constant item range in ascending key order. $>
-    FUNCTION() CONST: map_const_item_range#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_item_range
   {
     VAR first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN map_const_item_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_item_range(@first first);
   }
 
   .INDEXES DOC <$ Returns the immutable keys in ascending order. $>
-    FUNCTION() CONST: map_key_range#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::key_range
   {
     VAR first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN map_key_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::key_range(@first first);
   }
 
   .VALUES DOC <$ Returns the mutable values in ascending key order. $>
-    FUNCTION() MUT: map_value_range#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::value_range
   {
     VAR first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN map_value_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::value_range(@first first);
   }
 
   .VALUES DOC <$ Returns the constant values in ascending key order. $>
-    FUNCTION() CONST: map_const_value_range#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_value_range
   {
     VAR first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN map_const_value_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_value_range(@first first);
   }
 
   .IV_PAIRS DOC <$ Returns mutable INDEX/VALUE pairs in ascending key order. $>
-    FUNCTION() MUT: map_item_range#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() MUT: map#(@INDEX INDEX, @VALUE VALUE)::item_range
   {
     VAR first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN map_item_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::item_range(@first first);
   }
 
   .IV_PAIRS DOC <$ Returns constant INDEX/VALUE pairs in ascending key order. $>
-    FUNCTION() CONST: map_const_item_range#(@INDEX INDEX, @VALUE VALUE)
+    FUNCTION() CONST: map#(@INDEX INDEX, @VALUE VALUE)::const_item_range
   {
     VAR first MUT->avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_map_entry#(@INDEX INDEX, @VALUE VALUE), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN map_const_item_range#(@INDEX INDEX, @VALUE VALUE)(@first first);
-  }
-}
-
-::set_iterator DOC <$ Traverses a mutable set's immutable keys in ascending order. $>
-  TEMPLATE(@T TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .node VAR MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .node := node;
-    }
-  }
-
-  .CONSTRUCTOR DOC <$ Creates an unpositioned set iterator. $>
-    FUNCTION()
-  {
-  }
-
-  .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& set_iterator#(T)) CONST: BOOL
-  {
-    RETURN .node == OTHER.node;
-  }
-
-  .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: set_iterator#(T)
-  {
-    INVARIANT(.node??, "A set end iterator cannot be incremented.");
-    VAR previous set_iterator#(T) := THIS;
-    .node := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
-    RETURN previous;
-  }
-
-  .OPERATOR-> DOC <$ Returns the current immutable key. $>
-    FUNCTION() CONST: CONST& T
-  {
-    INVARIANT(.node??, "A set end iterator cannot be dereferenced.");
-    RETURN .node->.entry.key;
-  }
-}
-
-::set_const_iterator DOC <$ Traverses a constant set in ascending order. $>
-  TEMPLATE(@T TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .node VAR MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
-      FUNCTION(@node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .node := node;
-    }
-  }
-
-  .CONSTRUCTOR DOC <$ Creates an unpositioned constant set iterator. $>
-    FUNCTION()
-  {
-  }
-
-  .CONSTRUCTOR DOC <$ Converts a mutable set iterator to a constant iterator. $>
-    FUNCTION(@OTHER CONST& set_iterator#(T))
-  {
-    .node := OTHER.node;
-  }
-
-  .OPERATOR== DOC <$ Compares iterator positions. $>
-    FUNCTION(@OTHER CONST& set_const_iterator#(T)) CONST: BOOL
-  {
-    RETURN .node == OTHER.node;
-  }
-
-  .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
-    FUNCTION() MUT: set_const_iterator#(T)
-  {
-    INVARIANT(.node??, "A set end iterator cannot be incremented.");
-    VAR previous set_const_iterator#(T) := THIS;
-    .node := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
-    RETURN previous;
-  }
-
-  .OPERATOR-> DOC <$ Returns the current immutable key. $>
-    FUNCTION() CONST: CONST& T
-  {
-    INVARIANT(.node??, "A set end iterator cannot be dereferenced.");
-    RETURN .node->.entry.key;
-  }
-}
-
-::set_range DOC <$ Provides a mutable set's immutable keys in ascending order. $>
-  TEMPLATE(@T TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .first VAR MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates a set range beginning at first. $>
-      FUNCTION(@first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .first := first;
-    }
-  }
-
-  .BEGIN DOC <$ Returns the first set iterator. $>
-    FUNCTION() CONST: set_iterator#(T)
-  {
-    RETURN set_iterator#(T)(@node .first);
-  }
-
-  .END DOC <$ Returns the past-the-end set iterator. $>
-    FUNCTION() CONST: set_iterator#(T)
-  {
-    VAR end_node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN set_iterator#(T)(@node end_node);
-  }
-}
-
-::set_const_range DOC <$ Provides a constant set's keys in ascending order. $>
-  TEMPLATE(@T TYPE AUTO) STRUCT
-{
-  PRIVATE(MODULE)
-  {
-    .first VAR MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-
-    .CONSTRUCTOR DOC <$ Creates a constant set range beginning at first. $>
-      FUNCTION(@first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
-    {
-      .first := first;
-    }
-  }
-
-  .BEGIN DOC <$ Returns the first constant set iterator. $>
-    FUNCTION() CONST: set_const_iterator#(T)
-  {
-    RETURN set_const_iterator#(T)(@node .first);
-  }
-
-  .END DOC <$ Returns the past-the-end constant set iterator. $>
-    FUNCTION() CONST: set_const_iterator#(T)
-  {
-    VAR end_node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN set_const_iterator#(T)(@node end_node);
+    RETURN map#(@INDEX INDEX, @VALUE VALUE)::const_item_range(@first first);
   }
 }
 
@@ -1347,6 +1201,152 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   $>
   TEMPLATE(@T TYPE AUTO) STRUCT
 {
+  ::iterator DOC <$ Traverses a mutable set's immutable keys in ascending order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .node VAR MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
+        FUNCTION(@node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .node := node;
+      }
+    }
+
+    .CONSTRUCTOR DOC <$ Creates an unpositioned set iterator. $>
+      FUNCTION()
+    {
+    }
+
+    .OPERATOR== DOC <$ Compares iterator positions. $>
+      FUNCTION(@OTHER CONST& set#(T)::iterator) CONST: BOOL
+    {
+      RETURN .node == OTHER.node;
+    }
+
+    .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
+      FUNCTION() MUT: set#(T)::iterator
+    {
+      INVARIANT(.node??, "A set end iterator cannot be incremented.");
+      VAR previous set#(T)::iterator := THIS;
+      .node := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
+      RETURN previous;
+    }
+
+    .OPERATOR-> DOC <$ Returns the current immutable key. $>
+      FUNCTION() CONST: CONST& T
+    {
+      INVARIANT(.node??, "A set end iterator cannot be dereferenced.");
+      RETURN .node->.entry.key;
+    }
+  }
+
+  ::const_iterator DOC <$ Traverses a constant set in ascending order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .node VAR MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates an iterator positioned at node. $>
+        FUNCTION(@node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .node := node;
+      }
+    }
+
+    .CONSTRUCTOR DOC <$ Creates an unpositioned constant set iterator. $>
+      FUNCTION()
+    {
+    }
+
+    .CONSTRUCTOR DOC <$ Converts a mutable set iterator to a constant iterator. $>
+      FUNCTION(@OTHER CONST& set#(T)::iterator)
+    {
+      .node := OTHER.node;
+    }
+
+    .OPERATOR== DOC <$ Compares iterator positions. $>
+      FUNCTION(@OTHER CONST& set#(T)::const_iterator) CONST: BOOL
+    {
+      RETURN .node == OTHER.node;
+    }
+
+    .OPERATOR++ DOC <$ Advances to the next key and returns the previous position. $>
+      FUNCTION() MUT: set#(T)::const_iterator
+    {
+      INVARIANT(.node??, "A set end iterator cannot be incremented.");
+      VAR previous set#(T)::const_iterator := THIS;
+      .node := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node);
+      RETURN previous;
+    }
+
+    .OPERATOR-> DOC <$ Returns the current immutable key. $>
+      FUNCTION() CONST: CONST& T
+    {
+      INVARIANT(.node??, "A set end iterator cannot be dereferenced.");
+      RETURN .node->.entry.key;
+    }
+  }
+
+  ::range DOC <$ Provides a mutable set's immutable keys in ascending order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .first VAR MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates a set range beginning at first. $>
+        FUNCTION(@first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .first := first;
+      }
+    }
+
+    .BEGIN DOC <$ Returns the first set iterator. $>
+      FUNCTION() CONST: set#(T)::iterator
+    {
+      RETURN set#(T)::iterator(@node .first);
+    }
+
+    .END DOC <$ Returns the past-the-end set iterator. $>
+      FUNCTION() CONST: set#(T)::iterator
+    {
+      VAR end_node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+      RETURN set#(T)::iterator(@node end_node);
+    }
+  }
+
+  ::const_range DOC <$ Provides a constant set's keys in ascending order. $>
+    STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .first VAR MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+
+      .CONSTRUCTOR DOC <$ Creates a constant set range beginning at first. $>
+        FUNCTION(@first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE))
+      {
+        .first := first;
+      }
+    }
+
+    .BEGIN DOC <$ Returns the first constant set iterator. $>
+      FUNCTION() CONST: set#(T)::const_iterator
+    {
+      RETURN set#(T)::const_iterator(@node .first);
+    }
+
+    .END DOC <$ Returns the past-the-end constant set iterator. $>
+      FUNCTION() CONST: set#(T)::const_iterator
+    {
+      VAR end_node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
+      RETURN set#(T)::const_iterator(@node end_node);
+    }
+  }
+
   PRIVATE(CLASS)
   {
     ::insert_key DOC <$ Constructs and inserts one set key from a forwarded argument. $>
@@ -1432,19 +1432,19 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .find DOC <$ Returns an iterator for key or END when absent. $>
-    FUNCTION(@key CONST& T) MUT: set_iterator#(T)
+    FUNCTION(@key CONST& T) MUT: set#(T)::iterator
   {
     VAR node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) :=
       ordered_tree#(ordered_set_entry#(T))::find_node#(@INDEX T)(@tree .tree, @key key);
-    RETURN set_iterator#(T)(@node node);
+    RETURN set#(T)::iterator(@node node);
   }
 
   .find DOC <$ Returns a constant iterator for key or END when absent. $>
-    FUNCTION(@key CONST& T) CONST: set_const_iterator#(T)
+    FUNCTION(@key CONST& T) CONST: set#(T)::const_iterator
   {
     VAR node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) :=
       ordered_tree#(ordered_set_entry#(T))::find_node#(@INDEX T)(@tree .tree, @key key);
-    RETURN set_const_iterator#(T)(@node node);
+    RETURN set#(T)::const_iterator(@node node);
   }
 
   .insert DOC <$ Inserts a key, consuming a temporary only when insertion succeeds. $>
@@ -1467,82 +1467,82 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 
   .BEGIN DOC <$ Returns an iterator to the first set key. $>
-    FUNCTION() MUT: set_iterator#(T)
+    FUNCTION() MUT: set#(T)::iterator
   {
     VAR first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN set_iterator#(T)(@node first);
+    RETURN set#(T)::iterator(@node first);
   }
 
   .BEGIN DOC <$ Returns an iterator to the first constant set key. $>
-    FUNCTION() CONST: set_const_iterator#(T)
+    FUNCTION() CONST: set#(T)::const_iterator
   {
     VAR first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN set_const_iterator#(T)(@node first);
+    RETURN set#(T)::const_iterator(@node first);
   }
 
   .END DOC <$ Returns the past-the-end set iterator. $>
-    FUNCTION() MUT: set_iterator#(T)
+    FUNCTION() MUT: set#(T)::iterator
   {
     VAR end_node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN set_iterator#(T)(@node end_node);
+    RETURN set#(T)::iterator(@node end_node);
   }
 
   .END DOC <$ Returns the past-the-end constant set iterator. $>
-    FUNCTION() CONST: set_const_iterator#(T)
+    FUNCTION() CONST: set#(T)::const_iterator
   {
     VAR end_node MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-    RETURN set_const_iterator#(T)(@node end_node);
+    RETURN set#(T)::const_iterator(@node end_node);
   }
 
   .items DOC <$ Returns this mutable set's immutable keys in ascending order. $>
-    FUNCTION() MUT: set_range#(T)
+    FUNCTION() MUT: set#(T)::range
   {
     VAR first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN set_range#(T)(@first first);
+    RETURN set#(T)::range(@first first);
   }
 
   .items DOC <$ Returns this constant set's keys in ascending order. $>
-    FUNCTION() CONST: set_const_range#(T)
+    FUNCTION() CONST: set#(T)::const_range
   {
     VAR first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN set_const_range#(T)(@first first);
+    RETURN set#(T)::const_range(@first first);
   }
 
   .VALUES DOC <$ Returns this mutable set's immutable keys in ascending order. $>
-    FUNCTION() MUT: set_range#(T)
+    FUNCTION() MUT: set#(T)::range
   {
     VAR first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN set_range#(T)(@first first);
+    RETURN set#(T)::range(@first first);
   }
 
   .VALUES DOC <$ Returns this constant set's keys in ascending order. $>
-    FUNCTION() CONST: set_const_range#(T)
+    FUNCTION() CONST: set#(T)::const_range
   {
     VAR first MUT->avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .tree.root;
     IF (first??)
     {
       first := avl_node#(@T ordered_set_entry#(T), @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(first);
     }
-    RETURN set_const_range#(T)(@first first);
+    RETURN set#(T)::const_range(@first first);
   }
 }

@@ -82,8 +82,8 @@ IMPORT std;
       TEST_ASSERT(values.size() == (16 - index) AS ASSUME SZ);
       TEST_ASSERT(keys.size() == values.size());
       VAR candidate I32 := 0;
-      VAR map_position std::map_iterator#(@INDEX I32, @VALUE I32) := values.BEGIN();
-      VAR set_position std::set_iterator#(I32) := keys.BEGIN();
+      VAR map_position std::map#(@INDEX I32, @VALUE I32)::iterator := values.BEGIN();
+      VAR set_position std::set#(I32)::iterator := keys.BEGIN();
       LOOP WHILE (candidate < 17) DO
       {
         TEST_ASSERT(values.contains(@key candidate) == present[candidate AS ASSUME SZ]);
@@ -309,8 +309,8 @@ IMPORT std;
   };
   TEST_ASSERT(weighted_total == 24);
   TEST_ASSERT(sum_const_dynarr(@values values) == 12);
-  VAR mutable_iterator std::dynarr_iterator#(I32) := values.BEGIN();
-  VAR converted_iterator std::dynarr_const_iterator#(I32) := mutable_iterator;
+  VAR mutable_iterator std::dynarr#(I32)::iterator := values.BEGIN();
+  VAR converted_iterator std::dynarr#(I32)::const_iterator := mutable_iterator;
   TEST_ASSERT(converted_iterator-> == 3);
 
   VAR copied std::dynarr#(I32) := values;
@@ -358,15 +358,15 @@ IMPORT std;
   values.push_front((1 AS I32));
   values.push_back((4 AS I32));
 
-  VAR position std::list_const_iterator#(I32) := values.BEGIN();
+  VAR position std::list#(I32)::const_iterator := values.BEGIN();
   position++;
   position++;
   values.insert(@position position, @value (3 AS I32));
   TEST_ASSERT(values.size() == 4);
 
-  VAR erase_position std::list_const_iterator#(I32) := values.BEGIN();
+  VAR erase_position std::list#(I32)::const_iterator := values.BEGIN();
   erase_position++;
-  VAR successor std::list_iterator#(I32) := values.erase(@position erase_position);
+  VAR successor std::list#(I32)::iterator := values.erase(@position erase_position);
   TEST_ASSERT(successor-> == 3);
   values.insert(@position successor, @value (2 AS I32));
 
@@ -380,7 +380,7 @@ IMPORT std;
   TEST_ASSERT(values.front() == 11 && values.back() == 14);
   TEST_ASSERT(sum_const_list(@values values) == 50);
 
-  VAR final_position std::list_iterator#(I32) := values.END();
+  VAR final_position std::list#(I32)::iterator := values.END();
   final_position--;
   TEST_ASSERT(final_position-> == 14);
 
