@@ -448,6 +448,7 @@ namespace quxlang::detail
             return output;
         };
 
+        output_path_validator target_names;
         for (YAML::const_iterator target_iterator = build_config["targets"].begin(); target_iterator != build_config["targets"].end(); ++target_iterator)
         {
 
@@ -462,9 +463,21 @@ namespace quxlang::detail
             {
                 throw semantic_compilation_error("Each target requires a nonempty name and a mapping");
             }
-            if (output.targets.contains(target_name))
+            for (unsigned char character : target_name)
             {
-                throw semantic_compilation_error("Duplicate target '" + target_name + "'");
+                if (!((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+                      (character >= '0' && character <= '9') || character == '_' || character == '-' || character == '.'))
+                {
+                    throw semantic_compilation_error("Target name '" + target_name + "' must contain only ASCII letters, digits, underscores, hyphens, and periods");
+                }
+            }
+            try
+            {
+                target_names.add(target_name);
+            }
+            catch (compilation_error const& error)
+            {
+                throw semantic_compilation_error("Invalid target name '" + target_name + "': " + error.what());
             }
 
             // Validate target-level keys

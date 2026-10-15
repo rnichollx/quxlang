@@ -47,6 +47,13 @@ target format and target-nested `outputs` are rejected.
 
 ## Target identity
 
+Target names are single portable filename components because diagnostic artifacts
+are written beneath `build/<target-name>`. Names contain only ASCII letters,
+digits, underscores, hyphens, and periods, with a maximum length of 255 bytes.
+Empty names, `.` and `..`, names ending in a period, and reserved Windows device
+names are rejected. Target names must be unique under ASCII case folding.
+Validation applies to every configured target before target selection.
+
 The current target-level keys are:
 
 | Key | Accepted current values or shape | Default or requirement |

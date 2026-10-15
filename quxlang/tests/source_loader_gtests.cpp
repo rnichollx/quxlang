@@ -487,3 +487,41 @@ TEST(source_loader, rejects_invalid_macho_configuration)
         EXPECT_THROW(quxlang::detail::parse_build_configuration(YAML::Load("outputs: {}\ntargets: {app: " + target + "}"), bundle, std::nullopt), quxlang::compilation_error);
     }
 }
+
+TEST(source_loader, rejects_unsafe_target_names_before_selection)
+{
+    for (std::string name : {"../../outside", "/outside", "a/b", "a\\b", "C:outside", ".", "..", "name.", "name ", "CON", "nul.txt", "LPT1", "caf\xc3\xa9", "bad?name", ""})
+    {
+        SCOPED_TRACE(name);
+        YAML::Node config = YAML::Load("targets: {safe: {platform: linux, cpu: x64}}\noutputs: {}");
+        config["targets"][name] = YAML::Load("{platform: linux, cpu: x64}");
+        quxlang::source_bundle bundle;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::set< std::string >{"safe"}), quxlang::compilation_error);
+    }
+    YAML::Node config = YAML::Load("targets: {}\noutputs: {}");
+    config["targets"][std::string(256, 'a')] = YAML::Load("{platform: linux, cpu: x64}");
+    quxlang::source_bundle bundle;
+    EXPECT_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::nullopt), quxlang::compilation_error);
+}
+
+TEST(source_loader, rejects_target_name_collisions)
+{
+    for (std::string name : {"native", "NATIVE", "Native"})
+    {
+        YAML::Node config = YAML::Load("targets:\n  native: {platform: linux, cpu: x64}\n  " + name + ": {platform: linux, cpu: x64}\noutputs: {}");
+        quxlang::source_bundle bundle;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::nullopt), quxlang::compilation_error);
+    }
+}
+
+TEST(source_loader, accepts_portable_target_names)
+{
+    YAML::Node config = YAML::Load("targets: {}\noutputs: {}");
+    for (std::string name : {"linux-x64", "macos-arm64", "Native_1.2", "jvm-jvm"})
+    {
+        config["targets"][name] = YAML::Load("{platform: linux, cpu: x64}");
+    }
+    quxlang::source_bundle bundle;
+    EXPECT_NO_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::nullopt));
+    EXPECT_EQ(bundle.targets.size(), 4);
+}
