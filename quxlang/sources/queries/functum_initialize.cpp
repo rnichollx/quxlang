@@ -19,6 +19,16 @@ using namespace quxlang;
 
 rpnx::querygraph::coroutine< quxlang::functum_initialize_spec > quxlang::functum_initialize_impl(initialization_reference input)
 {
+    std::optional< temploid_reference > selection = co_await rpnx::querygraph::request< functum_select_function_query >(input);
+    if (selection.has_value())
+    {
+        co_return co_await rpnx::querygraph::request< function_instanciation_query >(initialization_reference{
+            .initializee = *selection,
+            .parameters = input.parameters,
+            .adaptations = input.adaptations,
+        });
+    }
+
     if (typeis< submember >(input.initializee) && keywords::is_constructor_name(as< submember >(input.initializee).name) && input.parameters.named.contains("ARG"))
     {
         for (std::string const name : {"EXPLICIT", "OTHER"})
@@ -40,21 +50,7 @@ rpnx::querygraph::coroutine< quxlang::functum_initialize_spec > quxlang::functum
         co_return std::nullopt;
     }
 
-    auto input_functum_str = quxlang::to_string(input.initializee);
 
-    auto selection = co_await rpnx::querygraph::request< functum_select_function_query >(input);
-
-    if (!selection)
-    {
-        QUX_WHY("No function found that matches the given parameters.");
-
-        co_return std::nullopt;
-        // throw quxlang::semantic_compilation_error("No function found that matches the given parameters.");
-    }
-
-    co_return co_await rpnx::querygraph::request< function_instanciation_query >(initialization_reference{
-                                                               .initializee = selection.value(),
-                                                               .parameters = input.parameters,
-                                                               .adaptations = input.adaptations,
-                                                           });
+    QUX_WHY("No function found that matches the given parameters.");
+    co_return std::nullopt;
 }

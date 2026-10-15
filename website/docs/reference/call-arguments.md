@@ -152,7 +152,7 @@ composite. It can be mixed with explicit arguments and other expansions in
 source order, including in constructors and `NEW`. Duplicate named arguments
 are rejected. See [Composites](composites.md#positional-composites-and-argument-unpacking).
 
-In a constructor call, the ordinary unnamed argument `ARG` tries `EXPLICIT`
+In a constructor call, the single bare argument tries `ARG`, then `EXPLICIT`,
 then `OTHER`; see [Constructor Argument Routing](constructors-and-destructors.md#the-arg-construction-argument).
 
 ## Reserved argument names

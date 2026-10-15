@@ -564,6 +564,24 @@ PRIVATE(MODULE)
   VAR worker std::thread := entry;
 }
 
+::thread_entry_cast_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR entry thread_store_entry;
+  VAR worker std::thread := entry AS std::thread;
+}
+
+::thread_entry_explicit_cast_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR entry thread_store_entry;
+  VAR worker std::thread := entry AS EXPLICIT std::thread;
+}
+
+::thread_entry_checked_cast_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR entry thread_store_entry;
+  VAR worker std::thread := entry AS CHECKED std::thread;
+}
+
 ::thread_second_join_panic_main FUNCTION(): I32
 {
   VAR worker std::thread := std::thread(-< { });

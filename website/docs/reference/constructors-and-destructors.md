@@ -43,6 +43,35 @@ of the type's interface:
 VAR positional coordinate_pair :[3, 4];
 ```
 
+## The `ARG` construction argument
+
+A class call with one bare argument, such as `owner(value)`, supplies `@ARG`.
+Constructor selection first attempts the original argument name. If no viable
+constructor accepts that call, selection tries `@EXPLICIT`, then `@OTHER`.
+Each category uses ordinary overload resolution; ambiguity is a compilation
+error. A named `@ARG` argument follows the same order. Allocation, placement,
+and delegated constructor calls use the same selection rules. An already
+supplied `@EXPLICIT` or `@OTHER` argument prevents fallback from replacing that
+argument. `VAR value T := expression` uses `@OTHER` directly.
+
+```quxlang
+::owner STRUCT
+{
+  .value VAR I32;
+
+  .CONSTRUCTOR FUNCTION(@ARG:value I32)
+  {
+    .value := value;
+  }
+}
+
+VAR object owner := owner(7);
+```
+
+An `@ARG` constructor participates in direct construction. It does not provide
+an implicit conversion or an `AS` conversion. For example, `std::thread(action)`
+uses its `@ARG` constructor, while `action AS std::thread` is rejected.
+
 ## Field delegates
 
 The `:>` list constructs fields before the constructor body:
@@ -121,19 +150,3 @@ Destructors, including generated subobject destruction, are implicitly
 escapes its boundary terminates execution. See
 [Exception Handling](exceptions.md#cleanup-and-noexcept) for cleanup and
 nested-handler rules.
-
-## The `ARG` construction argument
-
-An unnamed ordinary call argument is named `ARG`. In a constructor call,
-`ARG` first tries the `EXPLICIT` conversion category, then `OTHER` if no
-applicable explicit constructor is found:
-
-```quxlang
-VAR number I32 := I32(7);
-```
-
-This routing also applies to `T(@ARG value)`. An already supplied `EXPLICIT`
-or `OTHER` argument prevents routing another argument to that same name.
-User constructor declarations must use a conversion-category name or an ordinary
-named/positional parameter; `@ARG` is reserved for this constructor-call routing.
-`VAR value T := expression` continues to use `OTHER` directly.

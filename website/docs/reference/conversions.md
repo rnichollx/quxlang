@@ -52,6 +52,13 @@ including `@OTHER`, `@EXPLICIT`, `@PARTIAL`, `@CHECKED`, `@ASSUME`,
 `@APPROXIMATE`, and `@REINTERPRET`. See
 [Constructors and destructors](constructors-and-destructors.md).
 
+For user-defined conversions, bare `AS` tries `@EXPLICIT`, then `@OTHER`.
+`AS CHECKED` tries `@CHECKED`, then `@EXPLICIT`, then `@OTHER`. Other named
+conversion modes select their corresponding constructor category.
+`@ARG` constructors are excluded from every `AS` conversion and from implicit
+conversion. Direct single-argument construction uses the
+[ARG construction argument](constructors-and-destructors.md#the-arg-construction-argument).
+
 `AS DYNAMIC` is restricted to polymorphic instance pointers and returns null
 when no unique target subobject exists. See [Inheritance](inheritance.md) for
 qualification, RTTI, and target-support rules.

@@ -437,10 +437,10 @@ TEST(parsing, absence_operator_cannot_be_declared)
     EXPECT_NO_THROW(parse_file_text("::value STRUCT { .OPERATOR?? FUNCTION() CONST: BOOL { RETURN TRUE; } }"));
 }
 
-TEST(parsing, constructor_rejects_arg_parameter)
+TEST(parsing, constructor_accepts_arg_parameter)
 {
-    EXPECT_THROW(parse_file_text("::value STRUCT { .CONSTRUCTOR FUNCTION(@ARG I32) {} }"), quxlang::compilation_error);
-    EXPECT_THROW(parse_file_text("::value STRUCT { .CONSTRUCTOR FUNCTION(@ARG:source I32) {} }"), quxlang::compilation_error);
+    EXPECT_NO_THROW(parse_file_text("::value STRUCT { .CONSTRUCTOR FUNCTION(@ARG I32) {} }"));
+    EXPECT_NO_THROW(parse_file_text("::value STRUCT { .CONSTRUCTOR FUNCTION(@ARG:source I32) {} }"));
     EXPECT_NO_THROW(parse_file_text("::value STRUCT { .CONSTRUCTOR FUNCTION(@OTHER:source I32) {} }"));
     EXPECT_NO_THROW(parse_file_text("::identity FUNCTION(@ARG I32): I32 { RETURN ARG; }"));
 }

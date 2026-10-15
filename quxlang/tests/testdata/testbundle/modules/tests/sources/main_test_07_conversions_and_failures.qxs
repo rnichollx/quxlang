@@ -92,9 +92,44 @@ IMPORT syscall;
     }
 }
 
+::constructor_argument_only DOC <$ Accepts a value through direct construction. $> STRUCT
+{
+    .value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@ARG:value I32)
+    {
+        .value := value;
+    }
+}
+
+::constructor_argument_choice DOC <$ Distinguishes direct construction from conversion categories. $> STRUCT
+{
+    .value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@ARG:value I32)
+    {
+        .value := value + 200;
+    }
+
+    .CONSTRUCTOR FUNCTION(@EXPLICIT:value I32)
+    {
+        .value := value + 100;
+    }
+
+    .CONSTRUCTOR FUNCTION(@OTHER:value I32)
+    {
+        .value := value;
+    }
+}
+
 ::constructor_conversion_defaults STRUCT
 {
     .value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@ARG:value MUT->I32)
+    {
+        .value := value->;
+    }
 
     .CONSTRUCTOR FUNCTION(@EXPLICIT MUT->I32 DEFAULT(NULL), @OTHER I32 DEFAULT(0))
     {
@@ -102,7 +137,17 @@ IMPORT syscall;
     }
 }
 
-::constructor_argument_conversion DOC <$ Constructor ARG calls select conversions using the same priority as bare AS. $> DUAL_TEST
+::constructor_argument_defaults DOC <$ Uses a defaulted ARG parameter during explicit conversion fallback. $> STRUCT
+{
+    .value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@ARG MUT->I32 DEFAULT(NULL), @EXPLICIT I32 DEFAULT(0))
+    {
+        .value := EXPLICIT;
+    }
+}
+
+::constructor_argument_conversion DOC <$ Constructor calls prefer ARG, then EXPLICIT, then OTHER; casts select conversion categories. $> DUAL_TEST
 {
     VAR source I32 := 7;
     AUTO implicit_value := implicit_foo(source);
@@ -119,6 +164,22 @@ IMPORT syscall;
     TEST_ASSERT(I32(42) == 42);
     AUTO defaulted := constructor_conversion_defaults(source);
     TEST_ASSERT(defaulted.value == 7);
+    AUTO defaulted_argument := constructor_argument_defaults(source);
+    TEST_ASSERT(defaulted_argument.value == 7);
+    AUTO direct := constructor_argument_only(source);
+    AUTO arg_preferred := constructor_argument_choice(source);
+    AUTO arg_named := constructor_argument_choice(@ARG source);
+    AUTO explicit_named := constructor_argument_choice(@EXPLICIT source);
+    AUTO explicit_cast := source AS constructor_argument_choice;
+    AUTO checked_cast := source AS CHECKED constructor_argument_choice;
+    VAR implicit_cast constructor_argument_choice := source;
+    TEST_ASSERT(direct.value == 7);
+    TEST_ASSERT(arg_preferred.value == 207);
+    TEST_ASSERT(arg_named.value == 207);
+    TEST_ASSERT(explicit_named.value == 107);
+    TEST_ASSERT(explicit_cast.value == 107);
+    TEST_ASSERT(checked_cast.value == 107);
+    TEST_ASSERT(implicit_cast.value == 7);
 }
 
 ::allocated_constructor_argument_conversion DOC <$ Allocation forwards ARG to the selected conversion constructor. $> DUAL_TEST
@@ -127,6 +188,36 @@ IMPORT syscall;
     VAR value MUT->constructor_conversion_choice := NEW constructor_conversion_choice :(source);
     TEST_ASSERT(value->.value == 109);
     DELETE value;
+}
+
+::allocated_constructor_argument_priority DOC <$ Allocation and placement preserve ARG constructor priority. $> DUAL_TEST
+{
+    VAR source I32 := 9;
+    VAR value MUT->constructor_argument_choice := NEW constructor_argument_choice :(source);
+    TEST_ASSERT(value->.value == 209);
+    DELETE value;
+    VAR storage TYPED_STORAGE(constructor_argument_choice);
+    PLACE AT(storage) constructor_argument_choice :(source);
+    TEST_ASSERT((PUN storage AS constructor_argument_choice).value == 209);
+    DESTROY AT(storage) constructor_argument_choice;
+}
+
+::constructor_argument_only_cast_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR source I32 := 7;
+    AUTO value := source AS constructor_argument_only;
+}
+
+::constructor_argument_only_checked_cast_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR source I32 := 7;
+    AUTO value := source AS CHECKED constructor_argument_only;
+}
+
+::constructor_argument_only_implicit_conversion_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR source I32 := 7;
+    VAR value constructor_argument_only := source;
 }
 
 ::implicit_conversions_test DUAL_TEST
