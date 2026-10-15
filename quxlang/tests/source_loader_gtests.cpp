@@ -213,6 +213,15 @@ outputs:
     ASSERT_TRUE(bundle.outputs.at("bin/app-release").llvm_options.has_value());
     EXPECT_EQ(bundle.outputs.at("bin/app-release").llvm_options->build_type, quxlang::build_type::release);
     EXPECT_EQ(bundle.outputs.at("java/app.jar").cortado_options->mode, quxlang::backend_cortado_mode::address_sanitizer);
+
+    config["targets"]["java"]["backend"] = "experimental_cortado";
+    quxlang::source_bundle explicit_backend;
+    quxlang::detail::parse_build_configuration(config, explicit_backend, std::nullopt);
+    EXPECT_EQ(explicit_backend.targets.at("java").backend, quxlang::backend_kind::cortado);
+
+    config["targets"]["java"]["backend"] = "cortado";
+    quxlang::source_bundle obsolete_backend;
+    EXPECT_THROW(quxlang::detail::parse_build_configuration(config, obsolete_backend, std::nullopt), quxlang::compilation_error);
 }
 
 TEST(source_loader, parses_unit_test_module_selection)

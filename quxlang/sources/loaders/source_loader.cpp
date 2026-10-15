@@ -654,7 +654,7 @@ namespace quxlang::detail
                 {
                     target_output.backend = quxlang::backend_kind::llvm;
                 }
-                else if (backend == "cortado")
+                else if (backend == "experimental_cortado")
                 {
                     target_output.backend = quxlang::backend_kind::cortado;
                 }
