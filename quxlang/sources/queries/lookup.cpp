@@ -738,6 +738,15 @@ namespace quxlang::detail
         }
         std::uint64_t size_value = co_await evaluate_u64_type_expression(input.context, storage_type.size);
         std::uint64_t align_value = co_await evaluate_u64_type_expression(input.context, storage_type.align);
+        if (align_value == 0)
+        {
+            align_value = 1;
+        }
+        else if ((align_value & (align_value - 1)) != 0)
+        {
+            throw semantic_compilation_error("ALIGNED_STORAGE alignment must be zero or a power of two");
+        }
+
 
         co_return aligned_storage{
             .size = expression_numeric_literal{std::to_string(size_value)},

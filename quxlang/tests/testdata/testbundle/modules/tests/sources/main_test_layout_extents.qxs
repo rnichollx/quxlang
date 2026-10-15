@@ -1,0 +1,92 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::layout_extent_tests INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) NAMESPACE
+{
+  ::array_multiplication STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR size AUTO := SIZEOF([2305843009213693952]U64);
+  }
+
+  ::nested_array STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR size AUTO := SIZEOF([2][9223372036854775808]BYTE);
+  }
+
+  ::maximum_payload STRUCT
+  {
+    .bytes VAR [((0 AS SZ) #!!)]BYTE;
+  }
+
+  ::oversized_fields STRUCT
+  {
+    .bytes VAR [((0 AS SZ) #!!)]BYTE;
+    .extra VAR BYTE;
+  }
+
+  ::fields STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR size AUTO := SIZEOF(oversized_fields);
+  }
+
+  ::rounded_payload STRUCT ALIGN(8)
+  {
+    .bytes VAR [((0 AS SZ) #!!)]BYTE;
+  }
+
+  ::alignment_rounding STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR size AUTO := SIZEOF(rounded_payload);
+  }
+
+  ::oversized_derived STRUCT
+  {
+    .payload BASE maximum_payload;
+    .extra VAR BYTE;
+  }
+
+  ::base_and_field STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR size AUTO := SIZEOF(oversized_derived);
+  }
+
+  ::oversized_virtual STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .payload VIRTUAL_BASE maximum_payload;
+  }
+
+  ::virtual_base STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR size AUTO := SIZEOF(oversized_virtual);
+  }
+
+  ::oversized_fusion INLINE_VARIANT [maximum_payload, VOID];
+
+  ::fusion_tag STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR size AUTO := SIZEOF(oversized_fusion);
+  }
+
+  ::target_addressability INCLUDE_IF(SIZEOF(SZ) == 4) STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR size AUTO := SIZEOF([4294967296]BYTE);
+  }
+
+  ::aligned_storage_extent INCLUDE_IF(SIZEOF(SZ) == 4) STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR size AUTO := SIZEOF(ALIGNED_STORAGE(4294967296, 1));
+  }
+
+  ::aligned_boundary STRUCT ALIGN(8)
+  {
+    .bytes VAR [(((0 AS SZ) #!!) - 7)]BYTE;
+  }
+
+  ::valid_boundaries STATIC_TEST
+  {
+    TEST_ASSERT(SIZEOF([0]U64) == 0);
+    TEST_ASSERT(SIZEOF([3][5]U64) == 120);
+    TEST_ASSERT(SIZEOF([((0 AS SZ) #!!)]BYTE) == ((0 AS SZ) #!!));
+    TEST_ASSERT(SIZEOF(aligned_boundary) == (((0 AS SZ) #!!) - 7));
+    TEST_ASSERT(SIZEOF(maximum_payload) == ((0 AS SZ) #!!));
+  }
+}
