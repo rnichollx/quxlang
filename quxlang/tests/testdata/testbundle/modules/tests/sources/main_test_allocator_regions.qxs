@@ -10,7 +10,7 @@ IMPORT std;
 {
   VAR slots [128]->ALIGNED_STORAGE(8192, 4096);
   VAR ready [128]ATOMIC#BOOL;
-  VAR producer AUTO := -<
+  AUTO producer := -<
   {
     LOOP VALUE(round) FROM(0 AS SZ) UNTIL(16 AS SZ) DO
     {
@@ -115,7 +115,7 @@ IMPORT std;
   LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
   {
     VAR worker_identity SZ := worker_index;
-    VAR action AUTO := -< [=worker_identity, ready, start, size_8, size_16, size_24, size_32, size_48, size_64, size_128, size_256]
+    AUTO action := -< [=worker_identity, ready, start, size_8, size_16, size_24, size_32, size_48, size_64, size_128, size_256]
     {
       VAR random U32 := 20261011 + (worker_identity AS CHECKED U32);
       ready.FETCH_ADD#ATOMIC_RELEASE(1);
@@ -170,7 +170,7 @@ IMPORT std;
   LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
   {
     VAR identity SZ := worker_index;
-    VAR action AUTO := -< [=identity, slots, ready, returned]
+    AUTO action := -< [=identity, slots, ready, returned]
     {
       VAR next SZ := (identity + 1) % 4;
       VAR previous SZ := (identity + 3) % 4;

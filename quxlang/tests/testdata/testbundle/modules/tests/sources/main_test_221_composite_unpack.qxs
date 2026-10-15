@@ -34,12 +34,12 @@ IMPORT std;
     TEST_ASSERT(digits(COMPOSITE_UNPACK(:[1, 3, 5]), @offset 2) == 2135);
     TEST_ASSERT(digits(COMPOSITE_UNPACK(:[]), @offset 7) == 7);
     TEST_ASSERT(digits(COMPOSITE_UNPACK(:{ [0]: 1, .offset: 2 }), COMPOSITE_UNPACK(:[3, 5])) == 2135);
-    VAR joined AUTO := COMPOSITE_JOIN(:[1, 3], :{ [0]: 5, .offset: 2 });
+    AUTO joined := COMPOSITE_JOIN(:[1, 3], :{ [0]: 5, .offset: 2 });
     TEST_ASSERT(digits(COMPOSITE_UNPACK(joined)) == 2135);
-    VAR selected AUTO := COMPOSITE_SELECT(joined, "1", "offset");
+    AUTO selected := COMPOSITE_SELECT(joined, "1", "offset");
     TEST_ASSERT(digits(COMPOSITE_UNPACK(selected)) == 23);
     TEST_ASSERT(IEEE_EQUALS(COMPOSITE_UNPACK(:[1.0 AS F64, 1.0 AS F64])));
-    VAR many AUTO := :[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    AUTO many := :[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     TEST_ASSERT((COMPOSITE_FIELD_GET(many, 10) AS I32) == 10);
   }
 
@@ -53,11 +53,11 @@ IMPORT std;
     TEST_ASSERT(pointer->.first == 11);
     TEST_ASSERT(pointer->.limit == 17);
     DELETE pointer;
-    VAR owner AUTO := std::make_unique#record(% [19, 23], @limit 29);
+    AUTO owner := std::make_unique#record(% [19, 23], @limit 29);
     TEST_ASSERT(owner->.second == 23);
     TEST_ASSERT(owner->.limit == 29);
-    VAR inner AUTO := std::make_unique#I32(@OTHER 31);
-    VAR outer AUTO := std::make_unique#(std::unique_ptr#I32)(@OTHER MOVE(inner));
+    AUTO inner := std::make_unique#I32(@OTHER 31);
+    AUTO outer := std::make_unique#(std::unique_ptr#I32)(@OTHER MOVE(inner));
     TEST_ASSERT(inner.has_value() == FALSE);
     TEST_ASSERT((outer->)-> == 31);
   }
@@ -91,11 +91,11 @@ IMPORT std;
 
   ::positional_move DOC <$ A forwarded temporary pack element transfers ownership into the allocated object. $> DUAL_TEST
   {
-    VAR inner AUTO := std::make_unique#I32(@OTHER 43);
-    VAR outer AUTO := std::make_unique#owner_record(% [MOVE(inner)]);
+    AUTO inner := std::make_unique#I32(@OTHER 43);
+    AUTO outer := std::make_unique#owner_record(% [MOVE(inner)]);
     TEST_ASSERT(inner.has_value() == FALSE);
     TEST_ASSERT(outer->.owned-> == 43);
-    VAR temporary AUTO := std::make_unique#owner_record(% [std::make_unique#I32(@OTHER 47)]);
+    AUTO temporary := std::make_unique#owner_record(% [std::make_unique#I32(@OTHER 47)]);
     TEST_ASSERT(temporary->.owned-> == 47);
   }
 
@@ -119,7 +119,7 @@ IMPORT std;
 
   ::duplicate_position DOC <$ An explicit positional member cannot be declared twice. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR invalid AUTO := :{ [0]: 1, [0]: 3 };
+    AUTO invalid := :{ [0]: 1, [0]: 3 };
   }
 
   ::duplicate_named DOC <$ Unpacking cannot overwrite an explicit argument. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -129,7 +129,7 @@ IMPORT std;
 
   ::missing_position DOC <$ Positional composite indices form a contiguous sequence. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR invalid AUTO := :{ [1]: 3 };
+    AUTO invalid := :{ [1]: 3 };
   }
 
   ::invalid_unpack DOC <$ Argument expansion requires a composite. $> STATIC_TEST EXPECT_COMPILATION_FAILURE

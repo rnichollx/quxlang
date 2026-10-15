@@ -223,21 +223,21 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught U32 := 0;
-    TRY { VAR result AUTO := (127 AS I8) +? 1; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := (127 AS I8) +? 1; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := (-128 AS I8) -? 1; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := (-128 AS I8) -? 1; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := (64 AS I8) *? 2; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := (64 AS I8) *? 2; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := (-128 AS I8) /? -1; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := (-128 AS I8) /? -1; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := (255 AS U8) +? 1; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := (255 AS U8) +? 1; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := (0 AS U8) -? 1; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := (0 AS U8) -? 1; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := (128 AS U8) *? 2; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := (128 AS U8) *? 2; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := (1 AS U8) /? 0; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := (1 AS U8) /? 0; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
     TEST_ASSERT(caught == 8);
   }
@@ -247,29 +247,29 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR caught U32 := 0;
     VAR value U8 := 1;
-    TRY { VAR result AUTO := value #++? 8; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #++? 8; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #++? 256; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #++? 256; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #++? ((0 AS SZ) #!!); TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #++? ((0 AS SZ) #!!); TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #--? 8; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #--? 8; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #--? 256; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #--? 256; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #--? ((0 AS SZ) #!!); TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #--? ((0 AS SZ) #!!); TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #+%? 8; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #+%? 8; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #+%? 256; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #+%? 256; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #+%? ((0 AS SZ) #!!); TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #+%? ((0 AS SZ) #!!); TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #-%? 8; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #-%? 8; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #-%? 256; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #-%? 256; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := value #-%? ((0 AS SZ) #!!); TEST_ASSERT(FALSE); }
+    TRY { AUTO result := value #-%? ((0 AS SZ) #!!); TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
     TEST_ASSERT(caught == 12);
   }
@@ -307,16 +307,16 @@ LANGUAGE QUXLANG EN 0.0;
       maximum := minimum #!!;
     }
     VAR caught U32 := 0;
-    TRY { VAR result AUTO := maximum +? 1; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := maximum +? 1; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := minimum -? 1; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := minimum -? 1; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
-    TRY { VAR result AUTO := maximum *? 2; TEST_ASSERT(FALSE); }
+    TRY { AUTO result := maximum *? 2; TEST_ASSERT(FALSE); }
     CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
     TEST_ASSERT(caught == 3);
     STATIC_IF(IS_SIGNED(T) && BITS(T) <= 64)
     {
-      TRY { VAR result AUTO := minimum /? -1; TEST_ASSERT(FALSE); }
+      TRY { AUTO result := minimum /? -1; TEST_ASSERT(FALSE); }
       CATCH error CONST& ARITHMETIC_OVERFLOW { caught++; }
       TEST_ASSERT(caught == 4);
     }

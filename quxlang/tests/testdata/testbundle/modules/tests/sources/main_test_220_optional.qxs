@@ -21,7 +21,7 @@ IMPORT std;
     TEST_ASSERT(option-> == 11);
     option.reset();
     TEST_ASSERT(option.has_value() == FALSE);
-    VAR factory AUTO := std::make_optional_value#I32(19);
+    AUTO factory := std::make_optional_value#I32(19);
     TEST_ASSERT(factory.value() == 19);
   }
 
@@ -56,7 +56,7 @@ IMPORT std;
 
   ::forwarded_move DOC <$ Positional constructor forwarding moves an owned value into the contained object. $> DUAL_TEST
   {
-    VAR pointer AUTO := std::make_unique#I32(@OTHER 43);
+    AUTO pointer := std::make_unique#I32(@OTHER 43);
     VAR option std::optional#composite_unpack_tests::owner_record;
     option.emplace(% [MOVE(pointer)]);
     TEST_ASSERT(pointer.has_value() == FALSE);
@@ -104,9 +104,9 @@ IMPORT std;
     VAR from_value std::optional#I32 := 31 AS I32;
     TEST_ASSERT(from_value.value() == 31);
     TEST_ASSERT(read_optional(@value value) == 29);
-    VAR returned AUTO := return_optional(@value value);
+    AUTO returned := return_optional(@value value);
     TEST_ASSERT(returned.value() == 29);
-    VAR pointer AUTO := std::make_unique#I32(@OTHER 37);
+    AUTO pointer := std::make_unique#I32(@OTHER 37);
     VAR moved std::optional#(std::unique_ptr#I32) := MOVE(pointer);
     TEST_ASSERT(pointer.has_value() == FALSE);
     TEST_ASSERT((moved.value())-> == 37);
@@ -185,7 +185,7 @@ IMPORT std;
 
   ::move_only DOC <$ Moving an optional transfers its move-only payload and leaves the source engaged with its moved-from value. $> DUAL_TEST
   {
-    VAR pointer AUTO := std::make_unique#I32(@OTHER 31);
+    AUTO pointer := std::make_unique#I32(@OTHER 31);
     VAR source std::optional#(std::unique_ptr#I32) :(@value MOVE(pointer));
     VAR moved std::optional#(std::unique_ptr#I32) := MOVE(source);
     TEST_ASSERT(source.has_value());
@@ -198,7 +198,7 @@ IMPORT std;
     TEST_ASSERT((assigned.value())-> == 31);
     assigned := MOVE(assigned);
     TEST_ASSERT((assigned.value())-> == 31);
-    VAR replacement AUTO := std::make_unique#I32(@OTHER 37);
+    AUTO replacement := std::make_unique#I32(@OTHER 37);
     moved.emplace(@OTHER MOVE(replacement));
     assigned := MOVE(moved);
     TEST_ASSERT((assigned.value())-> == 37);
@@ -213,14 +213,14 @@ IMPORT std;
     VAR first std::optional#(std::unique_ptr#I32);
     VAR second std::optional#(std::unique_ptr#I32);
     first <-> second;
-    VAR value AUTO := std::make_unique#I32(@OTHER 41);
+    AUTO value := std::make_unique#I32(@OTHER 41);
     first.emplace(@OTHER MOVE(value));
     first <-> second;
     TEST_ASSERT(first.has_value() == FALSE);
     TEST_ASSERT((second.value())-> == 41);
     first <-> second;
     TEST_ASSERT(second.has_value() == FALSE);
-    VAR another AUTO := std::make_unique#I32(@OTHER 43);
+    AUTO another := std::make_unique#I32(@OTHER 43);
     second.emplace(@OTHER MOVE(another));
     first <-> second;
     TEST_ASSERT((first.value())-> == 43);

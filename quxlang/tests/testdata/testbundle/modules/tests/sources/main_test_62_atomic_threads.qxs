@@ -10,7 +10,7 @@ IMPORT std;
     ready.STORE#ATOMIC_RELAXED(FALSE);
     VAR sequence I32 := 0;
     VAR payload I32 := 0;
-    VAR producer AUTO := -<
+    AUTO producer := -<
     {
       VAR round I32 := 1;
       LOOP WHILE (round <= 1000) DO
@@ -81,7 +81,7 @@ IMPORT std;
   {
     VAR counter ATOMIC#I32;
     counter.STORE#ATOMIC_RELAXED(0);
-    VAR action AUTO := -<
+    AUTO action := -<
     {
       VAR count SZ := 0;
       LOOP WHILE (count < 1000) DO
@@ -106,7 +106,7 @@ IMPORT std;
     sum.STORE#ATOMIC_RELAXED(0);
     VAR ready ATOMIC#BOOL;
     ready.STORE#ATOMIC_RELAXED(FALSE);
-    VAR action AUTO := -<
+    AUTO action := -<
     {
       LOOP WHILE (ready.LOAD#ATOMIC_ACQUIRE() == FALSE) DO { }
       VAR count SZ := 0;

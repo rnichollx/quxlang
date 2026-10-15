@@ -76,7 +76,7 @@ encoded[0] := 200;
 encoded[1] := 1;
 
 VAR decoded U16 := 0;
-VAR end AUTO := DESERIALIZE_LEB128(
+AUTO end := DESERIALIZE_LEB128(
   @VALUE decoded,
   @INPUT_ITERATOR encoded[& 0]
 );
@@ -133,7 +133,7 @@ result likewise points after the terminating byte, allowing adjacent values to
 be chained:
 
 ```quxlang
-VAR next AUTO := SERIALIZE_UINTANY(
+AUTO next := SERIALIZE_UINTANY(
   @VALUE first,
   @OUTPUT_ITERATOR buffer[& 0]
 );

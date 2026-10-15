@@ -21,9 +21,9 @@ LANGUAGE QUXLANG EN 0.0;
   ::present_function_address DOC <$ A present optional import has a callable nonnull address which survives copying. $>
     UNIT_TEST
   {
-    VAR pointer AUTO := magnitude<-;
+    AUTO pointer := magnitude<-;
     TEST_ASSERT(pointer??);
-    VAR copied AUTO := pointer;
+    AUTO copied := pointer;
     TEST_ASSERT(copied == pointer);
     TEST_ASSERT(copied(@value 0 - 53) == 53);
   }
@@ -31,9 +31,9 @@ LANGUAGE QUXLANG EN 0.0;
   ::absent_function_address DOC <$ A missing optional import permits loading and exposes a null address without being called. $>
     UNIT_TEST
   {
-    VAR pointer AUTO := missing<-;
+    AUTO pointer := missing<-;
     TEST_ASSERT((pointer??) == FALSE);
-    VAR copied AUTO := pointer;
+    AUTO copied := pointer;
     TEST_ASSERT(copied == pointer);
     TEST_ASSERT(copied!?);
   }

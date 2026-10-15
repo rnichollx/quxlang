@@ -47,6 +47,8 @@ No other initializer form is valid with `AUTO`:
 
 ```quxlang
 VAR selected AUTO := callback;
+// or (shorthand)
+AUTO selected := callback;
 ```
 
 `AUTO` removes ordinary reference qualification and constructs an independent
@@ -56,7 +58,7 @@ types create aliases. Attached callable bindings retain their binding behavior.
 
 ```quxlang
 VAR source I32 := 7;
-VAR copy AUTO := source;
+AUTO copy := source;
 source := 11;
 TEST_ASSERT(copy == 7);
 ```

@@ -43,7 +43,7 @@ For example:
   {
     IF (fast!!)
     {
-       VAR sorted_keys AUTO := sort(THIS.iters());
+       AUTO sorted_keys := sort(THIS.iters());
        FOR IN(sorted_keys) <...> { write(@output OUTPUT_ITER, @value <...>); }
     }
     ELSE

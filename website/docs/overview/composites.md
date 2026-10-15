@@ -4,7 +4,7 @@ A composite is a small anonymous record. It is useful when values belong
 together for one operation but do not justify a named `STRUCT`.
 
 ```quxlang
-VAR result AUTO := :{
+AUTO result := :{
   .value = 42 AS I32;
   .was_cached = TRUE;
 };
@@ -56,7 +56,7 @@ A composite field can own a value or refer to an existing object:
 
 ```quxlang
 VAR amount I32 := 12;
-VAR record AUTO := :{
+AUTO record := :{
   .borrowed = amount;
   .owned = amount AS I32;
 };

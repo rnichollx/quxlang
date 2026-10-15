@@ -16,7 +16,7 @@ IMPORT std;
     second_done.STORE#ATOMIC_RELAXED(0);
     VAR first_read I32 := 0;
     VAR second_read I32 := 0;
-    VAR first_action AUTO := -<
+    AUTO first_action := -<
     {
       VAR round I32 := 1;
       LOOP WHILE (round <= 1000) DO
@@ -28,7 +28,7 @@ IMPORT std;
         round++;
       }
     };
-    VAR second_action AUTO := -<
+    AUTO second_action := -<
     {
       VAR round I32 := 1;
       LOOP WHILE (round <= 1000) DO

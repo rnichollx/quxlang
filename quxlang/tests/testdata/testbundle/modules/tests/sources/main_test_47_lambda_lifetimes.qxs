@@ -7,7 +7,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR frozen I32 := 3;
     VAR shared I32 := 5;
-    VAR action AUTO := -< [=frozen, shared] (@increment I32): I32
+    AUTO action := -< [=frozen, shared] (@increment I32): I32
     {
       shared += increment;
       RETURN frozen * 10 + shared;
@@ -25,7 +25,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR seed I32 := 1;
-    VAR original AUTO := -< [=seed]: I32
+    AUTO original := -< [=seed]: I32
     {
       seed++;
       RETURN seed;
@@ -43,7 +43,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR count I32 := 0;
-    VAR original AUTO := -< [count]: I32
+    AUTO original := -< [count]: I32
     {
       count++;
       RETURN count;
@@ -58,12 +58,12 @@ LANGUAGE QUXLANG EN 0.0;
   ::returned_owned_capture DOC <$ An escaping closure retains its copied string after the factory's local source has been destroyed. $>
     DUAL_TEST
   {
-    VAR factory AUTO := -< []
+    AUTO factory := -< []
     {
       VAR text std::string := "owned";
       RETURN -< [=text]: SZ = text.size();
     };
-    VAR closure AUTO := factory();
+    AUTO closure := factory();
     TEST_ASSERT(closure() == 5);
     VAR copied DECLTYPE(closure) := closure;
     TEST_ASSERT(copied() == 5);
@@ -78,7 +78,7 @@ LANGUAGE QUXLANG EN 0.0;
       VAR object composite_tests::tracked :(@alive alive);
       TEST_ASSERT(alive == 1);
       {
-        VAR closure AUTO := -< [=object]: I32 = object.alive->;
+        AUTO closure := -< [=object]: I32 = object.alive->;
         TEST_ASSERT(alive == 2);
         TEST_ASSERT(closure() == 2);
         {
@@ -98,9 +98,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR base I32 := 4;
     VAR count I32 := 0;
-    VAR outer AUTO := -< [=base, count]: I32
+    AUTO outer := -< [=base, count]: I32
     {
-      VAR inner AUTO := -< [base, count]: I32
+      AUTO inner := -< [base, count]: I32
       {
         count++;
         RETURN base * 10 + count;

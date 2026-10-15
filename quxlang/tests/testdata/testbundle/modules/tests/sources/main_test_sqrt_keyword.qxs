@@ -76,12 +76,12 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR calls SZ := 0;
     VAR input F64 := 16;
-    VAR next AUTO := -< [calls, input] (): F64 { calls++; RETURN input; };
+    AUTO next := -< [calls, input] (): F64 { calls++; RETURN input; };
     TEST_ASSERT(SQRT(next()) == 4);
     TEST_ASSERT(calls == 1);
     VAR reference CONST& F64 := input;
     TEST_ASSERT(SQRT(reference) == 4);
-    VAR captured AUTO := -< () = SQRT(input);
+    AUTO captured := -< () = SQRT(input);
     TEST_ASSERT(captured() == 4);
     TEST_ASSERT(SAME_TYPES(TYPEOF(SQRT(4 AS F32E8)), F32));
     TEST_ASSERT(SAME_TYPES(TYPEOF(SQRT(4 AS F64E11)), F64));

@@ -10,7 +10,7 @@ IMPORT std;
     DUAL_TEST
   {
     VAR explicit_copy U64 := constant_number;
-    VAR inferred_copy AUTO := constant_number;
+    AUTO inferred_copy := constant_number;
     TEST_ASSERT(explicit_copy == 17);
     TEST_ASSERT(inferred_copy == 17);
     explicit_copy := 41;

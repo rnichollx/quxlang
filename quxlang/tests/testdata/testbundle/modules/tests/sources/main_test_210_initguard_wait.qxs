@@ -21,7 +21,7 @@ IMPORT std;
   ::completion_wakes_all DOC <$ Three contending readers observe one completed initialization. $>
     UNIT_TEST
   {
-    VAR action AUTO := -<
+    AUTO action := -<
     {
       completion_ready.FETCH_ADD#ATOMIC_ACQREL(1);
       TEST_ASSERT(shared_value == 42);
@@ -59,7 +59,7 @@ IMPORT std;
   ::abort_allows_retry DOC <$ An aborted initialization wakes contenders and exactly one completes the retry. $>
     UNIT_TEST
   {
-    VAR action AUTO := -<
+    AUTO action := -<
     {
       retry_ready.FETCH_ADD#ATOMIC_ACQREL(1);
       TRY { TEST_ASSERT(retry_value == 73); }

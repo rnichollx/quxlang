@@ -13,9 +13,9 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR number I32 := 7;
-    VAR arguments AUTO := :{ .value = number; .amount = 5 AS I32; };
-    VAR parts AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(arguments), "value");
-    VAR joined AUTO := COMPOSITE_JOIN(parts.remainder, parts.selected);
+    AUTO arguments := :{ .value = number; .amount = 5 AS I32; };
+    AUTO parts := COMPOSITE_SPLIT(COMPOSITE_TIE(arguments), "value");
+    AUTO joined := COMPOSITE_JOIN(parts.remainder, parts.selected);
     VAR result MUT& I32 := APPLY COMPOSITE_FORWARD(joined) TO mutate;
     TEST_ASSERT(number == 12);
     TEST_ASSERT(result<- == number<-);
@@ -47,7 +47,7 @@ LANGUAGE QUXLANG EN 0.0;
     source.number := 4;
     VAR caught BOOL := FALSE;
     {
-      VAR arguments AUTO := :{ .value = array_lifetime_tests::element(@OTHER source); .events = events; .fail = fail; };
+      AUTO arguments := :{ .value = array_lifetime_tests::element(@OTHER source); .events = events; .fail = fail; };
       TEST_ASSERT(attempts == 1);
       TRY
       {

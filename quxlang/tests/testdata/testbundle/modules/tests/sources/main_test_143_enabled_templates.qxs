@@ -16,7 +16,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::function_conditions_do_not_disambiguate_templates DOC <$ Function ENABLE_IF conditions do not participate in selecting between matching template declarations. $>
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR result AUTO := select#(@mode 1)(@value 13);
+    AUTO result := select#(@mode 1)(@value 13);
   }
 
   ::kind DOC <$ Captured argument types enable the integer specialization. $>
@@ -41,7 +41,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::no_enabled_candidate DOC <$ A call with no enabled overload is a semantic compilation failure. $>
     STATIC_TEST EXPECT_COMPILATION_FAILURE
-  { VAR result AUTO := kind(@value 17 AS U64); }
+  { AUTO result := kind(@value 17 AS U64); }
 }
 
 
@@ -66,8 +66,8 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR mode I32 := 99;
-    VAR first AUTO := select#(@mode 1)(@value 13);
-    VAR second AUTO := select#(@mode 2)(@value 13);
+    AUTO first := select#(@mode 1)(@value 13);
+    AUTO second := select#(@mode 2)(@value 13);
     TEST_ASSERT(SAME_TYPES(DECLTYPE(first), I32));
     TEST_ASSERT(SAME_TYPES(DECLTYPE(second), I64));
     TEST_ASSERT(first == 20);
@@ -79,7 +79,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::no_enabled_template DOC <$ A template call with no enabled declaration is rejected. $>
     STATIC_TEST EXPECT_COMPILATION_FAILURE
-  { VAR result AUTO := select#(@mode 3)(@value 13); }
+  { AUTO result := select#(@mode 3)(@value 13); }
 
   ::mixed DOC <$ Evaluates a condition with positional and renamed named value bindings. $>
     TEMPLATE(%base VALUE I32, @offset:delta VALUE I32) ENABLE_IF(base + delta == 7)
@@ -119,11 +119,11 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::multiple_enabled_templates_rejected DOC <$ Conditions filter candidates without merging matching template declarations. $>
     STATIC_TEST EXPECT_COMPILATION_FAILURE
-  { VAR result AUTO := overlapping#(@mode 1)(); }
+  { AUTO result := overlapping#(@mode 1)(); }
 
   ::single_disabled_template_rejected DOC <$ A single declaration still requires its template condition to hold. $>
     STATIC_TEST EXPECT_COMPILATION_FAILURE
-  { VAR result AUTO := mixed#(% [3], @offset 5)(); }
+  { AUTO result := mixed#(% [3], @offset 5)(); }
 
   ::both_conditions DOC <$ Evaluates template and function conditions at their respective argument-binding stages. $>
     TEMPLATE(@mode VALUE I32) ENABLE_IF(mode == 1)
@@ -136,6 +136,6 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::function_condition_rejected DOC <$ An enabled template does not bypass its function condition. $>
     STATIC_TEST EXPECT_COMPILATION_FAILURE
-  { VAR result AUTO := both_conditions#(@mode 1)(@value 17 AS U64); }
+  { AUTO result := both_conditions#(@mode 1)(@value 17 AS U64); }
 
 }

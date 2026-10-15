@@ -148,7 +148,7 @@ final class QuxlangSymbols {
                 }
             }
             if (region.mode() == Mode.STATEMENTS && statementStart
-                && (text.equals("VAR") || text.equals("STATIC") || text.equals("STATIC_VAR")) && isWord(i + 1)) {
+                && (text.equals("AUTO") || text.equals("VAR") || text.equals("STATIC") || text.equals("STATIC_VAR")) && isWord(i + 1)) {
                 int end = statementEnd(i + 2, region.end());
                 Symbol symbol = declare(i + 1, Kind.LOCAL, region.scope(), false, end + 1, false);
                 symbol.typeStart = i + 2;

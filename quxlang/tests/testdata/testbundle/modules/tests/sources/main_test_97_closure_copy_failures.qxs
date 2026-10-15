@@ -29,7 +29,7 @@ LANGUAGE QUXLANG EN 0.0;
       {
         TRY
         {
-          VAR closure AUTO := -< [=a, =b, =c]: I32 = a.number * 100 + b.number * 10 + c.number;
+          AUTO closure := -< [=a, =b, =c]: I32 = a.number * 100 + b.number * 10 + c.number;
           TEST_ASSERT(FALSE);
         }
         CATCH error CONST& I32
@@ -75,7 +75,7 @@ LANGUAGE QUXLANG EN 0.0;
       c.failure := position + 3;
       VAR caught BOOL := FALSE;
       {
-        VAR original AUTO := -< [=a, =b, =c]: I32 = a.number * 100 + b.number * 10 + c.number;
+        AUTO original := -< [=a, =b, =c]: I32 = a.number * 100 + b.number * 10 + c.number;
         TEST_ASSERT(attempts == 3);
         TEST_ASSERT(events == 0);
         TRY

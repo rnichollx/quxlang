@@ -269,7 +269,7 @@ LANGUAGE QUXLANG EN 0.0;
     TRY { raise_integer(); }
     CATCH error CONST& I32
     {
-      VAR action AUTO := -< { RETHROW; };
+      AUTO action := -< { RETHROW; };
       action();
     }
   }
@@ -283,7 +283,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::noexcept_escape_rejected DOC <$ A caller cannot catch an exception that escapes a nonthrowing callable. $>
     STATIC_TEST EXPECT_FAIL
   {
-    VAR action AUTO := -< NOEXCEPT { raise_integer(); };
+    AUTO action := -< NOEXCEPT { raise_integer(); };
     TRY { action(); }
     CATCH DEFAULT {}
   }

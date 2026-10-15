@@ -26,7 +26,7 @@ public final class QuxlangIdeTest extends BasePlatformTestCase {
     }
 
     public void testCastPreservesTypeNavigationAndColor() {
-        String source = "::constructor_conversion_choice STRUCT {} ::run FUNCTION() { VAR value AUTO := 1 AS constructor_conversion_choice; constructor_conversion_choice(1); }";
+        String source = "::constructor_conversion_choice STRUCT {} ::run FUNCTION() { AUTO value := 1 AS constructor_conversion_choice; constructor_conversion_choice(1); }";
         myFixture.configureByText(QuxlangFileType.INSTANCE, source);
         int use = source.lastIndexOf("constructor_conversion_choice");
         PsiReference reference = myFixture.getFile().findElementAt(use).getParent().getReference();

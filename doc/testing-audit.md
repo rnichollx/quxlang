@@ -2290,7 +2290,7 @@ whitespace check; the previously recorded execution totals predate this removal.
   This is a compilation rejection, so native execution of that test is not
   available. No compiler fix was made.
 - Closure-copy tests explicitly use `DECLTYPE(original)` for their copied
-  variable type. `VAR copied AUTO := original` preserves a reference and aliases
+  variable type. `AUTO copied := original` preserves a reference and aliases
   the original; it does not test an independent closure copy.
 
 - Signed I32 addition across zero differs between constexpr and native execution.

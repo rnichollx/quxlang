@@ -5,7 +5,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::renamed_default_parameters DOC <$ Explicit lambda signatures bind renamed named parameters, supply defaults, and preserve written argument evaluation order. $>
     DUAL_TEST
   {
-    VAR callable AUTO := -< [] (@left:first I32, @right:second I32 DEFAULT(7)) NOEXCEPT: I32 = first * 10 + second;
+    AUTO callable := -< [] (@left:first I32, @right:second I32 DEFAULT(7)) NOEXCEPT: I32 = first * 10 + second;
     TEST_ASSERT(callable(@left 2) == 27);
     TEST_ASSERT(callable(@right 4, @left 3) == 34);
     VAR events I32 := 0;
@@ -20,8 +20,8 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR value I32 := 3;
-    VAR borrowed AUTO := -< [value] NOEXCEPT: MUT& I32 { RETURN value; };
-    VAR owned AUTO := -< [=value] NOEXCEPT: MUT& I32 { RETURN value; };
+    AUTO borrowed := -< [value] NOEXCEPT: MUT& I32 { RETURN value; };
+    AUTO owned := -< [=value] NOEXCEPT: MUT& I32 { RETURN value; };
     VAR external MUT& I32 := borrowed();
     VAR internal MUT& I32 := owned();
     TEST_ASSERT(external<- == value<-);

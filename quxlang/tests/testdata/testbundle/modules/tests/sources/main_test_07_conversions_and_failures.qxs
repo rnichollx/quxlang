@@ -105,19 +105,19 @@ IMPORT syscall;
 ::constructor_argument_conversion DOC <$ Constructor ARG calls select conversions using the same priority as bare AS. $> DUAL_TEST
 {
     VAR source I32 := 7;
-    VAR implicit_value AUTO := implicit_foo(source);
-    VAR explicit_value AUTO := explicit_cast_only(@ARG source);
-    VAR preferred AUTO := constructor_conversion_choice(source);
-    VAR named AUTO := constructor_conversion_choice(@ARG source);
-    VAR converted AUTO := source AS constructor_conversion_choice;
-    VAR other AUTO := constructor_conversion_choice(@OTHER source);
+    AUTO implicit_value := implicit_foo(source);
+    AUTO explicit_value := explicit_cast_only(@ARG source);
+    AUTO preferred := constructor_conversion_choice(source);
+    AUTO named := constructor_conversion_choice(@ARG source);
+    AUTO converted := source AS constructor_conversion_choice;
+    AUTO other := constructor_conversion_choice(@OTHER source);
     TEST_ASSERT(implicit_value.x == 7);
     TEST_ASSERT(explicit_value.x == 7);
     TEST_ASSERT(preferred.value == 107);
     TEST_ASSERT(named.value == converted.value);
     TEST_ASSERT(other.value == 7);
     TEST_ASSERT(I32(42) == 42);
-    VAR defaulted AUTO := constructor_conversion_defaults(source);
+    AUTO defaulted := constructor_conversion_defaults(source);
     TEST_ASSERT(defaulted.value == 7);
 }
 

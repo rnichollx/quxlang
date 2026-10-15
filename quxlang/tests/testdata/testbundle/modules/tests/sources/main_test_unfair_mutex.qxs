@@ -15,7 +15,7 @@ IMPORT std;
   VAR workers std::dynarr#std::thread;
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8 AS SZ) DO
   {
-    VAR increment AUTO := -< [mutex, value]
+    AUTO increment := -< [mutex, value]
     {
       LOOP VALUE(iteration) FROM(0 AS SZ) UNTIL(1000 AS SZ) DO
       {
@@ -45,7 +45,7 @@ IMPORT std;
   VAR workers std::dynarr#std::thread;
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4 AS SZ) DO
   {
-    VAR wait AUTO := -< [mutex, condition, started, ready, completed]
+    AUTO wait := -< [mutex, condition, started, ready, completed]
     {
       mutex.lock();
       started.ADD#ATOMIC_RELEASE(1);

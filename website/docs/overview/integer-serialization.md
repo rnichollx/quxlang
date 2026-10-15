@@ -58,7 +58,7 @@ that result when the caller needs to continue serializing or when the iterator
 is a nontrivial object:
 
 ```quxlang
-VAR end AUTO := SERIALIZE_UINTANY(
+AUTO end := SERIALIZE_UINTANY(
   @VALUE value,
   @OUTPUT_ITERATOR begin
 );

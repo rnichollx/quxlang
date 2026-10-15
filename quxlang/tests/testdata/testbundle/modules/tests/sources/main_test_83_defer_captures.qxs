@@ -46,7 +46,7 @@ LANGUAGE QUXLANG EN 0.0;
     source.events := events<-;
     source.number := 3;
     {
-      VAR action AUTO := -< [=source, events]
+      AUTO action := -< [=source, events]
       {
         TEST_ASSERT(source.complete);
         TEST_ASSERT(source.number == 3);

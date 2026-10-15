@@ -19,7 +19,7 @@ capture list and `(` starts parameters, the forms remain unambiguous.
 `= expression` creates a body that returns the expression:
 
 ```quxlang
-VAR seven AUTO := -< :I32 = 7;
+AUTO seven := -< :I32 = 7;
 ASSERT(seven() == 7);
 ```
 
@@ -31,7 +31,7 @@ is omitted, the compiler deduces a decayed value result from the body.
 A block uses ordinary function statements and return rules:
 
 ```quxlang
-VAR clamp AUTO := -< (@value I32, @maximum I32): I32
+AUTO clamp := -< (@value I32, @maximum I32): I32
 {
   IF (value > maximum)
   {
@@ -55,7 +55,7 @@ lambda is captured by reference:
 
 ```quxlang
 VAR value I32 := 4;
-VAR read AUTO := -< = value;
+AUTO read := -< = value;
 
 value := 9;
 ASSERT(read() == 9);
@@ -72,9 +72,9 @@ An explicit list is both a capture declaration and an allowlist:
 
 ```quxlang
 VAR value I32 := 4;
-VAR by_reference AUTO := -< [value] = value;
-VAR by_value AUTO := -< [=value] = value;
-VAR captures_nothing AUTO := -< [] :I32 = 7;
+AUTO by_reference := -< [value] = value;
+AUTO by_value := -< [=value] = value;
+AUTO captures_nothing := -< [] :I32 = 7;
 ```
 
 - `name` captures that local by reference;
@@ -88,7 +88,7 @@ later mutation of the source does not change the captured value.
 
 ```quxlang
 VAR source I32 := 4;
-VAR saved AUTO := -< [=source] = source;
+AUTO saved := -< [=source] = source;
 source := 9;
 ASSERT(saved() == 4);
 ```
@@ -106,7 +106,7 @@ name to the next nested closure.
 
 ```quxlang
 VAR value I32 := 5;
-VAR outer AUTO := -< = (-< = value);
+AUTO outer := -< = (-< = value);
 ASSERT(outer()() == 5);
 ```
 
@@ -118,7 +118,7 @@ make the closure invalid:
 
 ```quxlang
 VAR value I32 := 6;
-VAR selected AUTO := -<
+AUTO selected := -<
 {
   STATIC_IF(FALSE)
   {

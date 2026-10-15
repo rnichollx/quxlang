@@ -19,11 +19,11 @@ IMPORT std;
     VAR numbers [2]I32;
     numbers[0] := 3;
     numbers[1] := 7;
-    VAR arguments AUTO := :{ .text = std::string(@OTHER "xy"); .numbers = numbers; .amount = 5 AS I32; .enabled = TRUE; };
-    VAR parts AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(arguments), "text", "numbers");
+    AUTO arguments := :{ .text = std::string(@OTHER "xy"); .numbers = numbers; .amount = 5 AS I32; .enabled = TRUE; };
+    AUTO parts := COMPOSITE_SPLIT(COMPOSITE_TIE(arguments), "text", "numbers");
     TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.selected)) == 2);
     TEST_ASSERT(COMPOSITE_FIELD_COUNT(TYPEOF(parts.remainder)) == 2);
-    VAR joined AUTO := COMPOSITE_JOIN(parts.remainder, parts.selected);
+    AUTO joined := COMPOSITE_JOIN(parts.remainder, parts.selected);
     TEST_ASSERT(joined.text<- == arguments.text<-);
     TEST_ASSERT(joined.numbers<- == numbers<-);
     TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(joined), "text"), MUT& std::string));
@@ -44,8 +44,8 @@ IMPORT std;
     DUAL_TEST
   {
     VAR number I32 := 11;
-    VAR original AUTO := :{ .text = std::string(@OTHER "source"); .amount = 7 AS I32; .borrowed = number; };
-    VAR selected AUTO := COMPOSITE_SELECT(original, "borrowed", "text");
+    AUTO original := :{ .text = std::string(@OTHER "source"); .amount = 7 AS I32; .borrowed = number; };
+    AUTO selected := COMPOSITE_SELECT(original, "borrowed", "text");
     TEST_ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(selected)) == 2);
     TEST_ASSERT(COMPOSITE_CONTAINS(DECLTYPE(selected), "amount") == FALSE);
     selected.text.push_back(@value 65);

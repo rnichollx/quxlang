@@ -272,7 +272,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::empty_index STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR invalid AUTO := PUBLIC_FIELD_NAME(empty, 0);
+    AUTO invalid := PUBLIC_FIELD_NAME(empty, 0);
   }
 
   ::negative_type_index STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -283,14 +283,14 @@ LANGUAGE QUXLANG EN 0.0;
   ::negative_get_index STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value pair;
-    VAR invalid AUTO := PUBLIC_FIELD_GET(value, (0 AS I32) - 1);
+    AUTO invalid := PUBLIC_FIELD_GET(value, (0 AS I32) - 1);
   }
 
   ::nonconstant_get_index STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value pair;
     VAR index U64 := 0;
-    VAR invalid AUTO := PUBLIC_FIELD_GET(value, index);
+    AUTO invalid := PUBLIC_FIELD_GET(value, index);
   }
 
   ::nonconstant_type_index STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -301,7 +301,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::wrong_name_index STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR invalid AUTO := PUBLIC_FIELD_NAME(record, "z_count");
+    AUTO invalid := PUBLIC_FIELD_NAME(record, "z_count");
   }
 
   ::primitive_type_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -312,12 +312,12 @@ LANGUAGE QUXLANG EN 0.0;
   ::primitive_get_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 0;
-    VAR invalid AUTO := PUBLIC_FIELD_GET(value, 0);
+    AUTO invalid := PUBLIC_FIELD_GET(value, 0);
   }
 
   ::composite_type_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR value AUTO := :{ .field = 1; };
+    AUTO value := :{ .field = 1; };
     VAR invalid PUBLIC_FIELD_TYPE(DECLTYPE(value), "field");
   }
 
@@ -334,7 +334,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::missing_get STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value pair;
-    VAR invalid AUTO := PUBLIC_FIELD_GET(value, "missing");
+    AUTO invalid := PUBLIC_FIELD_GET(value, "missing");
   }
 
   ::inherited_type STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -344,7 +344,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::out_of_range_name STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR invalid AUTO := PUBLIC_FIELD_NAME(record, 3);
+    AUTO invalid := PUBLIC_FIELD_NAME(record, 3);
   }
 
   ::out_of_range_type STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -355,18 +355,18 @@ LANGUAGE QUXLANG EN 0.0;
   ::out_of_range_get STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value pair;
-    VAR invalid AUTO := PUBLIC_FIELD_GET(value, 2);
+    AUTO invalid := PUBLIC_FIELD_GET(value, 2);
   }
 
   ::negative_index STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR invalid AUTO := PUBLIC_FIELD_NAME(record, (0 AS I32) - 1);
+    AUTO invalid := PUBLIC_FIELD_NAME(record, (0 AS I32) - 1);
   }
 
   ::nonconstant_index STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR index U64 := 0;
-    VAR invalid AUTO := PUBLIC_FIELD_NAME(record, index);
+    AUTO invalid := PUBLIC_FIELD_NAME(record, index);
   }
 
   ::wrong_name_type STATIC_TEST EXPECT_COMPILATION_FAILURE
@@ -391,13 +391,13 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::composite_subject STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR value AUTO := :{ .field = 1; };
+    AUTO value := :{ .field = 1; };
     TEST_ASSERT(PUBLIC_FIELD_COUNT(DECLTYPE(value)) == 1);
   }
 
   ::composite_get STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR value AUTO := :{ .field = 1; };
-    VAR invalid AUTO := PUBLIC_FIELD_GET(value, "field");
+    AUTO value := :{ .field = 1; };
+    AUTO invalid := PUBLIC_FIELD_GET(value, "field");
   }
 }

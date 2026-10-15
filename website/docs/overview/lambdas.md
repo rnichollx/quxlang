@@ -8,10 +8,10 @@ and either an expression or block body.
 ```quxlang
 VAR source I32 := 4;
 
-VAR implicit_capture AUTO := -< = source;
-VAR reference_capture AUTO := -< [source] = source;
-VAR value_capture AUTO := -< [=source] = source;
-VAR no_capture AUTO := -< [] :I32 = 7;
+AUTO implicit_capture := -< = source;
+AUTO reference_capture := -< [source] = source;
+AUTO value_capture := -< [=source] = source;
+AUTO no_capture := -< [] :I32 = 7;
 ```
 
 The `=` introduces the lambda's returned expression; it is not assignment.
@@ -19,7 +19,7 @@ The `=` introduces the lambda's returned expression; it is not assignment.
 ## Block bodies and parameters
 
 ```quxlang
-VAR limit_to_max AUTO := -< (@value I32, @maximum I32): I32
+AUTO limit_to_max := -< (@value I32, @maximum I32): I32
 {
   IF (value > maximum)
   {

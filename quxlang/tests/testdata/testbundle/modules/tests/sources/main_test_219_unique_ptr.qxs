@@ -25,11 +25,11 @@ IMPORT std;
     TEST_ASSERT(empty.get() == NULL);
     TEST_ASSERT(empty.release() == NULL);
     empty.reset();
-    VAR zero AUTO := std::make_unique#I32();
+    AUTO zero := std::make_unique#I32();
     TEST_ASSERT(zero??);
     TEST_ASSERT(zero-> == 0);
     VAR value I32 := 17;
-    VAR owner AUTO := std::make_unique#I32(@OTHER value);
+    AUTO owner := std::make_unique#I32(@OTHER value);
     VAR view CONST& std::unique_ptr#I32 := owner;
     view-> += 2;
     TEST_ASSERT(owner-> == 19);
@@ -86,8 +86,8 @@ IMPORT std;
 
   ::move_only_value DOC <$ The factory forwards move-only constructor arguments without copying them. $> DUAL_TEST
   {
-    VAR inner AUTO := std::make_unique#I32(@OTHER 31);
-    VAR outer AUTO := std::make_unique#(std::unique_ptr#I32)(@OTHER MOVE(inner));
+    AUTO inner := std::make_unique#I32(@OTHER 31);
+    AUTO outer := std::make_unique#(std::unique_ptr#I32)(@OTHER MOVE(inner));
     TEST_ASSERT(inner.has_value() == FALSE);
     TEST_ASSERT((outer->)-> == 31);
   }

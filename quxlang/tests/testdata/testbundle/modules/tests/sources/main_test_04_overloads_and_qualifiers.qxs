@@ -312,7 +312,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::functum_binding_copy_helper FUNCTION(@ARG:f AUTO(fn)): I32
 {
-  VAR g AUTO := f;
+  AUTO g := f;
   RETURN g(% [6, 7]);
 }
 
@@ -344,7 +344,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::bound_functum_binding_copy_helper FUNCTION(@ARG:f AUTO(fn)): I32
 {
-  VAR g AUTO := f;
+  AUTO g := f;
   RETURN g(2) + f(3);
 }
 

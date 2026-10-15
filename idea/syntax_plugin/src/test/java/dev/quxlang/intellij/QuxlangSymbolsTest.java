@@ -48,6 +48,11 @@ final class QuxlangSymbolsTest {
         assertResolution("::run FUNCTION(@<d>value I32) { { VAR value I32 := 2; } RETURN <r>value; }", ARGUMENT);
     }
 
+    @Test void autoLocalsResolveAfterInitializer() {
+        assertResolution("::<d>value VAR I32; ::run FUNCTION() { AUTO value := <r>value; }", GLOBAL);
+        assertResolution("::run FUNCTION() { AUTO <d>value := 1; RETURN <r>value; }", LOCAL);
+    }
+
     @Test void localVisibilityStartsAfterInitializer() {
         assertResolution("::<d>value VAR I32; ::run FUNCTION() { VAR value I32 := <r>value; }", GLOBAL);
         assertResolution("::<d>value VAR I32; ::run FUNCTION() { print(<r>value); VAR value I32 := 1; }", GLOBAL);
@@ -106,8 +111,8 @@ final class QuxlangSymbolsTest {
     }
 
     @Test void lambdaParametersAreNested() {
-        assertResolution("::run FUNCTION(@value I32) { VAR fn AUTO := -<(@<d>value I64) { RETURN <r>value; }; }", ARGUMENT);
-        assertResolution("::run FUNCTION(@<d>value I32) { VAR fn AUTO := -<(@value I64) { RETURN value; }; RETURN <r>value; }", ARGUMENT);
+        assertResolution("::run FUNCTION(@value I32) { AUTO fn := -<(@<d>value I64) { RETURN <r>value; }; }", ARGUMENT);
+        assertResolution("::run FUNCTION(@<d>value I32) { AUTO fn := -<(@value I64) { RETURN value; }; RETURN <r>value; }", ARGUMENT);
     }
 
     @Test void commentsAndDocumentationDoNotIntroduceDeclarations() {
@@ -156,12 +161,12 @@ final class QuxlangSymbolsTest {
     @Test void conditionalDeclarationsAndCapturesRequireMoreInformation() {
         assertUnresolved("::pick INCLUDE_IF(TARGET) FUNCTION() {} ::run FUNCTION() { <r>pick(); }");
         assertUnresolved("::pick FUNCTION() ENABLE_IF(TARGET) {} ::run FUNCTION() { <r>pick(); }");
-        assertUnresolved("::value VAR I32; ::run FUNCTION(@value I32) { VAR f AUTO := -< { RETURN <r>value; }; }");
+        assertUnresolved("::value VAR I32; ::run FUNCTION(@value I32) { AUTO f := -< { RETURN <r>value; }; }");
     }
 
     @Test void castsPreserveTypeLookup() {
-        assertResolution("::<d>constructor_conversion_choice STRUCT {} ::run FUNCTION() { VAR x AUTO := 1 AS <r>constructor_conversion_choice; }", TYPE);
-        assertResolution("::<d>constructor_conversion_choice STRUCT {} ::run FUNCTION() { VAR x AUTO := 1 AS constructor_conversion_choice; <r>constructor_conversion_choice(1); }", TYPE);
+        assertResolution("::<d>constructor_conversion_choice STRUCT {} ::run FUNCTION() { AUTO x := 1 AS <r>constructor_conversion_choice; }", TYPE);
+        assertResolution("::<d>constructor_conversion_choice STRUCT {} ::run FUNCTION() { AUTO x := 1 AS constructor_conversion_choice; <r>constructor_conversion_choice(1); }", TYPE);
     }
 
     @Test void loopBindingsShadowOnlyWithinTheirLoop() {

@@ -73,14 +73,14 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     STATIC_VAR count I32 := 1;
-    VAR before AUTO := -< = SNAPSHOT(count);
+    AUTO before := -< = SNAPSHOT(count);
     STATIC_EVAL count++;
-    VAR after AUTO := -< = SNAPSHOT(count);
+    AUTO after := -< = SNAPSHOT(count);
     TEST_ASSERT(before() == 1);
     TEST_ASSERT(after() == 2);
     STATIC_WHILE (count < 5)
     {
-      VAR current AUTO := -< = (-< = SNAPSHOT(count))();
+      AUTO current := -< = (-< = SNAPSHOT(count))();
       TEST_ASSERT(current() == SNAPSHOT(count));
       STATIC_EVAL count++;
     }
@@ -106,7 +106,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value I32 := 4;
-    VAR element AUTO := I32;
+    AUTO element := I32;
     TEST_ASSERT(SAME_TYPES(element, I32));
     VAR values [2]element;
     TEST_ASSERT(SAME_TYPES(DECLTYPE(values), [2]I32));
@@ -137,7 +137,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       TEST_ASSERT(SAME_TYPES(PACK_ARG_TYPE(values, SNAPSHOT(index)), I32));
       TEST_ASSERT(SAME_TYPES(TYPEOF(PACK_ARG(values, SNAPSHOT(index))), MUT& I32));
-      VAR get AUTO := -< = PACK_ARG(values, SNAPSHOT(index));
+      AUTO get := -< = PACK_ARG(values, SNAPSHOT(index));
       sum += get();
       STATIC_EVAL index++;
     }
@@ -153,7 +153,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::lambda_static_loop DOC <$ Capture analysis and lambda generation both resolve statics declared inside a lambda. $>
     DUAL_TEST
   {
-    VAR callable AUTO := -<
+    AUTO callable := -<
     {
       STATIC_VAR iteration SZ := 0;
       STATIC_WHILE (iteration < 2)
@@ -231,7 +231,7 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     STATIC_VAR value I32 := 1;
-    VAR callable AUTO := -< [] (@value BOOL): DECLTYPE(value) = value;
+    AUTO callable := -< [] (@value BOOL): DECLTYPE(value) = value;
     TEST_ASSERT(callable(@value TRUE));
   }
 }

@@ -63,7 +63,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
-    VAR result AUTO := left + right;
+    AUTO result := left + right;
   }
 
   ::equality_rejected DOC <$ Atomic values require named member operations for equality. $>
@@ -79,7 +79,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
-    VAR result AUTO := left <=> right;
+    AUTO result := left <=> right;
   }
 
   ::implicit_load_rejected DOC <$ Atomic values require named member operations for implicit load. $>

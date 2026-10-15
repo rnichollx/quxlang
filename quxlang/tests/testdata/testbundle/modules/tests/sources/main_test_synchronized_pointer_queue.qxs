@@ -35,7 +35,7 @@ IMPORT std;
   LOOP VALUE(identity) FROM(0 AS SZ) UNTIL(2 AS SZ) DO
   {
     VAR result MUT->std::dynarr#SZ := results[identity]<-;
-    VAR consume AUTO := -< [queue, =result]
+    AUTO consume := -< [queue, =result]
     {
       LOOP DO
       {
@@ -47,7 +47,7 @@ IMPORT std;
     };
     consumers.push_back(@value std::thread(@EXPLICIT consume));
     VAR producer_identity SZ := identity;
-    VAR produce AUTO := -< [queue, =producer_identity]
+    AUTO produce := -< [queue, =producer_identity]
     {
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(512 AS SZ) DO
       {

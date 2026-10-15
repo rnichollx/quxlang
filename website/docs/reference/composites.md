@@ -10,14 +10,14 @@ For an introduction with option-forwarding examples, see the
 ## Literal syntax
 
 ```quxlang
-VAR record AUTO := :{
+AUTO record := :{
   .a = 1 AS I32;
   .b = 9 AS I32;
   .nested = :{ .x = 3 AS I32; };
   .THIS = 5;
   .OTHER = 7;
 };
-VAR empty AUTO := :{};
+AUTO empty := :{};
 ASSERT(record.nested.x == 3);
 ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(empty)) == 0);
 ```
@@ -41,8 +41,8 @@ Two composites have the same type exactly when their field names and declared
 field types match; initializer order is irrelevant:
 
 ```quxlang
-VAR first AUTO := :{ .z = 9 AS I32; .a = 1 AS I32; };
-VAR second AUTO := :{ .a = 4 AS I32; .z = 8 AS I32; };
+AUTO first := :{ .z = 9 AS I32; .a = 1 AS I32; };
+AUTO second := :{ .a = 4 AS I32; .z = 8 AS I32; };
 ASSERT(SAME_TYPES(DECLTYPE(first), DECLTYPE(second)));
 ```
 
@@ -56,7 +56,7 @@ They have no stored payload. Numeric literals with different values therefore
 produce different field types:
 
 ```quxlang
-VAR record AUTO := :{ .number = 42; .text = "example"; };
+AUTO record := :{ .number = 42; .text = "example"; };
 ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), "number"), TYPEOF(42)));
 VAR number I32 := record.number;
 ASSERT(number == 42);
@@ -95,7 +95,7 @@ result is the result of the call.
   RETURN value;
 }
 
-VAR options AUTO := :{ .value = 150; .maximum = 80; };
+AUTO options := :{ .value = 150; .maximum = 80; };
 ASSERT((APPLY options TO clamp) == 80);
 ```
 
@@ -177,7 +177,7 @@ false for an absent name. `COMPOSITE_FIELD_TYPE` reports the declared field
 type, while `COMPOSITE_FIELD_GET` preserves normal access qualification:
 
 ```quxlang
-VAR record AUTO := :{ .z = 9 AS I32; .a = 1 AS I32; };
+AUTO record := :{ .z = 9 AS I32; .a = 1 AS I32; };
 ASSERT(COMPOSITE_CONTAINS(DECLTYPE(record), "a"));
 ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(record), 0), I32));
 ASSERT(SAME_TYPES(TYPEOF(COMPOSITE_FIELD_GET(record, "a")), MUT& I32));
@@ -204,9 +204,9 @@ owned fields. A `WRITE&` field already stored inside a readable composite keeps
 its qualifier. Neither transform extends the lifetime of referenced objects.
 
 ```quxlang
-VAR record AUTO := :{ .amount = 5 AS I32; };
-VAR tied AUTO := COMPOSITE_TIE(record);
-VAR forwarded AUTO := COMPOSITE_FORWARD(record);
+AUTO record := :{ .amount = 5 AS I32; };
+AUTO tied := COMPOSITE_TIE(record);
+AUTO forwarded := COMPOSITE_FORWARD(record);
 ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(tied), "amount"), MUT& I32));
 ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(DECLTYPE(forwarded), "amount"), TEMP& I32));
 tied.amount := 13;
@@ -239,11 +239,11 @@ Splitting does not reassign the storage of the original record's subobjects.
 To share fields across the results, split a tied or forwarded composite:
 
 ```quxlang
-VAR record AUTO := :{ .a = 1 AS I32; .b = 2 AS I32; .c = 3 AS I32; };
-VAR parts AUTO := COMPOSITE_SPLIT(COMPOSITE_TIE(record), "a", "c");
+AUTO record := :{ .a = 1 AS I32; .b = 2 AS I32; .c = 3 AS I32; };
+AUTO parts := COMPOSITE_SPLIT(COMPOSITE_TIE(record), "a", "c");
 parts.selected.a := 19;
 ASSERT(record.a == 19);
-VAR joined AUTO := COMPOSITE_JOIN(parts.selected, parts.remainder);
+AUTO joined := COMPOSITE_JOIN(parts.selected, parts.remainder);
 ASSERT(joined.c<- == record.c<-);
 ```
 
@@ -256,8 +256,8 @@ See [References](references.md), [Move Semantics](move-semantics.md),
 spelling can mix positional and named members:
 
 ```quxlang
-VAR arguments AUTO := :{ [0]: 3, [1]: 5, .limit: 7 };
-VAR positions AUTO := :[3, 5];
+AUTO arguments := :{ [0]: 3, [1]: 5, .limit: 7 };
+AUTO positions := :[3, 5];
 ```
 
 Explicit indices must form a contiguous sequence starting at zero, without

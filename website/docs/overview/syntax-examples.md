@@ -160,7 +160,7 @@ references specify the corresponding language rules.
 Using `clamp` from the complete program above:
 
 ```quxlang
-VAR options AUTO := :{ .value = 120; .minimum = 0; .maximum = 100; };
+AUTO options := :{ .value = 120; .minimum = 0; .maximum = 100; };
 ASSERT((APPLY options TO clamp) == 100);
 ```
 

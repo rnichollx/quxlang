@@ -10,7 +10,7 @@ IMPORT std;
     state.STORE#ATOMIC_RELAXED(0);
     VAR sequence I32 := 0;
     VAR payload I32 := 0;
-    VAR publish AUTO := -<
+    AUTO publish := -<
     {
       VAR round I32 := 1;
       LOOP WHILE (round <= 1000) DO
@@ -22,7 +22,7 @@ IMPORT std;
         round++;
       }
     };
-    VAR relay AUTO := -<
+    AUTO relay := -<
     {
       VAR round I32 := 1;
       LOOP WHILE (round <= 1000) DO
@@ -55,7 +55,7 @@ IMPORT std;
     state.STORE#ATOMIC_RELAXED(0);
     VAR sequence I32 := 0;
     VAR payload I32 := 0;
-    VAR publish AUTO := -<
+    AUTO publish := -<
     {
       VAR round I32 := 1;
       LOOP WHILE (round <= 1000) DO

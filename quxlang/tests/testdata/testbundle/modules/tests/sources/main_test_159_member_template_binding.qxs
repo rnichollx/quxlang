@@ -27,8 +27,8 @@ LANGUAGE QUXLANG EN 0.0;
     DUAL_TEST
   {
     VAR object receiver;
-    VAR first AUTO := object.deduced_value(@value 17 AS I32);
-    VAR second AUTO := object.deduced_value(@value 4294967313 AS I64);
+    AUTO first := object.deduced_value(@value 17 AS I32);
+    AUTO second := object.deduced_value(@value 4294967313 AS I64);
     TEST_ASSERT(SAME_TYPES(DECLTYPE(first), I32));
     TEST_ASSERT(SAME_TYPES(DECLTYPE(second), I64));
     TEST_ASSERT(first == 17);

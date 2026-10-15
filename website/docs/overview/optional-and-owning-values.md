@@ -32,7 +32,7 @@ IMPORT std;
 
 ::ownership_example FUNCTION(): I32
 {
-  VAR first AUTO := std::make_unique#I32(@OTHER 42);
+  AUTO first := std::make_unique#I32(@OTHER 42);
   VAR second std::unique_ptr#I32 := MOVE(first);
   TEST_ASSERT(first!?);
   RETURN second->;

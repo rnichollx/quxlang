@@ -173,8 +173,8 @@ LANGUAGE QUXLANG EN 0.0;
   ::new_requires_object_allocator_member STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object owner;
-    VAR pointer AUTO := NEW WITH(object) I32;
+    AUTO pointer := NEW WITH(object) I32;
   }
   ::new_requires_allocator_member STATIC_TEST EXPECT_COMPILATION_FAILURE
-  { VAR pointer AUTO := NEW WITH(I32) I32; }
+  { AUTO pointer := NEW WITH(I32) I32; }
 }
