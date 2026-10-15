@@ -2,6 +2,7 @@
 
 #include <llvm/AsmParser/Parser.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
+#include <llvm/BinaryFormat/ELF.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
@@ -4057,6 +4058,208 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
     EXPECT_NE(result.llvm_ir_text.find("call i8 @runtime_thread_initguard_try_acquire"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void @runtime_initguard_complete"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("__quxlang_vmir2_initguard"), std::string::npos);
+}
+
+/** Builds a relocatable ELF fixture with many independently retained sections. */
+std::vector< std::byte > elf_numbering_object(quxlang::cpu cpu, std::uint32_t count, bool split_segments)
+{
+    bool wide = cpu != quxlang::cpu::x86_32;
+    bool big_endian = cpu == quxlang::cpu::z_arch;
+    std::size_t header_size = wide ? 64 : 52;
+    std::size_t section_size = wide ? 64 : 40;
+    std::size_t symbol_size = wide ? 24 : 16;
+    std::uint32_t total = count + 4;
+    std::size_t symbols_offset = header_size;
+    std::size_t indexes_offset = symbols_offset + 4 * symbol_size;
+    std::size_t strings_offset = indexes_offset + 16;
+    std::string strings(1, '\0');
+    auto add_string = [&](std::string value) -> std::uint32_t {
+        std::uint32_t offset = static_cast< std::uint32_t >(strings.size());
+        strings += value;
+        strings += '\0';
+        return offset;
+    };
+    std::uint32_t payload_name = add_string(".payload");
+    std::uint32_t symbols_name = add_string(".symtab");
+    std::uint32_t strings_name = add_string(".strtab");
+    std::uint32_t indexes_name = add_string(".symtab_shndx");
+    std::uint32_t start_name = add_string("_start");
+    std::uint32_t last_name = add_string("last");
+    std::uint32_t absolute_name = add_string("absolute");
+    std::vector< std::uint32_t > section_names(count, payload_name);
+    if (split_segments)
+    {
+        for (std::uint32_t i = 0; i < count; ++i)
+        {
+            section_names[i] = add_string(".text_s" + std::to_string(i));
+        }
+    }
+    std::size_t table_offset = (strings_offset + strings.size() + 7) & ~std::size_t{7};
+    std::vector< std::byte > bytes(table_offset + total * section_size);
+    auto write = [&](std::size_t offset, std::uint64_t value, std::size_t size) {
+        for (std::size_t i = 0; i < size; ++i)
+        {
+            bytes.at(offset + (big_endian ? size - i - 1 : i)) = static_cast< std::byte >((value >> (i * 8)) & 255);
+        }
+    };
+    bytes[0] = std::byte{0x7f};
+    bytes[1] = std::byte{'E'};
+    bytes[2] = std::byte{'L'};
+    bytes[3] = std::byte{'F'};
+    write(4, wide ? 2 : 1, 1);
+    write(5, big_endian ? 2 : 1, 1);
+    write(6, 1, 1);
+    write(16, llvm::ELF::ET_REL, 2);
+    write(18, cpu == quxlang::cpu::x86_32 ? llvm::ELF::EM_386 : (big_endian ? llvm::ELF::EM_S390 : llvm::ELF::EM_X86_64), 2);
+    write(20, 1, 4);
+    write(wide ? 40 : 32, table_offset, wide ? 8 : 4);
+    write(wide ? 52 : 40, header_size, 2);
+    write(wide ? 58 : 46, section_size, 2);
+    write(wide ? 60 : 48, total >= llvm::ELF::SHN_LORESERVE ? 0 : total, 2);
+    write(wide ? 62 : 50, count + 2 >= llvm::ELF::SHN_LORESERVE ? llvm::ELF::SHN_XINDEX : count + 2, 2);
+    auto section = [&](std::uint32_t index, std::uint32_t name, std::uint32_t type, std::uint64_t flags, std::uint64_t offset, std::uint64_t size, std::uint32_t link, std::uint32_t info, std::uint64_t entry_size) {
+        std::size_t base = table_offset + index * section_size;
+        write(base, name, 4);
+        write(base + 4, type, 4);
+        write(base + 8, flags, wide ? 8 : 4);
+        write(base + (wide ? 24 : 16), offset, wide ? 8 : 4);
+        write(base + (wide ? 32 : 20), size, wide ? 8 : 4);
+        write(base + (wide ? 40 : 24), link, 4);
+        write(base + (wide ? 44 : 28), info, 4);
+        write(base + (wide ? 48 : 32), index == 0 ? 0 : 1, wide ? 8 : 4);
+        write(base + (wide ? 56 : 36), entry_size, wide ? 8 : 4);
+    };
+    section(0, 0, 0, 0, 0, total >= llvm::ELF::SHN_LORESERVE ? total : 0, count + 2 >= llvm::ELF::SHN_LORESERVE ? count + 2 : 0, 0, 0);
+    for (std::uint32_t i = 1; i <= count; ++i)
+    {
+        section(i, section_names[i - 1], llvm::ELF::SHT_PROGBITS,
+            llvm::ELF::SHF_ALLOC | llvm::ELF::SHF_EXECINSTR | (split_segments && i % 2 == 0 ? llvm::ELF::SHF_WRITE : 0),
+            0, 0, 0, 0, 0);
+    }
+    section(count + 1, symbols_name, llvm::ELF::SHT_SYMTAB, 0, symbols_offset, 4 * symbol_size, count + 2, 1, symbol_size);
+    section(count + 2, strings_name, llvm::ELF::SHT_STRTAB, 0, strings_offset, strings.size(), 0, 0, 0);
+    section(count + 3, indexes_name, llvm::ELF::SHT_SYMTAB_SHNDX, 0, indexes_offset, 16, count + 1, 0, 4);
+    auto symbol = [&](std::size_t index, std::uint32_t name, std::uint16_t section_index, std::uint64_t value) {
+        std::size_t base = symbols_offset + index * symbol_size;
+        write(base, name, 4);
+        write(base + (wide ? 4 : 12), llvm::ELF::STB_GLOBAL << 4, 1);
+        write(base + (wide ? 6 : 14), section_index, 2);
+        write(base + (wide ? 8 : 4), value, wide ? 8 : 4);
+    };
+    symbol(1, start_name, 1, 0);
+    symbol(2, last_name, count >= llvm::ELF::SHN_LORESERVE ? llvm::ELF::SHN_XINDEX : static_cast< std::uint16_t >(count), 0);
+    symbol(3, absolute_name, llvm::ELF::SHN_ABS, 123);
+    write(indexes_offset + 8, count >= llvm::ELF::SHN_LORESERVE ? count : 0, 4);
+    for (std::size_t i = 0; i < strings.size(); ++i)
+    {
+        bytes.at(strings_offset + i) = static_cast< std::byte >(strings[i]);
+    }
+    return bytes;
+}
+
+TEST(elf_linker, extended_numbering)
+{
+    for (quxlang::cpu cpu : {quxlang::cpu::x86_32, quxlang::cpu::x86_64, quxlang::cpu::z_arch})
+    {
+        for (std::uint32_t count : {65277U, 65278U, 65279U, 65280U, 65521U, 65534U, 65536U})
+        {
+            SCOPED_TRACE(count);
+            SCOPED_TRACE(static_cast< unsigned >(cpu));
+            quxlang::machine_target_info machine{.cpu_type = cpu, .os_type = quxlang::os::linux, .binary_type = quxlang::binary::elf};
+            quxlang::elf_linker linker;
+            for (bool preserve_symbols : {false, true})
+            {
+                std::vector< std::byte > image = linker.link_linux_executable(machine, {elf_numbering_object(cpu, count, false)}, "_start", {.preserve_symbols = preserve_symbols});
+                bool wide = cpu != quxlang::cpu::x86_32;
+                bool big_endian = cpu == quxlang::cpu::z_arch;
+                auto read = [&](std::size_t offset, std::size_t size) -> std::uint64_t {
+                    std::uint64_t value = 0;
+                    for (std::size_t i = 0; i < size; ++i)
+                    {
+                        std::uint8_t byte = std::to_integer< std::uint8_t >(image.at(offset + (big_endian ? size - i - 1 : i)));
+                        value |= static_cast< std::uint64_t >(byte) << (i * 8);
+                    }
+                    return value;
+                };
+                std::uint64_t total = count + 2 + (preserve_symbols ? (count >= llvm::ELF::SHN_LORESERVE ? 3 : 2) : 0);
+                std::uint64_t table = read(wide ? 40 : 32, wide ? 8 : 4);
+                std::uint64_t entry_size = wide ? 64 : 40;
+                EXPECT_EQ(read(wide ? 60 : 48, 2), total >= llvm::ELF::SHN_LORESERVE ? 0 : total);
+                EXPECT_EQ(read(wide ? 62 : 50, 2), total - 1 >= llvm::ELF::SHN_LORESERVE ? llvm::ELF::SHN_XINDEX : total - 1);
+                EXPECT_EQ(read(table + (wide ? 32 : 20), wide ? 8 : 4), total >= llvm::ELF::SHN_LORESERVE ? total : 0);
+                EXPECT_EQ(read(table + (wide ? 40 : 24), 4), total - 1 >= llvm::ELF::SHN_LORESERVE ? total - 1 : 0);
+                EXPECT_EQ(table + total * entry_size, image.size());
+                EXPECT_EQ(read(table + (total - 1) * entry_size + 4, 4), llvm::ELF::SHT_STRTAB);
+                llvm::StringRef contents(reinterpret_cast< char const* >(image.data()), image.size());
+                auto parsed = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(contents, "extended_numbering"));
+                ASSERT_TRUE(static_cast< bool >(parsed));
+                EXPECT_EQ(std::distance((*parsed)->section_begin(), (*parsed)->section_end()), total);
+                if (preserve_symbols)
+                {
+                    bool found_last = false;
+                    bool found_absolute = false;
+                    for (llvm::object::SymbolRef symbol : (*parsed)->symbols())
+                    {
+                        auto name = symbol.getName();
+                        ASSERT_TRUE(static_cast< bool >(name));
+                        if (*name == "absolute")
+                        {
+                            found_absolute = true;
+                            auto address = symbol.getAddress();
+                            ASSERT_TRUE(static_cast< bool >(address));
+                            EXPECT_EQ(*address, 123U);
+                            auto section = symbol.getSection();
+                            ASSERT_TRUE(static_cast< bool >(section));
+                            EXPECT_EQ(*section, (*parsed)->section_end());
+                        }
+                        if (*name == "last")
+                        {
+                            found_last = true;
+                            auto section = symbol.getSection();
+                            ASSERT_TRUE(static_cast< bool >(section));
+                            ASSERT_NE(*section, (*parsed)->section_end());
+                            EXPECT_EQ((*section)->getIndex(), count);
+                        }
+                    }
+                    EXPECT_TRUE(found_last);
+                    EXPECT_TRUE(found_absolute);
+                }
+            }
+        }
+    }
+}
+
+TEST(elf_linker, extended_program_header_numbering)
+{
+    for (quxlang::cpu cpu : {quxlang::cpu::x86_32, quxlang::cpu::x86_64, quxlang::cpu::z_arch})
+    {
+        for (std::uint32_t count : {65533U, 65534U, 65535U})
+        {
+            SCOPED_TRACE(count);
+            SCOPED_TRACE(static_cast< unsigned >(cpu));
+            quxlang::machine_target_info machine{.cpu_type = cpu, .os_type = quxlang::os::linux, .binary_type = quxlang::binary::elf};
+            quxlang::elf_linker linker;
+            std::vector< std::byte > image = linker.link_linux_executable(machine, {elf_numbering_object(cpu, count, true)}, "_start");
+            bool wide = cpu != quxlang::cpu::x86_32;
+            bool big_endian = cpu == quxlang::cpu::z_arch;
+            auto read = [&](std::size_t offset, std::size_t size) -> std::uint64_t {
+                std::uint64_t value = 0;
+                for (std::size_t i = 0; i < size; ++i)
+                {
+                    std::uint8_t byte = std::to_integer< std::uint8_t >(image.at(offset + (big_endian ? size - i - 1 : i)));
+                    value |= static_cast< std::uint64_t >(byte) << (i * 8);
+                }
+                return value;
+            };
+            std::uint64_t program_count = count + 1;
+            std::uint64_t table = read(wide ? 40 : 32, wide ? 8 : 4);
+            EXPECT_EQ(read(wide ? 56 : 44, 2), program_count >= llvm::ELF::PN_XNUM ? llvm::ELF::PN_XNUM : program_count);
+            EXPECT_EQ(read(table + (wide ? 44 : 28), 4), program_count >= llvm::ELF::PN_XNUM ? program_count : 0);
+            std::uint64_t last_header = (wide ? 64 : 52) + (program_count - 1) * (wide ? 56 : 32);
+            EXPECT_EQ(read(last_header, 4), llvm::ELF::PT_LOAD);
+            EXPECT_LE(last_header + (wide ? 56 : 32), table);
+        }
+    }
 }
 
 TEST(elf_linker, resolves_cross_object_procedure_relocation_and_coalesces_comdat)

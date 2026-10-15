@@ -101,6 +101,7 @@ namespace quxlang::detail
         std::uint8_t type = 0;
         std::uint8_t other = 0;
         std::uint16_t section_index = 0;
+        std::uint32_t extended_section_index = 0;
     };
 
     struct common_symbol_allocation
@@ -261,9 +262,9 @@ namespace quxlang::detail
         std::uint64_t section_header_offset = 0;
         /** Index of the searchable runtime unwind directory. */
         std::optional< std::size_t > unwind_header_section_index;
-        std::uint16_t program_header_count = 0;
-        std::uint16_t section_header_count = 0;
-        std::uint16_t section_header_string_table_index = 0;
+        std::uint64_t program_header_count = 0;
+        std::uint64_t section_header_count = 0;
+        std::uint32_t section_header_string_table_index = 0;
 
         template < typename T >
         auto take_or_throw(llvm::Expected< T > value, std::string const& context) const -> T
@@ -1194,9 +1195,9 @@ namespace quxlang::detail
             return flags;
         }
 
-        auto count_loadable_section_runs() const -> std::uint16_t
+        auto count_loadable_section_runs() const -> std::uint64_t
         {
-            std::uint16_t count = 0;
+            std::uint64_t count = 0;
             std::optional< std::uint32_t > current_flags;
             auto count_section = [&](linked_section const& section)
             {
@@ -1333,7 +1334,11 @@ namespace quxlang::detail
             std::uint64_t const program_header_size = machine.pointer_size_bytes() == 8 ? 56 : 32;
             std::uint64_t const section_header_entry_size = machine.pointer_size_bytes() == 8 ? 64 : 40;
             std::uint16_t const dynamic_program_header_count = dynamic_imports.empty() ? 0 : 2;
-            program_header_count = static_cast< std::uint16_t >(1 + count_loadable_section_runs() + (has_tls_sections() ? 1 : 0) + dynamic_program_header_count + (unwind_header_section_index.has_value() ? 1 : 0));
+            program_header_count = 1 + count_loadable_section_runs() + (has_tls_sections() ? 1 : 0) + dynamic_program_header_count + (unwind_header_section_index.has_value() ? 1 : 0);
+            if (program_header_count > std::numeric_limits< std::uint32_t >::max())
+            {
+                throw quxlang::semantic_compilation_error("ELF program header count exceeds extended numbering capacity");
+            }
             std::uint64_t const header_end = elf_header_size + program_header_size * program_header_count;
             std::uint64_t file_cursor = align_up(header_end, page_alignment);
             std::uint64_t memory_cursor = file_cursor;
@@ -1439,10 +1444,22 @@ namespace quxlang::detail
             section_name_table_file_offset = file_cursor;
             file_cursor += section_name_table.size();
             section_header_offset = align_up(file_cursor, machine.pointer_size_bytes() == 8 ? 8 : 4);
-            section_header_count = static_cast< std::uint16_t >(sections.size() + 2);
-            section_header_string_table_index = static_cast< std::uint16_t >(sections.size() + 1);
-            file_cursor = section_header_offset + section_header_count * section_header_entry_size;
-            file_size = file_cursor;
+            if (sections.size() > std::numeric_limits< std::uint32_t >::max() - 2)
+            {
+                throw quxlang::semantic_compilation_error("ELF section count exceeds extended numbering capacity");
+            }
+            section_header_count = static_cast< std::uint64_t >(sections.size()) + 2;
+            section_header_string_table_index = static_cast< std::uint32_t >(sections.size() + 1);
+            std::uint64_t maximum_file_size = std::numeric_limits< std::size_t >::max();
+            if (machine.pointer_size_bytes() == 4)
+            {
+                maximum_file_size = std::min< std::uint64_t >(maximum_file_size, std::numeric_limits< std::uint32_t >::max());
+            }
+            if (section_header_offset > maximum_file_size || section_header_count > (maximum_file_size - section_header_offset) / section_header_entry_size)
+            {
+                throw quxlang::semantic_compilation_error("ELF section header table exceeds output size capacity");
+            }
+            file_size = section_header_offset + section_header_count * section_header_entry_size;
         }
 
         auto section_flags(linked_section const& section) const -> std::uint64_t
@@ -1468,7 +1485,7 @@ namespace quxlang::detail
             return flags;
         }
 
-        auto symbol_output_section_index(input_symbol_reference const& input_symbol) const -> std::optional< std::uint16_t >
+        auto symbol_output_section_index(input_symbol_reference const& input_symbol) const -> std::optional< std::uint32_t >
         {
             llvm::object::SymbolRef const& symbol = input_symbol.symbol;
             if (is_common_symbol(symbol))
@@ -1477,25 +1494,25 @@ namespace quxlang::detail
                 {
                     throw quxlang::semantic_compilation_error("ELF common symbol has no allocated output section");
                 }
-                return static_cast< std::uint16_t >(*common_bss_section_index + 1);
+                return static_cast< std::uint32_t >(*common_bss_section_index + 1);
             }
 
             std::uint32_t const flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
             if ((flags & llvm::object::BasicSymbolRef::SF_Undefined) != 0)
             {
-                return static_cast< std::uint16_t >(llvm::ELF::SHN_UNDEF);
+                return static_cast< std::uint32_t >(llvm::ELF::SHN_UNDEF);
             }
 
             if ((flags & llvm::object::BasicSymbolRef::SF_Absolute) != 0)
             {
-                return static_cast< std::uint16_t >(llvm::ELF::SHN_ABS);
+                return static_cast< std::uint32_t >(llvm::ELF::SHN_ABS);
             }
 
             llvm::object::ObjectFile const& object_file = *input_objects.at(input_symbol.object_index).object_file;
             llvm::object::section_iterator section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF symbol section");
             if (section_iter == object_file.section_end())
             {
-                return static_cast< std::uint16_t >(llvm::ELF::SHN_ABS);
+                return static_cast< std::uint32_t >(llvm::ELF::SHN_ABS);
             }
 
             std::map< input_section_id, input_section_placement >::const_iterator output_section_iter =
@@ -1508,16 +1525,16 @@ namespace quxlang::detail
                 return std::nullopt;
             }
 
-            return static_cast< std::uint16_t >(output_section_iter->second.output_section_index + 1);
+            return static_cast< std::uint32_t >(output_section_iter->second.output_section_index + 1);
         }
 
-        auto symbol_output_value(input_symbol_reference const& input_symbol, std::uint16_t section_index) const -> std::uint64_t
+        auto symbol_output_value(input_symbol_reference const& input_symbol) const -> std::uint64_t
         {
-            if (section_index == llvm::ELF::SHN_UNDEF || section_index == llvm::ELF::SHN_ABS)
+            std::uint32_t flags = take_or_throw(input_symbol.symbol.getFlags(), "Failed to read ELF symbol flags");
+            if ((flags & (llvm::object::BasicSymbolRef::SF_Undefined | llvm::object::BasicSymbolRef::SF_Absolute)) != 0)
             {
                 return take_or_throw(input_symbol.symbol.getAddress(), "Failed to read ELF symbol address");
             }
-
             return symbol_address(input_symbol);
         }
 
@@ -1526,7 +1543,7 @@ namespace quxlang::detail
             std::vector< output_symbol > result;
             auto append_symbol = [&](input_symbol_reference const& input_symbol)
             {
-                std::optional< std::uint16_t > section_index = symbol_output_section_index(input_symbol);
+                std::optional< std::uint32_t > section_index = symbol_output_section_index(input_symbol);
                 if (!section_index.has_value())
                 {
                     return;
@@ -1540,14 +1557,17 @@ namespace quxlang::detail
                     symbol_name = display_name->second;
                 }
 
+                bool extended_index = *section_index >= llvm::ELF::SHN_LORESERVE &&
+                    (is_common_symbol(input_symbol.symbol) || take_or_throw(input_symbol.symbol.getSection(), "Failed to read ELF symbol section") != input_objects.at(input_symbol.object_index).object_file->section_end());
                 result.push_back(output_symbol{
                     .name = std::move(symbol_name),
-                    .value = symbol_output_value(input_symbol, *section_index),
+                    .value = symbol_output_value(input_symbol),
                     .size = symbol.getSize(),
                     .binding = symbol.getBinding(),
                     .type = symbol.getELFType(),
                     .other = symbol.getOther(),
-                    .section_index = *section_index,
+                    .section_index = extended_index ? static_cast< std::uint16_t >(llvm::ELF::SHN_XINDEX) : static_cast< std::uint16_t >(*section_index),
+                    .extended_section_index = extended_index ? *section_index : 0,
                 });
             };
 
@@ -1685,6 +1705,25 @@ namespace quxlang::detail
             symbol_table_section.contents = std::move(symbol_table);
             symbol_table_section.memory_size = symbol_table_section.contents.size();
             sections.push_back(std::move(symbol_table_section));
+
+            if (std::any_of(symbols.begin(), symbols.end(), [](output_symbol const& symbol) { return symbol.extended_section_index != 0; }))
+            {
+                linked_section index_section;
+                index_section.name = ".symtab_shndx";
+                index_section.section_type = llvm::ELF::SHT_SYMTAB_SHNDX;
+                index_section.section_link = static_cast< std::uint32_t >(sections.size());
+                index_section.entry_size = 4;
+                index_section.alignment = 4;
+                index_section.allocated = false;
+                index_section.synthetic = true;
+                index_section.contents.resize((symbols.size() + 1) * 4, std::byte{0});
+                for (std::size_t i = 0; i < symbols.size(); ++i)
+                {
+                    write_u32(index_section.contents, (i + 1) * 4, symbols[i].extended_section_index);
+                }
+                index_section.memory_size = index_section.contents.size();
+                sections.push_back(std::move(index_section));
+            }
         }
 
         /** Returns the allocated address of one selected common symbol. */
@@ -2958,10 +2997,10 @@ namespace quxlang::detail
                 write_u32(output_file_bytes, 48, 0);
                 write_u16(output_file_bytes, 52, 64);
                 write_u16(output_file_bytes, 54, 56);
-                write_u16(output_file_bytes, 56, program_header_count);
+                write_u16(output_file_bytes, 56, program_header_count >= llvm::ELF::PN_XNUM ? llvm::ELF::PN_XNUM : static_cast< std::uint16_t >(program_header_count));
                 write_u16(output_file_bytes, 58, 64);
-                write_u16(output_file_bytes, 60, section_header_count);
-                write_u16(output_file_bytes, 62, section_header_string_table_index);
+                write_u16(output_file_bytes, 60, section_header_count >= llvm::ELF::SHN_LORESERVE ? 0 : static_cast< std::uint16_t >(section_header_count));
+                write_u16(output_file_bytes, 62, section_header_string_table_index >= llvm::ELF::SHN_LORESERVE ? llvm::ELF::SHN_XINDEX : static_cast< std::uint16_t >(section_header_string_table_index));
                 return;
             }
 
@@ -2982,10 +3021,10 @@ namespace quxlang::detail
             write_u32(output_file_bytes, 36, 0);
             write_u16(output_file_bytes, 40, 52);
             write_u16(output_file_bytes, 42, 32);
-            write_u16(output_file_bytes, 44, program_header_count);
+            write_u16(output_file_bytes, 44, program_header_count >= llvm::ELF::PN_XNUM ? llvm::ELF::PN_XNUM : static_cast< std::uint16_t >(program_header_count));
             write_u16(output_file_bytes, 46, 40);
-            write_u16(output_file_bytes, 48, section_header_count);
-            write_u16(output_file_bytes, 50, section_header_string_table_index);
+            write_u16(output_file_bytes, 48, section_header_count >= llvm::ELF::SHN_LORESERVE ? 0 : static_cast< std::uint16_t >(section_header_count));
+            write_u16(output_file_bytes, 50, section_header_string_table_index >= llvm::ELF::SHN_LORESERVE ? llvm::ELF::SHN_XINDEX : static_cast< std::uint16_t >(section_header_string_table_index));
         }
 
         /**
@@ -3170,6 +3209,17 @@ namespace quxlang::detail
          */
         void write_section_headers(std::vector< std::byte >& output_file_bytes) const
         {
+            std::uint64_t extended_count = section_header_count >= llvm::ELF::SHN_LORESERVE ? section_header_count : 0;
+            std::uint32_t extended_string_index = section_header_string_table_index >= llvm::ELF::SHN_LORESERVE ? section_header_string_table_index : 0;
+            std::uint32_t extended_program_count = program_header_count >= llvm::ELF::PN_XNUM ? static_cast< std::uint32_t >(program_header_count) : 0;
+            if (machine.pointer_size_bytes() == 8)
+            {
+                write_section_header_64(output_file_bytes, 0, 0, llvm::ELF::SHT_NULL, 0, 0, 0, extended_count, 0, extended_string_index, extended_program_count, 0);
+            }
+            else
+            {
+                write_section_header_32(output_file_bytes, 0, 0, llvm::ELF::SHT_NULL, 0, 0, 0, extended_count, 0, extended_string_index, extended_program_count, 0);
+            }
             for (std::size_t i = 0; i < sections.size(); ++i)
             {
                 linked_section const& section = sections.at(i);
