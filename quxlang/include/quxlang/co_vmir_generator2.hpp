@@ -8330,21 +8330,37 @@ namespace quxlang
                             {
                                 co_await this->co_analyze_lambda_expression(analysis, *st.until_expr);
                             }
-                            if (st.iter_name.has_value())
+                            if (st.iter_binding.has_value())
                             {
-                                analysis.local_types[*st.iter_name] = type_symbol(auto_temploidic{});
+                                if (st.iter_binding->type.has_value())
+                                {
+                                    co_await this->co_analyze_lambda_operands(analysis, *st.iter_binding->type);
+                                }
+                                analysis.local_types[st.iter_binding->name] = st.iter_binding->type.value_or(type_symbol(auto_temploidic{}));
                             }
-                            if (st.value_name.has_value())
+                            if (st.value_binding.has_value())
                             {
-                                analysis.local_types[*st.value_name] = type_symbol(auto_temploidic{});
+                                if (st.value_binding->type.has_value())
+                                {
+                                    co_await this->co_analyze_lambda_operands(analysis, *st.value_binding->type);
+                                }
+                                analysis.local_types[st.value_binding->name] = st.value_binding->type.value_or(type_symbol(auto_temploidic{}));
                             }
-                            if (st.index_name.has_value())
+                            if (st.index_binding.has_value())
                             {
-                                analysis.local_types[*st.index_name] = type_symbol(auto_temploidic{});
+                                if (st.index_binding->type.has_value())
+                                {
+                                    co_await this->co_analyze_lambda_operands(analysis, *st.index_binding->type);
+                                }
+                                analysis.local_types[st.index_binding->name] = st.index_binding->type.value_or(type_symbol(auto_temploidic{}));
                             }
-                            if (st.item_name.has_value())
+                            if (st.item_binding.has_value())
                             {
-                                analysis.local_types[*st.item_name] = type_symbol(auto_temploidic{});
+                                if (st.item_binding->type.has_value())
+                                {
+                                    co_await this->co_analyze_lambda_operands(analysis, *st.item_binding->type);
+                                }
+                                analysis.local_types[st.item_binding->name] = st.item_binding->type.value_or(type_symbol(auto_temploidic{}));
                             }
                             co_await this->co_analyze_lambda_block(analysis, st.loop_block);
                         }
@@ -10908,13 +10924,13 @@ namespace quxlang
         /** Identifies clauses selecting iterator traversal. */
         [[nodiscard]] auto loop_statement_has_iterator_clause(function_loop_statement const& st) const -> bool
         {
-            return st.iter_name.has_value() || st.index_name.has_value() || st.item_name.has_value() || st.in_expr.has_value() || st.start_expr.has_value() || st.end_expr.has_value() || st.limit_expr.has_value();
+            return st.iter_binding.has_value() || st.index_binding.has_value() || st.item_binding.has_value() || st.in_expr.has_value() || st.start_expr.has_value() || st.end_expr.has_value() || st.limit_expr.has_value();
         }
 
         /** Identifies clauses selecting numeric sequence traversal. */
         [[nodiscard]] auto loop_statement_has_sequence_clause(function_loop_statement const& st) const -> bool
         {
-            return st.value_name.has_value() || st.by_expr.has_value() || st.from_expr.has_value() || st.to_expr.has_value() || st.until_expr.has_value();
+            return st.value_binding.has_value() || st.by_expr.has_value() || st.from_expr.has_value() || st.to_expr.has_value() || st.until_expr.has_value();
         }
 
         /** Generates a numeric sequence LOOP statement. */
@@ -10928,7 +10944,7 @@ namespace quxlang
             {
                 throw semantic_compilation_error("LOOP sequence loop requires FROM");
             }
-            if (!st.value_name.has_value())
+            if (!st.value_binding.has_value())
             {
                 throw semantic_compilation_error("LOOP sequence loop requires VALUE");
             }
@@ -10941,13 +10957,15 @@ namespace quxlang
             co_await co_enter_body_scope();
 
             auto start_input = co_await co_generate_expr(current_block, *st.from_expr);
-            auto sequence_type = remove_ref(this->current_type(current_block, start_input));
+            type_symbol sequence_type = st.value_binding->type.has_value()
+                ? co_await this->co_resolve_type_symbol(current_block, *st.value_binding->type)
+                : remove_ref(this->current_type(current_block, start_input));
             if (sequence_type.template type_is< numeric_literal_type >())
             {
                 throw semantic_compilation_error("LOOP sequence FROM expression must have a concrete type (Note: try casting , e.g. `FROM(1 AS I32)` or `FROM(5 AS U64)` for example)");
             }
             auto sequence_value = co_await co_gen_construct_with_target_type(current_block, start_input, sequence_type, allowed_adaptations::source_rebinding);
-            this->block(current_block).lookup_values[*st.value_name] = sequence_value;
+            this->block(current_block).lookup_values[st.value_binding->name] = sequence_value;
 
             auto end_input = co_await co_generate_expr(current_block, st.to_expr.has_value() ? *st.to_expr : *st.until_expr);
             auto end_value = co_await co_gen_construct_with_target_type(current_block, end_input, sequence_type, allowed_adaptations::source_rebinding);
@@ -11023,7 +11041,7 @@ namespace quxlang
             {
                 throw semantic_compilation_error("LOOP iterator clauses cannot be mixed with FROM, TO, or UNTIL");
             }
-            if (st.item_name.has_value() && (st.index_name.has_value() || st.value_name.has_value()))
+            if (st.item_binding.has_value() && (st.index_binding.has_value() || st.value_binding.has_value()))
             {
                 throw semantic_compilation_error("LOOP ITEM cannot be combined with INDEX or VALUE");
             }
@@ -11045,19 +11063,19 @@ namespace quxlang
             }
 
             std::set< std::string > binding_names;
-            if (st.iter_name.has_value() && !binding_names.insert(*st.iter_name).second)
+            if (st.iter_binding.has_value() && !binding_names.insert(st.iter_binding->name).second)
             {
                 throw semantic_compilation_error("LOOP iterator bindings must use distinct names");
             }
-            if (st.item_name.has_value() && !binding_names.insert(*st.item_name).second)
+            if (st.item_binding.has_value() && !binding_names.insert(st.item_binding->name).second)
             {
                 throw semantic_compilation_error("LOOP iterator bindings must use distinct names");
             }
-            if (st.index_name.has_value() && !binding_names.insert(*st.index_name).second)
+            if (st.index_binding.has_value() && !binding_names.insert(st.index_binding->name).second)
             {
                 throw semantic_compilation_error("LOOP iterator bindings must use distinct names");
             }
-            if (st.value_name.has_value() && !binding_names.insert(*st.value_name).second)
+            if (st.value_binding.has_value() && !binding_names.insert(st.value_binding->name).second)
             {
                 throw semantic_compilation_error("LOOP iterator bindings must use distinct names");
             }
@@ -11121,15 +11139,15 @@ namespace quxlang
             {
                 value_index range_value = co_await this->co_generate_expr(current_block, *st.in_expr);
                 std::optional< std::string > range_projection;
-                if (st.index_name.has_value() && st.value_name.has_value())
+                if (st.index_binding.has_value() && st.value_binding.has_value())
                 {
                     range_projection = "IV_PAIRS";
                 }
-                else if (st.index_name.has_value())
+                else if (st.index_binding.has_value())
                 {
                     range_projection = "INDEXES";
                 }
-                else if (st.value_name.has_value())
+                else if (st.value_binding.has_value())
                 {
                     range_projection = "VALUES";
                 }
@@ -11169,15 +11187,17 @@ namespace quxlang
                 }
             }
 
-            type_symbol iterator_type = remove_ref(this->current_type(current_block, *start_input));
+            type_symbol iterator_type = st.iter_binding.has_value() && st.iter_binding->type.has_value()
+                ? co_await this->co_resolve_type_symbol(current_block, *st.iter_binding->type)
+                : remove_ref(this->current_type(current_block, *start_input));
             if (iterator_type.template type_is< numeric_literal_type >())
             {
                 throw semantic_compilation_error("LOOP START expression must have a concrete iterator type");
             }
             value_index iterator_value = co_await this->co_gen_construct_with_target_type(current_block, *start_input, iterator_type, allowed_adaptations::source_rebinding);
-            if (st.iter_name.has_value())
+            if (st.iter_binding.has_value())
             {
-                this->block(current_block).lookup_values[*st.iter_name] = iterator_value;
+                this->block(current_block).lookup_values[st.iter_binding->name] = iterator_value;
             }
 
             std::optional< value_index > end_value;
@@ -11216,15 +11236,20 @@ namespace quxlang
                 this->generate_jump(boundary_block, iteration_values_block);
             }
 
-            if (st.item_name.has_value() || st.index_name.has_value() || st.value_name.has_value())
+            if (st.item_binding.has_value() || st.index_binding.has_value() || st.value_binding.has_value())
             {
                 value_index iterator_reference = this->materialize_lookup_reference(iteration_values_block, iterator_value);
                 value_index iterated_item = co_await this->co_generate_unary_postfix(iteration_values_block, "->", iterator_reference);
-                if (st.item_name.has_value())
+                if (st.item_binding.has_value())
                 {
-                    this->block(iteration_values_block).lookup_values[*st.item_name] = iterated_item;
+                    if (st.item_binding->type.has_value())
+                    {
+                        type_symbol binding_type = co_await this->co_resolve_type_symbol(iteration_values_block, *st.item_binding->type);
+                        iterated_item = co_await this->co_gen_construct_with_target_type(iteration_values_block, iterated_item, binding_type, allowed_adaptations::source_rebinding);
+                    }
+                    this->block(iteration_values_block).lookup_values[st.item_binding->name] = iterated_item;
                 }
-                else if (st.index_name.has_value() && st.value_name.has_value())
+                else if (st.index_binding.has_value() && st.value_binding.has_value())
                 {
                     type_symbol index_functum = this->get_class_member(iteration_values_block, iterated_item, "INDEX");
                     type_symbol value_functum = this->get_class_member(iteration_values_block, iterated_item, "VALUE");
@@ -11232,16 +11257,36 @@ namespace quxlang
                     value_index value_this = this->materialize_lookup_reference(iteration_values_block, iterated_item);
                     value_index index_value = co_await this->co_gen_call_functum(iteration_values_block, std::move(index_functum), codegen_invocation_args{.named = {{"THIS", index_this}}});
                     value_index projected_value = co_await this->co_gen_call_functum(iteration_values_block, std::move(value_functum), codegen_invocation_args{.named = {{"THIS", value_this}}});
-                    this->block(iteration_values_block).lookup_values[*st.index_name] = index_value;
-                    this->block(iteration_values_block).lookup_values[*st.value_name] = projected_value;
+                    if (st.index_binding->type.has_value())
+                    {
+                        type_symbol binding_type = co_await this->co_resolve_type_symbol(iteration_values_block, *st.index_binding->type);
+                        index_value = co_await this->co_gen_construct_with_target_type(iteration_values_block, index_value, binding_type, allowed_adaptations::source_rebinding);
+                    }
+                    this->block(iteration_values_block).lookup_values[st.index_binding->name] = index_value;
+                    if (st.value_binding->type.has_value())
+                    {
+                        type_symbol binding_type = co_await this->co_resolve_type_symbol(iteration_values_block, *st.value_binding->type);
+                        projected_value = co_await this->co_gen_construct_with_target_type(iteration_values_block, projected_value, binding_type, allowed_adaptations::source_rebinding);
+                    }
+                    this->block(iteration_values_block).lookup_values[st.value_binding->name] = projected_value;
                 }
-                else if (st.index_name.has_value())
+                else if (st.index_binding.has_value())
                 {
-                    this->block(iteration_values_block).lookup_values[*st.index_name] = iterated_item;
+                    if (st.index_binding->type.has_value())
+                    {
+                        type_symbol binding_type = co_await this->co_resolve_type_symbol(iteration_values_block, *st.index_binding->type);
+                        iterated_item = co_await this->co_gen_construct_with_target_type(iteration_values_block, iterated_item, binding_type, allowed_adaptations::source_rebinding);
+                    }
+                    this->block(iteration_values_block).lookup_values[st.index_binding->name] = iterated_item;
                 }
                 else
                 {
-                    this->block(iteration_values_block).lookup_values[*st.value_name] = iterated_item;
+                    if (st.value_binding->type.has_value())
+                    {
+                        type_symbol binding_type = co_await this->co_resolve_type_symbol(iteration_values_block, *st.value_binding->type);
+                        iterated_item = co_await this->co_gen_construct_with_target_type(iteration_values_block, iterated_item, binding_type, allowed_adaptations::source_rebinding);
+                    }
+                    this->block(iteration_values_block).lookup_values[st.value_binding->name] = iterated_item;
                 }
             }
 

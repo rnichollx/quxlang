@@ -1858,7 +1858,8 @@ TEST(parsing, parse_loop_statement_clauses)
 
     ASSERT_TRUE(quxlang::typeis< quxlang::function_loop_statement >(statements.at(1)));
     quxlang::function_loop_statement const& iter_loop = quxlang::as< quxlang::function_loop_statement >(statements.at(1));
-    ASSERT_EQ(iter_loop.value_name, std::optional< std::string >{"v"});
+    ASSERT_TRUE(iter_loop.value_binding.has_value());
+    ASSERT_EQ(iter_loop.value_binding->name, "v");
     ASSERT_TRUE(iter_loop.in_expr.has_value());
     ASSERT_EQ(iter_loop.loop_block.statements.size(), 2);
     ASSERT_TRUE(quxlang::typeis< quxlang::function_continue_statement >(iter_loop.loop_block.statements.at(0)));
@@ -1866,7 +1867,8 @@ TEST(parsing, parse_loop_statement_clauses)
 
     ASSERT_TRUE(quxlang::typeis< quxlang::function_loop_statement >(statements.at(2)));
     quxlang::function_loop_statement const& sequence_loop = quxlang::as< quxlang::function_loop_statement >(statements.at(2));
-    ASSERT_EQ(sequence_loop.value_name, std::optional< std::string >{"i"});
+    ASSERT_TRUE(sequence_loop.value_binding.has_value());
+    ASSERT_EQ(sequence_loop.value_binding->name, "i");
     ASSERT_TRUE(sequence_loop.from_expr.has_value());
     ASSERT_TRUE(sequence_loop.to_expr.has_value());
     ASSERT_TRUE(sequence_loop.by_expr.has_value());

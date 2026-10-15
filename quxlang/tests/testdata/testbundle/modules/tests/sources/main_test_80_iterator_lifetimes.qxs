@@ -82,4 +82,30 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[2] == 18);
     TEST_ASSERT(values[3] == 7);
   }
+  ::typed_projections DOC <$ Typed item references retain aliases and typed value objects have independent storage. $>
+    DUAL_TEST
+  {
+    VAR values std::dynarr#I32;
+    values.push_back(@value 4);
+    values.push_back(@value 5);
+    LOOP INDEX(index SZ) VALUE(value MUT& I32) IN(values) DO
+    {
+      TEST_ASSERT(value<- == values[index]<-);
+      value += 10;
+    };
+    LOOP ITEM(item MUT& I32) IN(values) DO { item++; };
+    VAR total I32 := 0;
+    LOOP VALUE(value I32) IN(values) DO
+    {
+      total += value;
+      value := 0;
+    };
+    TEST_ASSERT(total == 31);
+    TEST_ASSERT(values[0] == 15);
+    TEST_ASSERT(values[1] == 16);
+    VAR indexes SZ := 0;
+    LOOP INDEX(index SZ) IN(values) DO { indexes += index; };
+    TEST_ASSERT(indexes == 1);
+  }
+
 }

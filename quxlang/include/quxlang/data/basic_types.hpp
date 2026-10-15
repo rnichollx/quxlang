@@ -1629,6 +1629,15 @@ namespace quxlang
         QUX_AST_METADATA(function_static_if_statement, condition, then_block, else_block);
     };
 
+    /** A LOOP binding name and its optional declared type. */
+    struct loop_binding
+    {
+        std::string name;
+        std::optional< type_symbol > type;
+
+        RPNX_MEMBER_METADATA(loop_binding, name, type);
+    };
+
     /** Clause-based LOOP statement with a body introduced by DO. */
     struct function_loop_statement
     {
@@ -1640,10 +1649,10 @@ namespace quxlang
         std::optional< expression > posttest_condition;
         std::optional< function_block > step_block;
 
-        std::optional< std::string > iter_name;
-        std::optional< std::string > value_name;
-        std::optional< std::string > index_name;
-        std::optional< std::string > item_name;
+        std::optional< loop_binding > iter_binding;
+        std::optional< loop_binding > value_binding;
+        std::optional< loop_binding > index_binding;
+        std::optional< loop_binding > item_binding;
 
         std::optional< expression > in_expr;
         std::optional< expression > start_expr;
@@ -1657,7 +1666,7 @@ namespace quxlang
 
         function_block loop_block;
 
-        QUX_AST_METADATA(function_loop_statement, label_name, init_block, eval_block, test_condition, posttest_condition, step_block, iter_name, value_name, index_name, item_name, in_expr, start_expr, end_expr, limit_expr, filter_expr, by_expr, from_expr, to_expr, until_expr, loop_block);
+        QUX_AST_METADATA(function_loop_statement, label_name, init_block, eval_block, test_condition, posttest_condition, step_block, iter_binding, value_binding, index_binding, item_binding, in_expr, start_expr, end_expr, limit_expr, filter_expr, by_expr, from_expr, to_expr, until_expr, loop_block);
     };
 
     struct function_static_while_statement

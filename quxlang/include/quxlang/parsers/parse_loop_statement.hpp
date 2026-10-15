@@ -10,6 +10,7 @@
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/parsers/parse_identifier.hpp>
+#include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/parsers/parse_label_reference.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 
@@ -44,8 +45,8 @@ namespace quxlang::parsers
         return output;
     }
 
-    /** Parses the parenthesized binding name of a LOOP clause. */
-    inline auto parse_loop_parenthesized_identifier(parsing_context& ctx, std::string_view clause_name) -> std::string
+    /** Parses the parenthesized binding name and optional type of a LOOP clause. */
+    inline auto parse_loop_parenthesized_binding(parsing_context& ctx, std::string_view clause_name) -> loop_binding
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
@@ -57,7 +58,14 @@ namespace quxlang::parsers
         }
 
         skip_whitespace_and_comments(pos, end);
-        auto output = parse_identifier(pos, end);
+        loop_binding output;
+        output.name = parse_identifier(pos, end);
+        skip_whitespace_and_comments(pos, end);
+        if (skip_symbol_if_is(pos, end, ")"))
+        {
+            return output;
+        }
+        output.type = parse_type_symbol(ctx);
 
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
@@ -138,19 +146,19 @@ namespace quxlang::parsers
             }
             else if (skip_keyword_if_is(pos, end, "ITER"))
             {
-                assign_loop_clause_once(output.iter_name, parse_loop_parenthesized_identifier(ctx, "ITER"), "ITER");
+                assign_loop_clause_once(output.iter_binding, parse_loop_parenthesized_binding(ctx, "ITER"), "ITER");
             }
             else if (skip_keyword_if_is(pos, end, "VALUE"))
             {
-                assign_loop_clause_once(output.value_name, parse_loop_parenthesized_identifier(ctx, "VALUE"), "VALUE");
+                assign_loop_clause_once(output.value_binding, parse_loop_parenthesized_binding(ctx, "VALUE"), "VALUE");
             }
             else if (skip_keyword_if_is(pos, end, "INDEX"))
             {
-                assign_loop_clause_once(output.index_name, parse_loop_parenthesized_identifier(ctx, "INDEX"), "INDEX");
+                assign_loop_clause_once(output.index_binding, parse_loop_parenthesized_binding(ctx, "INDEX"), "INDEX");
             }
             else if (skip_keyword_if_is(pos, end, "ITEM"))
             {
-                assign_loop_clause_once(output.item_name, parse_loop_parenthesized_identifier(ctx, "ITEM"), "ITEM");
+                assign_loop_clause_once(output.item_binding, parse_loop_parenthesized_binding(ctx, "ITEM"), "ITEM");
             }
             else if (skip_keyword_if_is(pos, end, "IN"))
             {

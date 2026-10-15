@@ -55,4 +55,25 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(end == 2);
     TEST_ASSERT(step == 1);
   }
+  ::typed_bindings DOC <$ Explicit binding types determine sequence arithmetic and iterator storage. $>
+    DUAL_TEST
+  {
+    VAR count SZ := 4;
+    VAR total SZ := 0;
+    LOOP VALUE(index SZ) FROM(0) UNTIL(count) DO
+    {
+      TEST_ASSERT(SAME_TYPES(DECLTYPE(index), SZ));
+      total += index;
+    };
+    TEST_ASSERT(total == 6);
+    VAR digits I32 := 0;
+    LOOP VALUE(value I32) FROM(1) TO(9) BY(4) DO
+    { digits := digits * 10 + value; };
+    TEST_ASSERT(digits == 159);
+    digits := 0;
+    LOOP ITER(cursor I32) START(1) LIMIT(10) BY(4) DO
+    { digits := digits * 10 + cursor; };
+    TEST_ASSERT(digits == 159);
+  }
+
 }
