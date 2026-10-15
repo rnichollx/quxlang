@@ -24,7 +24,7 @@ IMPORT std;
         mutex.unlock();
       }
     };
-    workers.push_back(@value std::thread(@EXPLICIT increment));
+    workers.push_back(@value std::thread(increment));
   }
   LOOP ITEM(worker) IN(workers) DO { worker.join(); }
   TEST_ASSERT(value == 8000);
@@ -53,7 +53,7 @@ IMPORT std;
       completed++;
       mutex.unlock();
     };
-    workers.push_back(@value std::thread(@EXPLICIT wait));
+    workers.push_back(@value std::thread(wait));
   }
   LOOP WHILE (started.LOAD#ATOMIC_ACQUIRE() != 4) DO { }
   mutex.lock();

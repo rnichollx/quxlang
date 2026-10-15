@@ -91,7 +91,7 @@ IMPORT std;
     IF (index + 1 == threads) { tasks[index].end := total; }
     VAR entry fannkuch_partition::worker;
     entry.task := tasks[index]<-;
-    PLACE AT(workers[index]) std::thread :(@EXPLICIT entry);
+    PLACE AT(workers[index]) std::thread :(entry);
   }
   VAR checksum I32 := 0;
   VAR maximum I32 := 0;

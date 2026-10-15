@@ -45,7 +45,7 @@ IMPORT std;
         DELETE value;
       }
     };
-    consumers.push_back(@value std::thread(@EXPLICIT consume));
+    consumers.push_back(@value std::thread(consume));
     VAR producer_identity SZ := identity;
     AUTO produce := -< [queue, =producer_identity]
     {
@@ -56,7 +56,7 @@ IMPORT std;
         queue.push(@value value);
       }
     };
-    producers.push_back(@value std::thread(@EXPLICIT produce));
+    producers.push_back(@value std::thread(produce));
   }
   LOOP ITEM(worker) IN(producers) DO { worker.join(); }
   queue.push(@value NULL);

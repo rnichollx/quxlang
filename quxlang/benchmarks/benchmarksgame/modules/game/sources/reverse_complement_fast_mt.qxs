@@ -116,7 +116,7 @@ IMPORT std;
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
     {
       VAR entry worker; entry.state := state<-;
-      PLACE AT(workers[index]) std::thread :(@EXPLICIT entry);
+      PLACE AT(workers[index]) std::thread :(entry);
     }
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
     {

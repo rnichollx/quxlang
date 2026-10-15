@@ -126,7 +126,7 @@ IMPORT std;
   {
     VAR entry mixed_worker_entry;
     entry.state := state<-;
-    workers.push_back(@value std::thread(@EXPLICIT entry));
+    workers.push_back(@value std::thread(entry));
   }
   LOOP ITEM(worker) IN(workers) DO { worker.join(); }
   VAR elapsed U64 := benchmark_barrier::ticks() - start;

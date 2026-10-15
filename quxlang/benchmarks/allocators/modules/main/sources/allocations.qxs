@@ -119,7 +119,7 @@ IMPORT std;
     {
       VAR entry worker;
       entry.state := state<-;
-      PLACE AT(slot) std::thread :(@EXPLICIT entry);
+      PLACE AT(slot) std::thread :(entry);
     }
     state.mutex.lock();
     LOOP WHILE (state.ready != 32) DO

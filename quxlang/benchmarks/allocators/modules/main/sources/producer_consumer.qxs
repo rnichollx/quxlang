@@ -96,8 +96,8 @@ IMPORT std;
     VAR state MUT->producer_consumer_pair := (PUN states[identity] AS producer_consumer_pair)<-;
     AUTO produce := -< [=state] { state->.produce(); };
     AUTO consume := -< [=state] { state->.consume(); };
-    workers.push_back(@value std::thread(@EXPLICIT produce));
-    workers.push_back(@value std::thread(@EXPLICIT consume));
+    workers.push_back(@value std::thread(produce));
+    workers.push_back(@value std::thread(consume));
   }
   LOOP ITEM(worker) IN(workers) DO { worker.join(); }
   VAR elapsed U64 := benchmark_barrier::ticks() - start;

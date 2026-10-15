@@ -105,7 +105,7 @@ IMPORT std;
     VAR entry mandelbrot_interlaced;
     entry.pixels := pixels; entry.width := width; entry.height := height;
     entry.first_row := index; entry.stride := threads;
-    PLACE AT(workers[index]) std::thread :(@EXPLICIT entry);
+    PLACE AT(workers[index]) std::thread :(entry);
   }
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
   {
