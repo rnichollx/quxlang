@@ -35,6 +35,7 @@ sources:
     querygraph:
         git:
             repository: https://gitlab.com/rpnx/querygraph.git
+            revision: 794491cb5319181afeb5ff04c1942cd88ebd3057
     quxlang:
         local: ../../quxlang
     serialization:

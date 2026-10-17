@@ -15,9 +15,9 @@
 #include <string>
 #include <utility>
 
-quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, std::string configured_target, machine_target_info const& machine_info,
-                                                  std::optional< std::filesystem::path > dump_output_path)
-    : m_dump_output_path(std::move(dump_output_path))
+quxlang::compiler_querygraph::compiler_querygraph(rpnx::querygraph::scheduler& scheduler, source_bundle const& bundle, std::string configured_target, machine_target_info const& machine_info,
+                                                  std::optional< std::filesystem::path > dump_output_path, rpnx::querygraph::graph::options options)
+    : m_graph(scheduler, std::move(options)), m_dump_output_path(std::move(dump_output_path))
 {
     std::map< std::string, std::string > module_source_name_map;
     std::map< std::string, std::map< std::string, std::string > > module_option_strings_map;

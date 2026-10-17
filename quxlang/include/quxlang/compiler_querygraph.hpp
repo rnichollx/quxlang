@@ -17,8 +17,13 @@ namespace quxlang
     class compiler_querygraph
     {
       public:
-        compiler_querygraph(source_bundle const& bundle, std::string configured_target, machine_target_info const& machine_info,
-                            std::optional< std::filesystem::path > dump_output_path = std::nullopt);
+        /**
+         * Constructs a compiler graph using a scheduler that must outlive it.
+         * Graph options control QueryGraph timing diagnostics, which default to disabled.
+         */
+        compiler_querygraph(rpnx::querygraph::scheduler& scheduler, source_bundle const& bundle, std::string configured_target, machine_target_info const& machine_info,
+                            std::optional< std::filesystem::path > dump_output_path = std::nullopt,
+                            rpnx::querygraph::graph::options options = {.enable_timing = false});
         ~compiler_querygraph();
 
         template < typename Query >

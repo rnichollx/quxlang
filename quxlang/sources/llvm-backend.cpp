@@ -947,85 +947,44 @@ namespace quxlang::llvm_backend::detail
             }
         }
 
+      public:
         /**
          * Ensures the LLVM target, MC, and asm subsystems needed for object emission are initialized once per process.
          */
-        static void initialize_llvm_target_support(quxlang::machine_target_info const& machine)
+        static void initialize_llvm_target_support()
         {
-            switch (machine.cpu_type)
+            // LLVM target registration mutates a process-wide registry. Complete all
+            // supported registrations before concurrent target machines read it.
+            static bool const initialized = []() -> bool
             {
-            case quxlang::cpu::x86_32:
-            case quxlang::cpu::x86_64: {
-                static bool const initialized = []() -> bool
-                {
-                    ::LLVMInitializeX86TargetInfo();
-                    ::LLVMInitializeX86Target();
-                    ::LLVMInitializeX86TargetMC();
-                    ::LLVMInitializeX86AsmParser();
-                    ::LLVMInitializeX86AsmPrinter();
-                    return true;
-                }();
-                (void)initialized;
-                return;
-            }
-            case quxlang::cpu::arm_32: {
-                static bool const initialized = []() -> bool
-                {
-                    ::LLVMInitializeARMTargetInfo();
-                    ::LLVMInitializeARMTarget();
-                    ::LLVMInitializeARMTargetMC();
-                    ::LLVMInitializeARMAsmParser();
-                    ::LLVMInitializeARMAsmPrinter();
-                    return true;
-                }();
-                (void)initialized;
-                return;
-            }
-            case quxlang::cpu::arm_64: {
-                static bool const initialized = []() -> bool
-                {
-                    ::LLVMInitializeAArch64TargetInfo();
-                    ::LLVMInitializeAArch64Target();
-                    ::LLVMInitializeAArch64TargetMC();
-                    ::LLVMInitializeAArch64AsmParser();
-                    ::LLVMInitializeAArch64AsmPrinter();
-                    return true;
-                }();
-                (void)initialized;
-                return;
-            }
-            case quxlang::cpu::riscv_32:
-            case quxlang::cpu::riscv_64: {
-                static bool const initialized = []() -> bool
-                {
-                    ::LLVMInitializeRISCVTargetInfo();
-                    ::LLVMInitializeRISCVTarget();
-                    ::LLVMInitializeRISCVTargetMC();
-                    ::LLVMInitializeRISCVAsmParser();
-                    ::LLVMInitializeRISCVAsmPrinter();
-                    return true;
-                }();
-                (void)initialized;
-                return;
-            }
-            case quxlang::cpu::z_arch: {
-                static bool const initialized = []() -> bool
-                {
-                    ::LLVMInitializeSystemZTargetInfo();
-                    ::LLVMInitializeSystemZTarget();
-                    ::LLVMInitializeSystemZTargetMC();
-                    ::LLVMInitializeSystemZAsmParser();
-                    ::LLVMInitializeSystemZAsmPrinter();
-                    return true;
-                }();
-                (void)initialized;
-                return;
-            }
-            case quxlang::cpu::none:
-                break;
-            }
-
-            throw quxlang::semantic_compilation_error("Unsupported LLVM target initialization CPU kind");
+                ::LLVMInitializeX86TargetInfo();
+                ::LLVMInitializeX86Target();
+                ::LLVMInitializeX86TargetMC();
+                ::LLVMInitializeX86AsmParser();
+                ::LLVMInitializeX86AsmPrinter();
+                ::LLVMInitializeARMTargetInfo();
+                ::LLVMInitializeARMTarget();
+                ::LLVMInitializeARMTargetMC();
+                ::LLVMInitializeARMAsmParser();
+                ::LLVMInitializeARMAsmPrinter();
+                ::LLVMInitializeAArch64TargetInfo();
+                ::LLVMInitializeAArch64Target();
+                ::LLVMInitializeAArch64TargetMC();
+                ::LLVMInitializeAArch64AsmParser();
+                ::LLVMInitializeAArch64AsmPrinter();
+                ::LLVMInitializeRISCVTargetInfo();
+                ::LLVMInitializeRISCVTarget();
+                ::LLVMInitializeRISCVTargetMC();
+                ::LLVMInitializeRISCVAsmParser();
+                ::LLVMInitializeRISCVAsmPrinter();
+                ::LLVMInitializeSystemZTargetInfo();
+                ::LLVMInitializeSystemZTarget();
+                ::LLVMInitializeSystemZTargetMC();
+                ::LLVMInitializeSystemZAsmParser();
+                ::LLVMInitializeSystemZAsmPrinter();
+                return true;
+            }();
+            (void)initialized;
         }
 
     public:
@@ -1061,7 +1020,7 @@ namespace quxlang::llvm_backend::detail
         static auto create_target_machine(quxlang::llvm_backend::llvm_compilation_target const& compilation_target) -> std::unique_ptr< llvm::TargetMachine >
         {
             quxlang::machine_target_info const& machine = compilation_target.machine;
-            initialize_llvm_target_support(machine);
+            initialize_llvm_target_support();
 
             std::string const triple_text = quxlang::lookup_llvm_triple(machine);
             llvm::Triple triple(triple_text);
@@ -10331,78 +10290,7 @@ auto quxlang::llvm_backend::llvm_backend::assemble(quxlang::llvm_backend::llvm_c
         throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
     }();
 
-    switch (target.machine.cpu_type)
-    {
-    case quxlang::cpu::x86_32:
-    case quxlang::cpu::x86_64: {
-        static bool const initialized = []() -> bool
-        {
-            ::LLVMInitializeX86TargetInfo();
-            ::LLVMInitializeX86Target();
-            ::LLVMInitializeX86TargetMC();
-            ::LLVMInitializeX86AsmParser();
-            ::LLVMInitializeX86AsmPrinter();
-            return true;
-        }();
-        (void)initialized;
-        break;
-    }
-    case quxlang::cpu::arm_32: {
-        static bool const initialized = []() -> bool
-        {
-            ::LLVMInitializeARMTargetInfo();
-            ::LLVMInitializeARMTarget();
-            ::LLVMInitializeARMTargetMC();
-            ::LLVMInitializeARMAsmParser();
-            ::LLVMInitializeARMAsmPrinter();
-            return true;
-        }();
-        (void)initialized;
-        break;
-    }
-    case quxlang::cpu::arm_64: {
-        static bool const initialized = []() -> bool
-        {
-            ::LLVMInitializeAArch64TargetInfo();
-            ::LLVMInitializeAArch64Target();
-            ::LLVMInitializeAArch64TargetMC();
-            ::LLVMInitializeAArch64AsmParser();
-            ::LLVMInitializeAArch64AsmPrinter();
-            return true;
-        }();
-        (void)initialized;
-        break;
-    }
-    case quxlang::cpu::riscv_32:
-    case quxlang::cpu::riscv_64: {
-        static bool const initialized = []() -> bool
-        {
-            ::LLVMInitializeRISCVTargetInfo();
-            ::LLVMInitializeRISCVTarget();
-            ::LLVMInitializeRISCVTargetMC();
-            ::LLVMInitializeRISCVAsmParser();
-            ::LLVMInitializeRISCVAsmPrinter();
-            return true;
-        }();
-        (void)initialized;
-        break;
-    }
-    case quxlang::cpu::z_arch: {
-        static bool const initialized = []() -> bool
-        {
-            ::LLVMInitializeSystemZTargetInfo();
-            ::LLVMInitializeSystemZTarget();
-            ::LLVMInitializeSystemZTargetMC();
-            ::LLVMInitializeSystemZAsmParser();
-            ::LLVMInitializeSystemZAsmPrinter();
-            return true;
-        }();
-        (void)initialized;
-        break;
-    }
-    case quxlang::cpu::none:
-        throw quxlang::semantic_compilation_error("Unsupported LLVM target initialization CPU kind");
-    }
+    detail::llvm_module_codegen::initialize_llvm_target_support();
 
     std::string const triple_text = quxlang::lookup_llvm_triple(target.machine);
     ::llvm::Triple triple(triple_text);

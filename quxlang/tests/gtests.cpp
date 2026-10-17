@@ -8634,7 +8634,7 @@ namespace
     class test_querygraph_compiler
     {
       public:
-        test_querygraph_compiler(quxlang::source_bundle const& sources, std::string target) : m_graph(sources, target, sources.targets.at(target).target_output_config, quxlang::tests::current_test_graph_dump_path())
+        test_querygraph_compiler(quxlang::source_bundle const& sources, std::string target) : m_graph(m_scheduler, sources, target, sources.targets.at(target).target_output_config, quxlang::tests::current_test_graph_dump_path())
         {
         }
 
@@ -8720,6 +8720,8 @@ namespace
         }
 
       private:
+        /** Owns the worker pool until the compiler graph has drained. */
+        rpnx::querygraph::scheduler m_scheduler;
         mutable quxlang::compiler_querygraph m_graph;
     };
 
@@ -8778,8 +8780,9 @@ namespace
 
 TEST(quxlang, compiler_graph_resolves_main_source_bundle)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle("::main VAR I32;");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     auto machine_info = graph.make_request< quxlang::machine_info_query >(std::monostate{});
     ASSERT_EQ(machine_info.cpu_type, quxlang::cpu::x86_64);
@@ -8795,13 +8798,14 @@ TEST(quxlang, compiler_graph_resolves_main_source_bundle)
 
 TEST(quxlang, cortado_layoutless_operations_fail_only_when_reached)
 {
+    rpnx::querygraph::scheduler scheduler;
     std::filesystem::path const testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     quxlang::source_bundle sources = quxlang::load_bundle_sources_for_targets(testdata / "cortado_layoutless_errors", {});
     quxlang::target_configuration const& target = sources.targets.at("jvm-cortado");
     EXPECT_EQ(target.target_output_config.cpu_type, quxlang::cpu::jvm);
     EXPECT_EQ(target.backend, quxlang::backend_kind::cortado);
 
-    quxlang::compiler_querygraph graph(sources, "jvm-cortado", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "jvm-cortado", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
     auto expect_layoutless_error = [&](std::string const& output, std::string_view operation) -> void
     {
         try
@@ -8848,6 +8852,7 @@ TEST(quxlang, cortado_configuration_rejects_jvm_native_conflicts)
 
 TEST(quxlang, executable_output_links_macos_macho_artifact)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle("::main FUNCTION(): I32 { RETURN 37; }");
     quxlang::target_configuration target = sources.targets.at("linux-x64");
     sources.targets.clear();
@@ -8862,7 +8867,7 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
     target.macho_config.minimum_os_version = {14, 4, 2};
     sources.targets["macos-arm64"] = target;
 
-    quxlang::compiler_querygraph graph(sources, "macos-arm64", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "macos-arm64", target.target_output_config, quxlang::tests::current_test_graph_dump_path());
     std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("app");
 
     ASSERT_GE(artifact.size(), static_cast< std::size_t >(4));
@@ -8896,8 +8901,9 @@ TEST(quxlang, executable_output_links_macos_macho_artifact)
 
 TEST(quxlang, value_template_parameter_is_available_in_struct_field_type)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle("::holder TEMPLATE(@count:value_count VALUE U64) STRUCT { .values VAR [value_count]U64; }");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     auto holder = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = parse_type_symbol("MODULE(main)"),
@@ -8917,13 +8923,14 @@ TEST(quxlang, value_template_parameter_is_available_in_struct_field_type)
 
 TEST(quxlang, value_template_parameter_is_available_in_function_return_type)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"(
 ::make_aligned TEMPLATE(@size:value_size VALUE SZ, @align:value_align VALUE SZ) FUNCTION(): -> ALIGNED_STORAGE(value_size, value_align)
 {
     UNIMPLEMENTED;
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     std::optional< quxlang::type_symbol > template_symbol = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
         .context = parse_type_symbol("MODULE(main)"),
@@ -8943,13 +8950,14 @@ TEST(quxlang, value_template_parameter_is_available_in_function_return_type)
 
 TEST(quxlang, value_template_parameter_is_available_in_function_parameter_type_and_body)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"(
 ::take_aligned TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr =>> ALIGNED_STORAGE(size, align)): SZ
 {
     RETURN size;
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     std::optional< quxlang::type_symbol > template_symbol;
     ASSERT_NO_THROW(template_symbol = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
@@ -8982,6 +8990,7 @@ TEST(quxlang, value_template_parameter_is_available_in_function_parameter_type_a
 
 TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_params_query)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"(
 ::box STRUCT
 {
@@ -9011,7 +9020,7 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
     }
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
     quxlang::type_symbol mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     quxlang::type_symbol box_type = parse_type_symbol("MODULE(main)::box");
 
@@ -9092,6 +9101,7 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
 
 TEST(quxlang, asm_procedure_is_callable_and_uses_readable_symbol_for_selected_overloads)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::write ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(I32, I32, I32; RETURN I32)
@@ -9101,7 +9111,7 @@ TEST(quxlang, asm_procedure_is_callable_and_uses_readable_symbol_for_selected_ov
     RET
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
     auto formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_symbol);
@@ -9139,6 +9149,7 @@ TEST(quxlang, asm_procedure_is_callable_and_uses_readable_symbol_for_selected_ov
 
 TEST(quxlang, asm_procedure_named_callable_arguments_are_named_formals_and_preserve_order)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::write ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(@alpha BYTE, @THIS I64, @OTHER I16; RETURN I32)
@@ -9147,7 +9158,7 @@ TEST(quxlang, asm_procedure_named_callable_arguments_are_named_formals_and_prese
     RET
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
     auto formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_symbol);
@@ -9176,6 +9187,7 @@ TEST(quxlang, asm_procedure_named_callable_arguments_are_named_formals_and_prese
 
 TEST(quxlang, asm_procedure_query_formats_x64_procedure_ref_as_direct_symbol)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::callee FUNCTION()
 {
@@ -9186,7 +9198,7 @@ TEST(quxlang, asm_procedure_query_formats_x64_procedure_ref_as_direct_symbol)
     MOVABS RAX, OFFSET PROCEDURE_REF("", callee!$[0])
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const caller_symbol = parse_type_symbol("MODULE(main)::caller");
     quxlang::asm_procedure const assembled = graph.make_request< quxlang::asm_procedure_from_symbol_query >(caller_symbol);
@@ -9200,6 +9212,7 @@ TEST(quxlang, asm_procedure_query_formats_x64_procedure_ref_as_direct_symbol)
 
 TEST(quxlang, asm_inline_function_parses_but_is_not_callable)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::write ASM_INLINE_FUNCTION X64
   CALLABLE(RDI I32; RETURN RAX I32; CLOBBER(RCX))
@@ -9208,7 +9221,7 @@ TEST(quxlang, asm_inline_function_parses_but_is_not_callable)
     RET
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
     auto formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_symbol);
@@ -9218,6 +9231,7 @@ TEST(quxlang, asm_inline_function_parses_but_is_not_callable)
 
 TEST(quxlang, asm_procedure_query_accepts_instantiated_overload_symbol)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::write ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(I32, I32, I32; RETURN I32)
@@ -9227,7 +9241,7 @@ TEST(quxlang, asm_procedure_query_accepts_instantiated_overload_symbol)
     RET
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::instanciation_reference const inst{
         .temploid =
@@ -9261,10 +9275,11 @@ TEST(quxlang, asm_procedure_query_accepts_instantiated_overload_symbol)
 
 TEST(quxlang, static_string_constant_is_antestatal_static)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::hello STATIC STRING_CONSTANT := "hello";
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const symbol = parse_type_symbol("MODULE(main)::hello");
     EXPECT_TRUE(graph.make_request< quxlang::global_is_antestatal_static_query >(symbol));
@@ -9282,6 +9297,7 @@ TEST(quxlang, static_string_constant_is_antestatal_static)
 
 TEST(quxlang, string_constant_assignment_lowers_to_store_to_ref)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::assign_string_constant_probe FUNCTION()
 {
@@ -9289,7 +9305,7 @@ TEST(quxlang, string_constant_assignment_lowers_to_store_to_ref)
     active := "beta";
 }
 )QX");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::initialization_reference const init{.initializee = parse_type_symbol("MODULE(main)::assign_string_constant_probe")};
     std::optional< quxlang::instanciation_reference > inst = graph.make_request< quxlang::instanciation_query >(init);
@@ -9539,8 +9555,9 @@ TEST(quxlang, attached_type_reference_does_not_decay_to_carrier_in_generic_conve
 
 TEST(quxlang, attached_type_reference_lookup_canonicalizes_parts)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle("::foo FUNCTION(): I32 { RETURN 1; }");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol attached_bare_foo = quxlang::attached_type_reference{
         .carrying_type = quxlang::void_type{},
@@ -9562,8 +9579,9 @@ TEST(quxlang, attached_type_reference_lookup_canonicalizes_parts)
 
 TEST(quxlang, attached_type_reference_has_storage_of_carrier_or_zero)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle("::foo FUNCTION(): I32 { RETURN 1; }");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol foo_symbol = parse_type_symbol("MODULE(main)::foo");
     quxlang::type_symbol free_attached_foo = quxlang::attached_type_reference{
@@ -9587,8 +9605,9 @@ TEST(quxlang, attached_type_reference_has_storage_of_carrier_or_zero)
 
 TEST(quxlang, string_constant_has_two_pointer_logical_placement)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle("");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol const string_constant_type = parse_type_symbol("STRING_CONSTANT");
     quxlang::class_placement_info const placement = graph.make_request< quxlang::class_placement_info_query >(string_constant_type);
@@ -9626,6 +9645,7 @@ TEST(quxlang, machine_target_info_models_atomic_alignment_and_native_width)
 
 TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle sources = make_main_module_source_bundle(R"(
 ::holder TEMPLATE(@fn TYPE AUTO) STRUCT
 {
@@ -9637,7 +9657,7 @@ TEST(quxlang, struct_layout_keeps_attached_field_type_with_attached_storage)
     RETURN 1;
 }
 )");
-    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
+    quxlang::compiler_querygraph graph(scheduler, sources, "linux-x64", sources.targets.at("linux-x64").target_output_config, quxlang::tests::current_test_graph_dump_path());
 
     quxlang::type_symbol foo_symbol = parse_type_symbol("MODULE(main)::foo");
     quxlang::type_symbol free_attached_foo = quxlang::attached_type_reference{

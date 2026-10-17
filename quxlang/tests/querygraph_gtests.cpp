@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include <quxlang/queries/llvm_output_binary_artifact.hpp>
 #include <sstream>
+#include <chrono>
+#include <future>
 
 #include "graph_dump_test_utils.hpp"
 #include <quxlang/compiler_querygraph.hpp>
@@ -265,9 +267,9 @@ namespace
         return bundle;
     }
 
-    auto make_x64_graph(quxlang::source_bundle const& bundle) -> quxlang::compiler_querygraph
+    auto make_x64_graph(rpnx::querygraph::scheduler& scheduler, quxlang::source_bundle const& bundle) -> quxlang::compiler_querygraph
     {
-        return quxlang::compiler_querygraph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+        return quxlang::compiler_querygraph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
                                             quxlang::tests::current_test_graph_dump_path());
     }
 
@@ -305,10 +307,54 @@ namespace
     }
 } // namespace
 
+// The C++ scheduler and diagnostic contracts are outside the Quxlang test API.
+TEST(querygraph_queries, async_requests_isolate_target_results_and_errors)
+{
+    rpnx::querygraph::scheduler scheduler;
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph x64_graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config);
+    quxlang::compiler_querygraph arm64_graph(scheduler, bundle, "arm64", bundle.targets.at("arm64").target_output_config);
+
+    std::future< quxlang::output_binary_information_query::output_type > invalid =
+        x64_graph.raw_graph().async_make_request< quxlang::output_binary_information_query >("missing-output");
+    std::future< quxlang::machine_info_query::output_type > x64 =
+        x64_graph.raw_graph().async_make_request< quxlang::machine_info_query >(std::monostate{});
+    std::future< quxlang::machine_info_query::output_type > arm64 =
+        arm64_graph.raw_graph().async_make_request< quxlang::machine_info_query >(std::monostate{});
+
+    EXPECT_THROW(invalid.get(), quxlang::compilation_error);
+    EXPECT_EQ(x64.get().cpu_type, quxlang::cpu::x86_64);
+    EXPECT_EQ(arm64.get().cpu_type, quxlang::cpu::arm_64);
+    EXPECT_EQ(x64_graph.make_request< quxlang::machine_info_query >(std::monostate{}).cpu_type, quxlang::cpu::x86_64);
+}
+
+TEST(querygraph_queries, timing_diagnostics_follow_graph_options)
+{
+    rpnx::querygraph::scheduler scheduler;
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    for (bool enabled : {false, true})
+    {
+        std::string diagnostics;
+        rpnx::querygraph::graph::options options;
+        options.enable_timing = enabled;
+        options.long_running_node_threshold = std::chrono::nanoseconds(0);
+        options.timing_logger = [&](std::string const& message) { diagnostics += message; };
+        {
+            quxlang::compiler_querygraph graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
+                                              std::nullopt, std::move(options));
+            std::future< quxlang::output_list_query::output_type > outputs =
+                graph.raw_graph().async_make_request< quxlang::output_list_query >(std::monostate{});
+            EXPECT_NO_THROW(outputs.get());
+        }
+        EXPECT_EQ(diagnostics.empty(), !enabled);
+    }
+}
+
 TEST(querygraph_queries, source_bundle_returns_injected_bundle)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::source_bundle_query >(std::monostate{});
@@ -321,8 +367,9 @@ TEST(querygraph_queries, source_bundle_returns_injected_bundle)
 
 TEST(querygraph_queries, machine_info_returns_injected_output_info)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::machine_info_query >(std::monostate{});
@@ -334,8 +381,9 @@ TEST(querygraph_queries, machine_info_returns_injected_output_info)
 
 TEST(querygraph_queries, binary_keywords_reflect_elf_machine_binary_type)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     EXPECT_TRUE(graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
@@ -350,6 +398,7 @@ TEST(querygraph_queries, binary_keywords_reflect_elf_machine_binary_type)
 
 TEST(querygraph_queries, binary_keywords_reflect_macho_machine_binary_type)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle;
     quxlang::target_configuration target;
     target.target_output_config.cpu_type = quxlang::cpu::arm_64;
@@ -360,7 +409,7 @@ TEST(querygraph_queries, binary_keywords_reflect_macho_machine_binary_type)
     bundle.targets["macho"] = target;
     bundle.module_sources["main_macho"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I32;")};
 
-    quxlang::compiler_querygraph graph(bundle, "macho", bundle.targets.at("macho").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "macho", bundle.targets.at("macho").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
     quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
@@ -376,11 +425,12 @@ TEST(querygraph_queries, binary_keywords_reflect_macho_machine_binary_type)
 
 TEST(querygraph_queries, binary_keywords_filter_include_if_declarations)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"QX(
 ::selected INCLUDE_IF(BINARY_ELF) VAR I32;
 ::filtered INCLUDE_IF(BINARY_MACHO) VAR I32;
 )QX");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     quxlang::type_symbol const selected = quxlang::type_symbol(quxlang::subsymbol{main, "selected"});
     quxlang::type_symbol const filtered = quxlang::type_symbol(quxlang::subsymbol{main, "filtered"});
@@ -391,10 +441,11 @@ TEST(querygraph_queries, binary_keywords_filter_include_if_declarations)
 
 TEST(querygraph_queries, architecture_keywords_reflect_machine_info)
 {
-    auto evaluate = [](quxlang::cpu cpu_type, std::string const& keyword) -> bool
+    rpnx::querygraph::scheduler scheduler;
+    auto evaluate = [&scheduler](quxlang::cpu cpu_type, std::string const& keyword) -> bool
     {
         quxlang::source_bundle bundle = make_single_main_source_bundle_for_cpu("::main VAR I32;", cpu_type);
-        quxlang::compiler_querygraph graph(bundle, "target", bundle.targets.at("target").target_output_config,
+        quxlang::compiler_querygraph graph(scheduler, bundle, "target", bundle.targets.at("target").target_output_config,
                                            quxlang::tests::current_test_graph_dump_path());
         quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
         return graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
@@ -419,6 +470,7 @@ TEST(querygraph_queries, architecture_keywords_reflect_machine_info)
 
 TEST(querygraph_queries, compiler_pointer_width_objects_use_canonical_integer_types)
 {
+    rpnx::querygraph::scheduler scheduler;
     std::vector< std::pair< quxlang::cpu, std::uint64_t > > target_widths = {
         {quxlang::cpu::x86_32, 32},
         {quxlang::cpu::x86_64, 64},
@@ -428,7 +480,7 @@ TEST(querygraph_queries, compiler_pointer_width_objects_use_canonical_integer_ty
     for (std::pair< quxlang::cpu, std::uint64_t > const& target_width : target_widths)
     {
         quxlang::source_bundle bundle = make_single_main_source_bundle_for_cpu("::main VAR I32;", target_width.first);
-        quxlang::compiler_querygraph graph(bundle, "target", bundle.targets.at("target").target_output_config,
+        quxlang::compiler_querygraph graph(scheduler, bundle, "target", bundle.targets.at("target").target_output_config,
                                            quxlang::tests::current_test_graph_dump_path());
         quxlang::type_symbol expected_type = quxlang::int_type{.bits = target_width.second, .has_sign = false};
 
@@ -444,12 +496,13 @@ TEST(querygraph_queries, compiler_pointer_width_objects_use_canonical_integer_ty
 
 TEST(querygraph_queries, compiler_object_reference_mutability_matches_language_contract)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
     bundle.targets.at("x64").steppings = {
         quxlang::cpu_stepping_configuration{},
         quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}}},
     };
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     std::vector< std::pair< std::string, quxlang::qualifier > > expectations = {
         {"MAIN_FUNCTION_ARRAY", quxlang::qualifier::constant},
         {"POST_DETECT_FUNCTION_ARRAY", quxlang::qualifier::constant},
@@ -479,7 +532,8 @@ TEST(querygraph_queries, compiler_object_reference_mutability_matches_language_c
 
 TEST(querygraph_queries, environment_keywords_reflect_machine_info)
 {
-    auto evaluate = [](quxlang::environment environment_type, std::string const& keyword) -> bool
+    rpnx::querygraph::scheduler scheduler;
+    auto evaluate = [&scheduler](quxlang::environment environment_type, std::string const& keyword) -> bool
     {
         quxlang::source_bundle bundle;
         quxlang::target_configuration target;
@@ -492,7 +546,7 @@ TEST(querygraph_queries, environment_keywords_reflect_machine_info)
         bundle.targets["target"] = target;
         bundle.module_sources["main_env"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I32;")};
 
-        quxlang::compiler_querygraph graph(bundle, "target", bundle.targets.at("target").target_output_config,
+        quxlang::compiler_querygraph graph(scheduler, bundle, "target", bundle.targets.at("target").target_output_config,
                                            quxlang::tests::current_test_graph_dump_path());
         quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
         return graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
@@ -517,6 +571,7 @@ TEST(querygraph_queries, environment_keywords_reflect_machine_info)
 
 TEST(querygraph_queries, asm_procedure_merge_selects_x86_family_architecture)
 {
+    rpnx::querygraph::scheduler scheduler;
     std::string const source = R"QX(
 ::entry ASM_PROCEDURE X64
 {
@@ -533,14 +588,14 @@ TEST(querygraph_queries, asm_procedure_merge_selects_x86_family_architecture)
     quxlang::type_symbol const entry = quxlang::type_symbol(quxlang::subsymbol{main, "entry"});
 
     quxlang::source_bundle x64_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::x86_64);
-    quxlang::compiler_querygraph x64_graph(x64_bundle, "target", x64_bundle.targets.at("target").target_output_config,
+    quxlang::compiler_querygraph x64_graph(scheduler, x64_bundle, "target", x64_bundle.targets.at("target").target_output_config,
                                            quxlang::tests::current_test_graph_dump_path());
     quxlang::ast2_symboid const x64_symboid = x64_graph.make_request< quxlang::symboid_query >(entry);
     ASSERT_TRUE(x64_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
     EXPECT_EQ(x64_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "X64");
 
     quxlang::source_bundle x86_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::x86_32);
-    quxlang::compiler_querygraph x86_graph(x86_bundle, "target", x86_bundle.targets.at("target").target_output_config,
+    quxlang::compiler_querygraph x86_graph(scheduler, x86_bundle, "target", x86_bundle.targets.at("target").target_output_config,
                                            quxlang::tests::current_test_graph_dump_path());
     quxlang::ast2_symboid const x86_symboid = x86_graph.make_request< quxlang::symboid_query >(entry);
     ASSERT_TRUE(x86_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
@@ -549,6 +604,7 @@ TEST(querygraph_queries, asm_procedure_merge_selects_x86_family_architecture)
 
 TEST(querygraph_queries, asm_procedure_merge_selects_arm_family_and_z_architecture)
 {
+    rpnx::querygraph::scheduler scheduler;
     std::string const source = R"QX(
 ::entry ASM_PROCEDURE ARM32
 {
@@ -570,21 +626,21 @@ TEST(querygraph_queries, asm_procedure_merge_selects_arm_family_and_z_architectu
     quxlang::type_symbol const entry = quxlang::type_symbol(quxlang::subsymbol{main, "entry"});
 
     quxlang::source_bundle arm32_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::arm_32);
-    quxlang::compiler_querygraph arm32_graph(arm32_bundle, "target", arm32_bundle.targets.at("target").target_output_config,
+    quxlang::compiler_querygraph arm32_graph(scheduler, arm32_bundle, "target", arm32_bundle.targets.at("target").target_output_config,
                                              quxlang::tests::current_test_graph_dump_path());
     quxlang::ast2_symboid const arm32_symboid = arm32_graph.make_request< quxlang::symboid_query >(entry);
     ASSERT_TRUE(arm32_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
     EXPECT_EQ(arm32_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM32");
 
     quxlang::source_bundle arm64_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::arm_64);
-    quxlang::compiler_querygraph arm64_graph(arm64_bundle, "target", arm64_bundle.targets.at("target").target_output_config,
+    quxlang::compiler_querygraph arm64_graph(scheduler, arm64_bundle, "target", arm64_bundle.targets.at("target").target_output_config,
                                              quxlang::tests::current_test_graph_dump_path());
     quxlang::ast2_symboid const arm64_symboid = arm64_graph.make_request< quxlang::symboid_query >(entry);
     ASSERT_TRUE(arm64_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
     EXPECT_EQ(arm64_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM64");
 
     quxlang::source_bundle z_arch_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::z_arch);
-    quxlang::compiler_querygraph z_arch_graph(z_arch_bundle, "target", z_arch_bundle.targets.at("target").target_output_config,
+    quxlang::compiler_querygraph z_arch_graph(scheduler, z_arch_bundle, "target", z_arch_bundle.targets.at("target").target_output_config,
                                               quxlang::tests::current_test_graph_dump_path());
     quxlang::ast2_symboid const z_arch_symboid = z_arch_graph.make_request< quxlang::symboid_query >(entry);
     ASSERT_TRUE(z_arch_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
@@ -593,8 +649,9 @@ TEST(querygraph_queries, asm_procedure_merge_selects_arm_family_and_z_architectu
 
 TEST(querygraph_queries, unwind_format_keywords_reflect_current_linux_elf_codegen_policy)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     auto evaluate = [&](std::string const& keyword) -> bool
@@ -615,6 +672,7 @@ TEST(querygraph_queries, unwind_format_keywords_reflect_current_linux_elf_codege
 
 TEST(querygraph_queries, unwind_format_keywords_reflect_current_windows_pe_codegen_policy)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle;
     quxlang::target_configuration target;
     target.target_output_config.cpu_type = quxlang::cpu::x86_64;
@@ -625,7 +683,7 @@ TEST(querygraph_queries, unwind_format_keywords_reflect_current_windows_pe_codeg
     bundle.targets["windows"] = target;
     bundle.module_sources["main_windows"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I32;")};
 
-    quxlang::compiler_querygraph graph(bundle, "windows", bundle.targets.at("windows").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "windows", bundle.targets.at("windows").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
     quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
@@ -643,6 +701,7 @@ TEST(querygraph_queries, unwind_format_keywords_reflect_current_windows_pe_codeg
 
 TEST(querygraph_queries, unwind_format_keywords_reflect_current_arm32_elf_codegen_policy)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle;
     quxlang::target_configuration target;
     target.target_output_config.cpu_type = quxlang::cpu::arm_32;
@@ -653,7 +712,7 @@ TEST(querygraph_queries, unwind_format_keywords_reflect_current_arm32_elf_codege
     bundle.targets["arm32"] = target;
     bundle.module_sources["main_arm32"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I32;")};
 
-    quxlang::compiler_querygraph graph(bundle, "arm32", bundle.targets.at("arm32").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "arm32", bundle.targets.at("arm32").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
     quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
@@ -671,11 +730,12 @@ TEST(querygraph_queries, unwind_format_keywords_reflect_current_arm32_elf_codege
 
 TEST(querygraph_queries, unwind_format_keywords_filter_include_if_declarations)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"QX(
 ::selected INCLUDE_IF(UNWIND_FORMAT_IS_DWARF_EH_FRAME) VAR I32;
 ::filtered INCLUDE_IF(UNWIND_FORMAT_IS_WINDOWS_SEH) VAR I32;
 )QX");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     quxlang::type_symbol const selected = quxlang::type_symbol(quxlang::subsymbol{main, "selected"});
     quxlang::type_symbol const filtered = quxlang::type_symbol(quxlang::subsymbol{main, "filtered"});
@@ -686,10 +746,11 @@ TEST(querygraph_queries, unwind_format_keywords_filter_include_if_declarations)
 
 TEST(querygraph_queries, output_list_returns_configured_outputs_for_target)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph x64_graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+    quxlang::compiler_querygraph x64_graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
                                            quxlang::tests::current_test_graph_dump_path());
-    quxlang::compiler_querygraph arm64_graph(bundle, "arm64", bundle.targets.at("arm64").target_output_config,
+    quxlang::compiler_querygraph arm64_graph(scheduler, bundle, "arm64", bundle.targets.at("arm64").target_output_config,
                                              quxlang::tests::current_test_graph_dump_path());
 
     std::set< std::string > x64_outputs = x64_graph.make_request< quxlang::output_list_query >(std::monostate{});
@@ -701,9 +762,10 @@ TEST(querygraph_queries, output_list_returns_configured_outputs_for_target)
 
 TEST(querygraph_queries, output_list_is_empty_without_configured_outputs)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
     bundle.outputs.clear();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     std::set< std::string > outputs = graph.make_request< quxlang::output_list_query >(std::monostate{});
 
@@ -713,8 +775,9 @@ TEST(querygraph_queries, output_list_is_empty_without_configured_outputs)
 
 TEST(querygraph_queries, output_binary_information_returns_configured_output)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     quxlang::output_query_output output = graph.make_request< quxlang::output_binary_information_query >("app");
 
@@ -727,8 +790,9 @@ TEST(querygraph_queries, output_binary_information_returns_configured_output)
 
 TEST(querygraph_queries, output_binary_information_uses_default_entry_for_explicit_output)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     quxlang::output_query_output output = graph.make_request< quxlang::output_binary_information_query >("default");
 
@@ -741,8 +805,9 @@ TEST(querygraph_queries, output_binary_information_uses_default_entry_for_explic
 
 TEST(querygraph_queries, output_binaries_information_returns_all_outputs)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     std::map< std::string, quxlang::output_query_output > outputs = graph.make_request< quxlang::output_binaries_information_query >(std::monostate{});
 
@@ -757,8 +822,9 @@ TEST(querygraph_queries, output_binaries_information_returns_all_outputs)
 
 TEST(querygraph_queries, output_binary_information_returns_unit_test_suite_without_main)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_unit_test_suite_source_bundle("::case_a UNIT_TEST { }");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     quxlang::output_query_output output = graph.make_request< quxlang::output_binary_information_query >("tests");
 
@@ -770,6 +836,7 @@ TEST(querygraph_queries, output_binary_information_returns_unit_test_suite_witho
 
 TEST(querygraph_queries, unit_test_suite_defaults_to_all_target_modules)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
     quxlang::target_configuration& target = bundle.targets.at("x64");
     target.module_configurations.erase("main");
@@ -777,7 +844,7 @@ TEST(querygraph_queries, unit_test_suite_defaults_to_all_target_modules)
     target.module_configurations["all"].source = "util_shared";
     bundle.outputs.emplace("default-tests", quxlang::output_config{.target = "x64", .type = quxlang::output_kind::unit_test_suite});
     bundle.outputs.emplace("selected-tests", quxlang::output_config{.target = "x64", .type = quxlang::output_kind::unit_test_suite, .test_modules = std::vector< std::string >{"util", "all"}});
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     quxlang::output_query_output default_output = graph.make_request< quxlang::output_binary_information_query >("default-tests");
     quxlang::output_query_output selected_output = graph.make_request< quxlang::output_binary_information_query >("selected-tests");
@@ -788,47 +855,52 @@ TEST(querygraph_queries, unit_test_suite_defaults_to_all_target_modules)
 
 TEST(querygraph_queries, output_binary_information_rejects_unknown_output)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     EXPECT_THROW(graph.make_request< quxlang::output_binary_information_query >("missing"), quxlang::compilation_error);
 }
 
 TEST(querygraph_queries, output_queries_reject_paths_belonging_to_another_target)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     EXPECT_THROW(graph.make_request< quxlang::output_binary_information_query >("ios_app"), quxlang::compilation_error);
     EXPECT_THROW(graph.make_request< quxlang::output_llvm_backend_options_query >("ios_app"), quxlang::compilation_error);
 }
 
 TEST(querygraph_queries, output_paths_remain_query_identities)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
     quxlang::output_config config = bundle.outputs.at("app");
     bundle.outputs.clear();
     bundle.outputs.emplace("bin/linux/app", std::move(config));
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     EXPECT_EQ(graph.make_request< quxlang::output_list_query >(std::monostate{}), (std::set< std::string >{"bin/linux/app"}));
     EXPECT_EQ(graph.make_request< quxlang::output_binary_information_query >("bin/linux/app").output_name, "bin/linux/app");
 }
 
 TEST(querygraph_queries, targets_without_outputs_still_run_static_tests)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::fails STATIC_TEST { TEST_ASSERT(FALSE); }");
     bundle.outputs.clear();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     EXPECT_THROW(graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{}), quxlang::compilation_error);
 
     bundle.targets.at("x64").run_static_tests = false;
-    quxlang::compiler_querygraph disabled_graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph disabled_graph = make_x64_graph(scheduler, bundle);
     EXPECT_TRUE(disabled_graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{}).empty());
 }
 
 TEST(querygraph_queries, target_backend_and_llvm_options_return_defaults)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     EXPECT_EQ(graph.make_request< quxlang::target_backend_query >(std::monostate{}), quxlang::backend_kind::llvm);
     EXPECT_FALSE(graph.make_request< quxlang::target_llvm_backend_options_query >(std::monostate{}).build_type.has_value());
@@ -837,6 +909,7 @@ TEST(querygraph_queries, target_backend_and_llvm_options_return_defaults)
 
 TEST(querygraph_queries, unimplemented_statement_default_compiles_emits_unimplemented_instruction)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::probe FUNCTION(): I32
 {
@@ -844,7 +917,7 @@ TEST(querygraph_queries, unimplemented_statement_default_compiles_emits_unimplem
   RETURN 0;
 }
 )QX");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     quxlang::type_symbol const probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
 
@@ -860,6 +933,7 @@ TEST(querygraph_queries, unimplemented_statement_default_compiles_emits_unimplem
 
 TEST(querygraph_queries, unimplemented_compiles_defaults_and_overrides)
 {
+    rpnx::querygraph::scheduler scheduler;
     for (quxlang::build_type build : {quxlang::build_type::development, quxlang::build_type::debug, quxlang::build_type::quick, quxlang::build_type::release, quxlang::build_type::release_dbgsym, quxlang::build_type::debug_opt, quxlang::build_type::compact, quxlang::build_type::debug_compact, quxlang::build_type::compact_opt, quxlang::build_type::debug_compact_opt})
     {
         for (std::optional< bool > override_compiles : {std::optional< bool >{}, std::optional{true}, std::optional{false}})
@@ -876,7 +950,7 @@ TEST(querygraph_queries, unimplemented_compiles_defaults_and_overrides)
             {
                 bundle.targets.at("x64").unimplemented_compiles = *override_compiles;
             }
-            quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+            quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
             quxlang::type_symbol main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
             quxlang::type_symbol probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
 
@@ -899,6 +973,7 @@ TEST(querygraph_queries, unimplemented_compiles_defaults_and_overrides)
 
 TEST(querygraph_queries, compilation_error_statement_rejects_during_codegen)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::probe FUNCTION(): I32
 {
@@ -906,7 +981,7 @@ TEST(querygraph_queries, compilation_error_statement_rejects_during_codegen)
   RETURN 0;
 }
 )QX");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     quxlang::type_symbol const probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
 
@@ -928,6 +1003,7 @@ TEST(querygraph_queries, compilation_error_statement_rejects_during_codegen)
 
 TEST(querygraph_queries, compilation_error_statement_skipped_by_static_if_does_not_error)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::probe FUNCTION(): I32
 {
@@ -938,7 +1014,7 @@ TEST(querygraph_queries, compilation_error_statement_skipped_by_static_if_does_n
   RETURN 0;
 }
 )QX");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     quxlang::type_symbol const probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
 
@@ -952,6 +1028,7 @@ TEST(querygraph_queries, compilation_error_statement_skipped_by_static_if_does_n
 
 TEST(querygraph_queries, panic_is_a_terminator_and_stops_dependency_reachability)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::probe FUNCTION()
 {
@@ -959,7 +1036,7 @@ TEST(querygraph_queries, panic_is_a_terminator_and_stops_dependency_reachability
   COMPILATION_ERROR ON_LOWER "unreachable lowering error";
 }
 )QX");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol const probe = quxlang::subsymbol{main, "probe"};
     std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
@@ -989,8 +1066,9 @@ TEST(querygraph_queries, panic_is_a_terminator_and_stops_dependency_reachability
 
 TEST(querygraph_queries, panic_default_message_is_normalized_in_vmir)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::probe FUNCTION() { PANIC; }");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const probe = quxlang::subsymbol{
         .of = quxlang::absolute_module_reference{"main"},
         .name = "probe",
@@ -1007,6 +1085,7 @@ TEST(querygraph_queries, panic_default_message_is_normalized_in_vmir)
 
 TEST(querygraph_queries, match_and_unwrap_failures_use_panic_terminators)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::failure_variant INLINE_VARIANT VALUELESS_DEFAULT [I32, U32];
 
@@ -1021,7 +1100,7 @@ TEST(querygraph_queries, match_and_unwrap_failures_use_panic_terminators)
   }
 }
 )QX");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const probe = quxlang::subsymbol{
         .of = quxlang::absolute_module_reference{"main"},
         .name = "probe",
@@ -1090,9 +1169,10 @@ MATCH (value AS I32) AS payload {
 
 TEST(querygraph_queries, output_llvm_backend_options_falls_back_to_target_options)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
     bundle.targets.at("x64").llvm_options.build_type = quxlang::build_type::debug;
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     EXPECT_EQ(graph.make_request< quxlang::target_llvm_backend_options_query >(std::monostate{}).build_type, quxlang::build_type::debug);
     EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("app").build_type, quxlang::build_type::debug);
@@ -1100,10 +1180,11 @@ TEST(querygraph_queries, output_llvm_backend_options_falls_back_to_target_option
 
 TEST(querygraph_queries, output_llvm_backend_options_uses_output_override)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
     bundle.targets.at("x64").llvm_options.build_type = quxlang::build_type::debug;
     bundle.outputs.at("app").llvm_options = quxlang::backend_llvm_options{.build_type = quxlang::build_type::release};
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     EXPECT_EQ(graph.make_request< quxlang::target_llvm_backend_options_query >(std::monostate{}).build_type, quxlang::build_type::debug);
     EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("app").build_type, quxlang::build_type::release);
@@ -1112,12 +1193,13 @@ TEST(querygraph_queries, output_llvm_backend_options_uses_output_override)
 
 TEST(querygraph_queries, output_steppings_returns_configured_order)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
     bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
         quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_SSE2", true}}},
         quxlang::cpu_stepping_configuration{.attributes = {{"X64_FEATURE_AVX2", true}, {"X64_PERF_FAST_GATHER", false}}},
     };
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     std::vector< quxlang::cpu_stepping_configuration > const steppings = graph.make_request< quxlang::output_steppings_query >("default");
 
@@ -1130,10 +1212,11 @@ TEST(querygraph_queries, output_steppings_returns_configured_order)
 
 TEST(querygraph_queries, output_steppings_defaults_to_empty_stepping_zero)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
     bundle.targets.at("x64").steppings.reset();
     bundle.targets.at("x64").target_output_config.cpu_type = quxlang::cpu::x86_32;
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     std::vector< quxlang::cpu_stepping_configuration > const steppings = graph.make_request< quxlang::output_steppings_query >("default");
 
@@ -1143,13 +1226,14 @@ TEST(querygraph_queries, output_steppings_defaults_to_empty_stepping_zero)
 
 TEST(querygraph_queries, output_steppings_release_defaults_x64_to_four_levels_on_every_platform)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
     bundle.targets.at("x64").steppings.reset();
     bundle.targets.at("x64").build_type = quxlang::build_type::release;
     for (quxlang::os platform : {quxlang::os::none, quxlang::os::linux, quxlang::os::windows, quxlang::os::macos, quxlang::os::freebsd, quxlang::os::netbsd, quxlang::os::openbsd, quxlang::os::solaris})
     {
         bundle.targets.at("x64").target_output_config.os_type = platform;
-        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
         std::vector< quxlang::cpu_stepping_configuration > steppings = graph.make_request< quxlang::output_steppings_query >("default");
         ASSERT_EQ(steppings.size(), 4U);
         for (std::size_t index = 0; index < steppings.size(); ++index)
@@ -1162,9 +1246,10 @@ TEST(querygraph_queries, output_steppings_release_defaults_x64_to_four_levels_on
 
 TEST(querygraph_queries, output_steppings_release_defaults_macos_arm64_to_public_apple_capability_ladder)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
     bundle.targets.at("arm64").build_type = quxlang::build_type::release;
-    quxlang::compiler_querygraph graph(
+    quxlang::compiler_querygraph graph(scheduler,
         bundle,
         "arm64",
         bundle.targets.at("arm64").target_output_config,
@@ -1190,6 +1275,7 @@ TEST(querygraph_queries, output_steppings_release_defaults_macos_arm64_to_public
 
 TEST(querygraph_queries, output_steppings_quick_defaults_to_one_on_every_platform_and_architecture)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
     quxlang::target_configuration& target = bundle.targets.at("x64");
     target.steppings.reset();
@@ -1202,7 +1288,7 @@ TEST(querygraph_queries, output_steppings_quick_defaults_to_one_on_every_platfor
         for (quxlang::cpu architecture : {quxlang::cpu::x86_32, quxlang::cpu::x86_64, quxlang::cpu::arm_32, quxlang::cpu::arm_64, quxlang::cpu::riscv_32, quxlang::cpu::riscv_64, quxlang::cpu::z_arch, quxlang::cpu::jvm})
         {
             target.target_output_config.cpu_type = architecture;
-            quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+            quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
             std::vector< quxlang::cpu_stepping_configuration > defaults = graph.make_request< quxlang::output_steppings_query >("release");
             std::vector< quxlang::cpu_stepping_configuration > steppings = graph.make_request< quxlang::output_steppings_query >("default");
             ASSERT_EQ(steppings.size(), 1U);
@@ -1213,6 +1299,7 @@ TEST(querygraph_queries, output_steppings_quick_defaults_to_one_on_every_platfor
 
 TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object_refs)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
     bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
     bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
@@ -1225,7 +1312,7 @@ TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object
 }
 )QX")};
 
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     quxlang::llvm_component_catalog const unit = graph.make_request< quxlang::output_llvm_catalog_query >(quxlang::llvm_component_query_input{.output_name = "default"});
     quxlang::type_symbol const first = quxlang::subsymbol{
@@ -1251,6 +1338,7 @@ TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object
 // LLVM metadata is not observable from a Quxlang DUAL_TEST.
 TEST(querygraph_queries, conditional_likelihood_reaches_llvm_branch_weights)
 {
+    rpnx::querygraph::scheduler scheduler;
     for (std::string statement : {"IF", "UNLESS"})
     {
         for (std::string hint : {"", "LIKELY", "UNLIKELY"})
@@ -1261,7 +1349,7 @@ TEST(querygraph_queries, conditional_likelihood_reaches_llvm_branch_weights)
                 std::string source = "::main FUNCTION(): I32 { VAR value BOOL := TRUE; " + statement + " " + hint + " (value) { RETURN 11; } ";
                 source += has_else ? "ELSE { RETURN 22; } }" : "RETURN 22; }";
                 quxlang::source_bundle bundle = make_single_main_source_bundle(source);
-                quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+                quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
                 quxlang::llvm_output_query_input input{
                     .output_name = "default",
                     .component = quxlang::llvm_output_component::main_program,
@@ -1333,6 +1421,7 @@ TEST(querygraph_queries, conditional_likelihood_reaches_llvm_branch_weights)
 
 TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_stepping)
 {
+    rpnx::querygraph::scheduler scheduler;
     std::string source = R"QX(
 ::increment_value FUNCTION(@ARG:value I32): I32
 {
@@ -1370,7 +1459,7 @@ TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_st
         },
     };
     optimized_bundle.targets.at("x64").llvm_options.build_type = quxlang::build_type::release;
-    quxlang::compiler_querygraph optimized_graph = make_x64_graph(optimized_bundle);
+    quxlang::compiler_querygraph optimized_graph = make_x64_graph(scheduler, optimized_bundle);
     quxlang::llvm_backend::llvm_preoptimized_unit const& preoptimized = optimized_graph.make_request< quxlang::llvm_preoptimize_query >(input).get();
     quxlang::llvm_backend::llvm_postoptimized_unit const& postoptimized =
         optimized_graph.make_request< quxlang::llvm_postoptimize_query >(input);
@@ -1388,7 +1477,7 @@ TEST(querygraph_queries, llvm_postoptimize_and_post_codegen_emit_the_selected_st
 
     quxlang::source_bundle debug_bundle = optimized_bundle;
     debug_bundle.targets.at("x64").llvm_options.build_type = quxlang::build_type::debug;
-    quxlang::compiler_querygraph debug_graph = make_x64_graph(debug_bundle);
+    quxlang::compiler_querygraph debug_graph = make_x64_graph(scheduler, debug_bundle);
     quxlang::llvm_backend::llvm_preoptimized_unit const& debug_preoptimized = debug_graph.make_request< quxlang::llvm_preoptimize_query >(input).get();
     quxlang::llvm_backend::llvm_postoptimized_unit const& debug_postoptimized =
         debug_graph.make_request< quxlang::llvm_postoptimize_query >(input);
@@ -1593,6 +1682,7 @@ TEST(querygraph_queries, llvm_stepping_target_expands_apple_capability_groups)
 
 TEST(querygraph_queries, llvm_output_uses_component_link_path_for_runtime_free_single_stepping)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
     quxlang::target_configuration& target = bundle.targets.at("x64");
     target.steppings = std::vector< quxlang::cpu_stepping_configuration >{
@@ -1600,7 +1690,7 @@ TEST(querygraph_queries, llvm_output_uses_component_link_path_for_runtime_free_s
     };
     target.llvm_options.build_type = quxlang::build_type::release;
 
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     std::vector< quxlang::llvm_output_query_input > compiled = graph.make_request< quxlang::llvm_compilation_unit_identities_query >("default");
     ASSERT_EQ(compiled.size(), 2U);
@@ -1652,12 +1742,13 @@ TEST(querygraph_queries, llvm_output_uses_component_link_path_for_runtime_free_s
 
 TEST(querygraph_queries, llvm_output_rejects_multistep_without_post_detect)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
     bundle.targets.at("x64").steppings = std::vector< quxlang::cpu_stepping_configuration >{
         quxlang::cpu_stepping_configuration{},
         quxlang::cpu_stepping_configuration{},
     };
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     try
     {
@@ -1672,6 +1763,7 @@ TEST(querygraph_queries, llvm_output_rejects_multistep_without_post_detect)
 
 TEST(querygraph_queries, llvm_preoptimize_rejects_post_detect_array_without_post_detect)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
     quxlang::target_configuration& target = bundle.targets.at("x64");
     target.module_configurations["RUNTIME"].source = "runtime";
@@ -1682,7 +1774,7 @@ TEST(querygraph_queries, llvm_preoptimize_rejects_post_detect_array_without_post
   RET
 }
 )QX")};
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     try
     {
@@ -1702,6 +1794,7 @@ TEST(querygraph_queries, llvm_preoptimize_rejects_post_detect_array_without_post
 
 TEST(querygraph_queries, asm_callable_flagset_parameter_lowers_by_value)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::flags FLAGSET BITS(32) [read = 1, write = 2];
 
@@ -1725,7 +1818,7 @@ TEST(querygraph_queries, asm_callable_flagset_parameter_lowers_by_value)
     target.module_configurations["main"].source = "main_x64";
     bundle.targets.at("x64") = std::move(target);
     bundle.module_sources.insert(runtime.module_sources.begin(), runtime.module_sources.end());
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     std::string const& llvm_ir = collect_output_llvm_ir< quxlang::llvm_preoptimize_query >(graph, "default");
 
@@ -1744,19 +1837,21 @@ TEST(querygraph_queries, asm_callable_flagset_parameter_lowers_by_value)
 
 TEST(querygraph_queries, parse_file_rejects_runtime_declared_symbols_in_non_runtime_module)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::PROGRAM_START ASM_PROCEDURE X64
 {
   RET
 }
 )QX");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     EXPECT_THROW(graph.make_request< quxlang::module_ast_query >("main"), std::logic_error);
 }
 
 TEST(querygraph_queries, alias_cycles_report_recursive_dependencies)
 {
+    rpnx::querygraph::scheduler scheduler;
     std::vector< std::pair< std::string, std::string > > cases{
         {"::cycle ALIAS cycle;", "cycle"},
         {"::cycle ALIAS other; ::other ALIAS cycle;", "cycle"},
@@ -1767,7 +1862,7 @@ TEST(querygraph_queries, alias_cycles_report_recursive_dependencies)
     {
         SCOPED_TRACE(test_case.first);
         quxlang::source_bundle bundle = make_single_main_source_bundle(test_case.first);
-        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
         quxlang::contextual_type_reference request{
             .context = quxlang::absolute_module_reference{"main"},
             .type = parse_type_symbol_text(test_case.second),
@@ -1778,6 +1873,7 @@ TEST(querygraph_queries, alias_cycles_report_recursive_dependencies)
 
 TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_functanoid)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::main FUNCTION(): I32
 {
@@ -1798,7 +1894,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_f
 }
 )QX")};
 
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     quxlang::llvm_component_catalog const unit = graph.make_request< quxlang::output_llvm_catalog_query >(quxlang::llvm_component_query_input{
         .output_name = "default",
@@ -1819,6 +1915,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_f
 
 TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::main FUNCTION(): I32
 {
@@ -1841,7 +1938,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
 }
 )QX")};
 
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::llvm_component_catalog const unit = graph.make_request< quxlang::output_llvm_catalog_query >(quxlang::llvm_component_query_input{
         .output_name = "default",
         .component = quxlang::llvm_output_component::main_program,
@@ -1862,7 +1959,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
     EXPECT_NE(llvm_ir.find("expected native panic"), std::string::npos);
 
     bundle.outputs.at("default").build_type = quxlang::build_type::quick;
-    quxlang::compiler_querygraph quick = make_x64_graph(bundle);
+    quxlang::compiler_querygraph quick = make_x64_graph(scheduler, bundle);
     quxlang::llvm_output_query_input procedure{.output_name = "default", .component = quxlang::llvm_output_component::main_program, .unit = unit.target_name};
     std::string quick_ir = quxlang::llvm_backend::bitcode_to_ir_text(quick.make_request< quxlang::llvm_preoptimize_query >(procedure).get().bitcode);
     EXPECT_NE(quick_ir.find("define available_externally void @\"MODULE(RUNTIME)::PANIC"), std::string::npos);
@@ -1870,6 +1967,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_runtime_panic_functanoid)
 
 TEST(querygraph_queries, unimplemented_lowering_policy_is_selected_per_output)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { UNIMPLEMENTED; RETURN 0; }");
     bundle.targets.at("x64").build_type = quxlang::build_type::release;
     bundle.targets.at("x64").unimplemented_compiles = true;
@@ -1881,7 +1979,7 @@ TEST(querygraph_queries, unimplemented_lowering_policy_is_selected_per_output)
     bundle.outputs.at("default").policies[quxlang::compilation_policy::policy_unimplemented_panics] = true;
     bundle.outputs["lowering-error"] = bundle.outputs.at("default");
     bundle.outputs.at("lowering-error").policies[quxlang::compilation_policy::policy_unimplemented_panics] = false;
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     std::string ir = collect_output_llvm_ir< quxlang::llvm_preoptimize_query >(graph, "default");
     EXPECT_NE(ir.find("call void @\"MODULE(RUNTIME)::PANIC"), std::string::npos);
     EXPECT_NE(ir.find("UNIMPLEMENTED statement reached"), std::string::npos);
@@ -1899,13 +1997,14 @@ TEST(querygraph_queries, unimplemented_lowering_policy_is_selected_per_output)
 
 TEST(querygraph_queries, native_panic_without_runtime_reports_targeted_diagnostic)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::main FUNCTION(): I32
 {
   PANIC "missing runtime";
 }
 )QX");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     try
     {
@@ -1926,8 +2025,9 @@ TEST(querygraph_queries, native_panic_without_runtime_reports_targeted_diagnosti
 
 TEST(querygraph_queries, numeric_literal_prefers_unsigned_integer_target)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     quxlang::type_symbol numeric_literal = quxlang::numeric_literal_type{.value = "42"};
     quxlang::type_symbol unsigned_integer = quxlang::int_type{.bits = 64, .has_sign = false};
@@ -1947,8 +2047,9 @@ TEST(querygraph_queries, numeric_literal_prefers_unsigned_integer_target)
 
 TEST(querygraph_queries, numeric_literal_out_of_range_narrowing_has_no_adaptation)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     // 4294967291 does not fit in I32 (signed 32-bit), so adaptation rank should be nullopt.
     quxlang::type_symbol literal = quxlang::numeric_literal_type{.value = "4294967291"};
@@ -1963,8 +2064,9 @@ TEST(querygraph_queries, numeric_literal_out_of_range_narrowing_has_no_adaptatio
 
 TEST(querygraph_queries, numeric_literal_in_range_u32_has_adaptation)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     // 4294967291 fits in U32 (unsigned 32-bit), so adaptation rank should be present.
     quxlang::type_symbol literal = quxlang::numeric_literal_type{.value = "4294967291"};
@@ -1979,8 +2081,9 @@ TEST(querygraph_queries, numeric_literal_in_range_u32_has_adaptation)
 
 TEST(querygraph_queries, numeric_literal_to_numeric_constant_adaptation)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     quxlang::type_symbol literal = quxlang::numeric_literal_type{.value = "123"};
     quxlang::type_symbol numeric_constant = quxlang::readonly_constant{.kind = quxlang::constant_kind::numeric};
@@ -1994,8 +2097,9 @@ TEST(querygraph_queries, numeric_literal_to_numeric_constant_adaptation)
 
 TEST(querygraph_queries, temporary_source_prefers_temporary_reference_target)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
 
     quxlang::type_symbol byte_type = quxlang::byte_type{};
     quxlang::type_symbol temporary_byte_ref = quxlang::make_tref(byte_type);
@@ -2021,11 +2125,12 @@ TEST(querygraph_queries, temporary_source_prefers_temporary_reference_target)
 
 TEST(querygraph_queries, module_source_name_uses_configured_target)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph x64_graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+    quxlang::compiler_querygraph x64_graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
                                            quxlang::tests::current_test_graph_dump_path());
 
-    quxlang::compiler_querygraph arm64_graph(bundle, "arm64", bundle.targets.at("arm64").target_output_config,
+    quxlang::compiler_querygraph arm64_graph(scheduler, bundle, "arm64", bundle.targets.at("arm64").target_output_config,
                                              quxlang::tests::current_test_graph_dump_path());
 
     ASSERT_EQ(x64_graph.make_request< quxlang::module_source_name_query >("main"), "main_x64");
@@ -2034,8 +2139,9 @@ TEST(querygraph_queries, module_source_name_uses_configured_target)
 
 TEST(querygraph_queries, module_source_name_map_uses_configured_target)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "arm64", bundle.targets.at("arm64").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "arm64", bundle.targets.at("arm64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::module_source_name_map_query >(std::monostate{});
@@ -2046,9 +2152,10 @@ TEST(querygraph_queries, module_source_name_map_uses_configured_target)
 
 TEST(querygraph_queries, module_options_map_uses_configured_target)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4);");
     bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "7";
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
 
     auto resolved = graph.make_request< quxlang::module_options_map_query >(std::monostate{});
@@ -2058,10 +2165,11 @@ TEST(querygraph_queries, module_options_map_uses_configured_target)
 
 TEST(querygraph_queries, module_options_map_resolves_overloaded_option_symbols)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::holder STRUCT { .answer OPTION NUMBER DEFAULT_VALUE(5); }");
     bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "7";
     bundle.targets.at("x64").module_configurations.at("main").option_values["holder::.answer"] = "9";
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto module_answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
     auto holder = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "holder"});
     auto holder_answer = quxlang::type_symbol(quxlang::submember{holder, "answer"});
@@ -2074,8 +2182,9 @@ TEST(querygraph_queries, module_options_map_resolves_overloaded_option_symbols)
 
 TEST(querygraph_queries, module_sources_returns_source_files_for_logical_module)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::module_sources_query >("util");
@@ -2086,8 +2195,9 @@ TEST(querygraph_queries, module_sources_returns_source_files_for_logical_module)
 
 TEST(querygraph_queries, source_file_index_assigns_deterministic_global_ids)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::source_file_index_query >(std::monostate{});
@@ -2103,8 +2213,9 @@ TEST(querygraph_queries, source_file_index_assigns_deterministic_global_ids)
 
 TEST(querygraph_queries, source_file_id_is_unique_across_modules)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
     auto arm_id = graph.make_request< quxlang::source_file_id_query >(quxlang::source_file_name{.source_module = "main_arm64", .relative_path = "main.qxs"});
@@ -2115,8 +2226,9 @@ TEST(querygraph_queries, source_file_id_is_unique_across_modules)
 
 TEST(querygraph_queries, source_file_name_round_trips_from_id)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+    quxlang::compiler_querygraph graph(scheduler, bundle, "x64", bundle.targets.at("x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
     quxlang::source_file_name input{.source_module = "util_shared", .relative_path = "util.qxs"};
 
@@ -2128,8 +2240,9 @@ TEST(querygraph_queries, source_file_name_round_trips_from_id)
 
 TEST(querygraph_queries, option_declaration_resolves_as_option_symbol)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4);");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
 
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(answer), quxlang::symbol_kind::option);
@@ -2137,12 +2250,13 @@ TEST(querygraph_queries, option_declaration_resolves_as_option_symbol)
 
 TEST(querygraph_queries, test_declaration_modes_drive_static_and_unit_discovery)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::static_case STATIC_TEST { }
 ::unit_case UNIT_TEST { }
 ::dual_case DUAL_TEST { }
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol const static_case = quxlang::subsymbol{main, "static_case"};
     quxlang::type_symbol const unit_case = quxlang::subsymbol{main, "unit_case"};
@@ -2172,6 +2286,7 @@ TEST(querygraph_queries, test_declaration_modes_drive_static_and_unit_discovery)
 
 TEST(querygraph_queries, subdeclarations_of_preserves_stored_declarations)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::container STRUCT
 {
@@ -2180,7 +2295,7 @@ TEST(querygraph_queries, subdeclarations_of_preserves_stored_declarations)
     ::nested NAMESPACE { ::value VAR I64; }
 }
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol container = quxlang::subsymbol{main, "container"};
     quxlang::ast2_symboid stored = graph.make_request< quxlang::symboid_query >(container);
@@ -2197,11 +2312,12 @@ TEST(querygraph_queries, subdeclarations_of_preserves_stored_declarations)
 
 TEST(querygraph_queries, subdeclarations_of_does_not_synthesize_generic_interfaces)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::invalid GENERIC_REF { IMPLEMENTS missing_contract; }
 ::contract GENERIC_REF { .read FUNCTION() CONST: I32; }
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol invalid = quxlang::subsymbol{main, "invalid"};
     quxlang::type_symbol contract = quxlang::subsymbol{main, "contract"};
@@ -2226,6 +2342,7 @@ TEST(querygraph_queries, subdeclarations_of_does_not_synthesize_generic_interfac
 
 TEST(querygraph_queries, nested_namespace_subdeclarations_resolve)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::outer NAMESPACE
 {
@@ -2235,7 +2352,7 @@ TEST(querygraph_queries, nested_namespace_subdeclarations_resolve)
   }
 }
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol outer = quxlang::subsymbol{main, "outer"};
     quxlang::type_symbol inner = quxlang::subsymbol{outer, "inner"};
@@ -2246,6 +2363,7 @@ TEST(querygraph_queries, nested_namespace_subdeclarations_resolve)
 
 TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::type_symbol const parsed_tag = parse_type_symbol_text("templ#(@x I32)$x");
     ASSERT_TRUE(quxlang::typeis< quxlang::subtag_type >(parsed_tag));
     quxlang::subtag_type const& parsed_subtag = quxlang::as< quxlang::subtag_type >(parsed_tag);
@@ -2274,7 +2392,7 @@ TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
   ::local_type VAR I64;
 }
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol const i32 = quxlang::int_type{32, true};
     quxlang::type_symbol const u64 = quxlang::int_type{64, false};
@@ -2368,6 +2486,7 @@ TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
 
 TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::choice ENUM BITS(8) [none = NULL, x, RESERVED FROM(2) TO(3), y = 4] ALLOW_UNKNOWN {
     ::zero STATIC choice := none;
@@ -2375,7 +2494,7 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
 ::ibc_choice IBC_ENUM BITS(8) [zero = 0, one = 1];
 ::record STRUCT { .value VAR I32; }
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol choice = quxlang::subsymbol{main, "choice"};
     quxlang::type_symbol ibc_choice = quxlang::subsymbol{main, "ibc_choice"};
@@ -2428,6 +2547,7 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
 
 TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ibc_structs)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::optimized STRUCT
 {
@@ -2443,7 +2563,7 @@ TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ibc_structs)
     .medium VAR I16;
 }
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol const optimized = quxlang::subsymbol{main, "optimized"};
     quxlang::type_symbol const ibc = quxlang::subsymbol{main, "ibc"};
@@ -2479,6 +2599,7 @@ TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ibc_structs)
 
 TEST(querygraph_queries, inheritance_bases_are_members_and_runtime_info_uses_canonical_subobjects)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::root STRUCT VIRTUAL_POLYMORPHIC
 {
@@ -2504,7 +2625,7 @@ TEST(querygraph_queries, inheritance_bases_are_members_and_runtime_info_uses_can
     .own_value VAR I64;
 }
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     EXPECT_TRUE(graph.make_request< quxlang::struct_direct_bases_query >(quxlang::readonly_constant{.kind = quxlang::constant_kind::string}).empty());
     quxlang::instatype atomic_parameters;
     atomic_parameters.named["T"] = quxlang::make_type_instantiation(quxlang::bool_type{});
@@ -2584,6 +2705,7 @@ TEST(querygraph_queries, inheritance_bases_are_members_and_runtime_info_uses_can
 
 TEST(querygraph_queries, bound_virtual_member_calls_use_slots_and_qualified_calls_are_direct)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::root STRUCT POLYMORPHIC
 {
@@ -2603,7 +2725,7 @@ TEST(querygraph_queries, bound_virtual_member_calls_use_slots_and_qualified_call
     RETURN root::.value(@THIS object);
 }
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
 
     auto routine_text = [&](std::string const& name)
@@ -2632,6 +2754,7 @@ TEST(querygraph_queries, bound_virtual_member_calls_use_slots_and_qualified_call
 
 TEST(querygraph_queries, generated_destructor_records_field_and_base_cleanup_entries)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::base STRUCT
 {
@@ -2650,7 +2773,7 @@ TEST(querygraph_queries, generated_destructor_records_field_and_base_cleanup_ent
     }
 }
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol const derived = quxlang::subsymbol{main, "derived"};
 
@@ -2683,6 +2806,7 @@ TEST(querygraph_queries, generated_destructor_records_field_and_base_cleanup_ent
 
 TEST(querygraph_queries, fusion_info_and_layout_normalize_all_declaration_forms)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::boxed UNION NO_DEFAULT_COPY {
     .none OPTION DEFAULT VOID;
@@ -2700,7 +2824,7 @@ TEST(querygraph_queries, fusion_info_and_layout_normalize_all_declaration_forms)
 ::inline_voids INLINE_VARIANT [VOID];
 ::generic TEMPLATE(@T TYPE AUTO) INLINE_VARIANT [T, VOID];
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol const boxed = quxlang::subsymbol{main, "boxed"};
     quxlang::type_symbol const inline_union = quxlang::subsymbol{main, "inline_union"};
@@ -2778,6 +2902,7 @@ TEST(querygraph_queries, fusion_info_and_layout_normalize_all_declaration_forms)
 
 TEST(querygraph_queries, invalid_fusion_and_match_fixtures_report_expected_diagnostics)
 {
+    rpnx::querygraph::scheduler scheduler;
     /// Query boundary that is expected to reject an invalid source fixture.
     enum class invalid_fixture_query
     {
@@ -2857,7 +2982,7 @@ TEST(querygraph_queries, invalid_fusion_and_match_fixtures_report_expected_diagn
 
         quxlang::source_bundle bundle = make_single_main_source_bundle(std::string{});
         bundle.module_sources.at("main_x64").files.at("main.qxs") = quxlang::source_file{.contents = source};
-        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
         quxlang::type_symbol const bad = quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "bad"};
 
         bool rejected = false;
@@ -2903,10 +3028,11 @@ TEST(querygraph_queries, invalid_fusion_and_match_fixtures_report_expected_diagn
 
 TEST(querygraph_queries, enum_info_rejects_conflicting_semantics)
 {
-    auto expect_bad_enum = [](std::string const& source)
+    rpnx::querygraph::scheduler scheduler;
+    auto expect_bad_enum = [&scheduler](std::string const& source)
     {
         quxlang::source_bundle bundle = make_single_main_source_bundle(source);
-        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
         quxlang::type_symbol bad = quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "bad"};
         EXPECT_THROW(graph.make_request< quxlang::enum_info_query >(bad), std::logic_error);
     };
@@ -2918,12 +3044,13 @@ TEST(querygraph_queries, enum_info_rejects_conflicting_semantics)
 
 TEST(querygraph_queries, flagset_info_allocates_implicit_bits_around_reserved_masks)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
 ::permissions FLAGSET [read, write, RESERVED = 12, exec] {
     ::read_write STATIC permissions := read #|| write;
 }
 )");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol permissions = quxlang::subsymbol{main, "permissions"};
     quxlang::type_symbol read = quxlang::subsymbol{permissions, "read"};
@@ -2960,10 +3087,11 @@ TEST(querygraph_queries, flagset_info_allocates_implicit_bits_around_reserved_ma
 
 TEST(querygraph_queries, flagset_info_rejects_overlapping_canonical_and_reserved_bits)
 {
-    auto expect_bad_flagset = [](std::string const& source)
+    rpnx::querygraph::scheduler scheduler;
+    auto expect_bad_flagset = [&scheduler](std::string const& source)
     {
         quxlang::source_bundle bundle = make_single_main_source_bundle(source);
-        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
         quxlang::type_symbol bad = quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "bad"};
         EXPECT_THROW(graph.make_request< quxlang::flagset_info_query >(bad), std::logic_error);
     };
@@ -2975,6 +3103,7 @@ TEST(querygraph_queries, flagset_info_rejects_overlapping_canonical_and_reserved
 
 TEST(querygraph_queries, interface_symbols_slots_and_implementation_map)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::iface INTERFACE DEFAULTABLE {
     .value FUNCTION(%x I32): I32;
@@ -2989,7 +3118,7 @@ TEST(querygraph_queries, interface_symbols_slots_and_implementation_map)
     ::pick FUNCTION(%x I64): I64 { RETURN x + 4; }
 }
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     auto iface = quxlang::type_symbol(quxlang::subsymbol{main, "iface"});
     auto impl = quxlang::type_symbol(quxlang::subsymbol{main, "impl"});
@@ -3043,10 +3172,11 @@ TEST(querygraph_queries, interface_symbols_slots_and_implementation_map)
 
 TEST(querygraph_queries, interface_slot_validation_rejects_bad_shapes)
 {
-    auto expect_bad_interface = [](std::string const& source)
+    rpnx::querygraph::scheduler scheduler;
+    auto expect_bad_interface = [&scheduler](std::string const& source)
     {
         auto bundle = make_single_main_source_bundle(source);
-        auto graph = make_x64_graph(bundle);
+        auto graph = make_x64_graph(scheduler, bundle);
         auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
         auto iface = quxlang::type_symbol(quxlang::subsymbol{main, "iface"});
         EXPECT_THROW(graph.make_request< quxlang::interface_slot_list_query >(iface), std::logic_error);
@@ -3061,11 +3191,12 @@ TEST(querygraph_queries, interface_slot_validation_rejects_bad_shapes)
 
 TEST(querygraph_queries, interface_implementation_map_rejects_missing_slot)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::iface INTERFACE { .value FUNCTION(): I32; }
 ::bad_impl IMPLEMENTATION(iface) { }
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     auto bad_impl = quxlang::type_symbol(quxlang::subsymbol{main, "bad_impl"});
 
@@ -3074,10 +3205,11 @@ TEST(querygraph_queries, interface_implementation_map_rejects_missing_slot)
 
 TEST(querygraph_queries, option_number_and_bool_values_are_constexpr_literals)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::enabled OPTION BOOL DEFAULT_VALUE(FALSE);");
     bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "7";
     bundle.targets.at("x64").module_configurations.at("main").option_values["enabled"] = "true";
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     auto answer = graph.make_request< quxlang::constexpr_u64_query >(quxlang::constexpr_input{
@@ -3095,8 +3227,9 @@ TEST(querygraph_queries, option_number_and_bool_values_are_constexpr_literals)
 
 TEST(querygraph_queries, constexpr_eval_v3_discards_primary_result_when_no_type_expected)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::main VAR I32;");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     auto result = graph.make_request< quxlang::constexpr_eval_v3_query >(quxlang::constexpr_input_v3{
@@ -3111,8 +3244,9 @@ TEST(querygraph_queries, constexpr_eval_v3_discards_primary_result_when_no_type_
 
 TEST(querygraph_queries, constexpr_eval_v3_auto_reports_deduced_primary_type)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::main VAR I32;");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     auto result = graph.make_request< quxlang::constexpr_eval_v3_query >(quxlang::constexpr_input_v3{
@@ -3127,8 +3261,9 @@ TEST(querygraph_queries, constexpr_eval_v3_auto_reports_deduced_primary_type)
 
 TEST(querygraph_queries, option_number_uses_default_when_unconfigured)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4);");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     auto answer = graph.make_request< quxlang::constexpr_u64_query >(quxlang::constexpr_input{
@@ -3141,9 +3276,10 @@ TEST(querygraph_queries, option_number_uses_default_when_unconfigured)
 
 TEST(querygraph_queries, option_string_value_is_codegen_literal)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::message OPTION STRING DEFAULT_VALUE(\"fallback\");");
     bundle.targets.at("x64").module_configurations.at("main").option_values["message"] = "configured";
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     quxlang::constexpr_routine_result routine_result = graph.make_request< quxlang::constexpr_routine_query >(quxlang::constexpr_input2{
@@ -3176,8 +3312,9 @@ TEST(querygraph_queries, option_string_value_is_codegen_literal)
 
 TEST(querygraph_queries, constexpr_routine_generated_ir_inherits_expression_location)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::main VAR I32;");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     quxlang::source_location loc{.file_id = 7, .begin_index = 3, .end_index = std::optional< std::size_t >{5}};
     quxlang::expression expr = quxlang::expression_numeric_literal{.value = "42", .location = loc};
@@ -3220,9 +3357,10 @@ TEST(querygraph_queries, constexpr_routine_generated_ir_inherits_expression_loca
 
 TEST(querygraph_queries, option_default_from_copies_another_option)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::holder STRUCT { .answer OPTION NUMBER DEFAULT_FROM(::answer); }");
     bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "11";
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto holder = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "holder"});
     auto holder_answer = quxlang::type_symbol(quxlang::submember{holder, "answer"});
 
@@ -3236,8 +3374,9 @@ TEST(querygraph_queries, option_default_from_copies_another_option)
 
 TEST(querygraph_queries, type_is_antestatal_accepts_conservative_shapes)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::main VAR I32;");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
 
     auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
     quxlang::procedure_type proc;
@@ -3255,6 +3394,7 @@ TEST(querygraph_queries, type_is_antestatal_accepts_conservative_shapes)
 
 TEST(querygraph_queries, type_is_trivially_default_constructible_accepts_zero_constructible_shapes)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::zero_enum ENUM [zero = 0 DEFAULT, one = 1];
 ::nonzero_enum ENUM [one = 1 DEFAULT, zero = 0];
@@ -3263,7 +3403,7 @@ TEST(querygraph_queries, type_is_trivially_default_constructible_accepts_zero_co
 ::blocked_record STRUCT NO_IMPLICIT_DEFAULT_CONSTRUCTOR { .x VAR I32; }
 ::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
     auto f32 = quxlang::type_symbol(quxlang::float_type{32});
@@ -3294,6 +3434,7 @@ TEST(querygraph_queries, type_is_trivially_default_constructible_accepts_zero_co
 
 TEST(querygraph_queries, type_is_trivially_relocatable_accepts_nominal_integer_shapes)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::zero_enum ENUM [zero = 0 DEFAULT, one = 1];
 ::nonzero_enum ENUM [one = 1 DEFAULT, zero = 0];
@@ -3305,7 +3446,7 @@ TEST(querygraph_queries, type_is_trivially_relocatable_accepts_nominal_integer_s
 ::invalid_condition STRUCT TRIVIALLY_RELOCATABLE_IF(7) { .x VAR I32; }
 ::scoped STRUCT TRIVIALLY_RELOCATABLE_IF(enabled) { ::enabled STATIC BOOL := TRUE; .x VAR I32; }
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
     auto i32_array = quxlang::type_symbol(quxlang::array_type{.element_type = i32, .element_count = quxlang::expression_numeric_literal{"4"}});
@@ -3328,6 +3469,7 @@ TEST(querygraph_queries, type_is_trivially_relocatable_accepts_nominal_integer_s
 
 TEST(querygraph_queries, global_init_type_classifies_default_trivial_globals)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 ::trivial_global VAR I32;
@@ -3335,7 +3477,7 @@ TEST(querygraph_queries, global_init_type_classifies_default_trivial_globals)
 ::explicit_global VAR I32 := 0;
 ::custom_global VAR custom_record;
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     EXPECT_EQ(graph.make_request< quxlang::global_init_type_query >(quxlang::subsymbol{main, "trivial_global"}), quxlang::initialization_type::init_trivial);
@@ -3346,12 +3488,13 @@ TEST(querygraph_queries, global_init_type_classifies_default_trivial_globals)
 
 TEST(querygraph_queries, global_get_reference_omits_initguard_for_trivial_globals)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 ::trivial_global VAR I32;
 ::custom_global VAR custom_record;
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     auto routine_text = [&](std::string const& name)
@@ -3380,13 +3523,14 @@ TEST(querygraph_queries, global_get_reference_omits_initguard_for_trivial_global
 
 TEST(querygraph_queries, global_get_reference_uses_thread_access_for_per_thread_globals)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::custom_record STRUCT { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
 ::plain_global VAR I32;
 ::thread_trivial VAR PER_THREAD I32;
 ::thread_custom VAR PER_THREAD custom_record;
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
 
     EXPECT_FALSE(graph.make_request< quxlang::global_is_per_thread_query >(quxlang::subsymbol{main, "plain_global"}));
@@ -3419,6 +3563,7 @@ TEST(querygraph_queries, global_get_reference_uses_thread_access_for_per_thread_
 
 TEST(querygraph_queries, static_struct_keywords_and_user_deserialize_constructor)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::plain STRUCT { .x VAR I32; }
 ::explicit_antestatal STRUCT ANTESTATAL { .x VAR I32; }
@@ -3431,7 +3576,7 @@ TEST(querygraph_queries, static_struct_keywords_and_user_deserialize_constructor
 ::plain_static STATIC plain;
 ::serial_static STATIC default_serialoid := default_serialoid();
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     auto plain = quxlang::type_symbol(quxlang::subsymbol{main, "plain"});
     auto explicit_antestatal = quxlang::type_symbol(quxlang::subsymbol{main, "explicit_antestatal"});
@@ -3455,11 +3600,12 @@ TEST(querygraph_queries, static_struct_keywords_and_user_deserialize_constructor
 
 TEST(querygraph_queries, type_is_stringlike_requires_struct_tag)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle(R"(
 ::plain STRUCT { .x VAR I32; }
 ::textish STRUCT STRINGLIKE { .x VAR I32; }
 )");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
     auto plain = quxlang::type_symbol(quxlang::subsymbol{main, "plain"});
     auto textish = quxlang::type_symbol(quxlang::subsymbol{main, "textish"});
@@ -3472,8 +3618,9 @@ TEST(querygraph_queries, type_is_stringlike_requires_struct_tag)
 
 TEST(querygraph_queries, global_static_i32_is_antestatal_and_materializes_value)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::foo STATIC I32 := 4;");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto foo = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "foo"});
 
     ASSERT_TRUE(graph.make_request< quxlang::global_is_antestatal_static_query >(foo));
@@ -3488,8 +3635,9 @@ TEST(querygraph_queries, global_static_i32_is_antestatal_and_materializes_value)
 
 TEST(querygraph_queries, nonstatic_global_is_not_antestatal_static)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::foo VAR I32 := 4;");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto foo = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "foo"});
 
     ASSERT_FALSE(graph.make_request< quxlang::global_is_antestatal_static_query >(foo));
@@ -3497,8 +3645,9 @@ TEST(querygraph_queries, nonstatic_global_is_not_antestatal_static)
 
 TEST(querygraph_queries, nonstatic_static_global_is_rejected)
 {
+    rpnx::querygraph::scheduler scheduler;
     auto bundle = make_single_main_source_bundle("::blocked STRUCT NONSTATIC { .x VAR I32; } ::foo STATIC blocked;");
-    auto graph = make_x64_graph(bundle);
+    auto graph = make_x64_graph(scheduler, bundle);
     auto foo = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "foo"});
 
     EXPECT_THROW(graph.make_request< quxlang::global_is_antestatal_static_query >(foo), std::logic_error);
@@ -3589,6 +3738,7 @@ TEST(querygraph_queries, vmir_unreachable_round_trips_and_has_no_successor_or_cl
 
 TEST(querygraph_queries, variant_visit_valueless_dispatch_targets_unreachable)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::visited INLINE_VARIANT VALUELESS_DEFAULT [I32, U32];
 
@@ -3598,7 +3748,7 @@ TEST(querygraph_queries, variant_visit_valueless_dispatch_targets_unreachable)
   VISIT value AS payload { }
 }
 )QX");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     quxlang::type_symbol const probe = quxlang::subsymbol{
         .of = quxlang::absolute_module_reference{"main"},
         .name = "probe",
@@ -3819,6 +3969,7 @@ TEST(querygraph_queries, vmir_fusion_inspection_borrows_subject_and_records_layo
 
 TEST(querygraph_queries, assert_uses_policy_dispatch_and_test_assert_is_unconditional)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
 ::main FUNCTION(): I32
 {
@@ -3828,7 +3979,7 @@ TEST(querygraph_queries, assert_uses_policy_dispatch_and_test_assert_is_uncondit
   RETURN 0;
 }
 )QX");
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     std::optional< quxlang::instanciation_reference > symbol = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
         .initializee = quxlang::subsymbol{.of = quxlang::absolute_module_reference{"main"}, .name = "main"},
     });
@@ -3853,8 +4004,9 @@ TEST(querygraph_queries, assert_uses_policy_dispatch_and_test_assert_is_uncondit
 
 TEST(querygraph_queries, output_build_types_resolve_overrides_and_reject_ambiguity)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
-    quxlang::compiler_querygraph defaults = make_x64_graph(bundle);
+    quxlang::compiler_querygraph defaults = make_x64_graph(scheduler, bundle);
     quxlang::output_build_settings default_settings = defaults.make_request< quxlang::output_build_settings_query >("default");
     EXPECT_EQ(default_settings.build_type, quxlang::build_type::development);
     EXPECT_EQ(default_settings.policies.selection(quxlang::compilation_policy::policy_assert_enabled), 1U);
@@ -3863,23 +4015,23 @@ TEST(querygraph_queries, output_build_types_resolve_overrides_and_reject_ambigui
     EXPECT_EQ(default_settings.policies.selection(quxlang::compilation_policy::policy_check_overflow), 1U);
     bundle.targets.at("x64").build_type = quxlang::build_type::quick;
     bundle.outputs.at("default").policies[quxlang::compilation_policy::policy_check_bounds] = true;
-    quxlang::compiler_querygraph quick = make_x64_graph(bundle);
+    quxlang::compiler_querygraph quick = make_x64_graph(scheduler, bundle);
     quxlang::output_build_settings quick_settings = quick.make_request< quxlang::output_build_settings_query >("default");
     EXPECT_EQ(quick_settings.policies.selection(quxlang::compilation_policy::policy_assert_enabled), 0U);
     EXPECT_EQ(quick_settings.policies.selection(quxlang::compilation_policy::policy_invariant_checked), 0U);
     EXPECT_EQ(quick_settings.policies.selection(quxlang::compilation_policy::policy_check_bounds), 1U);
     EXPECT_EQ(quick_settings.policies.selection(quxlang::compilation_policy::policy_check_overflow), 0U);
     bundle.outputs.at("default").build_type = quxlang::build_type::debug;
-    quxlang::compiler_querygraph inherited = make_x64_graph(bundle);
+    quxlang::compiler_querygraph inherited = make_x64_graph(scheduler, bundle);
     quxlang::output_build_settings settings = inherited.make_request< quxlang::output_build_settings_query >("default");
     EXPECT_EQ(settings.build_type, quxlang::build_type::debug);
     EXPECT_EQ(settings.llvm_build_type, quxlang::build_type::debug);
     EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_invariant_checked), 1U);
     bundle.targets.at("x64").llvm_options.build_type = quxlang::build_type::compact;
-    quxlang::compiler_querygraph ambiguous = make_x64_graph(bundle);
+    quxlang::compiler_querygraph ambiguous = make_x64_graph(scheduler, bundle);
     EXPECT_THROW(ambiguous.make_request< quxlang::output_build_settings_query >("default"), quxlang::compilation_error);
     bundle.outputs.at("default").llvm_options = quxlang::backend_llvm_options{.build_type = quxlang::build_type::release};
-    quxlang::compiler_querygraph explicit_override = make_x64_graph(bundle);
+    quxlang::compiler_querygraph explicit_override = make_x64_graph(scheduler, bundle);
     settings = explicit_override.make_request< quxlang::output_build_settings_query >("default");
     EXPECT_EQ(settings.build_type, quxlang::build_type::debug);
     EXPECT_EQ(settings.llvm_build_type, quxlang::build_type::release);
@@ -3887,7 +4039,7 @@ TEST(querygraph_queries, output_build_types_resolve_overrides_and_reject_ambigui
     EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_invariant_checked), 0U);
     EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_check_bounds), 1U);
     bundle.outputs.at("default").llvm_options->build_type = quxlang::build_type::release_dbgsym;
-    quxlang::compiler_querygraph symbols = make_x64_graph(bundle);
+    quxlang::compiler_querygraph symbols = make_x64_graph(scheduler, bundle);
     settings = symbols.make_request< quxlang::output_build_settings_query >("default");
     EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_assert_enabled), 0U);
     EXPECT_EQ(settings.policies.selection(quxlang::compilation_policy::policy_check_overflow), 0U);
@@ -3895,7 +4047,7 @@ TEST(querygraph_queries, output_build_types_resolve_overrides_and_reject_ambigui
     bundle.outputs.at("default").llvm_options.reset();
     bundle.outputs.at("default").build_type = quxlang::build_type::compact;
     bundle.outputs.at("default").policies[quxlang::compilation_policy::policy_invariant_checked] = true;
-    quxlang::compiler_querygraph matching = make_x64_graph(bundle);
+    quxlang::compiler_querygraph matching = make_x64_graph(scheduler, bundle);
     EXPECT_EQ(matching.make_request< quxlang::output_build_settings_query >("default").llvm_build_type, quxlang::build_type::compact);
     EXPECT_EQ(matching.make_request< quxlang::output_build_settings_query >("default").policies.selection(quxlang::compilation_policy::policy_assert_enabled), 0U);
     EXPECT_EQ(matching.make_request< quxlang::output_build_settings_query >("default").policies.selection(quxlang::compilation_policy::policy_invariant_checked), 1U);
@@ -3903,29 +4055,41 @@ TEST(querygraph_queries, output_build_types_resolve_overrides_and_reject_ambigui
 
 TEST(querygraph_queries, output_steppings_do_not_change_dispatch_pointer_types)
 {
-    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
-    quxlang::source_bundle bundle = quxlang::load_bundle_sources_for_targets(testdata / "build_types", {});
-    for (std::string target : {"linux-x64", "macos-arm64"})
+    rpnx::querygraph::scheduler scheduler;
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    bundle.targets.at("arm64").target_output_config.os_type = quxlang::os::macos;
+    bundle.targets.at("arm64").target_output_config.binary_type = quxlang::binary::macho;
+    bundle.outputs.clear();
+    for (std::string target : {"x64", "arm64"})
     {
+        for (std::string name : {"Debug", "Quick", "Development", "Release", "DebugOpt", "ReleaseDbgSym", "Compact", "DebugCompact", "CompactOpt", "DebugCompactOpt"})
+        {
+            quxlang::output_config output;
+            output.target = target;
+            output.type = quxlang::output_kind::executable;
+            output.build_type = quxlang::parse_build_type(name);
+            bundle.outputs.emplace(target + "/" + name, std::move(output));
+        }
         bundle.targets.at(target).steppings.reset();
-        quxlang::compiler_querygraph graph(bundle, target, bundle.targets.at(target).target_output_config);
+        quxlang::compiler_querygraph graph(scheduler, bundle, target, bundle.targets.at(target).target_output_config);
         for (std::string name : {"Debug", "Quick", "Development", "Release", "DebugOpt", "ReleaseDbgSym", "Compact", "DebugCompact", "CompactOpt", "DebugCompactOpt"})
         {
             std::vector< quxlang::cpu_stepping_configuration > steppings = graph.make_request< quxlang::output_steppings_query >(target + "/" + name);
             EXPECT_EQ(steppings.size(), quxlang::build_type_has_multiple_steppings(quxlang::parse_build_type(name)) ? 4U : 1U);
-            std::string baseline = target == "linux-x64" ? "X64_FEATURES_V1" : "ARM_FEATURES_APPLE_M1";
+            std::string baseline = target == "x64" ? "X64_FEATURES_V1" : "ARM_FEATURES_APPLE_M1";
             EXPECT_EQ(steppings.front().attributes, (std::map< std::string, bool >{{baseline, true}}));
             EXPECT_EQ(graph.make_request< quxlang::variable_type_query >(quxlang::builtin_symbol{.name = "MAIN_FUNCTION_ARRAY"}), quxlang::llvm_backend::main_function_array_object_type());
             EXPECT_EQ(graph.make_request< quxlang::variable_type_query >(quxlang::builtin_symbol{.name = "POST_DETECT_FUNCTION_ARRAY"}), quxlang::llvm_backend::post_detect_function_array_object_type());
         }
         bundle.targets.at(target).steppings = std::vector< quxlang::cpu_stepping_configuration >(2);
-        quxlang::compiler_querygraph overridden(bundle, target, bundle.targets.at(target).target_output_config);
+        quxlang::compiler_querygraph overridden(scheduler, bundle, target, bundle.targets.at(target).target_output_config);
         EXPECT_EQ(overridden.make_request< quxlang::output_steppings_query >(target + "/Quick").size(), 2U);
     }
 }
 
 TEST(querygraph_queries, llvm_aliasing_uses_access_qualification)
 {
+    rpnx::querygraph::scheduler scheduler;
     quxlang::ptrref_type ordinary_reference{.target = quxlang::byte_type{}, .ptr_class = quxlang::pointer_class::ref};
     quxlang::ptrref_type ibc_reference = ordinary_reference;
     ibc_reference.is_ibc = true;
@@ -3965,7 +4129,7 @@ TEST(querygraph_queries, llvm_aliasing_uses_access_qualification)
     for (quxlang::build_type policy : {quxlang::build_type::development, quxlang::build_type::debug, quxlang::build_type::quick, quxlang::build_type::release, quxlang::build_type::debug_opt, quxlang::build_type::release_dbgsym, quxlang::build_type::compact, quxlang::build_type::debug_compact, quxlang::build_type::compact_opt, quxlang::build_type::debug_compact_opt})
     {
         bundle.targets.at("x64").llvm_options.build_type = policy;
-        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
         EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("default").enable_strict_aliasing,
                   policy != quxlang::build_type::debug && policy != quxlang::build_type::quick);
     }
@@ -3975,7 +4139,7 @@ TEST(querygraph_queries, llvm_aliasing_uses_access_qualification)
         SCOPED_TRACE(enabled);
         bundle.targets.at("x64").llvm_options.enable_strict_aliasing = !enabled;
         bundle.outputs.at("default").llvm_options = quxlang::backend_llvm_options{.enable_strict_aliasing = enabled};
-        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
         EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("default").enable_strict_aliasing, enabled);
         std::string ir = collect_output_llvm_ir< quxlang::llvm_preoptimize_query >(graph, "default");
         EXPECT_EQ(ir.find("!tbaa") != std::string::npos, enabled);
@@ -4006,6 +4170,6 @@ TEST(querygraph_queries, llvm_aliasing_uses_access_qualification)
     }
     bundle.outputs.at("default").llvm_options = quxlang::backend_llvm_options{};
     bundle.targets.at("x64").llvm_options.enable_strict_aliasing = false;
-    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::compiler_querygraph graph = make_x64_graph(scheduler, bundle);
     EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("default").enable_strict_aliasing, false);
 }

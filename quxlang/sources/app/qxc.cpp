@@ -49,6 +49,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <iterator>
 #include <map>
@@ -604,19 +605,25 @@ class qxc_implementation
         bool verbose = true;
         if (argc < 3)
         {
-            throw quxlang::compilation_error("Usage: qxc <input directory> <output directory> [--debug-compile-output] [target,...]");
+            throw quxlang::compilation_error("Usage: qxc <input directory> <output directory> [--debug-compile-output] [--debug-timing] [target,...]");
         }
 
         std::filesystem::path input = argv[1];
         std::filesystem::path output = argv[2];
         bool const debug_compile_output = parse_debug_compile_output(argc, argv);
 
+        bool debug_timing = false;
         std::optional< std::set< std::string > > configured_targets;
         for (std::size_t argument_index = 3; argument_index < static_cast< std::size_t >(argc); ++argument_index)
         {
             std::string_view argument(argv[argument_index]);
             if (argument == "--debug-compile-output")
             {
+                continue;
+            }
+            if (argument == "--debug-timing")
+            {
+                debug_timing = true;
                 continue;
             }
             if (argument.empty() || argument.starts_with('-'))
@@ -648,6 +655,7 @@ class qxc_implementation
         file_index.emplace(make_source_file_index(*input_srcs));
         source_index.emplace(*file_index, *input_srcs);
 
+        rpnx::querygraph::scheduler scheduler;
         bool any_failure = false;
         for (auto const& [target_name, target_config] : input_srcs->targets)
         {
@@ -662,7 +670,9 @@ class qxc_implementation
                     }
                 }
 
-                quxlang::compiler_querygraph graph(*input_srcs, target_name, target_config.target_output_config);
+                quxlang::compiler_querygraph graph(
+                    scheduler, *input_srcs, target_name, target_config.target_output_config, std::nullopt,
+                    rpnx::querygraph::graph::options{.enable_timing = debug_timing});
 
                 std::filesystem::path const build_dir = output / "build" / target_name;
                 std::filesystem::path const output_dir = output / "output";
@@ -670,11 +680,17 @@ class qxc_implementation
                 std::filesystem::create_directories(output_dir);
                 try
                 {
-                    std::map< std::string, std::vector<std::byte> > const artifacts =
-                        graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{});
+                    std::future< quxlang::output_binary_artifacts_query::output_type > artifacts_request =
+                        graph.raw_graph().async_make_request< quxlang::output_binary_artifacts_query >(std::monostate{});
+                    std::future< quxlang::static_test_results > static_tests_request;
                     if (target_config.run_static_tests)
                     {
-                        quxlang::static_test_results test_results = graph.make_request< quxlang::run_static_tests_query >(std::monostate{});
+                        static_tests_request = graph.raw_graph().async_make_request< quxlang::run_static_tests_query >(std::monostate{});
+                    }
+                    std::map< std::string, std::vector<std::byte> > artifacts = artifacts_request.get();
+                    if (target_config.run_static_tests)
+                    {
+                        quxlang::static_test_results test_results = static_tests_request.get();
                         std::cout << test_results.passed << " static tests passed, " << test_results.known_broken << " known broken, " << test_results.known_failing << " known failing" << std::endl;
                     }
 

@@ -82,7 +82,7 @@ namespace
     {
       public:
         static_test_querygraph_compiler(quxlang::source_bundle const& sources, std::string target)
-            : m_graph(sources, target, sources.targets.at(target).target_output_config, quxlang::tests::current_test_graph_dump_path())
+            : m_graph(m_scheduler, sources, target, sources.targets.at(target).target_output_config, quxlang::tests::current_test_graph_dump_path())
         {
         }
 
@@ -97,6 +97,8 @@ namespace
         }
 
       private:
+        /** Owns the worker pool until the compiler graph has drained. */
+        rpnx::querygraph::scheduler m_scheduler;
         mutable quxlang::compiler_querygraph m_graph;
     };
 

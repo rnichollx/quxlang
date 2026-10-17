@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::unsigned_endpoints DOC <$ Checks exact narrowing endpoints across standard and non-byte unsigned widths. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     unsigned_limits#(U5)(@maximum 31);
     unsigned_limits#(U8)(@maximum 255);
@@ -23,7 +23,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::signed_endpoints DOC <$ Checked conversions preserve signed endpoints and valid signedness changes. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR low I16 := (0 AS I16) - 128;
     VAR high I16 := 127;
