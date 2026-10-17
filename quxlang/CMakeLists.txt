@@ -771,7 +771,8 @@ if (BUILD_TESTING)
             NAME qxc_compile_test
             COMMAND $<TARGET_FILE:qxc>
                     "${QUXLANG_TESTS_TESTDATA_PATH}/testbundle"
-                    "${CMAKE_CURRENT_BINARY_DIR}/qxc_compile_test_output/$<CONFIG>")
+                    "${CMAKE_CURRENT_BINARY_DIR}/qxc_compile_test_output/$<CONFIG>"
+                    "linux-x64,linux-x64-glibc,linux-arm64,linux-x86,linux-z-arch,windows-x64,macos-arm64")
     gtest_discover_tests(quxlang_math_gtests)
     gtest_discover_tests(quxlang_gtests DISCOVERY_TIMEOUT 30)
     if (QUXLANG_DISCOVER_STATIC_TESTS)

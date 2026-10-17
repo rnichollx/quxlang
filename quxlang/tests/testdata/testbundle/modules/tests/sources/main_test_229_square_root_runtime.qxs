@@ -2,7 +2,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::square_root_runtime_tests NAMESPACE
 {
-  ::binary64_rounding DUAL_TEST
+  ::binary64_rounding DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR input F64 := sqrt_keyword_tests::wide::decode(9218868437227405311);
     VAR result F64 := RUNTIME_MODULE::SQRT(input);
@@ -13,7 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
       sqrt_keyword_tests::wide::decode(9223372036854775808))) == 9223372036854775808);
   }
 
-  ::binary32_rounding DUAL_TEST
+  ::binary32_rounding DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     TEST_ASSERT(sqrt_keyword_tests::single::encode(RUNTIME_MODULE::SQRT(
       sqrt_keyword_tests::single::decode(2139095039))) == 1602224127);

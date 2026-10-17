@@ -43,4 +43,32 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(bound(@amount (3 AS I32)) == 110);
     TEST_ASSERT(value.value == 110);
   }
+
+  ::copy_chain_retains_receiver DOC <$ Copies retain the bound receiver through a chain of local declarations. $>
+    DUAL_TEST
+  {
+    VAR value counter;
+    value.value := 1;
+    AUTO original := value.add;
+    AUTO copy_0 := original;
+    AUTO copy_1 := copy_0;
+    AUTO copy_2 := copy_1;
+    AUTO copy_3 := copy_2;
+    AUTO copy_4 := copy_3;
+    AUTO copy_5 := copy_4;
+    AUTO copy_6 := copy_5;
+    AUTO copy_7 := copy_6;
+    AUTO copy_8 := copy_7;
+    AUTO copy_9 := copy_8;
+    AUTO copy_10 := copy_9;
+    AUTO copy_11 := copy_10;
+    AUTO copy_12 := copy_11;
+    AUTO copy_13 := copy_12;
+    AUTO copy_14 := copy_13;
+    AUTO copy_15 := copy_14;
+    TEST_ASSERT(copy_15(@amount (2 AS I32)) == 3);
+    TEST_ASSERT(original(@amount (4 AS U32)) == 107);
+    TEST_ASSERT(copy_0(@amount (3 AS I32)) == 110);
+    TEST_ASSERT(value.value == 110);
+  }
 }

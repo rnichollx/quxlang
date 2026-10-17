@@ -167,6 +167,7 @@ PRIVATE(MODULE) ::layer4_region_acquire DOC <$
   layer4_region_backing.mtx.unlock();
   IF (result??) { RETURN result; }
   VAR mapping ADDRESS := layer5_map_region(@bytes allocator_slab_region_size * 2);
+  IF (mapping!?) { RETURN result; }
   VAR aligned ADDRESS := mapping;
   IF (aligned % allocator_slab_region_size != 0)
   { aligned := aligned + (allocator_slab_region_size - (aligned % allocator_slab_region_size)); }
@@ -193,10 +194,11 @@ PRIVATE(MODULE) ::layer4_region_release DOC <$ Caches up to sixteen empty region
   layer5_unmap_region(@address mapping, @bytes allocator_slab_region_size * 2);
 }
 
-PRIVATE(MODULE) ::layer3_region_controls DOC <$ Allocates a stable chunk of controls and publishes them on the detached list. $>
-  FUNCTION(@root MUT& layer3_region_class)
+PRIVATE(MODULE) ::layer3_region_controls DOC <$ Allocates a stable chunk of controls and publishes them on the detached list, returning false on allocation failure. $>
+  FUNCTION(@root MUT& layer3_region_class): BOOL
 {
   VAR mapping ADDRESS := layer5_map_region(@bytes allocator_slab_region_size);
+  IF (mapping!?) { RETURN FALSE; }
   VAR count SZ := allocator_slab_region_size / CELLSIZEOF(layer3_region_control);
   // Construction precedes publication; mapping and initialization occur outside the list lock.
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
@@ -213,6 +215,7 @@ PRIVATE(MODULE) ::layer3_region_controls DOC <$ Allocates a stable chunk of cont
     layer3_region_insert(@node node, @before root.detached<-);
   }
   root.mtx.unlock();
+  RETURN TRUE;
 }
 
 PRIVATE(MODULE) ::layer3_region_empty DOC <$ Checks whether every payload slot has been returned while region access is held. $>
@@ -320,8 +323,9 @@ PRIVATE(MODULE) ::layer3_region_return DOC <$
 PRIVATE(MODULE) ::layer3_region_refill DOC <$
   Claims slots into a privately owned plate. List selection never retains the
   list mutex while acquiring region access, scanning bitmaps, or mapping memory.
+  A failed refill returns false and leaves any claimed slots owned by the cache.
   $> TEMPLATE(@count VALUE SZ)
-  FUNCTION(@root MUT& layer3_region_class, @cache MUT& addr_cache#(@count count))
+  FUNCTION(@root MUT& layer3_region_class, @cache MUT& addr_cache#(@count count)): BOOL
 {
   LOOP WHILE (cache.used < count) DO
   {
@@ -339,7 +343,7 @@ PRIVATE(MODULE) ::layer3_region_refill DOC <$
       IF (control == root.detached<-)
       {
         root.mtx.unlock();
-        layer3_region_controls(@root root);
+        IF (layer3_region_controls(@root root) == FALSE) { RETURN FALSE; }
         CONTINUE;
       }
       root.mtx.unlock();
@@ -350,6 +354,7 @@ PRIVATE(MODULE) ::layer3_region_refill DOC <$
       IF (control->.region!?)
       {
         VAR region MUT->layer3_region := layer4_region_acquire();
+        IF (region!?) { control->.release_exclusive(); RETURN FALSE; }
         region->.control := control;
         region->.class_control := root<-;
         LOOP VALUE(index) FROM(0 AS SZ) UNTIL(allocator_region_bitmap_word_count) DO
@@ -428,4 +433,5 @@ PRIVATE(MODULE) ::layer3_region_refill DOC <$
       control->.release_exclusive();
     }
   }
+  RETURN TRUE;
 }

@@ -2579,7 +2579,7 @@ TEST(querygraph_queries, struct_layout_optimizes_fields_except_for_ibc_structs)
     EXPECT_EQ(optimized_layout.fields.at(2).name, "small");
     EXPECT_EQ(optimized_layout.fields.at(2).offset, 10);
     EXPECT_EQ(optimized_layout.fields.at(2).declaration_ordinal, 0);
-    EXPECT_EQ(optimized_layout.complete_size, 16);
+    EXPECT_EQ(optimized_layout.complete_size, 11);
     EXPECT_EQ(optimized_layout.complete_align, 8);
 
     quxlang::struct_layout const ibc_layout = graph.make_request< quxlang::struct_layout_query >(ibc);

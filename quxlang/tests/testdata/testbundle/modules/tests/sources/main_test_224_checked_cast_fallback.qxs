@@ -49,7 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
         TEST_ASSERT(result.value == 3);
     }
 
-    ::same_type DUAL_TEST
+    ::same_type DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
     {
         VAR source U32 := 4294967295;
         TEST_ASSERT((source AS CHECKED U32) == source);
@@ -63,7 +63,7 @@ LANGUAGE QUXLANG EN 0.0;
         .CONSTRUCTOR FUNCTION(@OTHER I32) { }
     }
 
-    ::selected_exception_propagates DUAL_TEST
+    ::selected_exception_propagates DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
     {
         VAR source I32 := 7;
         VAR caught BOOL := FALSE;

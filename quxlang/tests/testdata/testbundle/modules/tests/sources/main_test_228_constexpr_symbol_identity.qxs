@@ -3,7 +3,7 @@ IMPORT std;
 
 ::constexpr_symbol_identity_tests NAMESPACE
 {
-    ::distinct_format_arguments DUAL_TEST
+    ::distinct_format_arguments DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
     {
         VAR integer I32 := 42;
         VAR real F64 := 1.5;

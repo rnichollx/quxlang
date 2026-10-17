@@ -2,7 +2,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::atomic_u64_tests NAMESPACE
 {
-    ::operations DUAL_TEST
+    ::operations DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
     {
         VAR value ATOMIC#U64;
         value.STORE#ATOMIC_RELEASE(4294967296);

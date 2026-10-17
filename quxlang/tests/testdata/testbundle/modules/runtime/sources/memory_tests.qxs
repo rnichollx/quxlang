@@ -440,3 +440,29 @@ PRIVATE(MODULE) ::layer2_partial_aggregation_test
   layer2_drain_cache#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count)(@cache combined->.cache);
   layer2_release_empty_cache_node#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count)(@node combined);
 }
+
+::allocator_failure_contract INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Raw allocation reports unrepresentable requests with null, while public allocation throws the permanent allocation-failure exception. $>
+  UNIT_TEST
+{
+  VAR maximum SZ := (0 AS SZ) #!!;
+  TEST_ASSERT(allocator_allocate_dynamic(@bytes maximum, @align 1) == NULL);
+  TEST_ASSERT(allocator_allocate_multiple(@size 8, @align 8, @count maximum) == NULL);
+  VAR caught BOOL := FALSE;
+  TRY
+  {
+    VAR storage ->VIRTUAL_STORAGE := DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_ALLOC(@SIZE maximum, @ALIGN 1);
+    DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_DEALLOC(@PTR storage, @SIZE maximum, @ALIGN 1);
+  }
+  CATCH UNWIND_OUT_OF_MEMORY
+  {
+    caught := TRUE;
+    TEST_ASSERT(CURRENT_EXCEPTION().IS_OUT_OF_MEMORY());
+  }
+  TEST_ASSERT(caught);
+  VAR storage MUT->TYPED_STORAGE(I32) := exception_allocate_storage#I32();
+  TEST_ASSERT(storage??);
+  VAR value MUT->I32 := PLACE AT(storage->) I32 := 17;
+  TEST_ASSERT(value-> == 17);
+  DESTROY AT(storage->) I32;
+  exception_deallocate_storage#I32(@storage storage);
+}

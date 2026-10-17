@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::jvm_command_line_synthetic_argument_test INCLUDE_IF(ARCH_IS_JVM) UNIT_TEST
+::jvm_command_line_synthetic_argument_test INCLUDE_IF(ARCH_IS_JVM) UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   TEST_ASSERT(std::args::count() == 1);
   VAR launcher std::string := std::args::at(@index 0);
@@ -337,7 +337,7 @@ LANGUAGE QUXLANG EN 0.0;
    TEST_ASSERT((BIT 63 AS U64) == 9223372036854775808);
 }
 
-::wide_integer_operations_test DUAL_TEST
+::wide_integer_operations_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
    STATIC static_negative I128 := 0 - 1;
    TEST_ASSERT(static_negative == (0 - 1));

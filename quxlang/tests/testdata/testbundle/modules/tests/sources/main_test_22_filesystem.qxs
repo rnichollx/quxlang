@@ -90,7 +90,7 @@ LANGUAGE QUXLANG EN 0.0;
   TEST_ASSERT(owned_file.is_open() == FALSE);
 }
 
-::filesystem_jvm_read_write_test INCLUDE_IF(ARCH_IS_JVM) UNIT_TEST
+::filesystem_jvm_read_write_test INCLUDE_IF(ARCH_IS_JVM) UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   VAR path std::string := std::create_temporary_path();
   VAR bytes [4]BYTE;

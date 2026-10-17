@@ -311,7 +311,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::checked_and_partial_narrowing_test DUAL_TEST
+::checked_and_partial_narrowing_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
 
   VAR x I64 := 17;

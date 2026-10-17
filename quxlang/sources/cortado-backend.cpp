@@ -5140,7 +5140,7 @@ namespace quxlang::cortado_backend
                                                         type_symbol const reference_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.from_reference)).type);
                                                         if (!reference_type.type_is< ptrref_type >() || reference_type.get_as< ptrref_type >().target != type_symbol(initguard_type{}) || kind_of(selected.to_value) != jvm_value_kind::long_ || m_reference_aliases.at(local_slot(selected.from_reference)).has_value())
                                                         {
-                                                            throw rpnx::unimplemented();
+                                                            throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                         }
                                                         emit_call_argument(selected.from_reference);
                                                         m_code.checkcast("quxlang/runtime/QuxlangReference").invokestatic("quxlang/runtime/JavaInterop", "atomicLoadLong", "(Lquxlang/runtime/QuxlangReference;)J").lstore(jvm_slot(selected.to_value));
@@ -5162,7 +5162,7 @@ namespace quxlang::cortado_backend
                                                         type_symbol const reference_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.to_reference)).type);
                                                         if (!reference_type.type_is< ptrref_type >() || reference_type.get_as< ptrref_type >().target != type_symbol(initguard_type{}) || kind_of(selected.from_value) != jvm_value_kind::long_ || m_reference_aliases.at(local_slot(selected.to_reference)).has_value())
                                                         {
-                                                            throw rpnx::unimplemented();
+                                                            throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                         }
                                                         emit_call_argument(selected.to_reference);
                                                         m_code.checkcast("quxlang/runtime/QuxlangReference");
@@ -5282,7 +5282,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.multiplier != 1 && selected.multiplier != -1)
                                                     {
-                                                        throw rpnx::unimplemented();
+                                                        throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                     }
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(selected.from)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").aload(jvm_slot(selected.from)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J");
                                                     emit_integer_as_long(selected.offset);
@@ -5371,7 +5371,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.access_mode != atomic_access_mode::nonatomic)
                                                     {
-                                                        throw rpnx::unimplemented();
+                                                        throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                     }
                                                     bool const local_reference = m_reference_aliases.at(local_slot(selected.target)).has_value();
                                                     if constexpr (std::is_same_v< instruction_type, vmir2::mut_int_add >)
@@ -5518,7 +5518,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.access_mode != atomic_access_mode::nonatomic)
                                                     {
-                                                        throw rpnx::unimplemented();
+                                                        throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                     }
                                                     bool const local_reference = m_reference_aliases.at(local_slot(selected.target)).has_value();
                                                     if constexpr (std::is_same_v< instruction_type, vmir2::mut_bitwise_and >)
@@ -5622,7 +5622,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.access_mode != atomic_access_mode::nonatomic)
                                                     {
-                                                        throw rpnx::unimplemented();
+                                                        throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                     }
                                                     if (selected.old_value.has_value())
                                                     {
@@ -5657,7 +5657,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.access_mode != atomic_access_mode::nonatomic)
                                                     {
-                                                        throw rpnx::unimplemented();
+                                                        throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                     }
                                                     if (selected.old_value.has_value())
                                                     {
@@ -5692,7 +5692,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.access_mode != atomic_access_mode::nonatomic)
                                                     {
-                                                        throw rpnx::unimplemented();
+                                                        throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                     }
                                                     if (selected.old_value.has_value())
                                                     {
@@ -5727,7 +5727,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     if (selected.access_mode != atomic_access_mode::nonatomic)
                                                     {
-                                                        throw rpnx::unimplemented();
+                                                        throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                     }
                                                     if (selected.old_value.has_value())
                                                     {
@@ -6192,7 +6192,7 @@ namespace quxlang::cortado_backend
                                                     }
                                                     else
                                                     {
-                                                        throw rpnx::unimplemented();
+                                                        throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                     }
                                                     if constexpr (std::is_same_v< instruction_type, vmir2::float_ieee_eq >)
                                                     {
@@ -6313,7 +6313,7 @@ namespace quxlang::cortado_backend
                                                     type_symbol const target_reference_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.target_reference)).type);
                                                     if (!target_reference_type.type_is< ptrref_type >() || target_reference_type.get_as< ptrref_type >().target != type_symbol(initguard_type{}) || !m_reference_aliases.at(local_slot(selected.expected_reference)).has_value() || kind_of(selected.desired_value) != jvm_value_kind::long_)
                                                     {
-                                                        throw rpnx::unimplemented();
+                                                        throw lowering_compilation_error("JVM lowering is unavailable for instruction " + vmir2::assembler(m_routine).to_string(instruction));
                                                     }
                                                     vmir2::local_index const expected = resolved_reference(selected.expected_reference);
                                                     if (kind_of(expected) != jvm_value_kind::long_ || kind_of(selected.result) != jvm_value_kind::integer)

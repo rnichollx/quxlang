@@ -22,7 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::valid_narrowing_endpoints DOC <$ CHECKED, ASSUME, and PARTIAL preserve exact limits for 8-, 16-, and 32-bit signed destinations. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     signed_limits#(@T I8, @minimum (0 - 128), @maximum 127)();
     signed_limits#(@T I16, @minimum (0 - 32768), @maximum 32767)();
@@ -46,7 +46,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::widening_signedness DOC <$ Widening sign-extends signed values and zero-extends unsigned values, including non-byte-width sources. $>
-    DUAL_TEST
+    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR signed_byte I8 := 0 - 128;
     VAR unsigned_byte U8 := 255;

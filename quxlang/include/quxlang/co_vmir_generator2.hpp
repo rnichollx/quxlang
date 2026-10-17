@@ -2701,7 +2701,8 @@ namespace quxlang
                 throw semantic_compilation_error("Expected attached binding value");
             }
 
-            codegen_binding const& binding = this->state.genvalues.at(binding_value).template get_as< codegen_binding >();
+            // Copy the binding before reference materialization can grow genvalues.
+            codegen_binding binding = this->state.genvalues.at(binding_value).template get_as< codegen_binding >();
             if (binding.bound_value == value_index(0))
             {
                 return this->create_binding(value_index(0), binding.attached_symbol);

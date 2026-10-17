@@ -172,10 +172,13 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         }
     };
 
-    auto collect_dependency_references = [&](dependencies const& direct) -> void
+    std::map< type_symbol, type_symbol > dependency_callers;
+
+    auto collect_dependency_references = [&](type_symbol const& owner, dependencies const& direct) -> void
     {
         for (std::pair< type_symbol const, std::optional< source_location > > const& referenced : direct.functanoids)
         {
+            dependency_callers.emplace(referenced.first, owner);
             enqueue_routine(referenced.first);
         }
         for (vmir_runtime_dependency const dependency : direct.runtime_dependencies)
@@ -187,9 +190,25 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
             case vmir_runtime_dependency::exception_resume:
             case vmir_runtime_dependency::exception_terminate:
                 break;
-            default:
+            case vmir_runtime_dependency::assert_fail:
+            case vmir_runtime_dependency::panic:
+            case vmir_runtime_dependency::initguard_complete:
+            case vmir_runtime_dependency::initguard_abort:
+            case vmir_runtime_dependency::initguard_try_acquire:
                 result.runtime_requirements.insert(dependency);
                 break;
+            default:
+            {
+                std::string diagnostic = "JVM runtime dependency " + rpnx::enum_traits< vmir_runtime_dependency >::to_string(dependency) + " is unavailable for " + to_string(owner);
+                type_symbol caller = owner;
+                std::set< type_symbol > visited;
+                while (dependency_callers.contains(caller) && visited.insert(caller).second)
+                {
+                    caller = dependency_callers.at(caller);
+                    diagnostic += "\n  referenced by " + to_string(caller);
+                }
+                throw lowering_compilation_error(std::move(diagnostic));
+            }
             }
         }
         semantic_type_roots.insert(direct.type_placements.begin(), direct.type_placements.end());
@@ -204,7 +223,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
 
     auto collect_dependencies = [&](type_symbol const& owner, vmir2::functanoid_routine3 const& routine, dependencies const& direct) -> void
     {
-        collect_dependency_references(direct);
+        collect_dependency_references(owner, direct);
         for (static_snapshot_ref const& snapshot : direct.static_snapshots)
         {
             std::map< static_snapshot_ref, vmir2::localdata_entry >::const_iterator const entry = routine.static_snapshots.find(snapshot);
@@ -457,7 +476,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
                     .symbol = global,
                     .set = dependency_set::native,
                 });
-                collect_dependency_references(direct);
+                collect_dependency_references(global, direct);
             }
             catch (compilation_error& error)
             {

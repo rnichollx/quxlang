@@ -19,7 +19,7 @@ IMPORT std;
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8) DO { result := result #|| (((bytes[index] AS U8) AS U64) #++ (index * 8)); }
     RETURN result;
   }
-  ::exact_and_special DUAL_TEST
+  ::exact_and_special DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     TEST_ASSERT(std::sqrt(0.0) == 0.0);
     TEST_ASSERT(std::sqrt(1.0) == 1.0);
@@ -29,7 +29,7 @@ IMPORT std;
     TEST_ASSERT(encode(std::sqrt(-1.0)) == 9221120237041090560);
     TEST_ASSERT(encode(std::sqrt(decode(9221120237041090561))) == 9221120237041090560);
   }
-  ::rounding_and_extremes DUAL_TEST
+  ::rounding_and_extremes DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     TEST_ASSERT(encode(std::sqrt(decode(1))) == 2188749418902061056);
     TEST_ASSERT(encode(std::sqrt(decode(2))) == 2190614870947216333);

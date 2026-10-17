@@ -4106,7 +4106,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("Error executing <compare_exchange>: storing into read-only object");
     }
 
-    bool const matched = target->data == expected->data;
+    bool matched;
+    if (typeis< ptrref_type >(target_type))
+    {
+        if (!target->ref.has_value() || !expected->ref.has_value())
+        {
+            throw constexpr_logic_execution_error("Error executing <compare_exchange>: uninitialized pointer operand");
+        }
+        matched = pointer_compare(*target->ref, *expected->ref) == std::partial_ordering::equivalent;
+    }
+    else
+    {
+        matched = target->data == expected->data;
+    }
     if (matched)
     {
         target->data = desired->data;

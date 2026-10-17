@@ -38,7 +38,7 @@ LANGUAGE QUXLANG EN 0.0;
   STATIC_IF(OS_MACOS) { RETURN macos_argument_count; }
   STATIC_ELSE STATIC_IF(OS_LINUX) { RETURN linux_argument_count; }
   STATIC_ELSE STATIC_IF(OS_WINDOWS) { RETURN test_windows_count AS CHECKED SZ; }
-  STATIC_ELSE STATIC_IF(ARCH_IS_JVM) { RETURN jvm_command_argument_count() AS CHECKED SZ; }
+  STATIC_ELSE STATIC_IF(ARCH_IS_JVM) { RETURN jvm_command_argument_count() AS ASSUME SZ; }
   STATIC_ELSE { COMPILATION_ERROR ON_LOWER "Test command-line arguments are unavailable on this target."; }
 }
 
@@ -63,9 +63,9 @@ LANGUAGE QUXLANG EN 0.0;
     {
       STATIC_IF(ARCH_IS_JVM)
       {
-        VAR value ~>java_string := jvm_command_argument_at(@index (.argument AS CHECKED I32));
-        IF (position >= (test_java_string_length(@THIS value) AS CHECKED SZ)) { RETURN 0; }
-        RETURN test_java_string_character(@THIS value, @index (position AS CHECKED I32)) AS CHECKED U32;
+        VAR value ~>java_string := jvm_command_argument_at(@index (.argument AS ASSUME I32));
+        IF (position >= (test_java_string_length(@THIS value) AS ASSUME SZ)) { RETURN 0; }
+        RETURN test_java_string_character(@THIS value, @index (position AS ASSUME I32)) AS ASSUME U32;
       }
       STATIC_ELSE STATIC_IF(OS_WINDOWS)
       {
