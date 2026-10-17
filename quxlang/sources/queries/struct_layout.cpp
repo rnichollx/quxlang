@@ -223,7 +223,10 @@ rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layou
         }
     }
     output.complete_size = complete_cursor;
-    advance_to_alignment(output.complete_size, output.complete_align, maximum_extent);
+    if (is_ibc)
+    {
+        advance_to_alignment(output.complete_size, output.complete_align, maximum_extent);
+    }
 
     co_return output;
 }

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -337,6 +338,8 @@ namespace
         std::vector< std::byte > contents;
         std::uint32_t logical_size = 0;
         std::uint32_t characteristics = 0;
+        /// Maximum alignment required by the contributing input sections.
+        std::uint32_t alignment = 1;
         std::uint32_t rva = 0;
         std::uint32_t raw_offset = 0;
         bool entirely_uninitialized = false;
@@ -837,6 +840,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         }
         std::size_t group = find_or_add_group(group_name, characteristics, uninitialized);
         output_section& target = output_sections[group];
+        target.alignment = std::max(target.alignment, input_alignment(section.characteristics));
         std::uint32_t offset = static_cast< std::uint32_t >(align_up(target.logical_size, input_alignment(section.characteristics)));
         target.logical_size = offset + std::max< std::uint32_t >(section.logical_size, static_cast< std::uint32_t >(section.contents.size()));
         if (!uninitialized)
@@ -1381,6 +1385,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
         std::uint64_t const template_start = image_base + tls.rva;
         std::uint64_t const template_end = template_start + tls_initialized_size;
         std::uint64_t const index_address = image_base + index_storage.rva + tls_index_location->second;
+        std::uint32_t tls_characteristics = static_cast< std::uint32_t >(std::bit_width(tls.alignment)) << 20;
         if (pe32_plus)
         {
             put_le< std::uint64_t >(directory_storage.contents, directory_offset, template_start);
@@ -1388,7 +1393,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
             put_le< std::uint64_t >(directory_storage.contents, directory_offset + 16, index_address);
             put_le< std::uint64_t >(directory_storage.contents, directory_offset + 24, 0);
             put_le< std::uint32_t >(directory_storage.contents, directory_offset + 32, tls_zero_fill_size);
-            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 36, 0);
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 36, tls_characteristics);
         }
         else
         {
@@ -1397,7 +1402,7 @@ auto quxlang::pe_linker::link_windows_executable(machine_target_info const& mach
             put_le< std::uint32_t >(directory_storage.contents, directory_offset + 8, static_cast< std::uint32_t >(index_address));
             put_le< std::uint32_t >(directory_storage.contents, directory_offset + 12, 0);
             put_le< std::uint32_t >(directory_storage.contents, directory_offset + 16, tls_zero_fill_size);
-            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 20, 0);
+            put_le< std::uint32_t >(directory_storage.contents, directory_offset + 20, tls_characteristics);
         }
 
         std::uint16_t const pointer_relocation_type = pe32_plus ? 10 : 3;

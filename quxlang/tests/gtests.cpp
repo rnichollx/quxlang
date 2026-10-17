@@ -4,6 +4,8 @@
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/BinaryFormat/ELF.h>
 #include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/DataLayout.h>
+#include <llvm/TargetParser/Triple.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/SourceMgr.h>
@@ -10911,4 +10913,37 @@ TEST(fixed_bytemath, le_int_fixed_to_unlimited_handles_signed_minimum)
   auto value = le_int_fixed_to_unlimited(opt, {std::byte{0x80}});
   ASSERT_TRUE(value.is_negative);
   ASSERT_EQ(value.data, std::vector< std::byte >({std::byte{0x80}}));
+}
+
+// LLVM ABI metadata cannot be queried by a Quxlang source test.
+TEST(llvm_backend, integer_layout_matches_target_data_layout)
+{
+    llvm::LLVMContext context;
+    for (quxlang::cpu processor : {quxlang::cpu::x86_32, quxlang::cpu::x86_64, quxlang::cpu::arm_32,
+                                  quxlang::cpu::arm_64, quxlang::cpu::riscv_32, quxlang::cpu::riscv_64, quxlang::cpu::z_arch})
+    {
+        for (quxlang::os system : {quxlang::os::linux, quxlang::os::windows, quxlang::os::macos,
+                                  quxlang::os::freebsd, quxlang::os::netbsd, quxlang::os::openbsd, quxlang::os::solaris})
+        {
+            if (system == quxlang::os::macos && processor == quxlang::cpu::riscv_64)
+            {
+                continue;
+            }
+            quxlang::machine_target_info machine;
+            machine.cpu_type = processor;
+            machine.os_type = system;
+            machine.binary_type = system == quxlang::os::macos ? quxlang::binary::macho
+                : system == quxlang::os::windows ? quxlang::binary::pe : quxlang::binary::elf;
+            std::string triple = quxlang::lookup_llvm_triple(machine);
+            llvm::DataLayout layout(llvm::Triple(triple).computeDataLayout());
+            SCOPED_TRACE(triple);
+            for (unsigned width : {1U, 7U, 8U, 9U, 16U, 17U, 24U, 32U, 33U, 40U, 63U, 64U, 65U, 127U, 128U, 129U, 256U})
+            {
+                SCOPED_TRACE(width);
+                llvm::IntegerType* type = llvm::IntegerType::get(context, width);
+                EXPECT_EQ(machine.integer_alignment_for_bits(width), layout.getABITypeAlign(type).value());
+                EXPECT_EQ(machine.integer_size_for_bits(width), layout.getTypeAllocSize(type).getFixedValue());
+            }
+        }
+    }
 }

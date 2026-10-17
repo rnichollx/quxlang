@@ -9,7 +9,7 @@ namespace quxlang
 {
     struct temploid_instanciation_parameter_set
     {
-        std::map< std::string, type_symbol > parameter_map;
+        std::map< std::string, parameter_instantiation > parameter_map;
 
         RPNX_MEMBER_METADATA(temploid_instanciation_parameter_set, parameter_map);
     };

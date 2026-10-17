@@ -2,13 +2,13 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::layout_type_operand_tests NAMESPACE
 {
-  ::check_array_layout DOC <$ Fixed arrays retain element alignment and multiply element size at each dimension. $>
+  ::check_array_layout DOC <$ Fixed arrays retain element alignment and multiply element cell size at each dimension. $>
     TEMPLATE(@T TYPE AUTO)
     FUNCTION()
   {
-    TEST_ASSERT(SIZEOF([1]T) == SIZEOF(T));
-    TEST_ASSERT(SIZEOF([3]T) == 3 * SIZEOF(T));
-    TEST_ASSERT(SIZEOF([2][3]T) == 6 * SIZEOF(T));
+    TEST_ASSERT(SIZEOF([1]T) == CELLSIZEOF(T));
+    TEST_ASSERT(SIZEOF([3]T) == 3 * CELLSIZEOF(T));
+    TEST_ASSERT(SIZEOF([2][3]T) == 6 * CELLSIZEOF(T));
     TEST_ASSERT(ALIGNOF([1]T) == ALIGNOF(T));
     TEST_ASSERT(ALIGNOF([3]T) == ALIGNOF(T));
     TEST_ASSERT(ALIGNOF([2][3]T) == ALIGNOF(T));

@@ -92,9 +92,9 @@ LANGUAGE QUXLANG EN 0.0;
     SQRT(4 AS I32);
   }
 
-  ::missing_runtime_fallback STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::custom_format STATIC_TEST
   {
-    SQRT(4 AS F32E7);
+    TEST_ASSERT(SQRT(4 AS F32E7) == (2 AS F32E7));
   }
 
   ::quad_precision STATIC_TEST

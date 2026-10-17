@@ -11,7 +11,6 @@ inspects an object:
 
   ASSERT(SAME_TYPES(DECLTYPE(value), I32));
   ASSERT(SAME_TYPES(TYPEOF(value), MUT& I32));
-  ASSERT(SIZEOF(I32) == 4);
   ASSERT(BITS(I32) == 32);
   ASSERT(IS_SIGNED(I32));
   ASSERT(IS_INTEGRAL(U32));
@@ -20,7 +19,8 @@ inspects an object:
 
   STATIC_IF(ARCH_IS_LAYOUTLESS == FALSE)
   {
-    ASSERT(ALIGNOF(I32) == 4);
+    VAR integer_size SZ := SIZEOF(I32);
+    VAR integer_alignment SZ := ALIGNOF(I32);
   }
 }
 ```
@@ -107,12 +107,29 @@ for the exact signatures and access qualifiers.
 
 - `SIZEOF(T)` gives byte size where the type has a known size.
 - `ALIGNOF(T)` gives alignment and is unavailable for layoutless types.
+- `CELLSIZEOF(T)` gives object size rounded up to alignment, which is the stride
+  between array elements. It is unavailable on layoutless targets.
 - `BITS(T)` gives an integer type's bit width.
 - `IS_SIGNED(T)` and `IS_INTEGRAL(T)` report integer properties.
 - `TYPE_IS_LAYOUTLESS(T)` reports whether the current target omits a static byte
   layout for `T`.
 - `BIT n` produces the compile-time numeric literal `2` raised to bit index
   `n`; cast it when a concrete runtime integer type is required.
+
+Integer sizes and alignments are unspecified by the language, including for
+standard-width integer types. `SIZEOF` and `ALIGNOF` report the selected target
+object layout; `BITS` reports the value width independently of storage padding.
+Object size and cell size are distinct: cell size includes any additional
+spacing required between array elements to satisfy alignment. Equality between
+`SIZEOF(T)` and the array element stride is not guaranteed.
+
+`CELLSIZEOF(T)` accepts a type and produces a compile-time numeric literal.
+The result is the smallest multiple of `ALIGNOF(T)` greater than or equal to
+`SIZEOF(T)`. Zero-sized types have cell size zero. A result that exceeds the
+target's object-size limit is rejected. For example,
+`SIZEOF(ALIGNED_STORAGE(3, 2))` is 3 and
+`CELLSIZEOF(ALIGNED_STORAGE(3, 2))` is 4. An array of `n` elements occupies
+`n * CELLSIZEOF(T)` bytes, including padding between cells.
 
 An empty Quxlang struct has size zero and alignment one on targets with a
 physical layout:
@@ -149,6 +166,23 @@ the name `t` requires every occurrence to bind the same type:
   RETURN value;
 }
 ```
+
+`AUTO_FLOAT(total, exponent)` matches a floating-point type and binds its total
+bit count and exponent bit count as compile-time `U64` values. Repeated capture
+names must have equal values throughout the matched parameter list. Integers
+and untyped numeric literals do not match this pattern. Reference qualification
+uses the surrounding reference pattern.
+
+```quxlang
+::float_identity FUNCTION(@ARG:value AUTO_FLOAT(total, exponent)):
+  FLOAT(total, exponent)
+{
+  RETURN value;
+}
+```
+
+For an `F64` argument, the captures are `total = 64` and `exponent = 11`.
+`FLOAT(total, exponent)` reconstructs the captured type.
 
 `TT(t)` matches the presented type as-is, including a reference qualifier. It
 is the direct type-template pattern used when reference identity itself must

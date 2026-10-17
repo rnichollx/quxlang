@@ -24,6 +24,21 @@ VAR number NUMERIC_CONSTANT := 42;
 - `SZ` and `UINTPTR` are pointer-sized unsigned integer forms.
 - `BYTE` is distinct from `U8`.
 
+The bit count of an integer type specifies its value width. The size and alignment
+of all integer types, including `I8`, `I32`, `U64`, and nonstandard-width
+types such as `U24`, are unspecified by the language and are not guaranteed
+across targets or compiler versions. Object storage can include padding. `SIZEOF` and `ALIGNOF` report the
+object size and alignment selected for the current target. An object's cell
+size, which determines the spacing between array elements, can exceed its
+object size to satisfy alignment requirements. For example, an object with
+size 3 and alignment 2 can have cell size 4. Equality between object size and
+cell size is not guaranteed. The current LLVM backend follows LLVM's integer allocation sizes
+and ABI alignments and verifies agreement during lowering.
+
+On most platforms, integer types with value widths of 8, 16, 32, or 64 bits
+occupy 1, 2, 4, or 8 bytes, respectively. Their alignment often equals their
+size. These are typical platform behaviors rather than language guarantees.
+
 Nonstandard floating layouts are target-dependent. The current LLVM backend,
 for example, supports this guarded declaration:
 
@@ -33,6 +48,28 @@ STATIC_IF(BACKEND_LLVM)
   VAR custom_float F16E5 := 1.5;
 }
 ```
+
+## Computed floating-point types
+
+`FLOAT(total_bits, exponent_bits)` constructs the same type as
+`F<total_bits>E<exponent_bits>`. Both arguments are compile-time expressions
+representable as unsigned 64-bit integers. The total width includes the sign
+bit, exponent field, and stored fraction field. The total width must be at
+least three, and the exponent width must be positive and smaller than
+`total_bits - 1`. Invalid widths produce a semantic compilation error.
+
+```quxlang
+::computed_float_type_test STATIC_TEST
+{
+  VAR value FLOAT(64, 11) := 1.5;
+  TEST_ASSERT(SAME_TYPES(FLOAT(64, 11), F64));
+  TEST_ASSERT(SAME_TYPES(FLOAT(16 + 16, 8), F32));
+}
+```
+
+Type construction does not imply native target support for that format. The
+LLVM backend currently represents `F16E5`, `F16E8`, `F32E8`, `F64E11`, and
+`F128E15`. Compile-time evaluation supports additional binary formats.
 
 ## Other built-in types
 

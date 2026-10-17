@@ -56,13 +56,13 @@ rpnx::querygraph::coroutine< quxlang::instanciation_subtag_bindings_spec > quxla
     }
 
     temploid_instanciation_parameter_set const tempars = co_await rpnx::querygraph::request< instanciation_tempar_map_query >(input);
-    for (std::map< std::string, type_symbol >::value_type const& binding : tempars.parameter_map)
+    for (std::map< std::string, parameter_instantiation >::value_type const& binding : tempars.parameter_map)
     {
         std::string const& name = binding.first;
-        type_symbol const& type = binding.second;
+        parameter_instantiation const& parameter = binding.second;
         if (!output.contains(name))
         {
-            output[name] = make_type_instantiation(type);
+            output[name] = parameter;
         }
     }
 

@@ -596,6 +596,54 @@ namespace quxlang::parsers
 
             output = std::move(result);
         }
+        else if (skip_keyword_if_is(pos, end, "AUTO_FLOAT"))
+        {
+            auto_float_temploidic capture;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after AUTO_FLOAT");
+            }
+            skip_whitespace_and_comments(pos, end);
+            capture.bits_name = parse_identifier(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (capture.bits_name.empty() || !skip_symbol_if_is(pos, end, ","))
+            {
+                throw syntax_compilation_error("Expected a total-bit capture followed by ',' in AUTO_FLOAT");
+            }
+            skip_whitespace_and_comments(pos, end);
+            capture.exponent_bits_name = parse_identifier(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (capture.exponent_bits_name.empty() || !skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected an exponent-bit capture followed by ')' in AUTO_FLOAT");
+            }
+            output = std::move(capture);
+        }
+        else if (skip_keyword_if_is(pos, end, "FLOAT"))
+        {
+            float_type_ref format;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after FLOAT");
+            }
+            skip_whitespace_and_comments(pos, end);
+            format.bits = parse_expression(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw syntax_compilation_error("Expected ',' after FLOAT total bit count");
+            }
+            skip_whitespace_and_comments(pos, end);
+            format.exponent_bits = parse_expression(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after FLOAT exponent bit count");
+            }
+            output = std::move(format);
+        }
         else if (auto float_kw = try_parse_float_keyword(pos, end); float_kw)
         {
             output = std::move(*float_kw);

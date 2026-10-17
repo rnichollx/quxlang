@@ -98,12 +98,12 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         {
             enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
             std::uint64_t const storage_bytes = info.format.storage_bytes();
-            co_return validate_placement(class_placement_info{.size = storage_bytes, .alignment = machine_info.integer_alignment_for_bits(storage_bytes * 8)});
+            co_return validate_placement(class_placement_info{.size = machine_info.integer_size_for_bits(storage_bytes * 8), .alignment = machine_info.integer_alignment_for_bits(storage_bytes * 8)});
         }
         if (concrete_kind == class_kind::flagset)
         {
             flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(type);
-            co_return validate_placement(class_placement_info{.size = info.storage_bytes, .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)});
+            co_return validate_placement(class_placement_info{.size = machine_info.integer_size_for_bits(info.storage_bytes * 8), .alignment = machine_info.integer_alignment_for_bits(info.storage_bytes * 8)});
         }
         if (concrete_kind == class_kind::union_ || concrete_kind == class_kind::variant)
         {
@@ -127,18 +127,8 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
     {
         int_type int_kw = as< int_type >(type);
 
-        std::uint64_t sz = int_kw.bits / 8;
-        if (int_kw.bits % 8 != 0)
-        {
-            sz += 1;
-        }
-        if (sz == 0)
-        {
-            sz = 1;
-        }
-
         class_placement_info result;
-        result.size = sz;
+        result.size = machine_info.integer_size_for_bits(int_kw.bits);
         result.alignment = machine_info.integer_alignment_for_bits(int_kw.bits);
 
         co_return validate_placement(result);
@@ -177,7 +167,7 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         auto const& array = as< array_type >(type);
         auto element_placement = co_await rpnx::querygraph::request< class_placement_info_query >(array.element_type);
         auto element_count = expr_u64(array.element_count);
-        co_return validate_placement(class_placement_info{.size = multiply_object_extent(element_placement.size, element_count, maximum_extent), .alignment = element_placement.alignment});
+        co_return validate_placement(class_placement_info{.size = multiply_object_extent(element_placement.cell_size(maximum_extent), element_count, maximum_extent), .alignment = element_placement.alignment});
     }
     else if (type.template type_is< initguard_type >() || type.template type_is< initguard_lock_type >())
     {

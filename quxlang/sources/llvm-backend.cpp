@@ -26,6 +26,7 @@
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/CodeGen/TargetSubtargetInfo.h>
+#include <llvm/CodeGen/TargetLowering.h>
 #include <llvm/IR/InlineAsm.h>
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/Bitcode/BitcodeReader.h>
@@ -2000,7 +2001,14 @@ namespace quxlang::llvm_backend::detail
             if (type.type_is< quxlang::int_type >())
             {
                 quxlang::int_type const& int_info = type.get_as< quxlang::int_type >();
-                return llvm::IntegerType::get(context, int_info.bits);
+                llvm::IntegerType* storage_type = llvm::IntegerType::get(context, int_info.bits);
+                llvm::DataLayout const& layout = module->getDataLayout();
+                if (layout.getTypeAllocSize(storage_type).getFixedValue() != slot_size(type)
+                    || layout.getABITypeAlign(storage_type).value() != slot_alignment(type))
+                {
+                    throw quxlang::compiler_bug("Integer placement disagrees with LLVM data layout: " + quxlang::to_string(type));
+                }
+                return storage_type;
             }
             if (type.type_is< quxlang::size_type >())
             {
@@ -2930,7 +2938,7 @@ namespace quxlang::llvm_backend::detail
                 }
                 append_padding(segment.offset - cursor);
 
-                llvm::TypeSize const llvm_size = module->getDataLayout().getTypeStoreSize(segment.value->getType());
+                llvm::TypeSize const llvm_size = module->getDataLayout().getTypeAllocSize(segment.value->getType());
                 if (llvm_size.isScalable() || llvm_size.getFixedValue() > segment.size)
                 {
                     throw quxlang::semantic_compilation_error("Antestatal constant relocation exceeds its semantic storage segment");
@@ -3000,7 +3008,7 @@ namespace quxlang::llvm_backend::detail
                 quxlang::array_type const& array_type = type.get_as< quxlang::array_type >();
                 quxlang::antestatal_array const& array_value = value.get_as< quxlang::antestatal_array >();
                 std::vector< std::byte > result(storage_size, std::byte{0});
-                std::uint64_t const element_size = slot_size(array_type.element_type);
+                std::uint64_t const element_size = slot_cell_size(array_type.element_type);
                 for (std::size_t i = 0; i < array_value.elements.size(); ++i)
                 {
                     std::uint64_t const offset = static_cast< std::uint64_t >(i) * element_size;
@@ -3184,7 +3192,7 @@ namespace quxlang::llvm_backend::detail
                     throw quxlang::semantic_compilation_error("Nested antestatal array access does not address an array");
                 }
                 quxlang::type_symbol const& element_type = array.type.get_as< quxlang::array_type >().element_type;
-                std::uint64_t const element_size = slot_size(element_type);
+                std::uint64_t const element_size = slot_cell_size(element_type);
                 std::uint64_t const offset = element.index * element_size;
                 if (offset + element_size > slot_size(array.type))
                 {
@@ -3393,7 +3401,7 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::type_symbol const& element_type = type.get_as< quxlang::array_type >().element_type;
                 quxlang::antestatal_array const& array_value = value.get_as< quxlang::antestatal_array >();
-                std::uint64_t const element_size = slot_size(element_type);
+                std::uint64_t const element_size = slot_cell_size(element_type);
                 std::uint64_t const storage_size = slot_size(type);
                 std::vector< constant_storage_segment > segments;
                 segments.reserve(array_value.elements.size());
@@ -5009,7 +5017,7 @@ namespace quxlang::llvm_backend::detail
             }
             if (type.type_is< quxlang::int_type >())
             {
-                return std::max< std::uint64_t >(type.get_as< quxlang::int_type >().bits / 8, 1);
+                return input.machine_target.machine.integer_alignment_for_bits(type.get_as< quxlang::int_type >().bits);
             }
             if (type.type_is< quxlang::float_type >())
             {
@@ -5047,7 +5055,7 @@ namespace quxlang::llvm_backend::detail
             }
             if (type.type_is< quxlang::int_type >())
             {
-                return std::max< std::uint64_t >(type.get_as< quxlang::int_type >().bits / 8, 1);
+                return input.machine_target.machine.integer_size_for_bits(type.get_as< quxlang::int_type >().bits);
             }
             if (type.type_is< quxlang::float_type >())
             {
@@ -5055,13 +5063,20 @@ namespace quxlang::llvm_backend::detail
             }
             if (std::optional< std::uint64_t > const storage_bytes = nominal_integer_storage_bytes(type); storage_bytes.has_value())
             {
-                return std::max< std::uint64_t >(*storage_bytes, 1);
+                return input.machine_target.machine.integer_size_for_bits(*storage_bytes * 8);
             }
             if (is_pointer_valued_type(type) || is_output_slot_type(type))
             {
                 return input.machine_target.machine.pointer_size_bytes();
             }
             throw quxlang::semantic_compilation_error("Missing type placement for LLVM lowering size: " + quxlang::to_string(type));
+        }
+
+        /** Returns the byte stride for adjacent objects of a semantic type. */
+        auto slot_cell_size(quxlang::type_symbol const& type) const -> std::uint64_t
+        {
+            quxlang::class_placement_info placement{.size = slot_size(type), .alignment = slot_alignment(type)};
+            return placement.cell_size(input.machine_target.machine.maximum_object_extent());
         }
 
         auto integer_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
@@ -5502,7 +5517,7 @@ namespace quxlang::llvm_backend::detail
             ir_builder.SetInsertPoint(destroy);
             llvm::Value* index = ir_builder.CreateSub(count, llvm::ConstantInt::get(i64_type(), 1));
             ir_builder.CreateStore(index, index_field);
-            llvm::Value* offset = ir_builder.CreateMul(index, llvm::ConstantInt::get(i64_type(), slot_size(initializer.element_type)));
+            llvm::Value* offset = ir_builder.CreateMul(index, llvm::ConstantInt::get(i64_type(), slot_cell_size(initializer.element_type)));
             llvm::Value* object = ir_builder.CreateGEP(i8_type(), base, offset);
             auto runtime = input.struct_runtime_infos.find(initializer.element_type);
             if (runtime != input.struct_runtime_infos.end() && runtime->second.get().requirements.polymorphism != quxlang::struct_polymorphism_kind::none)
@@ -5969,7 +5984,7 @@ namespace quxlang::llvm_backend::detail
             if (storage_llvm_type->isIntegerTy() || storage_llvm_type->isPointerTy())
             {
                 std::uint64_t const storage_bits = storage_llvm_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
-                if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                if (storage_bits > target_machine->getSubtargetImpl(*state.function)->getTargetLowering()->getMaxAtomicSizeInBitsSupported())
                 {
                     throw quxlang::compiler_bug("Non-native atomic read-modify-write lowering is not implemented for storage width " + std::to_string(storage_bits));
                 }
@@ -6372,6 +6387,38 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Reports whether the selected CPU features provide an IEEE square-root instruction for the format. */
+        bool has_hardware_square_root(function_codegen_state const& state, quxlang::type_symbol const& type) const
+        {
+            if (!type.type_is< quxlang::float_type >())
+            {
+                return false;
+            }
+            quxlang::float_type const& format = type.get_as< quxlang::float_type >();
+            bool binary32 = format.bits == 32 && format.exponent_bits == 8;
+            bool binary64 = format.bits == 64 && format.exponent_bits == 11;
+            if (!binary32 && !binary64)
+            {
+                return false;
+            }
+            llvm::TargetSubtargetInfo const* subtarget = target_machine->getSubtargetImpl(*state.function);
+            llvm::MVT value_type = binary32 ? llvm::MVT::f32 : llvm::MVT::f64;
+            if (!subtarget->getTargetLowering()->isTypeLegal(value_type))
+            {
+                return false;
+            }
+            switch (input.machine_target.machine.cpu_type)
+            {
+            case quxlang::cpu::x86_32:
+            case quxlang::cpu::x86_64:
+                return subtarget->checkFeatures(binary32 ? "+sse" : "+sse2");
+            case quxlang::cpu::arm_64:
+                return subtarget->checkFeatures("+fp-armv8");
+            default:
+                return false;
+            }
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::invoke const& instruction)
         {
             (void)current_block;
@@ -6380,6 +6427,15 @@ namespace quxlang::llvm_backend::detail
             if (declaration.type_is< quxlang::instanciation_reference >())
             {
                 declaration = declaration.get_as< quxlang::instanciation_reference >().temploid.templexoid;
+            }
+            quxlang::type_symbol square_root = quxlang::subsymbol{
+                .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"}, .name = "SQRT"};
+            if (declaration == square_root && inst.args.named.contains("ARG") && inst.args.named.contains("RETURN") &&
+                has_hardware_square_root(state, state.routine->local_types.at(local_slot_index(inst.args.named.at("ARG"))).type))
+            {
+                emit_instruction_ovl(state, current_block, quxlang::vmir2::float_sqrt{
+                    .source = inst.args.named.at("ARG"), .result = inst.args.named.at("RETURN")});
+                return;
             }
             std::map< std::string, quxlang::vmir2::local_index >::const_iterator const this_argument = inst.args.named.find("THIS");
             std::map< quxlang::vmir2::local_index, quxlang::vmir2::slot_state >::const_iterator delegate_state = state.current_state.end();
@@ -7073,7 +7129,7 @@ namespace quxlang::llvm_backend::detail
             std::uint64_t byte_offset = inst.offset;
             if (module->getDataLayout().isBigEndian() && (llvm_value_type->isIntegerTy() || llvm_value_type->isFloatingPointTy()))
             {
-                byte_offset = slot_size(value_type) - inst.offset - 1;
+                byte_offset = module->getDataLayout().getTypeStoreSize(llvm_value_type).getFixedValue() - inst.offset - 1;
             }
             llvm::Value* pointer = load_reference_pointer(state, builder, inst.source_reference);
             llvm::Value* byte_pointer = builder.CreateInBoundsGEP(i8_type(), builder.CreateBitCast(pointer, opaque_pointer_type()), llvm::ConstantInt::get(i64_type(), byte_offset));
@@ -7091,7 +7147,7 @@ namespace quxlang::llvm_backend::detail
             std::uint64_t byte_offset = inst.offset;
             if (module->getDataLayout().isBigEndian() && (llvm_value_type->isIntegerTy() || llvm_value_type->isFloatingPointTy()))
             {
-                byte_offset = slot_size(value_type) - inst.offset - 1;
+                byte_offset = module->getDataLayout().getTypeStoreSize(llvm_value_type).getFixedValue() - inst.offset - 1;
             }
             llvm::Value* pointer = load_reference_pointer(state, builder, inst.target_reference);
             llvm::Value* byte_pointer = builder.CreateInBoundsGEP(i8_type(), builder.CreateBitCast(pointer, opaque_pointer_type()), llvm::ConstantInt::get(i64_type(), byte_offset));
@@ -7137,7 +7193,7 @@ namespace quxlang::llvm_backend::detail
                 if (storage_llvm_type->isIntegerTy() || storage_llvm_type->isPointerTy())
                 {
                     std::uint64_t const storage_bits = storage_llvm_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
-                    if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                    if (storage_bits > target_machine->getSubtargetImpl(*state.function)->getTargetLowering()->getMaxAtomicSizeInBitsSupported())
                     {
                         throw quxlang::compiler_bug("Non-native atomic load lowering is not implemented for storage width " + std::to_string(storage_bits));
                     }
@@ -7572,7 +7628,7 @@ namespace quxlang::llvm_backend::detail
                 if (storage_llvm_type->isIntegerTy() || storage_llvm_type->isPointerTy())
                 {
                     std::uint64_t const storage_bits = storage_llvm_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
-                    if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                    if (storage_bits > target_machine->getSubtargetImpl(*state.function)->getTargetLowering()->getMaxAtomicSizeInBitsSupported())
                     {
                         throw quxlang::compiler_bug("Non-native atomic store lowering is not implemented for storage width " + std::to_string(storage_bits));
                     }
@@ -7600,7 +7656,7 @@ namespace quxlang::llvm_backend::detail
                     throw quxlang::semantic_compilation_error("Atomic compare_exchange requires integer or pointer storage in LLVM lowering");
                 }
                 std::uint64_t const storage_bits = storage_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(storage_type)->getBitWidth();
-                if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                if (storage_bits > target_machine->getSubtargetImpl(*state.function)->getTargetLowering()->getMaxAtomicSizeInBitsSupported())
                 {
                     throw quxlang::compiler_bug("Non-native atomic compare_exchange lowering is not implemented for storage width " + std::to_string(storage_bits));
                 }
@@ -8947,7 +9003,7 @@ namespace quxlang::llvm_backend::detail
                 builder.SetInsertPoint(valid);
             }
             llvm::Value* byte_pointer = builder.CreateBitCast(base_pointer, opaque_pointer_type());
-            std::uint64_t const element_size = slot_size(array_type.element_type);
+            std::uint64_t const element_size = slot_cell_size(array_type.element_type);
             llvm::Value* byte_offset = builder.CreateMul(builder.CreateZExtOrTrunc(index_value, i64_type()), llvm::ConstantInt::get(i64_type(), element_size));
             llvm::Value* element_pointer = builder.CreateInBoundsGEP(i8_type(), byte_pointer, byte_offset);
             if (!address_index && array_type.element_type.type_is< quxlang::procedure_type >())
@@ -8969,7 +9025,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* base_pointer = load_slot_value(state, builder, inst.base_index);
             llvm::Value* index_value = builder.CreateZExtOrTrunc(integer_value(state, builder, inst.index_index), i64_type());
             llvm::Value* byte_pointer = builder.CreateBitCast(base_pointer, opaque_pointer_type());
-            llvm::Value* byte_offset = builder.CreateMul(index_value, llvm::ConstantInt::get(i64_type(), slot_size(element_type)));
+            llvm::Value* byte_offset = builder.CreateMul(index_value, llvm::ConstantInt::get(i64_type(), slot_cell_size(element_type)));
             llvm::Value* element_pointer = builder.CreateInBoundsGEP(i8_type(), byte_pointer, byte_offset);
             if (element_type.type_is< quxlang::procedure_type >())
             {
@@ -9026,7 +9082,7 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
                 llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.value));
-                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), static_cast< std::int64_t >(slot_size(element_type))));
+                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), static_cast< std::int64_t >(slot_cell_size(element_type))));
                 store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.value));
                 store_slot_value(state, builder, instruction.result, old_pointer);
                 return;
@@ -9065,7 +9121,7 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
                 llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.value));
-                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -static_cast< std::int64_t >(slot_size(element_type))));
+                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -static_cast< std::int64_t >(slot_cell_size(element_type))));
                 store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.value));
                 store_slot_value(state, builder, instruction.result, old_pointer);
                 return;
@@ -9118,7 +9174,7 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
                 llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
-                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), static_cast< std::int64_t >(slot_size(element_type))));
+                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), static_cast< std::int64_t >(slot_cell_size(element_type))));
                 store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.target));
                 if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
                 {
@@ -9178,7 +9234,7 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
                 llvm::Value* old_pointer = load_typed_value(builder, pointee_type, target_pointer, slot_has_ibc_access(state, instruction.target));
-                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -static_cast< std::int64_t >(slot_size(element_type))));
+                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -static_cast< std::int64_t >(slot_cell_size(element_type))));
                 store_typed_value(builder, pointee_type, updated_pointer, target_pointer, slot_has_ibc_access(state, instruction.target));
                 if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
                 {
@@ -9206,7 +9262,7 @@ namespace quxlang::llvm_backend::detail
             else
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointer_type);
-                element_size = slot_size(element_type);
+                element_size = slot_cell_size(element_type);
             }
             quxlang::type_symbol const& offset_type = state.routine->local_types.at(local_slot_index(inst.offset)).type;
             bool const signed_offset = offset_type.type_is< quxlang::int_type >() && offset_type.get_as< quxlang::int_type >().has_sign;
@@ -9273,7 +9329,7 @@ namespace quxlang::llvm_backend::detail
                 {
                     throw quxlang::semantic_compilation_error("PTR_DIFF requires matching pointer element types for LLVM lowering");
                 }
-                element_size = slot_size(element_type);
+                element_size = slot_cell_size(element_type);
             }
 
             llvm::Value* from_pointer = load_slot_value(state, builder, inst.from);
@@ -9395,7 +9451,7 @@ namespace quxlang::llvm_backend::detail
                 else
                 {
                     std::uint64_t storage_bits = a_storage_type->isPointerTy() ? input.machine_target.machine.pointer_size_bytes() * 8 : llvm::cast< llvm::IntegerType >(a_storage_type)->getBitWidth();
-                    if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                    if (storage_bits > target_machine->getSubtargetImpl(*state.function)->getTargetLowering()->getMaxAtomicSizeInBitsSupported())
                     {
                         throw quxlang::compiler_bug("Non-native atomic swap lowering is not implemented for storage width " + std::to_string(storage_bits));
                     }
@@ -9478,7 +9534,7 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* index_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 1);
             llvm::Value* base_value = builder.CreateLoad(opaque_pointer_type(), base_field);
             llvm::Value* index_value = builder.CreateLoad(i64_type(), index_field);
-            llvm::Value* byte_offset = builder.CreateMul(index_value, llvm::ConstantInt::get(i64_type(), slot_size(array_info.element_type)));
+            llvm::Value* byte_offset = builder.CreateMul(index_value, llvm::ConstantInt::get(i64_type(), slot_cell_size(array_info.element_type)));
             llvm::Value* element_pointer = builder.CreateInBoundsGEP(i8_type(), base_value, byte_offset);
             assign_slot_alias(state, inst.target, element_pointer);
             return;

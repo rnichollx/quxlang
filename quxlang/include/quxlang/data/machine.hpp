@@ -82,11 +82,24 @@ namespace quxlang
         /** Returns the largest integer ABI alignment supported by the target. */
         constexpr std::uint64_t max_int_align() const
         {
-            if (cpu_is_layoutless(cpu_type))
+            switch (cpu_type)
             {
+            case cpu::none:
+                throw std::invalid_argument("Integer alignment requires a CPU target");
+            case cpu::x86_32:
+            case cpu::x86_64:
+            case cpu::arm_64:
+            case cpu::riscv_64:
+                return 16;
+            case cpu::arm_32:
+                return binary_type == binary::macho || os_type == os::netbsd ? 4 : 8;
+            case cpu::riscv_32:
+            case cpu::z_arch:
+                return 8;
+            case cpu::jvm:
                 throw std::invalid_argument("Integer alignment is unavailable for a layoutless CPU target");
             }
-            return 8;
+            throw quxlang::compiler_bug("Integer alignment is not implemented for this CPU");
         }
 
         /**
@@ -119,46 +132,42 @@ namespace quxlang
          */
         constexpr std::uint64_t integer_alignment_for_bits(std::uint64_t bit_count) const
         {
-            std::uint64_t byte_count = bit_count / 8;
-            if (bit_count % 8 != 0)
+            // LLVM selects the first integer ABI entry at least as wide as the value.
+            // Widths above the final entry retain that entry's alignment.
+            std::uint64_t maximum_alignment = max_int_align();
+            if (bit_count <= 8)
             {
-                byte_count += 1;
+                return 1;
             }
+            if (bit_count <= 16)
+            {
+                return 2;
+            }
+            if (bit_count <= 32)
+            {
+                return 4;
+            }
+            if (bit_count <= 64)
+            {
+                if (cpu_type == cpu::x86_32 && os_type != os::windows)
+                {
+                    return 4;
+                }
+                return maximum_alignment < 8 ? maximum_alignment : 8;
+            }
+            return maximum_alignment;
+        }
+
+        /** Returns the integer allocation size, including trailing ABI padding. */
+        constexpr std::uint64_t integer_size_for_bits(std::uint64_t bit_count) const
+        {
+            std::uint64_t alignment = integer_alignment_for_bits(bit_count);
+            std::uint64_t byte_count = bit_count / 8 + (bit_count % 8 != 0);
             if (byte_count == 0)
             {
                 byte_count = 1;
             }
-
-            switch (cpu_type)
-            {
-            case cpu::none:
-                throw std::invalid_argument("Integer alignment requires a CPU target");
-            case cpu::x86_32:
-            case cpu::arm_32:
-            case cpu::riscv_32: {
-                std::uint64_t alignment = 1;
-                while (alignment * 2 <= byte_count && alignment * 2 <= 4)
-                {
-                    alignment *= 2;
-                }
-                return alignment;
-            }
-            case cpu::x86_64:
-            case cpu::arm_64:
-            case cpu::riscv_64:
-            case cpu::z_arch: {
-                std::uint64_t alignment = 1;
-                while (alignment * 2 <= byte_count && alignment * 2 <= 8)
-                {
-                    alignment *= 2;
-                }
-                return alignment;
-            }
-            case cpu::jvm:
-                throw std::invalid_argument("Integer alignment is unavailable for a layoutless CPU target");
-            }
-
-            throw quxlang::compiler_bug("Integer alignment is not implemented for this CPU");
+            return (byte_count + alignment - 1) / alignment * alignment;
         }
 
         /**

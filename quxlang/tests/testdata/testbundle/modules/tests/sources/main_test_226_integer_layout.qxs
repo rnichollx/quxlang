@@ -1,0 +1,137 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::integer_layout_tests NAMESPACE
+{
+    ::update TEMPLATE(@T TYPE) FUNCTION(@value MUT& T)
+    {
+        value := value + 1;
+    }
+
+    ::array_access TEMPLATE(@T TYPE) FUNCTION()
+    {
+        VAR values [3]T :[7, 19, 31];
+        VAR pointer =>> T := values.BEGIN();
+        update#T(@value (pointer + 1)->);
+        TEST_ASSERT(values[0] == 7);
+        TEST_ASSERT(values[1] == 20);
+        TEST_ASSERT(values[2] == 31);
+        (pointer + 2)-> := 43;
+        TEST_ASSERT(values[1] == 20);
+        TEST_ASSERT(values[2] == 43);
+        TEST_ASSERT(pointer + 3 == values.END());
+        STATIC_IF(ARCH_IS_LAYOUTLESS == FALSE)
+        {
+            TEST_ASSERT(CELLSIZEOF(T) % ALIGNOF(T) == 0);
+            TEST_ASSERT(CELLSIZEOF(T) >= SIZEOF(T));
+        }
+    }
+
+    ::unsigned_arrays DUAL_TEST
+    {
+        array_access#U7();
+        array_access#U9();
+        array_access#U24();
+        array_access#U40();
+        array_access#U65();
+        array_access#U128();
+        array_access#U129();
+    }
+
+    ::signed_arrays DUAL_TEST
+    {
+        array_access#I7();
+        array_access#I9();
+        array_access#I24();
+        array_access#I40();
+        array_access#I65();
+        array_access#I128();
+        array_access#I129();
+    }
+
+    ::aligned_storage_cell_size STATIC_TEST
+    {
+        STATIC_IF(ARCH_IS_LAYOUTLESS == FALSE)
+        {
+            TEST_ASSERT(SIZEOF(ALIGNED_STORAGE(3, 2)) == 3);
+            TEST_ASSERT(ALIGNOF(ALIGNED_STORAGE(3, 2)) == 2);
+            TEST_ASSERT(CELLSIZEOF(ALIGNED_STORAGE(3, 2)) == 4);
+            TEST_ASSERT(CELLSIZEOF(ALIGNED_STORAGE(3, 2)) != SIZEOF(ALIGNED_STORAGE(3, 2)));
+            TEST_ASSERT(CELLSIZEOF(ALIGNED_STORAGE(4, 2)) == 4);
+            TEST_ASSERT(CELLSIZEOF(ALIGNED_STORAGE(3, 0)) == 3);
+            TEST_ASSERT(CELLSIZEOF(ALIGNED_STORAGE(0, 2)) == 0);
+            TEST_ASSERT(SIZEOF([3]ALIGNED_STORAGE(3, 2)) == 12);
+        }
+    }
+
+    ::cell_size_rejects_value STATIC_TEST EXPECT_COMPILATION_FAILURE
+    {
+        VAR value I32 := 1;
+        VAR size SZ := CELLSIZEOF(value);
+    }
+
+    ::record STRUCT
+    {
+        .first VAR U16;
+        .second VAR U8;
+    }
+
+    ::record_array INCLUDE_IF(ARCH_IS_ARM64 || ARCH_IS_X64) DUAL_TEST
+    {
+        TEST_ASSERT(SIZEOF(record) == 3);
+        TEST_ASSERT(ALIGNOF(record) == 2);
+        TEST_ASSERT(CELLSIZEOF(record) == 4);
+        TEST_ASSERT(SIZEOF([3]record) == 12);
+        VAR values [3]record;
+        values[0].first := 1000;
+        values[0].second := 11;
+        values[1].first := 2000;
+        values[1].second := 22;
+        values[2].first := 3000;
+        values[2].second := 33;
+        VAR pointer =>> record := values.BEGIN();
+        TEST_ASSERT((pointer + 1)->.first == 2000);
+        (pointer + 1)->.second := 44;
+        pointer++;
+        TEST_ASSERT(pointer->.second == 44);
+        pointer--;
+        TEST_ASSERT(pointer->.first == 1000);
+        TEST_ASSERT(values[0].second == 11);
+        TEST_ASSERT(values[2].first == 3000);
+        TEST_ASSERT(values[2].second == 33);
+        TEST_ASSERT(values.END() - values.BEGIN() == 3);
+    }
+
+    ::record_array_addresses INCLUDE_IF(ARCH_IS_ARM64 || ARCH_IS_X64) UNIT_TEST
+    {
+        VAR values [3]record;
+        VAR first ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION values[0]<-;
+        VAR second ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION values[1]<-;
+        VAR third ADDRESS := ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION values[2]<-;
+        TEST_ASSERT(second - first == 4);
+        TEST_ASSERT(third - second == 4);
+        TEST_ASSERT(second % ALIGNOF(record) == 0);
+    }
+
+    ::dynamic_record_array DUAL_TEST
+    {
+        VAR values std::dynarr#record;
+        values.resize(3);
+        values[0].first := 1000;
+        values[1].first := 2000;
+        values[2].second := 33;
+        values.reserve(8);
+        TEST_ASSERT(values[0].first == 1000);
+        TEST_ASSERT(values[1].first == 2000);
+        TEST_ASSERT(values[2].second == 33);
+    }
+
+    ::constant_values STATIC [3]U24 := [3]U24(% [16777215, 1193046, 7]);
+
+    ::constant_array DUAL_TEST
+    {
+        VAR pointer CONST=>> U24 := constant_values.BEGIN();
+        TEST_ASSERT(pointer-> == 16777215);
+        TEST_ASSERT((pointer + 1)-> == 1193046);
+        TEST_ASSERT((pointer + 2)-> == 7);
+    }
+}

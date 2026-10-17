@@ -24,8 +24,8 @@ namespace quxlang
     /** Contains the bindings produced by a pseudotype match. */
     struct pseudotype_match_result
     {
-        /// Canonical type bound to each named pseudotype.
-        std::map< std::string, type_symbol > matches;
+        /// Type or compile-time value bound to each named pseudotype.
+        std::map< std::string, parameter_instantiation > matches;
 
         RPNX_MEMBER_METADATA(pseudotype_match_result, matches);
     };

@@ -41,6 +41,32 @@ On Windows native targets, `::CHECK_STACK` is an architecture-specific
 `ASM_PROCEDURE` used for stack probing. A Windows LLVM output that needs the
 probe requires that declaration in `RUNTIME`.
 
+## Square root
+
+`SQRT(value)` accepts a floating-point argument and returns the same type. The
+result is rounded to that format using round-to-nearest, ties-to-even. Signed
+zero and positive infinity are preserved. Negative nonzero values and NaNs
+produce canonical NaN. The argument is evaluated once.
+
+The runtime provides a generic fallback with the following signature:
+
+```quxlang
+::SQRT FUNCTION(@ARG:value AUTO_FLOAT(total, exponent)):
+  FLOAT(total, exponent)
+```
+
+The compiler resolves the fallback through ordinary function overload
+resolution. Its return type must match the argument type. The supplied runtime
+uses integer square-root iteration and exact remainders, including for
+subnormal inputs and subnormal results. The algorithm supports arbitrary binary
+formats; native execution remains subject to backend representation support.
+
+The LLVM backend substitutes hardware square root only for recognized formats
+and CPU features: binary32 with x86 SSE, binary64 with x86 SSE2, and binary32 or
+binary64 with ARM64 floating-point support. Other configurations retain the
+runtime implementation. Baseline x86 x87 evaluation is excluded because
+extended-precision evaluation can introduce double rounding.
+
 ## Exception handling
 
 The runtime supplies `EXCEPTION_PTR`, `CURRENT_EXCEPTION()`, and

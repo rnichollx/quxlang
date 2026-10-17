@@ -505,6 +505,24 @@ namespace quxlang
         RPNX_MEMBER_METADATA(auto_temploidic, name);
     };
 
+    /** Captures the total and exponent bit counts of a floating-point argument. */
+    struct auto_float_temploidic
+    {
+        std::string bits_name;
+        std::string exponent_bits_name;
+
+        RPNX_MEMBER_METADATA(auto_float_temploidic, bits_name, exponent_bits_name);
+    };
+
+    /** Describes a floating-point type whose widths are compile-time expressions. */
+    struct float_type_ref
+    {
+        expression bits;
+        expression exponent_bits;
+
+        RPNX_MEMBER_METADATA(float_type_ref, bits, exponent_bits);
+    };
+
     struct decay_temploidic
     {
         std::string name;
@@ -1873,11 +1891,15 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_bits, of_type);
     };
 
+    /** Represents an object-size or cell-size query for a type. */
     struct expression_sizeof
     {
         type_symbol of_type;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_sizeof, of_type);
+        /** Selects CELLSIZEOF, including trailing alignment padding. */
+        bool include_cell_padding = false;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_sizeof, of_type, include_cell_padding);
     };
 
     /** Represents an ALIGNOF(T) expression. */

@@ -47,6 +47,11 @@ namespace quxlang
         get_symbol_tempars = [&](type_symbol const& value)
             -> tempar_subquery
         {
+            if (value.type_is< auto_float_temploidic >())
+            {
+                auto_float_temploidic const& capture = value.get_as< auto_float_temploidic >();
+                co_return tempar_name_set{capture.bits_name, capture.exponent_bits_name};
+            }
             if (typeis< auto_temploidic >(value))
             {
                 co_return tempar_name_set{as< auto_temploidic >(value).name};

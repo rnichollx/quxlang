@@ -1,0 +1,15 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::constexpr_symbol_identity_tests NAMESPACE
+{
+    ::distinct_format_arguments DUAL_TEST
+    {
+        VAR integer I32 := 42;
+        VAR real F64 := 1.5;
+        TEST_ASSERT(std::fmt#("{}")(% [integer]) == "42");
+        TEST_ASSERT(std::fmt#("({})")(% [integer]) == "(42)");
+        TEST_ASSERT(std::fmt#("{:.1f}")(% [real]) == "1.5");
+        TEST_ASSERT(std::fmt#("[{:.1f}]")(% [real]) == "[1.5]");
+    }
+}

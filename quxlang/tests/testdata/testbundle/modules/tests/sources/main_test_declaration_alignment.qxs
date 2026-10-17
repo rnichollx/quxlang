@@ -44,11 +44,11 @@ LANGUAGE QUXLANG EN 0.0;
   ::layout DUAL_TEST
   {
     TEST_ASSERT(ALIGNOF(wide) == 32);
-    TEST_ASSERT(SIZEOF(wide) == 32);
+    TEST_ASSERT(CELLSIZEOF(wide) == 32);
     TEST_ASSERT(SIZEOF([3]wide) == 96);
     TEST_ASSERT(ALIGNOF(natural) == ALIGNOF(U64));
     TEST_ASSERT(ALIGNOF(member_aligned) == 64);
-    TEST_ASSERT(SIZEOF(member_aligned) == 64);
+    TEST_ASSERT(CELLSIZEOF(member_aligned) == 64);
     TEST_ASSERT(ALIGNOF(abi_order) == 32);
     TEST_ASSERT(SIZEOF(abi_order) == 64);
     TEST_ASSERT(ALIGNOF(parameterized#(@exponent 4)) == 16);

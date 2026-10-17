@@ -390,6 +390,11 @@ namespace quxlang
         {
             return "BI" + mangle_counted_string(qt.template get_as< builtin_symbol >().name);
         }
+        else if (qt.template type_is< auto_float_temploidic >())
+        {
+            auto_float_temploidic const& capture = qt.template get_as< auto_float_temploidic >();
+            return "TF" + mangle_counted_string(capture.bits_name) + mangle_counted_string(capture.exponent_bits_name);
+        }
         else if (qt.template type_is< auto_temploidic >())
         {
             return "TA" + mangle_counted_string(qt.template get_as< auto_temploidic >().name);

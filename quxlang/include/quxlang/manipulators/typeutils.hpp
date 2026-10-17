@@ -422,7 +422,7 @@ namespace quxlang
             }
             return false;
         }
-        else if (ref.type_is< typeof_type_ref >())
+        else if (ref.type_is< typeof_type_ref >() || ref.type_is< float_type_ref >())
         {
             return true;
         }

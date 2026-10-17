@@ -534,7 +534,7 @@ PRIVATE(MODULE) ::layer2_refill_empty_cache_nodes DOC <$
   TEMPLATE(@count VALUE SZ)
   FUNCTION(): MUT->addr_cache_node#(@count count)
 {
-  VAR node_size SZ := SIZEOF(addr_cache_node#(@count count));
+  VAR node_size SZ := CELLSIZEOF(addr_cache_node#(@count count));
   VAR node_align SZ := ALIGNOF(addr_cache_node#(@count count));
   VAR offset SZ := ((SIZEOF(layer2_metadata_region) + node_align - 1) / node_align) * node_align;
   VAR region_size SZ := offset + node_size * (layer2_plate_slot_count + 1);
@@ -1175,7 +1175,7 @@ PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
       STATIC_ELSE
       {
         VAR addr ADDRESS := allocator_allocate_multiple(
-          @size SIZEOF(T),
+          @size CELLSIZEOF(T),
           @align ALIGNOF(T),
           @count count
         );
@@ -1199,7 +1199,7 @@ PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish DOC <$
       {
         VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
         allocator_deallocate_multiple(
-          @size SIZEOF(T),
+          @size CELLSIZEOF(T),
           @align ALIGNOF(T),
           @ptr addr,
           @count count

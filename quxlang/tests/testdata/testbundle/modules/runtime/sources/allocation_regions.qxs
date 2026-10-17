@@ -197,19 +197,19 @@ PRIVATE(MODULE) ::layer3_region_controls DOC <$ Allocates a stable chunk of cont
   FUNCTION(@root MUT& layer3_region_class)
 {
   VAR mapping ADDRESS := layer5_map_region(@bytes allocator_slab_region_size);
-  VAR count SZ := allocator_slab_region_size / SIZEOF(layer3_region_control);
+  VAR count SZ := allocator_slab_region_size / CELLSIZEOF(layer3_region_control);
   // Construction precedes publication; mapping and initialization occur outside the list lock.
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
   {
     VAR storage MUT->TYPED_STORAGE(layer3_region_control) := ADDRESS_LAUNDER_DISCOVER_EXISTING
-      (mapping + index * SIZEOF(layer3_region_control)) TO MUT->TYPED_STORAGE(layer3_region_control);
+      (mapping + index * CELLSIZEOF(layer3_region_control)) TO MUT->TYPED_STORAGE(layer3_region_control);
     PLACE AT(storage->) layer3_region_control;
   }
   root.mtx.lock();
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
   {
     VAR node MUT->layer3_region_control := ADDRESS_LAUNDER_DISCOVER_EXISTING
-      (mapping + index * SIZEOF(layer3_region_control)) TO MUT->layer3_region_control;
+      (mapping + index * CELLSIZEOF(layer3_region_control)) TO MUT->layer3_region_control;
     layer3_region_insert(@node node, @before root.detached<-);
   }
   root.mtx.unlock();

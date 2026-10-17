@@ -1,0 +1,26 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::thread_storage_alignment_tests NAMESPACE
+{
+  ::storage VAR PER_THREAD [8]U64 ALIGN(64);
+
+  ::entry STRUCT
+  {
+    .OPERATOR() FUNCTION()
+    {
+      TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage<-) % 64 == 0);
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8) DO { storage[index] := index + 1; }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8) DO { TEST_ASSERT(storage[index] == index + 1); }
+    }
+  }
+
+  ::main_and_worker INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+  {
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage<-) % 64 == 0);
+    VAR operation entry;
+    VAR worker std::thread := std::thread(operation);
+    worker.join();
+  }
+}

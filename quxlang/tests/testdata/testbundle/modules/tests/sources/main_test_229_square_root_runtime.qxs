@@ -1,0 +1,42 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::square_root_runtime_tests NAMESPACE
+{
+  ::binary64_rounding DUAL_TEST
+  {
+    VAR input F64 := sqrt_keyword_tests::wide::decode(9218868437227405311);
+    VAR result F64 := RUNTIME_MODULE::SQRT(input);
+    TEST_ASSERT(sqrt_keyword_tests::wide::encode(result) == 6913025428013711359);
+    TEST_ASSERT(sqrt_keyword_tests::wide::encode(RUNTIME_MODULE::SQRT(
+      sqrt_keyword_tests::wide::decode(1))) == 2188749418902061056);
+    TEST_ASSERT(sqrt_keyword_tests::wide::encode(RUNTIME_MODULE::SQRT(
+      sqrt_keyword_tests::wide::decode(9223372036854775808))) == 9223372036854775808);
+  }
+
+  ::binary32_rounding DUAL_TEST
+  {
+    TEST_ASSERT(sqrt_keyword_tests::single::encode(RUNTIME_MODULE::SQRT(
+      sqrt_keyword_tests::single::decode(2139095039))) == 1602224127);
+    TEST_ASSERT(sqrt_keyword_tests::single::encode(RUNTIME_MODULE::SQRT(
+      sqrt_keyword_tests::single::decode(1))) == 439682291);
+    TEST_ASSERT(sqrt_keyword_tests::single::encode(RUNTIME_MODULE::SQRT(-1 AS F32)) == 2143289344);
+  }
+
+  ::additional_formats STATIC_TEST
+  {
+    TEST_ASSERT(RUNTIME_MODULE::SQRT(4 AS F16E5) == (2 AS F16E5));
+    TEST_ASSERT(RUNTIME_MODULE::SQRT(4 AS F16E8) == (2 AS F16E8));
+    TEST_ASSERT(RUNTIME_MODULE::SQRT(4 AS F128E15) == (2 AS F128E15));
+  }
+  ::small_exponent_subnormals STATIC_TEST
+  {
+    TEST_ASSERT(sqrt_keyword_tests::format#(@T F8E1, @integer_type U8, @bytes 1)::encode(
+      RUNTIME_MODULE::SQRT(sqrt_keyword_tests::format#(@T F8E1, @integer_type U8, @bytes 1)::decode(1))) == 6);
+    TEST_ASSERT(sqrt_keyword_tests::format#(@T F8E1, @integer_type U8, @bytes 1)::encode(
+      RUNTIME_MODULE::SQRT(sqrt_keyword_tests::format#(@T F8E1, @integer_type U8, @bytes 1)::decode(63))) == 45);
+    TEST_ASSERT(sqrt_keyword_tests::format#(@T F8E2, @integer_type U8, @bytes 1)::encode(
+      RUNTIME_MODULE::SQRT(sqrt_keyword_tests::format#(@T F8E2, @integer_type U8, @bytes 1)::decode(3))) == 10);
+    TEST_ASSERT(sqrt_keyword_tests::format#(@T F8E2, @integer_type U8, @bytes 1)::encode(
+      RUNTIME_MODULE::SQRT(sqrt_keyword_tests::format#(@T F8E2, @integer_type U8, @bytes 1)::decode(95))) == 63);
+  }
+}

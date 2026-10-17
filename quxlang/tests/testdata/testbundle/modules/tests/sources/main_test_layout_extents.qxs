@@ -35,7 +35,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::alignment_rounding STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := SIZEOF(rounded_payload);
+    VAR size AUTO := CELLSIZEOF(rounded_payload);
   }
 
   ::oversized_derived STRUCT

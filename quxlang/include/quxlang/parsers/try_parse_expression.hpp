@@ -831,6 +831,24 @@ namespace quxlang::parsers
             *value_bind_point = std::move(sz);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "CELLSIZEOF"))
+        {
+            expression_sizeof sz;
+            sz.include_cell_padding = true;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after CELLSIZEOF");
+            }
+            sz.of_type = try_parse_type_symbol(ctx).value();
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after CELLSIZEOF(<type>");
+            }
+            *value_bind_point = std::move(sz);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "ALIGNOF"))
         {
             expression_alignof align;

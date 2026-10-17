@@ -1,0 +1,238 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE) ::square_root_integer DOC <$
+  Stores unsigned integer intermediates for correctly rounded square roots.
+  The byte count is fixed by the floating-point format at compilation time.
+  $> TEMPLATE(@bytes VALUE SZ) STRUCT
+{
+  .digits VAR [bytes]U8;
+
+  .CONSTRUCTOR FUNCTION()
+  { LOOP VALUE(index) FROM(0 AS SZ) UNTIL(bytes) DO { .digits[index] := 0; } }
+
+  .bit FUNCTION(@index SZ) CONST: U8
+  { RETURN (.digits[index / 8] #-- (index % 8)) #&& 1; }
+
+  .set_bit FUNCTION(@index SZ, @value U8) MUT
+  {
+    VAR mask U8 := (1 AS U8) #++ (index % 8);
+    .digits[index / 8] := (.digits[index / 8] #&& (mask #!!)) #|| (value #++ (index % 8));
+  }
+
+  .is_zero FUNCTION() CONST: BOOL
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(bytes) DO
+    { IF (.digits[index] != 0) { RETURN FALSE; } }
+    RETURN TRUE;
+  }
+
+  .compare FUNCTION(@ARG:other CONST& THISTYPE) CONST: ORDER
+  {
+    VAR remaining SZ := bytes;
+    LOOP WHILE (remaining != 0) DO
+    {
+      remaining--;
+      VAR order ORDER := .digits[remaining] <=> other.digits[remaining];
+      IF (order != ORDER::EQUAL) { RETURN order; }
+    }
+    RETURN ORDER::EQUAL;
+  }
+
+  .shift_left FUNCTION(@carry U8) MUT
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(bytes) DO
+    {
+      VAR next U8 := .digits[index] #-- 7;
+      .digits[index] := (.digits[index] #++ 1) #|| carry;
+      carry := next;
+    }
+  }
+
+  .shift_right FUNCTION() MUT: U8
+  {
+    VAR carry U8 := 0;
+    VAR remaining SZ := bytes;
+    LOOP WHILE (remaining != 0) DO
+    {
+      remaining--;
+      VAR next U8 := .digits[remaining] #&& 1;
+      .digits[remaining] := (.digits[remaining] #-- 1) #|| (carry #++ 7);
+      carry := next;
+    }
+    RETURN carry;
+  }
+
+  .increment FUNCTION() MUT
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(bytes) DO
+    {
+      IF (.digits[index] != 255) { .digits[index]++; RETURN; }
+      .digits[index] := 0;
+    }
+  }
+
+  .add FUNCTION(@ARG:other CONST& THISTYPE) MUT
+  {
+    VAR carry U16 := 0;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(bytes) DO
+    {
+      VAR sum U16 := (.digits[index] AS U16) + (other.digits[index] AS U16) + carry;
+      .digits[index] := sum AS PARTIAL U8;
+      carry := sum #-- 8;
+    }
+  }
+
+  .subtract FUNCTION(@ARG:other CONST& THISTYPE) MUT
+  {
+    VAR borrow U16 := 0;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(bytes) DO
+    {
+      VAR digit U16 := .digits[index] AS U16;
+      VAR subtrahend U16 := (other.digits[index] AS U16) + borrow;
+      IF (digit < subtrahend) { digit += 256; borrow := 1; }
+      ELSE { borrow := 0; }
+      .digits[index] := (digit - subtrahend) AS CHECKED U8;
+    }
+  }
+
+  .set_size FUNCTION(@value SZ) MUT
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(bytes) DO
+    { .digits[index] := value AS PARTIAL U8; value := value #-- 8; }
+  }
+
+  .as_size FUNCTION() CONST: SZ
+  {
+    VAR result SZ := 0;
+    VAR remaining SZ := bytes;
+    LOOP WHILE (remaining != 0) DO
+    { remaining--; result := (result #++ 8) #|| (.digits[remaining] AS SZ); }
+    RETURN result;
+  }
+}
+
+::SQRT DOC <$
+  Returns the square root rounded to the argument's binary floating-point format
+  using round-to-nearest, ties-to-even. Signed zero and positive infinity are
+  preserved. Negative values and NaNs produce canonical NaN. Integer arithmetic
+  determines the root and remainder without intermediate floating-point rounding.
+  $> FUNCTION(@ARG:value AUTO_FLOAT(total, exponent)): FLOAT(total, exponent)
+{
+  STATIC total_bits SZ := total AS CHECKED SZ;
+  STATIC fraction_bits SZ := (total - exponent - 1) AS CHECKED SZ;
+  STATIC exponent_bits SZ := exponent AS CHECKED SZ;
+  STATIC integer_bytes SZ := ((total / 4) + 1) AS CHECKED SZ;
+  VAR encoding [(total_bits + 7) / 8]BYTE;
+  value.SERIALIZE(@OUTPUT_ITERATOR encoding[& 0]);
+  VAR significand square_root_integer#(@bytes integer_bytes);
+  VAR input_exponent square_root_integer#(@bytes integer_bytes);
+  VAR maximum_exponent square_root_integer#(@bytes integer_bytes);
+  VAR bias square_root_integer#(@bytes integer_bytes);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(fraction_bits) DO
+  {
+    significand.set_bit(@index index, @value ((encoding[index / 8] AS U8) #-- (index % 8)) #&& 1);
+  }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(exponent_bits) DO
+  {
+    VAR offset SZ := fraction_bits + index;
+    input_exponent.set_bit(@index index, @value ((encoding[offset / 8] AS U8) #-- (offset % 8)) #&& 1);
+    maximum_exponent.set_bit(@index index, @value 1);
+    IF (index + 1 < exponent_bits) { bias.set_bit(@index index, @value 1); }
+  }
+  VAR negative BOOL := (((encoding[(total_bits - 1) / 8] AS U8) #-- ((total_bits - 1) % 8)) #&& 1) != 0;
+  IF (input_exponent.is_zero() && significand.is_zero()) { RETURN value; }
+  VAR result_exponent square_root_integer#(@bytes integer_bytes);
+  VAR root square_root_integer#(@bytes integer_bytes);
+  IF (negative || input_exponent.compare(maximum_exponent) == ORDER::EQUAL)
+  {
+    IF (negative == FALSE && significand.is_zero()) { RETURN value; }
+    result_exponent := maximum_exponent;
+    root.set_bit(@index fraction_bits - 1, @value 1);
+  }
+  ELSE
+  {
+    VAR normalization SZ := 0;
+    VAR output_shift SZ := 0;
+    VAR odd U8 := input_exponent.bit(@index 0) #^^ bias.bit(@index 0);
+    IF (input_exponent.is_zero())
+    {
+      LOOP WHILE (significand.bit(@index fraction_bits) == 0) DO
+      { significand.shift_left(@carry 0); normalization++; }
+      odd := (1 AS U8) #^^ (normalization AS PARTIAL U8 #&& 1) #^^ bias.bit(@index 0);
+      result_exponent := bias;
+      result_exponent.increment();
+      VAR adjustment square_root_integer#(@bytes integer_bytes);
+      adjustment.set_size(@value normalization);
+      IF (result_exponent.compare(adjustment) == ORDER::LESS)
+      {
+        adjustment.subtract(result_exponent);
+        output_shift := 1 + ((adjustment.as_size() + 1) / 2);
+        VAR zero square_root_integer#(@bytes integer_bytes);
+        result_exponent := zero;
+      }
+      ELSE
+      {
+        result_exponent.subtract(adjustment);
+        result_exponent.shift_right();
+        IF (result_exponent.is_zero()) { output_shift := 1; }
+      }
+    }
+    ELSE
+    {
+      significand.set_bit(@index fraction_bits, @value 1);
+      result_exponent := input_exponent;
+      result_exponent.add(bias);
+      result_exponent.shift_right();
+    }
+    IF (odd != 0) { significand.shift_left(@carry 0); }
+    VAR remainder square_root_integer#(@bytes integer_bytes);
+    VAR remaining SZ := fraction_bits + 1;
+    LOOP WHILE (remaining != 0) DO
+    {
+      remaining--;
+      VAR high SZ := remaining * 2 + 1;
+      VAR low SZ := remaining * 2;
+      VAR high_bit U8 := 0;
+      VAR low_bit U8 := 0;
+      IF (high >= fraction_bits) { high_bit := significand.bit(@index high - fraction_bits); }
+      IF (low >= fraction_bits) { low_bit := significand.bit(@index low - fraction_bits); }
+      remainder.shift_left(@carry high_bit);
+      remainder.shift_left(@carry low_bit);
+      root.shift_left(@carry 0);
+      VAR trial square_root_integer#(@bytes integer_bytes) := root;
+      trial.shift_left(@carry 1);
+      IF (remainder.compare(trial) != ORDER::LESS)
+      { remainder.subtract(trial); root.increment(); }
+    }
+    IF (output_shift == 0)
+    {
+      // An integer radicand cannot equal the square of a half-integer.
+      IF (remainder.compare(root) == ORDER::GREATER) { root.increment(); }
+    }
+    ELSE
+    {
+      VAR sticky BOOL := remainder.is_zero() == FALSE;
+      LOOP WHILE (output_shift > 1) DO
+      { IF (root.shift_right() != 0) { sticky := TRUE; } output_shift--; }
+      VAR halfway U8 := root.shift_right();
+      IF (halfway != 0 && (sticky || root.bit(@index 0) != 0)) { root.increment(); }
+    }
+    IF (root.bit(@index fraction_bits + 1) != 0)
+    { root.shift_right(); result_exponent.increment(); }
+    IF (result_exponent.is_zero() && root.bit(@index fraction_bits) != 0)
+    { result_exponent.increment(); }
+  }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL((total_bits + 7) / 8) DO { encoding[index] := 0; }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(fraction_bits) DO
+  {
+    encoding[index / 8] := ((encoding[index / 8] AS U8) #|| (root.bit(@index index) #++ (index % 8))) AS BYTE;
+  }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(exponent_bits) DO
+  {
+    VAR offset SZ := fraction_bits + index;
+    encoding[offset / 8] := ((encoding[offset / 8] AS U8) #|| (result_exponent.bit(@index index) #++ (offset % 8))) AS BYTE;
+  }
+  VAR result FLOAT(total, exponent);
+  result.DESERIALIZE(@INPUT_ITERATOR encoding[& 0]);
+  RETURN result;
+}

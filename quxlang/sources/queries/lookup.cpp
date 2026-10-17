@@ -320,6 +320,24 @@ namespace quxlang::detail
         throw quxlang::semantic_compilation_error(str);
     }
 
+    /** Resolves and validates the widths supplied to FLOAT. */
+    auto lookup_impl_overloads(contextual_type_reference const& input, float_type_ref const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    {
+        std::uint64_t bits = co_await evaluate_u64_type_expression(input.context, type.bits);
+        std::uint64_t exponent_bits = co_await evaluate_u64_type_expression(input.context, type.exponent_bits);
+        if (bits < 3 || exponent_bits == 0 || exponent_bits >= bits - 1)
+        {
+            throw semantic_compilation_error("FLOAT requires a sign bit, at least one exponent bit, and at least one fraction bit");
+        }
+        co_return float_type{.bits = bits, .exponent_bits = exponent_bits};
+    }
+
+    /** Preserves a floating-point capture pattern until argument deduction. */
+    auto lookup_impl_overloads(contextual_type_reference const&, auto_float_temploidic const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    {
+        co_return type;
+    }
+
     auto lookup_impl_overloads(contextual_type_reference const&, auto_temploidic const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
         co_return type;

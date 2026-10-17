@@ -4,8 +4,10 @@ IMPORT std;
 
 ::mandelbrot BENCHMARK(@n SZ) ONESHOT
 {
-  IF (n == 0) { THROW (1 AS I32); }
-  VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+  IF (n == 0) {
+    THROW (1 AS I32);
+  }
+  VAR output std::buffered_writer :(std::standard_output());
   output.write("P4\n");
   output.write_unsigned(n AS U64);
   output.write(" ");

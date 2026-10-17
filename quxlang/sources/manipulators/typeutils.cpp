@@ -9,6 +9,7 @@
 #include "quxlang/data/function_statement.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/expression_stringifier.hpp"
+#include <quxlang/manipulators/mangler.hpp>
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/unimplemented.hpp"
 #include <quxlang/data/basic_types.hpp>
@@ -94,6 +95,7 @@ namespace quxlang
         return attached.carrying_type;
     }
 
+    /** Formats a value-template argument while preserving its value identity. */
     std::string constexpr_parameter_value_to_string(type_symbol const& type, constexpr_value const& value);
 
     struct expression_stringifier
@@ -250,7 +252,7 @@ namespace quxlang
 
         std::string operator()(expression_sizeof const& bits) const
         {
-            return "SIZEOF(" + to_string(bits.of_type) + ")";
+            return std::string(bits.include_cell_padding ? "CELLSIZEOF(" : "SIZEOF(") + to_string(bits.of_type) + ")";
         }
 
         std::string operator()(expression_alignof const& align) const
@@ -688,6 +690,16 @@ namespace quxlang
         std::string operator()(numeric_literal_type const&) const;
         std::string operator()(numeric_literal_any_temploidic const&) const;
         std::string operator()(auto_temploidic const&) const;
+        /** Formats the two width captures of AUTO_FLOAT. */
+        std::string operator()(auto_float_temploidic const& type) const
+        {
+            return "AUTO_FLOAT(" + type.bits_name + ", " + type.exponent_bits_name + ")";
+        }
+        /** Formats the compile-time width expressions of FLOAT. */
+        std::string operator()(float_type_ref const& type) const
+        {
+            return "FLOAT(" + to_string(type.bits) + ", " + to_string(type.exponent_bits) + ")";
+        }
         std::string operator()(decay_temploidic const&) const;
         std::string operator()(type_temploidic const&) const;
         std::string operator()(temploid_reference const&) const;
@@ -1137,6 +1149,17 @@ namespace quxlang
         }
 
         bool operator()(numeric_literal_type const&) const
+        {
+            return false;
+        }
+
+        /** Identifies floating-point capture patterns as temploidic. */
+        bool operator()(auto_float_temploidic const&) const
+        {
+            return true;
+        }
+        /** Defers FLOAT expression resolution to contextual type lookup. */
+        bool operator()(float_type_ref const&) const
         {
             return false;
         }
@@ -1913,7 +1936,7 @@ namespace quxlang
     {
         if (!typeis< antestatal_value >(value))
         {
-            return "<constexpr>";
+            return "<constexpr:" + mangle_constexpr_value(value) + ">";
         }
         auto const& antestatal = constexpr_value_as_antestatal(value);
         if (typeis< bool_type >(type) && typeis< antestatal_primitive >(antestatal))
@@ -1936,7 +1959,7 @@ namespace quxlang
                 return std::to_string(value_u64);
             }
         }
-        return "<constexpr>";
+        return "<constexpr:" + mangle_constexpr_value(value) + ">";
     }
 
     std::string to_string(parameter_instantiation const& ref)
@@ -2670,6 +2693,11 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             else if constexpr (std::is_same_v< value_type, decltype_type_ref >)
             {
                 value.symbol = strip_source_locations(std::move(value.symbol));
+            }
+            else if constexpr (std::is_same_v< value_type, float_type_ref >)
+            {
+                value.bits = strip_source_locations(std::move(value.bits));
+                value.exponent_bits = strip_source_locations(std::move(value.exponent_bits));
             }
             else if constexpr (std::is_same_v< value_type, typeof_type_ref >)
             {

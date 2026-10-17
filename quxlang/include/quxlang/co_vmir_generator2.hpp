@@ -4,6 +4,7 @@
 #define QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 
 #include <quxlang/manipulators/declaration_alignment.hpp>
+#include <quxlang/manipulators/struct_math.hpp>
 #include <quxlang/manipulators/code_alignment.hpp>
 #include <quxlang/queries/snapshot_value.hpp>
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
@@ -4380,31 +4381,19 @@ namespace quxlang
                         throw semantic_compilation_error("SQRT requires a floating-point argument, got " + to_string(argument_type));
                     }
                     float_type const& format = argument_type.as< float_type >();
-                    bool native = cpu_is_layoutless(machine_info.cpu_type)
-                        ? ((format.bits == 32 && format.exponent_bits == 8) || (format.bits == 64 && format.exponent_bits == 11))
-                        : format.has_llvm_representation();
+                    bool native = cpu_is_layoutless(machine_info.cpu_type) && ((format.bits == 32 && format.exponent_bits == 8) || (format.bits == 64 && format.exponent_bits == 11));
                     if (native)
                     {
                         this->emit(bidx, vmir2::float_sqrt{.source = get_local_index(args.named.at("ARG")), .result = get_local_index(args.named.at("RETURN"))});
                     }
                     else
                     {
-                        initialization_reference operation{
-                            .initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "SQRT"},
-                            .context = body_context(),
-                        };
-                        if (co_await rpnx::querygraph::request< symbol_type_query >(operation.initializee) == symbol_kind::noexist)
+                        type_symbol operation = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "SQRT"};
+                        if (co_await rpnx::querygraph::request< symbol_type_query >(operation) == symbol_kind::noexist)
                         {
-                            throw semantic_compilation_error("SQRT for " + to_string(argument_type) + " requires RUNTIME_MODULE::SQRT#(@BITS " + std::to_string(format.bits) + ", @EXPONENT " + std::to_string(format.exponent_bits) + ")");
+                            throw semantic_compilation_error("SQRT for " + to_string(argument_type) + " requires RUNTIME_MODULE::SQRT");
                         }
-                        operation.arguments.push_back(expression_arg{.name = "BITS", .value = expression_numeric_literal{.value = std::to_string(format.bits)}});
-                        operation.arguments.push_back(expression_arg{.name = "EXPONENT", .value = expression_numeric_literal{.value = std::to_string(format.exponent_bits)}});
-                        std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = operation});
-                        if (!resolved.has_value())
-                        {
-                            throw semantic_compilation_error("SQRT for " + to_string(argument_type) + " requires RUNTIME_MODULE::SQRT#(@BITS " + std::to_string(format.bits) + ", @EXPONENT " + std::to_string(format.exponent_bits) + ")");
-                        }
-                        value_index result = co_await this->co_gen_call_functum(bidx, *resolved, codegen_invocation_args{.named = {{"ARG", args.named.at("ARG")}}});
+                        value_index result = co_await this->co_gen_call_functum(bidx, operation, codegen_invocation_args{.named = {{"ARG", args.named.at("ARG")}}});
                         if (current_type(bidx, result) != argument_type)
                         {
                             throw semantic_compilation_error("RUNTIME_MODULE::SQRT must return " + to_string(argument_type));
@@ -6627,8 +6616,10 @@ namespace quxlang
             co_return materialize_lookup_reference(bidx, *element);
         }
 
+        /** Generates object size or cell size as a numeric literal. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_sizeof szof) -> co_type< value_index >
         {
+            std::string query_name = szof.include_cell_padding ? "CELLSIZEOF" : "SIZEOF";
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
             if (!type_opt.has_value())
             {
@@ -6641,22 +6632,22 @@ namespace quxlang
 
             if (genvalue.template type_is< codegen_literal >())
             {
-                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+                throw semantic_compilation_error("Expected " + query_name + "(...) to refer to a class type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
             }
 
             if (genvalue.template type_is< codegen_local >())
             {
-                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got an object or reference instead.");
+                throw semantic_compilation_error("Expected " + query_name + "(...) to refer to a class type, got an object or reference instead.");
             }
 
             if (!genvalue.template type_is< codegen_binding >())
             {
-                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got something else instead.");
+                throw semantic_compilation_error("Expected " + query_name + "(...) to refer to a class type, got something else instead.");
             }
             auto const& binding = genvalue.template get_as< codegen_binding >();
             if (binding.bound_value != value_index(0))
             {
-                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+                throw semantic_compilation_error("Expected " + query_name + "(...) to refer to a class type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
             }
 
             auto const& attached_type = binding.attached_symbol;
@@ -6665,22 +6656,27 @@ namespace quxlang
             symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
             if (kind != symbol_kind::class_)
             {
-                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got a non-class type instead.");
+                throw semantic_compilation_error("Expected " + query_name + "(...) to refer to a class type, got a non-class type instead.");
             }
 
             if (cpu_is_layoutless(machine_info.cpu_type))
             {
                 std::optional< std::size_t > const integer_size = layoutless_integer_size_bytes(attached_type);
-                if (integer_size.has_value())
+                if (integer_size.has_value() && !szof.include_cell_padding)
                 {
                     co_return this->create_numeric_literal(std::to_string(*integer_size));
                 }
-                throw semantic_compilation_error("SIZEOF is unavailable for this type on a layoutless target: " + quxlang::to_string(attached_type));
+                throw semantic_compilation_error(query_name + " is unavailable for this type on a layoutless target: " + quxlang::to_string(attached_type));
             }
 
-            class_placement_info placement_info = co_await rpnx::querygraph::request< class_placement_info_query >(attached_type);
+            class_placement_info const& placement_info = co_await rpnx::querygraph::request< class_placement_info_query >(attached_type);
 
-            auto lit = this->create_numeric_literal(std::to_string(placement_info.size));
+            std::uint64_t size = placement_info.size;
+            if (szof.include_cell_padding)
+            {
+                size = placement_info.cell_size(machine_info.maximum_object_extent());
+            }
+            auto lit = this->create_numeric_literal(std::to_string(size));
 
             co_return lit;
         }

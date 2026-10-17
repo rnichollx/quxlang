@@ -1,6 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/bytemath.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/pseudotype_match_spec.hpp>
 
@@ -15,13 +16,13 @@ namespace quxlang
 
         pseudotype_match_result result;
 
-        auto bind_pseudotype = [&](std::string const& name, type_symbol const& type) -> bool
+        auto bind_parameter = [&](std::string const& name, parameter_instantiation const& type) -> bool
         {
             if (name.empty())
             {
                 return true;
             }
-            std::map< std::string, type_symbol >::iterator existing = result.matches.find(name);
+            std::map< std::string, parameter_instantiation >::iterator existing = result.matches.find(name);
             if (existing != result.matches.end())
             {
                 return existing->second == type;
@@ -30,8 +31,32 @@ namespace quxlang
             return true;
         };
 
+        auto bind_pseudotype = [&](std::string const& name, type_symbol const& type) -> bool
+        {
+            return bind_parameter(name, make_type_instantiation(type));
+        };
+        auto bind_width = [&](std::string const& name, std::uint64_t width) -> bool
+        {
+            std::vector< std::byte > bytes = bytemath::u_to_le(width);
+            bytes.resize(8, std::byte{0});
+            return bind_parameter(name, parameter_value_instantiation{
+                .type = int_type{.bits = 64, .has_sign = false},
+                .value = antestatal_value(antestatal_primitive{.value = std::move(bytes)}),
+            });
+        };
+
         auto match = [&](auto&& self, type_symbol const& pseudotype_symbol, type_symbol const& candidate_symbol) -> bool
         {
+            if (typeis< auto_float_temploidic >(pseudotype_symbol))
+            {
+                if (!candidate_symbol.type_is< float_type >())
+                {
+                    return false;
+                }
+                auto_float_temploidic const& capture = pseudotype_symbol.get_as< auto_float_temploidic >();
+                float_type const& format = candidate_symbol.get_as< float_type >();
+                return bind_width(capture.bits_name, format.bits) && bind_width(capture.exponent_bits_name, format.exponent_bits);
+            }
             if (typeis< auto_temploidic >(pseudotype_symbol))
             {
                 return bind_pseudotype(as< auto_temploidic >(pseudotype_symbol).name, candidate_symbol);

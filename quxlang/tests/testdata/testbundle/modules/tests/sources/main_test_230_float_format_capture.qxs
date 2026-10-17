@@ -1,0 +1,53 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::float_format_capture_tests NAMESPACE
+{
+  ::identity FUNCTION(@ARG:value AUTO_FLOAT(total, exponent)): FLOAT(total, exponent)
+  {
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(value), FLOAT(total, exponent)));
+    RETURN value;
+  }
+
+  ::dimensions FUNCTION(@ARG:value AUTO_FLOAT(total, exponent)): U64
+  { RETURN total * 1000 + exponent; }
+
+  ::same_format FUNCTION(@left AUTO_FLOAT(total, exponent), @right AUTO_FLOAT(total, exponent)): BOOL
+  { RETURN TRUE; }
+
+  ::standard_formats DUAL_TEST
+  {
+    TEST_ASSERT(SAME_TYPES(FLOAT(32, 8), F32));
+    TEST_ASSERT(SAME_TYPES(FLOAT(64, 11), F64));
+    TEST_ASSERT(identity(3 AS F32) == 3);
+    TEST_ASSERT(identity(7 AS F64) == 7);
+    TEST_ASSERT(dimensions(1 AS F32) == 32008);
+    TEST_ASSERT(dimensions(1 AS F64) == 64011);
+    TEST_ASSERT(same_format(@left 1 AS F64, @right 2 AS F64));
+  }
+
+  ::arbitrary_formats STATIC_TEST
+  {
+    TEST_ASSERT(SAME_TYPES(FLOAT(20 + 4, 7), F24E7));
+    TEST_ASSERT(identity(3 AS F24E7) == 3);
+    TEST_ASSERT(dimensions(1 AS FLOAT(160, 17)) == 160017);
+    TEST_ASSERT(SQRT(4 AS FLOAT(160, 17)) == (2 AS FLOAT(160, 17)));
+  }
+
+  ::integer_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { identity(1 AS I32); }
+
+  ::literal_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { identity(1); }
+
+  ::different_widths_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { same_format(@left 1 AS F32, @right 2 AS F64); }
+
+  ::zero_exponent_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR value FLOAT(32, 0); }
+
+  ::missing_fraction_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR value FLOAT(32, 31); }
+
+  ::negative_width_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR value FLOAT(-1, 8); }
+}

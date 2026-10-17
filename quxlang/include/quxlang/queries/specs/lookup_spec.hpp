@@ -74,6 +74,12 @@ namespace quxlang
         /** @brief Rejects a standalone context marker, which requires a qualified selection. */
         auto lookup_impl_overloads(contextual_type_reference const& input, context_reference const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;
 
+        /** Resolves the compile-time width expressions of FLOAT. */
+        auto lookup_impl_overloads(contextual_type_reference const&, float_type_ref const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;
+
+        /** Preserves a floating-point format capture pattern. */
+        auto lookup_impl_overloads(contextual_type_reference const&, auto_float_temploidic const&) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;
+
         /** @brief Preserves an AUTO deduction pattern. */
         auto lookup_impl_overloads(contextual_type_reference const&, auto_temploidic const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >;
 
