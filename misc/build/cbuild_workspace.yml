@@ -149,7 +149,6 @@ targets:
         source: yaml-cpp
         depends: []
         project_type: CMake
-cmake_binary: null
 cxx_version: "23"
 configurations:
     - Debug

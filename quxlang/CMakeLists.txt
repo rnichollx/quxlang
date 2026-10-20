@@ -706,15 +706,22 @@ foreach (part IN ITEMS quxlang-1 quxlang-2 quxlang-3 quxlang-4)
     target_compile_options(${part} PRIVATE ${LLVM_DEFINITIONS})
 endforeach ()
 
-# Static archives contain references to each other; CMake repeats the component
-# libraries when linking consumers on platforms that require archive rescanning.
+# Static archives contain references to each other. The dependency cycle retains
+# archive repetition for consumers that do not support explicit rescan groups.
 if (NOT BUILD_SHARED_LIBS)
     target_link_libraries(quxlang-1 PRIVATE quxlang-2)
     target_link_libraries(quxlang-2 PRIVATE quxlang-3)
     target_link_libraries(quxlang-3 PRIVATE quxlang-4)
     target_link_libraries(quxlang-4 PRIVATE quxlang-1)
 endif ()
-target_link_libraries(quxlang INTERFACE quxlang-headers quxlang-1 quxlang-2 quxlang-3 quxlang-4)
+# Rescan groups resolve dependency chains that require more than two passes.
+if (NOT BUILD_SHARED_LIBS AND
+        (CMAKE_CXX_LINK_GROUP_USING_RESCAN_SUPPORTED OR CMAKE_LINK_GROUP_USING_RESCAN_SUPPORTED))
+    target_link_libraries(quxlang INTERFACE quxlang-headers
+            "$<LINK_GROUP:RESCAN,quxlang-1,quxlang-2,quxlang-3,quxlang-4>")
+else ()
+    target_link_libraries(quxlang INTERFACE quxlang-headers quxlang-1 quxlang-2 quxlang-3 quxlang-4)
+endif ()
 
 
 add_executable(quxlang-benchmarks sources/benchmarks/variant_bms.cpp)
