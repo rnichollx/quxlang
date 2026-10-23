@@ -1001,7 +1001,14 @@ namespace quxlang::parsers
                 throw syntax_compilation_error("Expected ']'");
             }
 
-            param_set.overload_id = std::stoull(overload_id_string);
+            try
+            {
+                param_set.overload_id = std::stoull(overload_id_string);
+            }
+            catch (std::out_of_range const&)
+            {
+                throw syntax_compilation_error("Overload ID exceeds the unsigned 64-bit range");
+            }
             output = std::move(param_set);
             goto check_next;
         }

@@ -361,6 +361,7 @@ namespace quxlang::detail
     }
 
     void parse_build_configuration(YAML::Node const& build_config, source_bundle& output, std::optional< std::set< std::string > > const& configured_targets)
+    try
     {
         if (!build_config.IsMap())
         {
@@ -1020,11 +1021,16 @@ namespace quxlang::detail
                           });
         }
     }
+    catch (YAML::Exception const& error)
+    {
+        throw semantic_compilation_error("Invalid build configuration: " + std::string(error.what()));
+    }
 } // namespace quxlang::detail
 
 namespace quxlang
 {
     source_bundle load_bundle_sources_for_targets(std::filesystem::path const& path, std::optional< std::set< std::string > > configured_targets)
+    try
     {
         source_bundle output;
         auto input_build = path / "qxcbuild.yml";
@@ -1114,5 +1120,13 @@ namespace quxlang
         detail::parse_build_configuration(build_config, output, configured_targets);
 
         return output;
+    }
+    catch (YAML::Exception const& error)
+    {
+        throw semantic_compilation_error("Cannot load build configuration '" + (path / "qxcbuild.yml").string() + "': " + error.what());
+    }
+    catch (std::filesystem::filesystem_error const& error)
+    {
+        throw semantic_compilation_error("Cannot read source bundle '" + path.string() + "': " + error.what());
     }
 } // namespace quxlang

@@ -4,6 +4,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/exception.hpp>
+#include <quxlang/source_loader.hpp>
 
 #include <gtest/gtest.h>
 #include <yaml-cpp/yaml.h>
@@ -533,4 +534,25 @@ TEST(source_loader, accepts_portable_target_names)
     quxlang::source_bundle bundle;
     EXPECT_NO_THROW(quxlang::detail::parse_build_configuration(config, bundle, std::nullopt));
     EXPECT_EQ(bundle.targets.size(), 4);
+}
+
+TEST(source_loader, malformed_yaml_values_produce_compilation_diagnostics)
+{
+    for (std::string target : {"{cpu: x64, platform: linux, unimplemented_compiles: invalid}", "{cpu: [x64], platform: linux}"})
+    {
+        SCOPED_TRACE(target);
+        YAML::Node configuration = YAML::Load("outputs: {}\ntargets: {native: " + target + "}");
+        quxlang::source_bundle bundle;
+        EXPECT_THROW(quxlang::detail::parse_build_configuration(configuration, bundle, std::nullopt), quxlang::compilation_error);
+    }
+}
+
+TEST(source_loader, malformed_bundle_inputs_produce_compilation_diagnostics)
+{
+    std::filesystem::path fixtures = std::filesystem::path(QUXLANG_TESTS_TESTDDATA_PATH) / "malformed_bundle_inputs";
+    for (std::string name : {"01_invalid_yaml", "02_missing_modules", "03_modules_file", "04_invalid_boolean"})
+    {
+        SCOPED_TRACE(name);
+        EXPECT_THROW(quxlang::load_bundle_sources_for_targets(fixtures / name, std::nullopt), quxlang::compilation_error);
+    }
 }

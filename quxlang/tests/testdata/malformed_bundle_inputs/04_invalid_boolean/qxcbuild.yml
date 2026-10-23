@@ -1,0 +1,6 @@
+targets:
+  native:
+    platform: linux
+    cpu: x64
+    unimplemented_compiles: invalid
+outputs: {}

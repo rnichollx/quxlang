@@ -36,7 +36,12 @@ namespace quxlang::parsers
 
         parsers::skip_whitespace_and_comments(pos, end);
 
-        auto calling_convention = std::move(try_parse_string_literal(pos, end).value());
+        std::optional< std::string > parsed_convention = try_parse_string_literal(pos, end);
+        if (!parsed_convention)
+        {
+            throw syntax_compilation_error("Expected calling convention string after PROCEDURE_REF(");
+        }
+        std::string calling_convention = std::move(*parsed_convention);
 
         skip_whitespace_and_comments(pos, end);
 

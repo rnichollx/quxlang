@@ -10967,3 +10967,16 @@ TEST(llvm_backend, integer_layout_matches_target_data_layout)
         }
     }
 }
+
+TEST(parser, malformed_operands_produce_syntax_diagnostics)
+{
+    for (std::string input : {"IS_SIGNED()", "IS_INTEGRAL()", "TYPE_IS_LAYOUTLESS()", "SAME_TYPES()", "SAME_TYPES(I32,)", "SIZEOF()", "CELLSIZEOF()", "ALIGNOF()", "BITS()", "TARGET()", "TARGET(123)", "PROCEDURE_REF(123, foo)", "PROCEDURE_REF()"})
+    {
+        SCOPED_TRACE(input);
+        EXPECT_THROW(parse_expression_text(input), quxlang::compilation_error);
+    }
+    EXPECT_THROW(parse_file_text("::x VAR;"), quxlang::compilation_error);
+    EXPECT_THROW(parse_type_symbol("foo!$[18446744073709551616]"), quxlang::compilation_error);
+    EXPECT_NO_THROW(parse_type_symbol("foo!$[18446744073709551615]"));
+    EXPECT_NO_THROW(parse_expression_text(R"(TARGET( "native" ))"));
+}

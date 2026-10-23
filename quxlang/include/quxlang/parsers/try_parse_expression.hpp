@@ -520,7 +520,7 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected '(' after IS_SIGNED");
             }
-            expr_is_integral.of_type = try_parse_type_symbol(ctx).value();
+            expr_is_integral.of_type = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -561,7 +561,7 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected '(' after IS_INTEGRAL");
             }
-            expr_is_integral.of_type = try_parse_type_symbol(ctx).value();
+            expr_is_integral.of_type = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -578,7 +578,7 @@ namespace quxlang::parsers
                 {
                     throw syntax_compilation_error("Expected '(' after TYPE_IS_LAYOUTLESS");
                 }
-                layoutless_expression.of_type = try_parse_type_symbol(ctx).value();
+                layoutless_expression.of_type = parse_type_symbol(ctx);
                 skip_whitespace_and_comments(pos, end);
                 if (!skip_symbol_if_is(pos, end, ")"))
                 {
@@ -612,13 +612,13 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected '(' after SAME_TYPES");
             }
-            expr_same_types.lhs_type = try_parse_type_symbol(ctx).value();
+            expr_same_types.lhs_type = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ","))
             {
                 throw syntax_compilation_error("Expected ',' after first SAME_TYPES(<type>, ...)");
             }
-            expr_same_types.rhs_type = try_parse_type_symbol(ctx).value();
+            expr_same_types.rhs_type = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -822,7 +822,7 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected '(' after SIZEOF");
             }
-            sz.of_type = try_parse_type_symbol(ctx).value();
+            sz.of_type = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -840,7 +840,7 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected '(' after CELLSIZEOF");
             }
-            sz.of_type = try_parse_type_symbol(ctx).value();
+            sz.of_type = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -857,7 +857,7 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected '(' after ALIGNOF");
             }
-            align.of_type = try_parse_type_symbol(ctx).value();
+            align.of_type = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -874,7 +874,7 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected '(' after SIZEOF");
             }
-            bits.of_type = try_parse_type_symbol(ctx).value();
+            bits.of_type = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -891,7 +891,13 @@ namespace quxlang::parsers
             {
                 throw syntax_compilation_error("Expected '(' after TARGET");
             }
-            tg.target = std::move(try_parse_string_literal(pos, end).value());
+            skip_whitespace_and_comments(pos, end);
+            std::optional< std::string > target = try_parse_string_literal(pos, end);
+            if (!target)
+            {
+                throw syntax_compilation_error("Expected target string after TARGET(");
+            }
+            tg.target = std::move(*target);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {

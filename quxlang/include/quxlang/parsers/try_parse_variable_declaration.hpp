@@ -72,7 +72,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
         }
 
-        type_symbol type = try_parse_type_symbol(ctx).value();
+        type_symbol type = parse_type_symbol(ctx);
 
         skip_whitespace_and_comments(pos, end);
 
