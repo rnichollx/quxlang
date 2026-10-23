@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::BENCHMARK_ERROR DOC <$ Reports a benchmark diagnostic and terminates the current invocation by exception. $>
+DOC <$ Reports a benchmark diagnostic and terminates the current invocation by exception. $>
+::BENCHMARK_ERROR
   FUNCTION(@MESSAGE:message STRING_CONSTANT)
 {
   write(@fd 2, @msg message);
@@ -10,7 +11,8 @@ IMPORT std;
   THROW (1 AS I32);
 }
 
-::BENCHMARK_ARGUMENT_TEXT DOC <$ Copies one process argument into a UTF-8 string. $>
+DOC <$ Copies one process argument into a UTF-8 string. $>
+::BENCHMARK_ARGUMENT_TEXT
   FUNCTION(@INDEX:index SZ): std::string
 {
   VAR text test_text;
@@ -44,7 +46,8 @@ IMPORT std;
   RETURN result;
 }
 
-::BENCHMARK_CLI_ARGUMENTS DOC <$ Owns and validates named standalone benchmark arguments before type parsing. $>
+DOC <$ Owns and validates named standalone benchmark arguments before type parsing. $>
+::BENCHMARK_CLI_ARGUMENTS
   STRUCT MOVE_ONLY
 {
   .owner VAR test_command_arguments;
@@ -52,7 +55,8 @@ IMPORT std;
   .values VAR std::dynarr#(std::string);
   .present VAR std::dynarr#BOOL;
 
-  .REGISTER DOC <$ Appends one declared command-line parameter. $>
+  DOC <$ Appends one declared command-line parameter. $>
+  .REGISTER
     FUNCTION(@NAME:name STRING_CONSTANT) MUT
   {
     .names.push_back(name);
@@ -61,7 +65,8 @@ IMPORT std;
     .present.push_back(FALSE);
   }
 
-  .VALIDATE DOC <$ Loads options and rejects unknown, duplicate, or missing arguments. $>
+  DOC <$ Loads options and rejects unknown, duplicate, or missing arguments. $>
+  .VALIDATE
     FUNCTION() MUT
   {
     LOOP INIT { VAR index SZ := 1; } WHILE (index < test_argument_count()) STEP { index++; } DO
@@ -100,17 +105,20 @@ IMPORT std;
     }
   }
 
-  .VALUE DOC <$ Borrows a validated argument value in declaration order. $>
+  DOC <$ Borrows a validated argument value in declaration order. $>
+  .VALUE
     FUNCTION(@INDEX:index SZ) CONST: CONST& std::string
   {
     RETURN .values[index];
   }
 }
 
-::DEFAULT_PARSER DOC <$ Parses complete CLI values using checked numeric conversions. $>
+DOC <$ Parses complete CLI values using checked numeric conversions. $>
+::DEFAULT_PARSER
   STRUCT
 {
-  .PARSE DOC <$ Assigns a parsed integer, floating-point value, Boolean, or string to OUTPUT. $>
+  DOC <$ Assigns a parsed integer, floating-point value, Boolean, or string to OUTPUT. $>
+  .PARSE
     TEMPLATE(@T TYPE AUTO) FUNCTION(@INPUT:input CONST& std::string, @OUTPUT:output WRITE& T) MUT
   {
     STATIC_IF(SAME_TYPES(T, std::string)) { output := input; }

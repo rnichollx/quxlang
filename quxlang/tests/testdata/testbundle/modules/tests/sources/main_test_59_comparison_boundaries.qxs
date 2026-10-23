@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::comparison_boundary_tests NAMESPACE
 {
-  ::ordered_pairs DOC <$ Checks all comparison operators against the independent indices of five strictly increasing values. $>
+  DOC <$ Checks all comparison operators against the independent indices of five strictly increasing values. $>
+  ::ordered_pairs
     TEMPLATE(@T TYPE AUTO) FUNCTION(@values CONST& [5]T)
   {
     VAR left SZ := 0;
@@ -26,7 +27,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::signed_values DOC <$ Places the signed minimum and maximum on opposite sides of negative, zero and positive values. $>
+  DOC <$ Places the signed minimum and maximum on opposite sides of negative, zero and positive values. $>
+  ::signed_values
     TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR values [5]T;
@@ -38,7 +40,8 @@ LANGUAGE QUXLANG EN 0.0;
     ordered_pairs#(T)(@values values);
   }
 
-  ::unsigned_values DOC <$ Includes the two largest unsigned values to detect signed lowering or truncation in comparisons. $>
+  DOC <$ Includes the two largest unsigned values to detect signed lowering or truncation in comparisons. $>
+  ::unsigned_values
     TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR values [5]T;
@@ -50,7 +53,8 @@ LANGUAGE QUXLANG EN 0.0;
     ordered_pairs#(T)(@values values);
   }
 
-  ::signed_extreme_pairs DOC <$ Compares every pair across signed extrema for standard and non-byte integer widths. $>
+  DOC <$ Compares every pair across signed extrema for standard and non-byte integer widths. $>
+  ::signed_extreme_pairs
     DUAL_TEST
   {
     signed_values#(I5)(@maximum 15);
@@ -61,7 +65,8 @@ LANGUAGE QUXLANG EN 0.0;
     signed_values#(I64)(@maximum 9223372036854775807);
   }
 
-  ::unsigned_extreme_pairs DOC <$ Compares every pair including the high bit and maximum of six unsigned widths. $>
+  DOC <$ Compares every pair including the high bit and maximum of six unsigned widths. $>
+  ::unsigned_extreme_pairs
     DUAL_TEST
   {
     unsigned_values#(U5)(@maximum 31);
@@ -72,7 +77,8 @@ LANGUAGE QUXLANG EN 0.0;
     unsigned_values#(U64)(@maximum 18446744073709551615);
   }
 
-  ::finite_values DOC <$ Checks finite float comparisons on both sides of zero without relying on fractional-literal subtraction. $>
+  DOC <$ Checks finite float comparisons on both sides of zero without relying on fractional-literal subtraction. $>
+  ::finite_values
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR zero T := 0;
@@ -85,7 +91,8 @@ LANGUAGE QUXLANG EN 0.0;
     ordered_pairs#(T)(@values values);
   }
 
-  ::finite_float_pairs DOC <$ Applies the full comparison matrix to single and double precision floating-point values. $>
+  DOC <$ Applies the full comparison matrix to single and double precision floating-point values. $>
+  ::finite_float_pairs
     DUAL_TEST
   {
     finite_values#(F32)();

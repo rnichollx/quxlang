@@ -2,14 +2,17 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::mixed_slots DOC <$ Owns the pointer slots for one allocation size. $>
+DOC <$ Owns the pointer slots for one allocation size. $>
+::mixed_slots
   TEMPLATE(@bytes VALUE SZ) STRUCT
 {
-  ::block DOC <$ Provides uninitialized storage aligned to eight bytes. $>
+  DOC <$ Provides uninitialized storage aligned to eight bytes. $>
+  ::block
     STRUCT { .words VAR [bytes / 8]U64; }
   .pointers VAR std::dynarr#(->TYPED_STORAGE(block));
 
-  .toggle DOC <$ Allocates an empty slot or releases an occupied slot. $>
+  DOC <$ Allocates an empty slot or releases an occupied slot. $>
+  .toggle
     FUNCTION(@index SZ) MUT
   {
     VAR pointer MUT& ->TYPED_STORAGE(block) := .pointers[index];
@@ -25,7 +28,8 @@ IMPORT std;
     }
   }
 
-  .release DOC <$ Releases remaining allocations after timing and returns their count. $>
+  DOC <$ Releases remaining allocations after timing and returns their count. $>
+  .release
     FUNCTION() MUT: SZ
   {
     VAR live SZ := 0;
@@ -42,7 +46,8 @@ IMPORT std;
   }
 }
 
-::mixed_worker_state DOC <$ Owns one worker's input and private allocation slots. $> STRUCT
+DOC <$ Owns one worker's input and private allocation slots. $>
+::mixed_worker_state STRUCT
 {
   .sequence VAR std::dynarr#U32;
   .slots VAR SZ;
@@ -55,7 +60,8 @@ IMPORT std;
   .size_128 VAR mixed_slots#(@bytes 128);
   .size_256 VAR mixed_slots#(@bytes 256);
 
-  .run DOC <$ Applies the pre-generated operations to this worker's slots. $> FUNCTION() MUT
+  DOC <$ Applies the pre-generated operations to this worker's slots. $>
+  .run FUNCTION() MUT
   {
     LOOP ITEM(word) IN(.sequence) DO
     {
@@ -73,14 +79,17 @@ IMPORT std;
   }
 }
 
-::mixed_worker_entry DOC <$ Borrows stable worker state for the lifetime of a native thread. $> STRUCT
+DOC <$ Borrows stable worker state for the lifetime of a native thread. $>
+::mixed_worker_entry STRUCT
 {
   .state VAR MUT->mixed_worker_state;
-  .OPERATOR() DOC <$ Executes the worker's operation sequence. $> FUNCTION() MUT
+  DOC <$ Executes the worker's operation sequence. $>
+  .OPERATOR() FUNCTION() MUT
   { .state->.run(); }
 }
 
-::mixed_allocations DOC <$ Times creation and joining of workers with pre-generated operations. $>
+DOC <$ Times creation and joining of workers with pre-generated operations. $>
+::mixed_allocations
   BENCHMARK(@n SZ, @slots SZ, @threads SZ) ONESHOT
 {
   IF (n == 0 || slots == 0 || slots > 536870912 || threads == 0 || threads > slots)

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::test_selection_tests NAMESPACE
 {
-  ::matches DOC <$ Exercises the runner's filter matcher using constant text instead of process arguments. $>
+  DOC <$ Exercises the runner's filter matcher using constant text instead of process arguments. $>
+  ::matches
     FUNCTION(@name STRING_CONSTANT, @filter STRING_CONSTANT): BOOL
   {
     VAR pattern test_text;
@@ -10,7 +11,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN test_name_matches(@name name, @pattern pattern);
   }
 
-  ::plain_filters DOC <$ Plain filters are case-sensitive substrings, including empty names and filters. $>
+  DOC <$ Plain filters are case-sensitive substrings, including empty names and filters. $>
+  ::plain_filters
     UNIT_TEST
   {
     TEST_ASSERT(matches(@name "alpha::beta", @filter ""));
@@ -23,7 +25,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(matches(@name "", @filter "x") == FALSE);
   }
 
-  ::wildcard_filters DOC <$ Wildcard filters match whole names with backtracking and zero-length star matches. $>
+  DOC <$ Wildcard filters match whole names with backtracking and zero-length star matches. $>
+  ::wildcard_filters
     UNIT_TEST
   {
     TEST_ASSERT(matches(@name "alpha::beta", @filter "*::b?ta"));
@@ -41,7 +44,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(matches(@name "", @filter "?") == FALSE);
   }
 
-  ::option_boundaries DOC <$ Option matching distinguishes exact names from prefixes and sliced filters. $>
+  DOC <$ Option matching distinguishes exact names from prefixes and sliced filters. $>
+  ::option_boundaries
     UNIT_TEST
   {
     VAR option test_text;
@@ -55,7 +59,8 @@ LANGUAGE QUXLANG EN 0.0;
     option.offset := 14;
     TEST_ASSERT(test_name_matches(@name "alpha::beta", @pattern option));
   }
-  ::option_boundaries_constexpr DOC <$ Retains the compilable constant-text matcher regression that currently fails in constexpr interpretation. $>
+  DOC <$ Retains the compilable constant-text matcher regression that currently fails in constexpr interpretation. $>
+  ::option_boundaries_constexpr
     STATIC_TEST KNOWN_FAILING
   {
     VAR option test_text;

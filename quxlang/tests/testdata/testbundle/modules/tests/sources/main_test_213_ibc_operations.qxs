@@ -8,7 +8,8 @@ LANGUAGE QUXLANG EN 0.0;
     .payload VAR U64;
   }
 
-  ::external_record INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ External record access supports value transfers and explicitly typed pointer views. $>
+  DOC <$ External record access supports value transfers and explicitly typed pointer views. $>
+  ::external_record INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
     UNIT_TEST
   {
     VAR message packet;
@@ -31,7 +32,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(readonly->.payload == 4294967299);
   }
 
-  ::null_pointer INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Address export and pointer import preserve null values. $>
+  DOC <$ Address export and pointer import preserve null values. $>
+  ::null_pointer INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
     UNIT_TEST
   {
     VAR pointer CONST=>>BYTE;

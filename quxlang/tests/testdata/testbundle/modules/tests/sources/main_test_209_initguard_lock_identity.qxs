@@ -2,10 +2,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::initguard_lock_identity_tests NAMESPACE
 {
-  ::lock_alias DOC <$ Preserves the identity of the source-spelled initialization guard lock type. $>
+  DOC <$ Preserves the identity of the source-spelled initialization guard lock type. $>
+  ::lock_alias
     ALIAS INITGUARD_LOCK;
 
-  ::identity DOC <$ Initialization guard lock identity survives aliases and qualified type forms without constructing a lock. $>
+  DOC <$ Initialization guard lock identity survives aliases and qualified type forms without constructing a lock. $>
+  ::identity
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(INITGUARD_LOCK, lock_alias));
@@ -18,15 +20,18 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(INITGUARD_LOCK) == FALSE);
   }
 
-  ::classify DOC <$ Distinguishes a null lock pointer from an integer pointer by its nominal pointee type. $>
+  DOC <$ Distinguishes a null lock pointer from an integer pointer by its nominal pointee type. $>
+  ::classify
     FUNCTION(@value CONST->INITGUARD_LOCK): I32
   { TEST_ASSERT(value?? == FALSE); RETURN 1; }
 
-  ::classify DOC <$ Supplies an integer-pointer overload for comparison with a lock pointer. $>
+  DOC <$ Supplies an integer-pointer overload for comparison with a lock pointer. $>
+  ::classify
     FUNCTION(@value CONST->I32): I32
   { TEST_ASSERT(value?? == FALSE); RETURN 2; }
 
-  ::null_pointer_binding DOC <$ Null lock pointers can be copied through aliases and select the correct overload without dereferencing or acquiring a lock. $>
+  DOC <$ Null lock pointers can be copied through aliases and select the correct overload without dereferencing or acquiring a lock. $>
+  ::null_pointer_binding
     DUAL_TEST
   {
     VAR original CONST->INITGUARD_LOCK;

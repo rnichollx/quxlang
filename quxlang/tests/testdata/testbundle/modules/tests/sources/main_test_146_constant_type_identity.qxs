@@ -2,21 +2,28 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::constant_type_identity_tests NAMESPACE
 {
-  ::cstring_alias DOC <$ Names the same type as CSTRING_CONSTANT. $>
+  DOC <$ Names the same type as CSTRING_CONSTANT. $>
+  ::cstring_alias
     ALIAS CSTRING_CONSTANT;
-  ::data_alias DOC <$ Names the same type as DATA_CONSTANT. $>
+  DOC <$ Names the same type as DATA_CONSTANT. $>
+  ::data_alias
     ALIAS DATA_CONSTANT;
 
-  ::kind DOC <$ Identifies a pointer to a C string constant without dereferencing it. $>
+  DOC <$ Identifies a pointer to a C string constant without dereferencing it. $>
+  ::kind
     FUNCTION(@value CONST->CSTRING_CONSTANT): I32 { TEST_ASSERT(value?? == FALSE); RETURN 1; }
-  ::kind DOC <$ Identifies a pointer to a data constant without dereferencing it. $>
+  DOC <$ Identifies a pointer to a data constant without dereferencing it. $>
+  ::kind
     FUNCTION(@value CONST->DATA_CONSTANT): I32 { TEST_ASSERT(value?? == FALSE); RETURN 2; }
-  ::kind DOC <$ Identifies a pointer to a string constant without dereferencing it. $>
+  DOC <$ Identifies a pointer to a string constant without dereferencing it. $>
+  ::kind
     FUNCTION(@value CONST->STRING_CONSTANT): I32 { TEST_ASSERT(value?? == FALSE); RETURN 3; }
-  ::kind DOC <$ Identifies a pointer to a numeric constant without dereferencing it. $>
+  DOC <$ Identifies a pointer to a numeric constant without dereferencing it. $>
+  ::kind
     FUNCTION(@value CONST->NUMERIC_CONSTANT): I32 { TEST_ASSERT(value?? == FALSE); RETURN 4; }
 
-  ::nominal_identity_and_aliases DOC <$ Constant families remain distinct in type queries and overload selection while aliases preserve canonical identity. $>
+  DOC <$ Constant families remain distinct in type queries and overload selection while aliases preserve canonical identity. $>
+  ::nominal_identity_and_aliases
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(CSTRING_CONSTANT, cstring_alias));

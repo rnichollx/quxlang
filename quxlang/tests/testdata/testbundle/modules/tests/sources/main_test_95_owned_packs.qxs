@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::owned_pack_tests NAMESPACE
 {
-  ::consume DOC <$ Reads three heterogeneous owned pack entries before normal return or exception propagation. $>
+  DOC <$ Reads three heterogeneous owned pack entries before normal return or exception propagation. $>
+  ::consume
     FUNCTION(@fail BOOL, @events CONST& I32, %...values AUTO)
   {
     TEST_ASSERT(PACK_SIZE(values) == 3);
@@ -15,7 +16,8 @@ LANGUAGE QUXLANG EN 0.0;
     IF (fail) { THROW I32(@OTHER 73); }
   }
 
-  ::forward_owned DOC <$ Moves each heterogeneous pack entry into another call without duplicating ownership. $>
+  DOC <$ Moves each heterogeneous pack entry into another call without duplicating ownership. $>
+  ::forward_owned
     FUNCTION(@fail BOOL, @events CONST& I32, %...values AUTO)
   {
     VAR first MUT& array_lifetime_tests::element := PACK_ARG(values, 0);
@@ -24,7 +26,8 @@ LANGUAGE QUXLANG EN 0.0;
     consume(@fail fail, @events events, % [MOVE(first), MOVE(second), MOVE(third)]);
   }
 
-  ::normal_and_exceptional_exit DOC <$ Indexed forwarding preserves mixed pack types and destroys the moved owned payload exactly once on either exit. $>
+  DOC <$ Indexed forwarding preserves mixed pack types and destroys the moved owned payload exactly once on either exit. $>
+  ::normal_and_exceptional_exit
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;

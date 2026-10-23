@@ -236,7 +236,8 @@ LABEL static_linux_clone_arm64_parent;
     run_thread_entry(@control control);
   }
 
-  ::destroy_unstarted_thread_control DOC <$ Destroys an unstarted entry and releases its thread control after native thread creation fails. $>
+  DOC <$ Destroys an unstarted entry and releases its thread control after native thread creation fails. $>
+  ::destroy_unstarted_thread_control
     FUNCTION(@control MUT->thread_control)
   {
     IF (control->.entry_live)
@@ -248,7 +249,8 @@ LABEL static_linux_clone_arm64_parent;
   }
 }
 
-::thread DOC <$ Owns one native thread and joins it before releasing its control block. $>
+DOC <$ Owns one native thread and joins it before releasing its control block. $>
+::thread
   STRUCT MOVE_ONLY
 {
   PRIVATE(CLASS)
@@ -256,7 +258,8 @@ LABEL static_linux_clone_arm64_parent;
     .control VAR MUT->thread_control;
   }
 
-  .CONSTRUCTOR DOC <$ Copies or moves entry into independent erased storage before starting the native thread. $>
+  DOC <$ Copies or moves entry into independent erased storage before starting the native thread. $>
+  .CONSTRUCTOR
     FUNCTION(@ARG:entry AUTO& AUTO(entry_type))
   {
     NEW TO(.control);
@@ -383,14 +386,16 @@ LABEL static_linux_clone_arm64_parent;
     }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers ownership of another thread without joining it. $>
+  DOC <$ Transfers ownership of another thread without joining it. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& thread)
   {
     VAR other_control MUT& MUT->thread_control := OTHER.control AS MUT& MUT->thread_control;
     .control <-> other_control;
   }
 
-  .DESTRUCTOR DOC <$ Joins only when this object still owns a joinable thread. $>
+  DOC <$ Joins only when this object still owns a joinable thread. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     IF (.joinable())
@@ -399,13 +404,15 @@ LABEL static_linux_clone_arm64_parent;
     }
   }
 
-  .joinable DOC <$ Reports whether this object still owns an unjoined native thread. $>
+  DOC <$ Reports whether this object still owns an unjoined native thread. $>
+  .joinable
     FUNCTION(): BOOL
   {
     RETURN .control??;
   }
 
-  .join DOC <$ Waits for the owned thread and consumes native-thread ownership. $>
+  DOC <$ Waits for the owned thread and consumes native-thread ownership. $>
+  .join
     FUNCTION()
   {
     IF ((.control??) == FALSE)

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::nan_encoding_tests NAMESPACE
 {
-  ::canonical_encodings DOC <$ Deserialized NaN signs and payloads converge to one quiet encoding and one total-order value. $>
+  DOC <$ Deserialized NaN signs and payloads converge to one quiet encoding and one total-order value. $>
+  ::canonical_encodings
     TEMPLATE(@T TYPE AUTO, @integer_type TYPE AUTO, @count VALUE SZ)
     FUNCTION(@exponent integer_type, @quiet integer_type, @sign integer_type)
   {
@@ -59,13 +60,15 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::single_precision DOC <$ Eight signed signaling and quiet F32 encodings preserve canonical NaN semantics. $>
+  DOC <$ Eight signed signaling and quiet F32 encodings preserve canonical NaN semantics. $>
+  ::single_precision
     DUAL_TEST
   {
     canonical_encodings#(@T F32, @integer_type U32, @count 4)(@exponent 2139095040, @quiet 4194304, @sign 2147483648);
   }
 
-  ::double_precision DOC <$ Eight signed signaling and quiet F64 encodings preserve canonical NaN semantics. $>
+  DOC <$ Eight signed signaling and quiet F64 encodings preserve canonical NaN semantics. $>
+  ::double_precision
     DUAL_TEST
   {
     canonical_encodings#(@T F64, @integer_type U64, @count 8)(@exponent 9218868437227405312, @quiet 2251799813685248, @sign 9223372036854775808);

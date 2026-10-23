@@ -2,23 +2,29 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::polymorphic_type_operand_tests NAMESPACE
 {
-  ::holder DOC <$ An ordinary record contains a polymorphic object without being polymorphic itself. $>
+  DOC <$ An ordinary record contains a polymorphic object without being polymorphic itself. $>
+  ::holder
     STRUCT { .member VAR inheritance_tests::dispatch_base; }
 
-  ::nested_holder DOC <$ A second containing level preserves the ordinary record category. $>
+  DOC <$ A second containing level preserves the ordinary record category. $>
+  ::nested_holder
     STRUCT { .member VAR holder; }
 
-  ::holder_alias DOC <$ An alias preserves the ordinary containing record's identity. $>
+  DOC <$ An alias preserves the ordinary containing record's identity. $>
+  ::holder_alias
     ALIAS holder;
 
-  ::probe DOC <$ A polymorphic constructor records execution for unevaluated type-operand checks. $>
+  DOC <$ A polymorphic constructor records execution for unevaluated type-operand checks. $>
+  ::probe
     STRUCT POLYMORPHIC
   {
-    .CONSTRUCTOR DOC <$ Records construction through caller-owned state. $>
+    DOC <$ Records construction through caller-owned state. $>
+    .CONSTRUCTOR
       FUNCTION(@calls MUT& I32) { calls ++; }
   }
 
-  ::containment DOC <$ Polymorphism classifies the exact record type without propagating through ordinary fields or storage wrappers. $>
+  DOC <$ Polymorphism classifies the exact record type without propagating through ordinary fields or storage wrappers. $>
+  ::containment
     DUAL_TEST
   {
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(inheritance_tests::dispatch_base));
@@ -28,7 +34,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(TYPED_STORAGE(inheritance_tests::dispatch_base)) == FALSE);
   }
 
-  ::unevaluated_constructor DOC <$ TYPE_IS_POLYMORPHIC resolves TYPEOF of construction without executing the constructor or changing caller state. $>
+  DOC <$ TYPE_IS_POLYMORPHIC resolves TYPEOF of construction without executing the constructor or changing caller state. $>
+  ::unevaluated_constructor
     DUAL_TEST
   {
     VAR calls I32 := 0;

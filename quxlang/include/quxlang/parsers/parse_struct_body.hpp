@@ -38,7 +38,6 @@ namespace quxlang::parsers
         ast2_base_declaration declaration;
         std::string member_name;
         std::optional< expression > include_if;
-        std::optional< std::string > doc;
         bool anonymous = false;
         if (skip_keyword_if_is(trial.iter_pos, trial.iter_end, "BASE"))
         {
@@ -46,7 +45,6 @@ namespace quxlang::parsers
             declaration.kind = inheritance_kind::nonvirtual;
             skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
             include_if = try_parse_include_if(trial);
-            doc = try_parse_single_doc(trial);
         }
         else
         {
@@ -58,7 +56,6 @@ namespace quxlang::parsers
             member_name = std::move(selector);
             skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
             include_if = try_parse_include_if(trial);
-            doc = try_parse_single_doc(trial);
 
             if (skip_keyword_if_is(trial.iter_pos, trial.iter_end, "BASE"))
             {
@@ -98,7 +95,7 @@ namespace quxlang::parsers
             .decl = std::move(declaration),
             .name = std::move(member_name),
             .include_if = std::move(include_if),
-            .doc = std::move(doc),
+            .doc = std::exchange(ctx.pending_doc, std::nullopt),
             .privacy = std::move(privacy),
             .location = std::move(location),
         };
@@ -111,6 +108,7 @@ namespace quxlang::parsers
         while (true)
         {
             skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
+            ctx.pending_doc = try_parse_single_doc(ctx);
             std::optional< privacy_scope > declaration_privacy = try_parse_privacy_scope(ctx);
             if (declaration_privacy.has_value())
             {
@@ -122,6 +120,10 @@ namespace quxlang::parsers
                 skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
                 if (skip_symbol_if_is(ctx.iter_pos, ctx.iter_end, "{"))
                 {
+                    if (ctx.pending_doc.has_value())
+                    {
+                        throw syntax_compilation_error("DOC must precede a declaration rather than a PRIVATE block");
+                    }
                     std::vector< subdeclaration > nested = parse_struct_subdeclarations(ctx, declaration_privacy);
                     skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
                     if (!skip_symbol_if_is(ctx.iter_pos, ctx.iter_end, "}"))
@@ -144,6 +146,10 @@ namespace quxlang::parsers
             std::optional< subdeclaration > declaration = try_parse_subdeclaration(ctx, std::move(effective_privacy));
             if (!declaration.has_value())
             {
+                if (ctx.pending_doc.has_value())
+                {
+                    throw syntax_compilation_error("expected declaration after DOC block");
+                }
                 if (declaration_privacy.has_value())
                 {
                     throw syntax_compilation_error("expected declaration after PRIVATE scope");

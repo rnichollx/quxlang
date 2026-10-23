@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::BENCHMARK_STATE DOC <$ Owns one invocation's iteration budget and measurement accumulators. $>
+DOC <$ Owns one invocation's iteration budget and measurement accumulators. $>
+::BENCHMARK_STATE
   STRUCT
 {
   .ITERATIONS VAR U64;
@@ -11,7 +12,8 @@ IMPORT std;
   .counts VAR std::dynarr#U64;
 }
 
-::BENCHMARK_SAMPLE DOC <$ Executes one case with fresh arguments and zeroed measurement accumulators. $>
+DOC <$ Executes one case with fresh arguments and zeroed measurement accumulators. $>
+::BENCHMARK_SAMPLE
   FUNCTION(@INDEX:index SZ, @ITERATIONS:iterations U64): BENCHMARK_STATE
 {
   VAR state BENCHMARK_STATE;
@@ -27,7 +29,8 @@ IMPORT std;
   RETURN state;
 }
 
-::BENCHMARK_WRITE_U64 DOC <$ Prints an unsigned value without pointer-width truncation. $>
+DOC <$ Prints an unsigned value without pointer-width truncation. $>
+::BENCHMARK_WRITE_U64
   FUNCTION(@VALUE:value U64)
 {
   VAR digits [20]BYTE;
@@ -42,7 +45,8 @@ IMPORT std;
   write_bytes(@fd stdout, @begin digits[&index], @end digits[&20]);
 }
 
-::BENCHMARK_WRITE_RATIO DOC <$ Prints a finite nonnegative nanosecond ratio with six decimal places. $>
+DOC <$ Prints a finite nonnegative nanosecond ratio with six decimal places. $>
+::BENCHMARK_WRITE_RATIO
   FUNCTION(@VALUE:value F64)
 {
   VAR whole U64 := 0;
@@ -72,7 +76,8 @@ IMPORT std;
   write_bytes(@fd stdout, @begin digits[&0], @end digits[&6]);
 }
 
-::BENCHMARK_WRITE_JSON_STRING DOC <$ Quotes a metadata string with JSON escaping. $>
+DOC <$ Quotes a metadata string with JSON escaping. $>
+::BENCHMARK_WRITE_JSON_STRING
   FUNCTION(@VALUE:value STRING_CONSTANT)
 {
   write(@fd stdout, @msg "\"");
@@ -96,7 +101,8 @@ IMPORT std;
   write(@fd stdout, @msg "\"");
 }
 
-::BENCHMARK_OPTION_NUMBER DOC <$ Parses the decimal numeric suffix of a runner option. $>
+DOC <$ Parses the decimal numeric suffix of a runner option. $>
+::BENCHMARK_OPTION_NUMBER
   FUNCTION(@ARGUMENT:argument SZ, @OFFSET:offset SZ): U64
 {
   VAR text std::string := BENCHMARK_ARGUMENT_TEXT(@INDEX argument);
@@ -108,7 +114,8 @@ IMPORT std;
   RETURN result;
 }
 
-::BENCHMARK_CASE_RESULT DOC <$ Collects raw samples and reports each channel's median normalized duration. $>
+DOC <$ Collects raw samples and reports each channel's median normalized duration. $>
+::BENCHMARK_CASE_RESULT
   FUNCTION(@INDEX:index SZ, @ITERATIONS:iterations U64, @REPETITIONS:repetitions SZ, @JSON:json BOOL, @FIRST:first MUT& BOOL)
 {
   VAR samples std::dynarr#BENCHMARK_STATE;
@@ -189,7 +196,8 @@ IMPORT std;
   }
 }
 
-::BENCHMARK_MAIN DOC <$ Lists or runs benchmark cases with calibration, warmup, and repeated samples. $>
+DOC <$ Lists or runs benchmark cases with calibration, warmup, and repeated samples. $>
+::BENCHMARK_MAIN
   FUNCTION(): I32
 {
   VAR arguments test_command_arguments;

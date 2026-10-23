@@ -1,9 +1,10 @@
 LANGUAGE QUXLANG EN 0.0;
 
-PRIVATE(MODULE) ::square_root_integer DOC <$
+DOC <$
   Stores unsigned integer intermediates for correctly rounded square roots.
   The byte count is fixed by the floating-point format at compilation time.
-  $> TEMPLATE(@bytes VALUE SZ) STRUCT
+  $>
+PRIVATE(MODULE) ::square_root_integer TEMPLATE(@bytes VALUE SZ) STRUCT
 {
   .digits VAR [bytes]U8;
 
@@ -111,12 +112,13 @@ PRIVATE(MODULE) ::square_root_integer DOC <$
   }
 }
 
-::SQRT DOC <$
+DOC <$
   Returns the square root rounded to the argument's binary floating-point format
   using round-to-nearest, ties-to-even. Signed zero and positive infinity are
   preserved. Negative values and NaNs produce canonical NaN. Integer arithmetic
   determines the root and remainder without intermediate floating-point rounding.
-  $> FUNCTION(@ARG:value AUTO_FLOAT(total, exponent)): FLOAT(total, exponent)
+  $>
+::SQRT FUNCTION(@ARG:value AUTO_FLOAT(total, exponent)): FLOAT(total, exponent)
 {
   STATIC total_bits SZ := total AS CHECKED SZ;
   STATIC fraction_bits SZ := (total - exponent - 1) AS CHECKED SZ;

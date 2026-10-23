@@ -18,7 +18,8 @@ IMPORT std;
     }
   }
 
-  ::empty_and_factories INCLUDE_IF(ARCH_IS_JVM!!) DOC <$ Empty owners are harmless and factories allocate accessible values. $> DUAL_TEST
+  DOC <$ Empty owners are harmless and factories allocate accessible values. $>
+  ::empty_and_factories INCLUDE_IF(ARCH_IS_JVM!!) DUAL_TEST
   {
     VAR empty std::unique_ptr#I32;
     TEST_ASSERT(empty.has_value() == FALSE);
@@ -37,7 +38,8 @@ IMPORT std;
     TEST_ASSERT(SIZEOF(std::unique_ptr#I32) == SIZEOF(MUT->I32));
   }
 
-  ::move_and_reset DOC <$ Moves transfer one ownership obligation and reset destroys each replaced object exactly once. $> DUAL_TEST
+  DOC <$ Moves transfer one ownership obligation and reset destroys each replaced object exactly once. $>
+  ::move_and_reset DUAL_TEST
   {
     VAR destroyed I32 := 0;
     {
@@ -69,7 +71,8 @@ IMPORT std;
     TEST_ASSERT(destroyed == 3);
   }
 
-  ::release DOC <$ Released objects survive their former owner and are deleted by the caller. $> DUAL_TEST
+  DOC <$ Released objects survive their former owner and are deleted by the caller. $>
+  ::release DUAL_TEST
   {
     VAR destroyed I32 := 0;
     VAR released MUT->tracked;
@@ -84,7 +87,8 @@ IMPORT std;
     TEST_ASSERT(destroyed == 1);
   }
 
-  ::move_only_value DOC <$ The factory forwards move-only constructor arguments without copying them. $> DUAL_TEST
+  DOC <$ The factory forwards move-only constructor arguments without copying them. $>
+  ::move_only_value DUAL_TEST
   {
     AUTO inner := std::make_unique#I32(@OTHER 31);
     AUTO outer := std::make_unique#(std::unique_ptr#I32)(@OTHER MOVE(inner));
@@ -92,21 +96,24 @@ IMPORT std;
     TEST_ASSERT((outer->)-> == 31);
   }
 
-  ::fixed_array DOC <$ Fixed-array ownership uses the array's NEW and DELETE lifetime operations. $> DUAL_TEST
+  DOC <$ Fixed-array ownership uses the array's NEW and DELETE lifetime operations. $>
+  ::fixed_array DUAL_TEST
   {
     VAR owner std::unique_ptr#([2]I32) :(@pointer NEW [2]I32 :[3, 5]);
     TEST_ASSERT((owner->)[0] == 3);
     TEST_ASSERT((owner->)[1] == 5);
   }
 
-  ::copy_assignment_rejected DOC <$ Assignment cannot duplicate unique ownership. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  DOC <$ Assignment cannot duplicate unique ownership. $>
+  ::copy_assignment_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR first std::unique_ptr#I32;
     VAR second std::unique_ptr#I32;
     second := first;
   }
 
-  ::copy_rejected DOC <$ Unique ownership cannot be copied. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  DOC <$ Unique ownership cannot be copied. $>
+  ::copy_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR first std::unique_ptr#I32;
     VAR second std::unique_ptr#I32 := first;

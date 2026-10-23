@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::pointer_ordering_tests NAMESPACE
 {
-  ::array_positions DOC <$ All comparisons follow element position within one allocation, including its one-past endpoint. $>
+  DOC <$ All comparisons follow element position within one allocation, including its one-past endpoint. $>
+  ::array_positions
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR values [4]T;
@@ -30,7 +31,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::element_widths DOC <$ Ordered pointer pairs agree for byte, four-byte and eight-byte element types. $>
+  DOC <$ Ordered pointer pairs agree for byte, four-byte and eight-byte element types. $>
+  ::element_widths
     DUAL_TEST
   {
     array_positions#(U8)();

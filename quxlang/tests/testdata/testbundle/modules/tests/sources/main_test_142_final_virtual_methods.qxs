@@ -2,47 +2,60 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::final_virtual_method_tests NAMESPACE
 {
-  ::root DOC <$ Declares a final virtual method without making the structure final. $>
+  DOC <$ Declares a final virtual method without making the structure final. $>
+  ::root
     STRUCT POLYMORPHIC
   {
     .number VAR I32;
-    .value DOC <$ Reads the receiver through a final virtual slot. $>
+    DOC <$ Reads the receiver through a final virtual slot. $>
+    .value
       FUNCTION() CONST VIRTUAL(FINAL): I32 { RETURN .number; }
   }
-  ::inheritor DOC <$ Inherits a final slot and declares a distinct same-named overload. $>
+  DOC <$ Inherits a final slot and declares a distinct same-named overload. $>
+  ::inheritor
     STRUCT POLYMORPHIC
   {
     .base BASE root;
-    .value DOC <$ Supplies a different signature without overriding the final slot. $>
+    DOC <$ Supplies a different signature without overriding the final slot. $>
+    .value
       FUNCTION(@argument I32) CONST: I32 { RETURN .number + argument; }
   }
-  ::read DOC <$ Calls the final slot through a base receiver. $>
+  DOC <$ Calls the final slot through a base receiver. $>
+  ::read
     FUNCTION(@object & root): I32 { RETURN object.value(); }
-  ::invalid_root_override DOC <$ Attempts to override the root's final virtual slot. $>
+  DOC <$ Attempts to override the root's final virtual slot. $>
+  ::invalid_root_override
     STRUCT POLYMORPHIC
   {
     .base BASE root;
-    .value DOC <$ Replaces a slot whose declaration forbids further overrides. $>
+    DOC <$ Replaces a slot whose declaration forbids further overrides. $>
+    .value
       FUNCTION() CONST VIRTUAL(OVERRIDE): I32 { RETURN 99; }
   }
-  ::middle DOC <$ Finalizes a previously overridable virtual method. $>
+  DOC <$ Finalizes a previously overridable virtual method. $>
+  ::middle
     STRUCT POLYMORPHIC
   {
     .base BASE inheritance_tests::dispatch_base;
-    .value DOC <$ Installs the final override using inherited receiver storage. $>
+    DOC <$ Installs the final override using inherited receiver storage. $>
+    .value
       FUNCTION() CONST VIRTUAL(OVERRIDE, FINAL): I32 { RETURN .stored_value + 7; }
   }
-  ::leaf DOC <$ Inherits a finalized override unchanged. $>
+  DOC <$ Inherits a finalized override unchanged. $>
+  ::leaf
     STRUCT POLYMORPHIC { .base BASE middle; }
-  ::invalid_leaf_override DOC <$ Attempts another override after a middle class finalized the slot. $>
+  DOC <$ Attempts another override after a middle class finalized the slot. $>
+  ::invalid_leaf_override
     STRUCT POLYMORPHIC
   {
     .base BASE middle;
-    .value DOC <$ Tries to replace the inherited final override. $>
+    DOC <$ Tries to replace the inherited final override. $>
+    .value
       FUNCTION() CONST VIRTUAL(OVERRIDE): I32 { RETURN 101; }
   }
 
-  ::inherited_final_and_overload DOC <$ Final virtual dispatch follows the base receiver while a distinct derived overload remains callable. $>
+  DOC <$ Final virtual dispatch follows the base receiver while a distinct derived overload remains callable. $>
+  ::inherited_final_and_overload
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object inheritor;
@@ -53,7 +66,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(read(@object object) == 41);
   }
 
-  ::inherited_final_override DOC <$ A final override remains selected through another derived level and independently copied storage. $>
+  DOC <$ A final override remains selected through another derived level and independently copied storage. $>
+  ::inherited_final_override
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR original leaf;
@@ -64,11 +78,13 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(inheritance_tests::call_virtual_value(@object copied) == 30);
   }
 
-  ::reject_final_root_override DOC <$ A final virtual declaration rejects an otherwise matching override. $>
+  DOC <$ A final virtual declaration rejects an otherwise matching override. $>
+  ::reject_final_root_override
     STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_JVM)
   { VAR object invalid_root_override; }
 
-  ::reject_final_middle_override DOC <$ Finalizing an override prevents further overrides in descendants. $>
+  DOC <$ Finalizing an override prevents further overrides in descendants. $>
+  ::reject_final_middle_override
     STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_JVM)
   { VAR object invalid_leaf_override; }
 }

@@ -2,12 +2,17 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::default_lifetime_tests NAMESPACE
 {
-  ::events DOC <$ Records destruction of default argument temporaries. $> VAR CONSTEXPR_OK I32;
-  ::attempts DOC <$ Counts evaluated default factories. $> VAR CONSTEXPR_OK I32;
-  ::failure DOC <$ Selects the default factory that throws, or zero for success. $> VAR CONSTEXPR_OK I32;
-  ::bodies DOC <$ Counts entries into the consuming function. $> VAR CONSTEXPR_OK I32;
+  DOC <$ Records destruction of default argument temporaries. $>
+  ::events VAR CONSTEXPR_OK I32;
+  DOC <$ Counts evaluated default factories. $>
+  ::attempts VAR CONSTEXPR_OK I32;
+  DOC <$ Selects the default factory that throws, or zero for success. $>
+  ::failure VAR CONSTEXPR_OK I32;
+  DOC <$ Counts entries into the consuming function. $>
+  ::bodies VAR CONSTEXPR_OK I32;
 
-  ::create DOC <$ Creates an owned default or throws before construction at the selected factory. $>
+  DOC <$ Creates an owned default or throws before construction at the selected factory. $>
+  ::create
     FUNCTION(@digit I32): control_flow_tests::exit_record
   {
     attempts++;
@@ -15,7 +20,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN control_flow_tests::exit_record(@events events, @digit digit);
   }
 
-  ::consume DOC <$ Observes both default temporaries alive for the duration of the call. $>
+  DOC <$ Observes both default temporaries alive for the duration of the call. $>
+  ::consume
     FUNCTION(@first CONST& control_flow_tests::exit_record DEFAULT(create(@digit 1)),
       @second CONST& control_flow_tests::exit_record DEFAULT(create(@digit 2)))
   {
@@ -25,7 +31,8 @@ LANGUAGE QUXLANG EN 0.0;
     bodies++;
   }
 
-  ::default_construction_paths DOC <$ Defaults are constructed in order and only completed temporaries are destroyed if a later default throws. $>
+  DOC <$ Defaults are constructed in order and only completed temporaries are destroyed if a later default throws. $>
+  ::default_construction_paths
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
@@ -58,7 +65,8 @@ LANGUAGE QUXLANG EN 0.0;
     failure := 0;
   }
 
-  ::explicit_argument_suppresses_default DOC <$ An explicit owned reference suppresses its throwing default and remains alive after the call. $>
+  DOC <$ An explicit owned reference suppresses its throwing default and remains alive after the call. $>
+  ::explicit_argument_suppresses_default
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     events := 0;

@@ -2,10 +2,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::unfair_mutex_serializes_threads
-  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+DOC <$
   Verifies mutual exclusion across eight workers and failed recursive acquisition.
-  $> UNIT_TEST
+  $>
+::unfair_mutex_serializes_threads
+  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
 {
   VAR mutex std::unfair_mutex;
   TEST_ASSERT(mutex.try_lock());
@@ -32,10 +33,11 @@ IMPORT std;
   mutex.unlock();
 }
 
-::unfair_mutex_condition_notify_all
-  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+DOC <$
   Verifies notification of multiple waiters and reacquisition of an unfair mutex.
-  $> UNIT_TEST
+  $>
+::unfair_mutex_condition_notify_all
+  INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) UNIT_TEST
 {
   VAR mutex std::unfair_mutex;
   VAR condition std::condition_variable;

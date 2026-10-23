@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::rotation_count_tests NAMESPACE
 {
-  ::cycles DOC <$ Compares rotations to arithmetic powers of two over two complete cycles, including both assignment forms. $>
+  DOC <$ Compares rotations to arithmetic powers of two over two complete cycles, including both assignment forms. $>
+  ::cycles
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR width SZ := BITS(T);
@@ -34,7 +35,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::complete_rotation_cycles DOC <$ Rotations use logical bit width for integer types up to 32 bits. $>
+  DOC <$ Rotations use logical bit width for integer types up to 32 bits. $>
+  ::complete_rotation_cycles
     DUAL_TEST
   {
     cycles#(U5)();
@@ -44,13 +46,15 @@ LANGUAGE QUXLANG EN 0.0;
     cycles#(U32)();
   }
 
-  ::wide_rotation_cycles DOC <$ Rotations cover two complete 64-bit cycles using a division-based arithmetic oracle. $>
+  DOC <$ Rotations cover two complete 64-bit cycles using a division-based arithmetic oracle. $>
+  ::wide_rotation_cycles
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_X86)
   {
     cycles#(U64)();
   }
 
-  ::signed_pattern DOC <$ Interprets a bounded bit pattern as the selected signed or unsigned integer. $>
+  DOC <$ Interprets a bounded bit pattern as the selected signed or unsigned integer. $>
+  ::signed_pattern
     TEMPLATE(@T TYPE AUTO) FUNCTION(@pattern U32, @modulus U32): T
   {
     VAR value I64 := pattern AS I64;
@@ -61,7 +65,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN value AS CHECKED T;
   }
 
-  ::pattern_rotation DOC <$ Checks both rotation directions and assignments against a one-bit arithmetic oracle. $>
+  DOC <$ Checks both rotation directions and assignments against a one-bit arithmetic oracle. $>
+  ::pattern_rotation
     TEMPLATE(@T TYPE AUTO) FUNCTION(@pattern U32, @count SZ)
   {
     VAR modulus U32 := 1;
@@ -89,7 +94,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(mut_down == down);
   }
 
-  ::five_bit_patterns DOC <$ Every signed and unsigned five-bit pattern rotates over in-range and out-of-range counts. $>
+  DOC <$ Every signed and unsigned five-bit pattern rotates over in-range and out-of-range counts. $>
+  ::five_bit_patterns
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR pattern U32 := 0;
@@ -110,7 +116,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::odd_width_high_bit_patterns DOC <$ Signed high bits and mixed patterns retain their full logical width at the maximum valid rotation count. $>
+  DOC <$ Signed high bits and mixed patterns retain their full logical width at the maximum valid rotation count. $>
+  ::odd_width_high_bit_patterns
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     pattern_rotation#(I7)(@pattern 65, @count 6);
@@ -121,7 +128,8 @@ LANGUAGE QUXLANG EN 0.0;
     pattern_rotation#(U17)(@pattern 65537, @count 16);
   }
 
-  ::large_rotation_counts DOC <$ Odd-width rotations preserve all count bits before modulo reduction, including both compound forms. $>
+  DOC <$ Odd-width rotations preserve all count bits before modulo reduction, including both compound forms. $>
+  ::large_rotation_counts
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     pattern_rotation#(I7)(@pattern 65, @count 65537);

@@ -1,10 +1,11 @@
 LANGUAGE QUXLANG EN 0.0;
 
-PRIVATE(MODULE) ::allocation_region_layout_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Checks that metadata is excluded from payload slots for small, non-power-of-two,
     and page-aligned classes, including the final partial bitmap word.
-    $> DUAL_TEST
+    $>
+PRIVATE(MODULE) ::allocation_region_layout_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
 {
   VAR small layer3_region_class;
   small.initialize(@size 12, @align 4);
@@ -21,11 +22,12 @@ PRIVATE(MODULE) ::allocation_region_layout_test
   TEST_ASSERT(large.slot_count >= 7 && large.slot_count < 32);
 }
 
-PRIVATE(MODULE) ::allocation_region_lifecycle_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Exercises bitmap claims, plate ownership, retirement, and delayed access
     through a stable detached control after its backing has been reused.
-    $> UNIT_TEST
+    $>
+PRIVATE(MODULE) ::allocation_region_lifecycle_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR root layer3_region_class;
   VAR alignment SZ := allocator_slab_maximum_block_size;
@@ -67,11 +69,12 @@ PRIVATE(MODULE) ::allocation_region_lifecycle_test
   TEST_ASSERT(other.available.next == other.available<-);
 }
 
-PRIVATE(MODULE) ::allocation_region_backing_limit_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Returns more regions than the shared pool can retain, exercising OS release
     and verifying that the retained stack stays within its configured limit.
-    $> UNIT_TEST
+    $>
+PRIVATE(MODULE) ::allocation_region_backing_limit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR regions [layer4_region_backing_limit + 4]MUT->layer3_region;
   LOOP ITEM(region) IN(regions) DO { region := layer4_region_acquire(); }
@@ -81,11 +84,12 @@ PRIVATE(MODULE) ::allocation_region_backing_limit_test
   layer4_region_backing.mtx.unlock();
 }
 
-PRIVATE(MODULE) ::allocation_region_capacity_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Checks bitmap coverage and the reserved metadata budget for every generated
     class, including at least seven slots in the largest allocation class.
-    $> STATIC_TEST
+    $>
+PRIVATE(MODULE) ::allocation_region_capacity_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) STATIC_TEST
 {
   TEST_ASSERT(allocator_allocation_region_bits >= 12);
   TEST_ASSERT(allocator_allocation_region_bits < SIZEOF(SZ) * 8 - 1);
@@ -109,11 +113,12 @@ PRIVATE(MODULE) ::allocation_region_capacity_test
   }
 }
 
-PRIVATE(MODULE) ::layer3_region_batch_return_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Returns interleaved slots from two regions across bitmap-word boundaries,
     preserves held slots, and retires both regions after their final return.
-    $> UNIT_TEST
+    $>
+PRIVATE(MODULE) ::layer3_region_batch_return_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR first_root layer3_region_class;
   VAR second_root layer3_region_class;
@@ -152,11 +157,12 @@ PRIVATE(MODULE) ::layer3_region_batch_return_test
   TEST_ASSERT((second_control->.region??) == FALSE);
 }
 
-PRIVATE(MODULE) ::layer3_refill_across_full_regions_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Refills a plate across multiple regions, preserves unique ownership, and
     retires full and partially issued regions after returning every address.
-    $> UNIT_TEST
+    $>
+PRIVATE(MODULE) ::layer3_refill_across_full_regions_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR root layer3_region_class;
   root.initialize(@size allocator_slab_maximum_block_size, @align allocator_slab_maximum_block_size);

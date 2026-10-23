@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::reflection_lifetime_tests NAMESPACE
 {
-  ::owned_record DOC <$ Returns three owned fields with observable destruction order. $>
+  DOC <$ Returns three owned fields with observable destruction order. $>
+  ::owned_record
     FUNCTION(@attempts MUT& I32, @events MUT& I32, @calls MUT& I32): struct_lifetime_tests::record
   {
     calls++;
@@ -14,7 +15,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN MOVE(value);
   }
 
-  ::observe DOC <$ Reads a projected owned field while its containing temporary must remain alive. $>
+  DOC <$ Reads a projected owned field while its containing temporary must remain alive. $>
+  ::observe
     FUNCTION(@value CONST& array_lifetime_tests::element, @events CONST& I32, @fail BOOL): I32
   {
     TEST_ASSERT(events == 0);
@@ -24,7 +26,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN value.number;
   }
 
-  ::temporary_normal_cleanup DOC <$ Reflection evaluates its temporary receiver once and destroys every field after the consuming call. $>
+  DOC <$ Reflection evaluates its temporary receiver once and destroys every field after the consuming call. $>
+  ::temporary_normal_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
@@ -37,7 +40,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 321);
   }
 
-  ::temporary_exception_cleanup DOC <$ A throwing call cleans up all fields of its reflected temporary receiver before the handler runs. $>
+  DOC <$ A throwing call cleans up all fields of its reflected temporary receiver before the handler runs. $>
+  ::temporary_exception_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
@@ -61,7 +65,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 321);
   }
 
-  ::move_projected_field DOC <$ Moving through a reflected field transfers only that field's destruction ownership. $>
+  DOC <$ Moving through a reflected field transfers only that field's destruction ownership. $>
+  ::move_projected_field
     DUAL_TEST
   {
     VAR attempts I32 := 0;

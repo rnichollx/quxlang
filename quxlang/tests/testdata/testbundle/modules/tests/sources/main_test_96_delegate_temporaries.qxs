@@ -2,12 +2,14 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::delegate_temporary_tests NAMESPACE
 {
-  ::field DOC <$ Borrows a delegate temporary only during construction and records completed-field cleanup. $>
+  DOC <$ Borrows a delegate temporary only during construction and records completed-field cleanup. $>
+  ::field
     STRUCT
   {
     .destroyed VAR MUT->I32;
     .digit VAR I32;
-    .CONSTRUCTOR DOC <$ Observes exactly one live delegate temporary and optionally throws before completion. $>
+    DOC <$ Observes exactly one live delegate temporary and optionally throws before completion. $>
+    .CONSTRUCTOR
       FUNCTION(@object CONST& short_circuit_tests::temporary, @destroyed MUT& I32, @fail I32)
     {
       TEST_ASSERT(object.alive-> == 1);
@@ -15,16 +17,19 @@ LANGUAGE QUXLANG EN 0.0;
       .digit := object.digit;
       IF (fail == .digit) { THROW I32(@OTHER .digit); }
     }
-    .DESTRUCTOR DOC <$ Records destruction only after successful construction. $>
+    DOC <$ Records destruction only after successful construction. $>
+    .DESTRUCTOR
       FUNCTION() { .destroyed-> := .destroyed-> * 10 + .digit; }
   }
 
-  ::owner DOC <$ Creates a separate temporary for each field delegate. $>
+  DOC <$ Creates a separate temporary for each field delegate. $>
+  ::owner
     STRUCT
   {
     .first VAR field;
     .second VAR field;
-    .CONSTRUCTOR DOC <$ Completes each delegate's temporary lifetime before entering the constructor body. $>
+    DOC <$ Completes each delegate's temporary lifetime before entering the constructor body. $>
+    .CONSTRUCTOR
       FUNCTION(@events MUT& I32, @alive MUT& I32, @destroyed MUT& I32, @fail I32)
       :> .first:(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 1), @destroyed destroyed, @fail fail),
          .second:(@object short_circuit_tests::temporary(@events events, @alive alive, @digit 2), @destroyed destroyed, @fail fail)
@@ -34,7 +39,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::normal_cleanup DOC <$ Each delegate temporary expires before the next delegate, while completed fields live until owner destruction. $>
+  DOC <$ Each delegate temporary expires before the next delegate, while completed fields live until owner destruction. $>
+  ::normal_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -49,7 +55,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(destroyed == 21);
   }
 
-  ::failed_delegate_cleanup DOC <$ A failing delegate destroys its borrowed temporary and the completed field prefix without running later delegates. $>
+  DOC <$ A failing delegate destroys its borrowed temporary and the completed field prefix without running later delegates. $>
+  ::failed_delegate_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 1;

@@ -2,19 +2,23 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::procedure_compatibility_tests NAMESPACE
 {
-  ::nonthrowing DOC <$ Handles a local exception before returning through a nonthrowing callable boundary. $>
+  DOC <$ Handles a local exception before returning through a nonthrowing callable boundary. $>
+  ::nonthrowing
     FUNCTION(@value I32) NOEXCEPT: I32
   {
     TRY { THROW I32(@OTHER value); }
     CATCH error CONST& I32 { RETURN error + 1; }
     RETURN 0;
   }
-  ::potentially_throwing DOC <$ Supplies a callable without a nonthrowing guarantee. $>
+  DOC <$ Supplies a callable without a nonthrowing guarantee. $>
+  ::potentially_throwing
     FUNCTION(@value I32): I32 { RETURN value; }
-  ::ordered DOC <$ Uses asymmetric positional types whose order is part of the callable signature. $>
+  DOC <$ Uses asymmetric positional types whose order is part of the callable signature. $>
+  ::ordered
     FUNCTION(%first I32, %second I64): I64 { RETURN (first AS I64) + second; }
 
-  ::nonthrowing_indirect_call DOC <$ Exact NOEXCEPT procedure pointers retain their target through copying and allow exceptions handled within the callable. $>
+  DOC <$ Exact NOEXCEPT procedure pointers retain their target through copying and allow exceptions handled within the callable. $>
+  ::nonthrowing_indirect_call
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR pointer CONST->PROCEDURE NOEXCEPT(@value I32: I32) := nonthrowing<-;
@@ -24,25 +28,29 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 
-  ::named_parameter_mismatch DOC <$ Callable pointer conversion cannot silently rename a public named parameter. $>
+  DOC <$ Callable pointer conversion cannot silently rename a public named parameter. $>
+  ::named_parameter_mismatch
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR pointer CONST->PROCEDURE(@different I32: I32) := potentially_throwing<-;
   }
 
-  ::positional_order_mismatch DOC <$ Positional parameter types must match in order when taking a callable address. $>
+  DOC <$ Positional parameter types must match in order when taking a callable address. $>
+  ::positional_order_mismatch
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR pointer CONST->PROCEDURE(I64, I32: I64) := ordered<-;
   }
 
-  ::noexcept_strengthening DOC <$ A potentially throwing callable cannot initialize a procedure pointer promising no escaping exceptions. $>
+  DOC <$ A potentially throwing callable cannot initialize a procedure pointer promising no escaping exceptions. $>
+  ::noexcept_strengthening
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR pointer CONST->PROCEDURE NOEXCEPT(@value I32: I32) := potentially_throwing<-;
   }
 
-  ::return_category_mismatch DOC <$ A value-returning callable cannot initialize a procedure pointer returning a mutable reference. $>
+  DOC <$ A value-returning callable cannot initialize a procedure pointer returning a mutable reference. $>
+  ::return_category_mismatch
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR pointer CONST->PROCEDURE(@value I32: MUT& I32) := potentially_throwing<-;

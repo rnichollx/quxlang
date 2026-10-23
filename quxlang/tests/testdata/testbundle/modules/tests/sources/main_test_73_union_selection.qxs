@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::union_selection_tests NAMESPACE
 {
-  ::boxed DOC <$ A boxed union distinguishes named alternatives with identical payload types. $>
+  DOC <$ A boxed union distinguishes named alternatives with identical payload types. $>
+  ::boxed
     UNION
   {
     .empty OPTION DEFAULT VOID;
@@ -10,7 +11,8 @@ LANGUAGE QUXLANG EN 0.0;
     .second OPTION I32;
   }
 
-  ::inlined DOC <$ An inline union distinguishes named alternatives with identical payload types. $>
+  DOC <$ An inline union distinguishes named alternatives with identical payload types. $>
+  ::inlined
     INLINE_UNION
   {
     .empty OPTION DEFAULT VOID;
@@ -18,7 +20,8 @@ LANGUAGE QUXLANG EN 0.0;
     .second OPTION I32;
   }
 
-  ::transitions DOC <$ Assignment changes named tags, match bindings mutate stored payloads, and copies retain independent state. $>
+  DOC <$ Assignment changes named tags, match bindings mutate stored payloads, and copies retain independent state. $>
+  ::transitions
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR value T;
@@ -58,7 +61,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::guards DOC <$ Only matching named alternatives evaluate guards, and rejected guards reach OTHERWISE or DEFAULT exactly once. $>
+  DOC <$ Only matching named alternatives evaluate guards, and rejected guards reach OTHERWISE or DEFAULT exactly once. $>
+  ::guards
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR value T :(@second (7 AS I32));
@@ -92,25 +96,29 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::boxed_transitions DOC <$ Boxed union copies and repeated tag changes preserve named identity and independent payload storage. $>
+  DOC <$ Boxed union copies and repeated tag changes preserve named identity and independent payload storage. $>
+  ::boxed_transitions
     DUAL_TEST
   {
     transitions#(boxed)();
   }
 
-  ::inline_transitions DOC <$ Inline union copies and repeated tag changes preserve named identity and independent payload storage. $>
+  DOC <$ Inline union copies and repeated tag changes preserve named identity and independent payload storage. $>
+  ::inline_transitions
     DUAL_TEST
   {
     transitions#(inlined)();
   }
 
-  ::boxed_guards DOC <$ Boxed union matching respects named guard order and both fallback forms. $>
+  DOC <$ Boxed union matching respects named guard order and both fallback forms. $>
+  ::boxed_guards
     DUAL_TEST
   {
     guards#(boxed)();
   }
 
-  ::inline_guards DOC <$ Inline union matching respects named guard order and both fallback forms. $>
+  DOC <$ Inline union matching respects named guard order and both fallback forms. $>
+  ::inline_guards
     DUAL_TEST
   {
     guards#(inlined)();

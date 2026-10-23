@@ -2,24 +2,29 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::ignored_argument_tests NAMESPACE
 {
-  ::record DOC <$ Records evaluation order and supplies a positional value. $>
+  DOC <$ Records evaluation order and supplies a positional value. $>
+  ::record
     FUNCTION(@events MUT& I32, @digit I32): I32
   {
     events := events * 10 + digit;
     RETURN digit;
   }
 
-  ::select_middle DOC <$ Consumes ignored positions without shifting the named positional binding. $>
+  DOC <$ Consumes ignored positions without shifting the named positional binding. $>
+  ::select_middle
     FUNCTION(%IGNORED I32, %middle I32, %IGNORED I32): I32
   { RETURN middle; }
 
-  ::default_events DOC <$ Records declaration-context default evaluation. $> VAR CONSTEXPR_OK I32;
+  DOC <$ Records declaration-context default evaluation. $>
+  ::default_events VAR CONSTEXPR_OK I32;
 
-  ::accept_default DOC <$ Evaluates an omitted ignored parameter's default in its declaration context. $>
+  DOC <$ Evaluates an omitted ignored parameter's default in its declaration context. $>
+  ::accept_default
     FUNCTION(%IGNORED I32 DEFAULT(record(@events default_events, @digit 4)))
   { }
 
-  ::positions_and_evaluation DOC <$ Unnamed positional parameters retain source evaluation order and do not shift intervening named positions. $>
+  DOC <$ Unnamed positional parameters retain source evaluation order and do not shift intervening named positions. $>
+  ::positions_and_evaluation
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -28,7 +33,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 123);
   }
 
-  ::ignored_default DOC <$ An omitted ignored argument evaluates its default once and an explicit argument suppresses it. $>
+  DOC <$ An omitted ignored argument evaluates its default once and an explicit argument suppresses it. $>
+  ::ignored_default
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -41,14 +47,16 @@ LANGUAGE QUXLANG EN 0.0;
     default_events := 0;
   }
 
-  ::accept_owned DOC <$ Keeps an unnamed owned pack alive through the body and allows exception propagation. $>
+  DOC <$ Keeps an unnamed owned pack alive through the body and allows exception propagation. $>
+  ::accept_owned
     FUNCTION(@fail BOOL, @events CONST& I32, %...IGNORED AUTO)
   {
     TEST_ASSERT(events == 0);
     IF (fail) { THROW I32(@OTHER 73); }
   }
 
-  ::owned_pack_cleanup DOC <$ Empty and heterogeneous ignored packs preserve owned argument cleanup on normal and exceptional exits. $>
+  DOC <$ Empty and heterogeneous ignored packs preserve owned argument cleanup on normal and exceptional exits. $>
+  ::owned_pack_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;

@@ -1,23 +1,24 @@
 # Declaration Documentation
 
-`DOC <$ ... $>` attaches reader-facing text to the named declaration that
-contains it. The documentation becomes declaration metadata; it does not
+`DOC <$ ... $>` attaches reader-facing text to the declaration that
+follows it. The documentation becomes declaration metadata; it does not
 execute and does not change overload or availability semantics.
 
 ## Placement
 
 For an ordinary named declaration, the components appear in this order:
 
-1. the `.name` or `::name` declaration name;
-2. optional `INCLUDE_IF(...)`;
-3. optional `DOC <$ ... $>`;
-4. the declaration kind and definition.
+1. optional `DOC <$ ... $>`;
+2. optional `PRIVATE(...)`;
+3. the `.name` or `::name` declaration name;
+4. optional `INCLUDE_IF(...)`;
+5. the declaration kind and definition.
 
 ```quxlang
-::double INCLUDE_IF(TRUE) DOC <$
+DOC <$
   Returns twice the supplied value.
   $>
-  FUNCTION(@ARG:value I32): I32
+::double INCLUDE_IF(TRUE) FUNCTION(@ARG:value I32): I32
 {
   RETURN value * 2;
 }
@@ -28,18 +29,26 @@ Member and type-owned declarations use the same position:
 ```quxlang
 ::counter STRUCT
 {
-  .read DOC <$ Returns the current counter value. $>
-    FUNCTION() CONST: I32
+  DOC <$ Returns the current counter value. $>
+  .read FUNCTION() CONST: I32
   {
     RETURN .value;
   }
 
-  .value DOC <$ Current mutable count. $> VAR I32;
+  DOC <$ Current mutable count. $>
+  .value VAR I32;
 }
 ```
 
-Documentation before the declaration name is not attached by this grammar.
-Only one `DOC` block is allowed for one declaration.
+The `DOC` block precedes the declaration name and any explicit privacy modifier.
+Only one `DOC` block is allowed for one declaration. A block after the declaration
+name, a block without a following declaration, and a block preceding a scoped
+`PRIVATE` block are syntax errors. Declarations inside a scoped `PRIVATE` block
+may each carry their own prefix documentation.
+
+The same placement applies to named and anonymous base declarations and import
+declarations. Documentation belongs to the following declaration alone; nested
+declarations and subsequent declarations receive their own documentation.
 
 ## Delimiters and text
 
@@ -57,12 +66,12 @@ For a multiline block, the indentation of the line containing the closing
 delimiter is removed from the beginning of each line that has that indentation:
 
 ```quxlang
-::parse DOC <$
+DOC <$
   Parses one value.
 
   Failure is reported to the caller.
   $>
-  FUNCTION()
+::parse FUNCTION()
 {
 }
 ```
@@ -71,15 +80,14 @@ This permits the source block to follow its surrounding indentation without
 embedding that structural indentation in the stored documentation. Relative
 indentation beyond the closing delimiter's indentation is preserved.
 
-Whitespace and comments after `$>` are skipped before parsing the declaration
-kind.
+Whitespace and comments after `$>` are skipped before parsing the declaration.
 
 ## Availability and privacy
 
 `DOC` attaches to the declaration before target filtering and privacy checks.
 It does not make an unavailable declaration active and does not make a private
 declaration public. The ordering with `INCLUDE_IF` is syntactic: when both are
-present, `INCLUDE_IF(...)` precedes `DOC`.
+present, `DOC` precedes the declaration name and `INCLUDE_IF(...)` follows the name.
 
 See [Target Availability](availability-and-targets.md) and
 [Privacy](privacy.md).

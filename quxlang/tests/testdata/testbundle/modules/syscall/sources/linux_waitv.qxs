@@ -2,11 +2,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::linux INCLUDE_IF(OS_LINUX) NAMESPACE
 {
-  ::futex_waitv DOC <$
+  DOC <$
     Invokes Linux futex_waitv and returns a waiter index or a negative errno.
     Waiters points to count Linux futex_waitv records; timeout is null or points
     to an absolute kernel timespec with two signed 64-bit fields.
     $>
+  ::futex_waitv
     ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(
       @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
@@ -19,11 +20,12 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::futex_waitv DOC <$
+  DOC <$
     Invokes Linux futex_waitv and returns a waiter index or a negative errno.
     Waiters points to count Linux futex_waitv records; timeout is null or points
     to an absolute kernel timespec with two signed 64-bit fields.
     $>
+  ::futex_waitv
     ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(
       @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
@@ -46,11 +48,12 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::futex_waitv DOC <$
+  DOC <$
     Invokes Linux futex_waitv and returns a waiter index or a negative errno.
     Waiters points to count Linux futex_waitv records; timeout is null or points
     to an absolute kernel timespec with two signed 64-bit fields.
     $>
+  ::futex_waitv
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(
       @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
@@ -62,11 +65,12 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::futex_waitv DOC <$
+  DOC <$
     Invokes Linux futex_waitv and returns a waiter index or a negative errno.
     Waiters points to count Linux futex_waitv records; timeout is null or points
     to an absolute kernel timespec with two signed 64-bit fields.
     $>
+  ::futex_waitv
     ASM_PROCEDURE Z_ARCH
     CALLABLE CALLCONV CCALL(
       @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;

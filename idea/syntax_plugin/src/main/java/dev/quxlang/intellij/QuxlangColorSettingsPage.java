@@ -37,7 +37,7 @@ public final class QuxlangColorSettingsPage implements ColorSettingsPage {
         return """
             LANGUAGE QUXLANG EN 0.0;
             // A counter with a named argument.
-            ::<type>counter</type> DOC <$ Stores the current count. $> STRUCT
+            DOC <$ Stores the current count. $> ::<type>counter</type> STRUCT
             {
                 .value VAR I32;
                 .<memberFunction>add</memberFunction> FUNCTION(@amount I32) MUT: I32

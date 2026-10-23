@@ -2,11 +2,13 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::exponentiation_tests NAMESPACE
 {
-  ::number DOC <$ Supplies a user-defined exponentiation operator for nonnegative integer powers. $>
+  DOC <$ Supplies a user-defined exponentiation operator for nonnegative integer powers. $>
+  ::number
     STRUCT
   {
     .value VAR I32;
-    .OPERATOR^ DOC <$ Computes an exact small power by repeated multiplication. $>
+    DOC <$ Computes an exact small power by repeated multiplication. $>
+    .OPERATOR^
       FUNCTION(@OTHER I32) CONST: I32
     {
       VAR result I32 := 1;
@@ -16,7 +18,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::member_dispatch_and_grouping DOC <$ Exponentiation dispatches to the custom member and binds more tightly than multiplication. $>
+  DOC <$ Exponentiation dispatches to the custom member and binds more tightly than multiplication. $>
+  ::member_dispatch_and_grouping
     DUAL_TEST
   {
     VAR base number;
@@ -28,7 +31,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((base ^ ((2 AS I32) * 3)) == 729);
   }
 
-  ::integer_powers DOC <$ Built-in integer exponentiation computes small exact powers. $>
+  DOC <$ Built-in integer exponentiation computes small exact powers. $>
+  ::integer_powers
     DUAL_TEST KNOWN_BROKEN
     // Not yet implemented
   {

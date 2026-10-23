@@ -1,24 +1,27 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::big_integer DOC <$
+DOC <$
   Owns a signed arbitrary-precision integer in base one billion. Addition and
   subtraction support arbitrary magnitudes; multiplication accepts a U32 factor.
   quotient_i32 computes a signed floor quotient when the result fits I32.
-  $> STRUCT
+  $>
+::big_integer STRUCT
 {
   PRIVATE(CLASS)
   {
     .limbs VAR dynarr#U32;
     .negative VAR BOOL;
 
-    .normalize DOC <$ Removes high zero limbs and canonicalizes zero's sign. $>
+    DOC <$ Removes high zero limbs and canonicalizes zero's sign. $>
+    .normalize
       FUNCTION() MUT
     {
       LOOP WHILE (.limbs.size() != 0 && .limbs.back() == 0) DO { .limbs.pop_back(); }
       IF (.limbs.size() == 0) { .negative := FALSE; }
     }
 
-    .compare_magnitude DOC <$ Compares unsigned magnitudes independently of signs. $>
+    DOC <$ Compares unsigned magnitudes independently of signs. $>
+    .compare_magnitude
       FUNCTION(@ARG:other CONST& big_integer) CONST: ORDER
     {
       VAR order ORDER := .limbs.size() <=> other.limbs.size();
@@ -32,7 +35,8 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN ORDER::EQUAL;
     }
 
-    .add_magnitude DOC <$ Adds an unsigned magnitude while retaining this integer's sign. $>
+    DOC <$ Adds an unsigned magnitude while retaining this integer's sign. $>
+    .add_magnitude
       FUNCTION(@ARG:other CONST& big_integer) MUT
     {
       VAR count SZ := other.limbs.size();
@@ -49,7 +53,8 @@ LANGUAGE QUXLANG EN 0.0;
       IF (carry != 0) { .limbs.push_back(carry AS CHECKED U32); }
     }
 
-    .subtract_magnitude DOC <$ Subtracts a magnitude no greater than this integer's magnitude. $>
+    DOC <$ Subtracts a magnitude no greater than this integer's magnitude. $>
+    .subtract_magnitude
       FUNCTION(@ARG:other CONST& big_integer) MUT
     {
       VAR borrow U64 := 0;
@@ -65,7 +70,8 @@ LANGUAGE QUXLANG EN 0.0;
       .normalize();
     }
 
-    .combine DOC <$ Adds other's magnitude with the supplied sign. $>
+    DOC <$ Adds other's magnitude with the supplied sign. $>
+    .combine
       FUNCTION(@other CONST& big_integer, @negative BOOL) MUT
     {
       IF (.negative == negative) { .add_magnitude(other); RETURN; }
@@ -78,8 +84,10 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  .CONSTRUCTOR DOC <$ Constructs zero. $> FUNCTION() { }
-  .CONSTRUCTOR DOC <$ Constructs an exact signed machine integer, including I64's minimum value. $>
+  DOC <$ Constructs zero. $>
+  .CONSTRUCTOR FUNCTION() { }
+  DOC <$ Constructs an exact signed machine integer, including I64's minimum value. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER I64)
   {
     .negative := OTHER < 0;
@@ -92,15 +100,18 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  .add DOC <$ Adds other. Self-addition doubles the value. $>
+  DOC <$ Adds other. Self-addition doubles the value. $>
+  .add
     FUNCTION(@ARG:other CONST& big_integer) MUT
   { .combine(@other other, @negative other.negative); }
 
-  .subtract DOC <$ Subtracts other. Self-subtraction produces zero. $>
+  DOC <$ Subtracts other. Self-subtraction produces zero. $>
+  .subtract
     FUNCTION(@ARG:other CONST& big_integer) MUT
   { .combine(@other other, @negative other.negative == FALSE); }
 
-  .multiply DOC <$ Multiplies by a nonnegative machine factor with exact carry propagation. $>
+  DOC <$ Multiplies by a nonnegative machine factor with exact carry propagation. $>
+  .multiply
     FUNCTION(@ARG:factor U32) MUT
   {
     IF (factor == 0) { .limbs.clear(); .negative := FALSE; RETURN; }
@@ -118,7 +129,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  .quotient_i32 DOC <$ Returns floor(THIS / divisor). Throws I32 for a zero divisor or an out-of-range quotient. $>
+  DOC <$ Returns floor(THIS / divisor). Throws I32 for a zero divisor or an out-of-range quotient. $>
+  .quotient_i32
     FUNCTION(@ARG:divisor CONST& big_integer) CONST: I32
   {
     IF (divisor.limbs.size() == 0) { THROW (1 AS I32); }

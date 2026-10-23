@@ -2,9 +2,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::synchronized_pointer_queue_fifo INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
   Verifies FIFO order across ring wraparound and null pointer transfer.
-  $> UNIT_TEST
+  $>
+::synchronized_pointer_queue_fifo INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR queue std::synchronized_pointer_queue#(@T SZ, @capacity 3);
   VAR values [6]SZ;
@@ -23,10 +24,11 @@ IMPORT std;
   TEST_ASSERT(queue.pop() == values[5]<-);
 }
 
-::synchronized_pointer_queue_concurrent INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
   Transfers allocations from two producers to two consumers through a one-slot
   queue and verifies that every identity is consumed exactly once.
-  $> UNIT_TEST
+  $>
+::synchronized_pointer_queue_concurrent INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR queue std::synchronized_pointer_queue#(@T SZ, @capacity 1);
   VAR results [2]std::dynarr#SZ;

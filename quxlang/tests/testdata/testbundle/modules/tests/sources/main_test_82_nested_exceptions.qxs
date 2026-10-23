@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::nested_exception_tests NAMESPACE
 {
-  ::restore_outer_handler DOC <$ A nested handler temporarily replaces the current exception and restores the still-live outer payload afterward. $>
+  DOC <$ A nested handler temporarily replaces the current exception and restores the still-live outer payload afterward. $>
+  ::restore_outer_handler
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR destroyed I32 := 0;
@@ -34,7 +35,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 
-  ::replacement_unwinds_handler DOC <$ Throwing a replacement exception unwinds the old handler while an explicitly retained handle keeps the old payload alive. $>
+  DOC <$ Throwing a replacement exception unwinds the old handler while an explicitly retained handle keeps the old payload alive. $>
+  ::replacement_unwinds_handler
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR destroyed I32 := 0;

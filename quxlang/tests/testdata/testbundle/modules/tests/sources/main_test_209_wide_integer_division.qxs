@@ -4,7 +4,8 @@ LANGUAGE QUXLANG EN 0.0;
 {
   ::runtime_zero INCLUDE_IF(ARCH_IS_JVM == FALSE) VAR ATOMIC#U32;
 
-  ::check DOC <$ Division and remainder agree with expected values for ordinary and mutating operations. $>
+  DOC <$ Division and remainder agree with expected values for ordinary and mutating operations. $>
+  ::check
     TEMPLATE(@T TYPE AUTO) FUNCTION(@dividend T, @divisor T, @quotient T, @remainder T)
   {
     RUNTIME NATIVE

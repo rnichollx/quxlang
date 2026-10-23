@@ -3,7 +3,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 PRIVATE(MODULE)
 {
-  ::cord_branch DOC <$ Owns two nonempty cord subtrees and their cached aggregate metadata. $>
+  DOC <$ Owns two nonempty cord subtrees and their cached aggregate metadata. $>
+  ::cord_branch
     TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
   {
     .left VAR cord#(T);
@@ -11,7 +12,8 @@ PRIVATE(MODULE)
     .element_count VAR SZ;
     .height VAR SZ;
 
-    .CONSTRUCTOR DOC <$ Moves two nonempty subtrees into one balanced-tree branch. $>
+    DOC <$ Moves two nonempty subtrees into one balanced-tree branch. $>
+    .CONSTRUCTOR
       FUNCTION(@left TEMP& cord#(T), @right TEMP& cord#(T)) :>
         .left:(@OTHER FORWARD(left)),
         .right:(@OTHER FORWARD(right))
@@ -35,10 +37,11 @@ PRIVATE(MODULE)
   }
 
 
-  ::cord_value DOC <$
+  DOC <$
     Stores one uniquely owned cord state without shared ownership or reference
     counts.
     $>
+  ::cord_value
     TEMPLATE(@T TYPE AUTO) UNION NEVER_VALUELESS NO_DEFAULT_COPY
   {
     .empty OPTION DEFAULT VOID;
@@ -48,17 +51,19 @@ PRIVATE(MODULE)
 }
 
 
-::cord DOC <$
+DOC <$
   Owns a balanced rope of element-array leaves. When T is copy-constructible,
   copying duplicates the complete tree and its elements. Concatenation transfers
   ownership of both operands without copying elements or sharing tree nodes.
-  $> TEMPLATE(@T TYPE AUTO) STRUCT
+  $>
+::cord TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
     .value VAR cord_value#(T);
 
-    .tree_height DOC <$ Returns zero for an empty cord and the cached AVL height otherwise. $>
+    DOC <$ Returns zero for an empty cord and the cached AVL height otherwise. $>
+    .tree_height
       FUNCTION() CONST: SZ
     {
       VAR result SZ := 0;
@@ -70,7 +75,8 @@ PRIVATE(MODULE)
       RETURN result;
     }
 
-    .copy_elements_to DOC <$ Appends a copy of every element to destination in logical order. $>
+    DOC <$ Appends a copy of every element to destination in logical order. $>
+    .copy_elements_to
       FUNCTION(@destination MUT& dynarr#(T)) CONST
     {
       MATCH .value AS payload {
@@ -90,7 +96,8 @@ PRIVATE(MODULE)
       }
     }
 
-    .move_elements_to DOC <$ Moves every element into destination in logical order. $>
+    DOC <$ Moves every element into destination in logical order. $>
+    .move_elements_to
       FUNCTION(@destination MUT& dynarr#(T)) MUT
     {
       MATCH .value AS payload {
@@ -112,14 +119,16 @@ PRIVATE(MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Creates an empty cord. $>
+  DOC <$ Creates an empty cord. $>
+  .CONSTRUCTOR
     FUNCTION()
   {
   }
 
-  .CONSTRUCTOR INCLUDE_IF(SAME_TYPES(T, BYTE)) DOC <$
+  DOC <$
     Copies the bytes of a string constant into one element-array leaf.
     $>
+  .CONSTRUCTOR INCLUDE_IF(SAME_TYPES(T, BYTE))
     FUNCTION(@OTHER STRING_CONSTANT)
   {
     VAR materialized string := OTHER;
@@ -138,7 +147,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Copies one element into a new single-element leaf. $>
+  DOC <$ Copies one element into a new single-element leaf. $>
+  .CONSTRUCTOR
     FUNCTION(@value CONST& T)
   {
     VAR elements dynarr#(T);
@@ -146,7 +156,8 @@ PRIVATE(MODULE)
     .value := cord_value#(T)(@leaf MOVE(elements));
   }
 
-  .CONSTRUCTOR DOC <$ Moves one element into a new single-element leaf. $>
+  DOC <$ Moves one element into a new single-element leaf. $>
+  .CONSTRUCTOR
     FUNCTION(@value TEMP& T)
   {
     VAR elements dynarr#(T);
@@ -154,7 +165,8 @@ PRIVATE(MODULE)
     .value := cord_value#(T)(@leaf MOVE(elements));
   }
 
-  .CONSTRUCTOR DOC <$ Copies an element array into one independently owned leaf. $>
+  DOC <$ Copies an element array into one independently owned leaf. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER CONST& dynarr#(T))
   {
     IF ((OTHER.empty()) == FALSE)
@@ -164,7 +176,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Moves an element-array allocation into one leaf. $>
+  DOC <$ Moves an element-array allocation into one leaf. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& dynarr#(T))
   {
     IF ((OTHER.empty()) == FALSE)
@@ -174,7 +187,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ When T is copy-constructible, deep-copies the complete tree from OTHER. $>
+  DOC <$ When T is copy-constructible, deep-copies the complete tree from OTHER. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER CONST& cord#(T))
   {
     MATCH OTHER.value AS payload {
@@ -195,14 +209,16 @@ PRIVATE(MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers the complete uniquely owned tree from OTHER. $>
+  DOC <$ Transfers the complete uniquely owned tree from OTHER. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& cord#(T))
   {
     VAR other_value MUT& cord_value#(T) := OTHER.value AS MUT& cord_value#(T);
     .value <-> other_value;
   }
 
-  .size DOC <$ Returns the number of elements represented by this cord. $>
+  DOC <$ Returns the number of elements represented by this cord. $>
+  .size
     FUNCTION() CONST: SZ
   {
     VAR result SZ := 0;
@@ -214,13 +230,15 @@ PRIVATE(MODULE)
     RETURN result;
   }
 
-  .empty DOC <$ Reports whether this cord contains no elements. $>
+  DOC <$ Reports whether this cord contains no elements. $>
+  .empty
     FUNCTION() CONST: BOOL
   {
     RETURN .value IS empty;
   }
 
-  .OPERATOR[] DOC <$ Returns a constant reference to the element at index. $>
+  DOC <$ Returns a constant reference to the element at index. $>
+  .OPERATOR[]
     FUNCTION(%index SZ) CONST: CONST& T
   {
     ASSERT(index < .size(), "Cord index is out of range.");
@@ -247,7 +265,8 @@ PRIVATE(MODULE)
     };
   }
 
-  .OPERATOR[] DOC <$ Returns a mutable reference to the element at index. $>
+  DOC <$ Returns a mutable reference to the element at index. $>
+  .OPERATOR[]
     FUNCTION(%index SZ) MUT: MUT& T
   {
     ASSERT(index < .size(), "Cord index is out of range.");
@@ -274,10 +293,11 @@ PRIVATE(MODULE)
     };
   }
 
-  .flatten DOC <$
+  DOC <$
     When T is copy-constructible, copies all leaves in element order into one
     contiguous dynamic array.
     $>
+  .flatten
     FUNCTION() CONST: dynarr#(T)
   {
     VAR result dynarr#(T);
@@ -286,7 +306,8 @@ PRIVATE(MODULE)
     RETURN result;
   }
 
-  .flatten DOC <$ Moves all elements into one contiguous dynamic array and empties this cord. $>
+  DOC <$ Moves all elements into one contiguous dynamic array and empties this cord. $>
+  .flatten
     FUNCTION() TEMP: dynarr#(T)
   {
     VAR this_value MUT& cord#(T) := THIS AS MUT& cord#(T);
@@ -297,7 +318,8 @@ PRIVATE(MODULE)
     RETURN MOVE(result);
   }
 
-  .concat DOC <$ Appends suffix by move and preserves the AVL balance invariant. $>
+  DOC <$ Appends suffix by move and preserves the AVL balance invariant. $>
+  .concat
     FUNCTION(@suffix TEMP& cord#(T)) MUT: MUT& cord#(T)
   {
     VAR this_value MUT& cord#(T) := THIS AS MUT& cord#(T);
@@ -309,14 +331,16 @@ PRIVATE(MODULE)
     RETURN this_value;
   }
 
-  .OPERATOR+= DOC <$ Appends OTHER by move and returns this cord. $>
+  DOC <$ Appends OTHER by move and returns this cord. $>
+  .OPERATOR+=
     FUNCTION(@OTHER TEMP& cord#(T)) MUT: MUT& cord#(T)
   {
     VAR other MUT& cord#(T) := OTHER AS MUT& cord#(T);
     RETURN .concat(@suffix MOVE(other));
   }
 
-  .OPERATOR+ DOC <$ Moves both operands into a balanced concatenation result. $>
+  DOC <$ Moves both operands into a balanced concatenation result. $>
+  .OPERATOR+
     FUNCTION(@OTHER TEMP& cord#(T)) TEMP: cord#(T)
   {
     VAR this_value MUT& cord#(T) := THIS AS MUT& cord#(T);
@@ -331,7 +355,8 @@ PRIVATE(MODULE)
 
 PRIVATE(MODULE)
 {
-  ::cord_take_branch DOC <$ Moves the branch payload out of an internal non-leaf cord. $>
+  DOC <$ Moves the branch payload out of an internal non-leaf cord. $>
+  ::cord_take_branch
     TEMPLATE(@T TYPE AUTO)
     FUNCTION(@value TEMP& cord#(T)): cord_branch#(T)
   {
@@ -344,7 +369,8 @@ PRIVATE(MODULE)
   }
 
 
-  ::cord_make_branch DOC <$ Moves two nonempty subtrees into one metadata-bearing branch. $>
+  DOC <$ Moves two nonempty subtrees into one metadata-bearing branch. $>
+  ::cord_make_branch
     TEMPLATE(@T TYPE AUTO)
     FUNCTION(@left TEMP& cord#(T), @right TEMP& cord#(T)): cord#(T)
   {
@@ -358,10 +384,11 @@ PRIVATE(MODULE)
   }
 
 
-  ::cord_balance_children DOC <$
+  DOC <$
     Joins adjacent AVL subtrees and performs the required single or double
     rotation.
     $>
+  ::cord_balance_children
     TEMPLATE(@T TYPE AUTO)
     FUNCTION(@left TEMP& cord#(T), @right TEMP& cord#(T)): cord#(T)
   {
@@ -442,7 +469,8 @@ PRIVATE(MODULE)
   }
 
 
-  ::cord_join_balanced DOC <$ Moves two AVL cords into their ordered balanced join. $>
+  DOC <$ Moves two AVL cords into their ordered balanced join. $>
+  ::cord_join_balanced
     TEMPLATE(@T TYPE AUTO)
     FUNCTION(@left TEMP& cord#(T), @right TEMP& cord#(T)): cord#(T)
   {
@@ -498,7 +526,8 @@ PRIVATE(MODULE)
 }
 
 
-::concat DOC <$ Moves two cords into one balanced result without copying leaf elements. $>
+DOC <$ Moves two cords into one balanced result without copying leaf elements. $>
+::concat
   TEMPLATE(@T TYPE AUTO)
   FUNCTION(@left TEMP& cord#(T), @right TEMP& cord#(T)): cord#(T)
 {

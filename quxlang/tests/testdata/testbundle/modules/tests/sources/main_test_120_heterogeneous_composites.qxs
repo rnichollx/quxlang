@@ -3,7 +3,8 @@ IMPORT std;
 
 ::heterogeneous_composite_tests NAMESPACE
 {
-  ::update DOC <$ Mutates named string and array references while consuming scalar arguments by value. $>
+  DOC <$ Mutates named string and array references while consuming scalar arguments by value. $>
+  ::update
     FUNCTION(@text MUT& std::string, @numbers MUT& [2]I32, @amount I32, @enabled BOOL): I32
   {
     TEST_ASSERT(enabled);
@@ -13,7 +14,8 @@ IMPORT std;
     RETURN numbers[0] + numbers[1];
   }
 
-  ::partition_join_apply DOC <$ Splitting and rejoining heterogeneous references preserves named binding, mutability and storage identity. $>
+  DOC <$ Splitting and rejoining heterogeneous references preserves named binding, mutability and storage identity. $>
+  ::partition_join_apply
     DUAL_TEST
   {
     VAR numbers [2]I32;
@@ -40,7 +42,8 @@ IMPORT std;
     TEST_ASSERT(numbers[1] == 21);
   }
 
-  ::selected_owned_fields DOC <$ Selected owned fields are copied while borrowed fields retain their external referents. $>
+  DOC <$ Selected owned fields are copied while borrowed fields retain their external referents. $>
+  ::selected_owned_fields
     DUAL_TEST
   {
     VAR number I32 := 11;

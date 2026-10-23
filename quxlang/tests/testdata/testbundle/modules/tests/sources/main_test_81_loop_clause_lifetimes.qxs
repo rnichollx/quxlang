@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::loop_clause_lifetime_tests NAMESPACE
 {
-  ::initialization_scope DOC <$ INIT and EVAL locals remain live during the loop and are destroyed when its scope ends, including zero iterations and BREAK. $>
+  DOC <$ INIT and EVAL locals remain live during the loop and are destroyed when its scope ends, including zero iterations and BREAK. $>
+  ::initialization_scope
     DUAL_TEST
   {
     VAR mode I32 := 0;
@@ -29,7 +30,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::posttest_temporary DOC <$ POSTTEST temporaries are destroyed before STEP, including CONTINUE and the final false posttest. $>
+  DOC <$ POSTTEST temporaries are destroyed before STEP, including CONTINUE and the final false posttest. $>
+  ::posttest_temporary
     DUAL_TEST
   {
     VAR events I32 := 0;

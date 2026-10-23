@@ -2,14 +2,16 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::struct_lifetime_tests NAMESPACE
 {
-  ::record DOC <$ Three nontrivial fields expose the order of generated struct operations. $>
+  DOC <$ Three nontrivial fields expose the order of generated struct operations. $>
+  ::record
     STRUCT
   {
     .first VAR array_lifetime_tests::element;
     .second VAR array_lifetime_tests::element;
     .third VAR array_lifetime_tests::element;
 
-    .configure DOC <$ Connects source fields to the shared copy and destruction counters. $>
+    DOC <$ Connects source fields to the shared copy and destruction counters. $>
+    .configure
       FUNCTION(@attempts MUT& I32, @events MUT& I32, @failure I32)
     {
       .first.attempts := attempts<-;
@@ -27,7 +29,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::copy_failure_at_each_field DOC <$ A failed generated copy destroys only completed fields, in reverse declaration order. $>
+  DOC <$ A failed generated copy destroys only completed fields, in reverse declaration order. $>
+  ::copy_failure_at_each_field
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 1;
@@ -63,7 +66,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::copy_independence_and_cleanup DOC <$ Generated copies invoke each field copy constructor and own independently mutable fields. $>
+  DOC <$ Generated copies invoke each field copy constructor and own independently mutable fields. $>
+  ::copy_independence_and_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
@@ -85,7 +89,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 324);
   }
 
-  ::move_transfers_field_ownership DOC <$ Generated moves invoke field move constructors without copying or duplicating destruction ownership. $>
+  DOC <$ Generated moves invoke field move constructors without copying or duplicating destruction ownership. $>
+  ::move_transfers_field_ownership
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
@@ -111,14 +116,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(attempts == 3);
   }
 
-  ::body_failure_record DOC <$ Records field cleanup separately from the owning object's destructor body. $>
+  DOC <$ Records field cleanup separately from the owning object's destructor body. $>
+  ::body_failure_record
     STRUCT
   {
     .first VAR generated_destructor_field;
     .second VAR generated_destructor_field;
     .events VAR MUT->I32;
 
-    .CONSTRUCTOR DOC <$ Initializes both fields before optionally throwing from the constructor body. $>
+    DOC <$ Initializes both fields before optionally throwing from the constructor body. $>
+    .CONSTRUCTOR
       FUNCTION(@events MUT& I32, @fail BOOL)
     {
       .events := events<-;
@@ -129,11 +136,13 @@ LANGUAGE QUXLANG EN 0.0;
       IF (fail) { THROW I32(@OTHER 7); }
     }
 
-    .DESTRUCTOR DOC <$ Records entry before generated field destruction starts. $>
+    DOC <$ Records entry before generated field destruction starts. $>
+    .DESTRUCTOR
       FUNCTION() { .events-> := .events-> * 10 + 9; }
   }
 
-  ::constructor_body_failure_cleanup DOC <$ Throwing from a constructor destroys initialized fields but does not invoke the incomplete owner's destructor body. $>
+  DOC <$ Throwing from a constructor destroys initialized fields but does not invoke the incomplete owner's destructor body. $>
+  ::constructor_body_failure_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -153,7 +162,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 21);
   }
 
-  ::destructor_body_precedes_fields DOC <$ Successful objects execute their destructor body before destroying fields in reverse order. $>
+  DOC <$ Successful objects execute their destructor body before destroying fields in reverse order. $>
+  ::destructor_body_precedes_fields
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;

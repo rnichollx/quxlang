@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::decimal_spelling_tests NAMESPACE
 {
-  ::leading_zero_integers DOC <$ Leading zeroes retain decimal interpretation, including digits eight and nine and wide values. $>
+  DOC <$ Leading zeroes retain decimal interpretation, including digits eight and nine and wide values. $>
+  ::leading_zero_integers
     DUAL_TEST
   {
     VAR zero U64 := 000000;
@@ -18,7 +19,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((00017 AS I64) + 00029 == 46);
   }
 
-  ::fractional_zeroes DOC <$ Leading and trailing decimal zeroes preserve exact representable fractional values in both float widths. $>
+  DOC <$ Leading and trailing decimal zeroes preserve exact representable fractional values in both float widths. $>
+  ::fractional_zeroes
     DUAL_TEST
   {
     VAR first F32 := 0001.25000;

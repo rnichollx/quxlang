@@ -3,31 +3,37 @@ IMPORT std;
 
 ::thread_local_object_tests NAMESPACE
 {
-  ::state DOC <$ Owns a string and optionally reports destruction to the joining thread. $>
+  DOC <$ Owns a string and optionally reports destruction to the joining thread. $>
+  ::state
     STRUCT
   {
     .text VAR std::string;
     .destructions VAR MUT->I32;
-    .CONSTRUCTOR DOC <$ Gives every thread an independently constructed owned string. $>
+    DOC <$ Gives every thread an independently constructed owned string. $>
+    .CONSTRUCTOR
       FUNCTION() { .text := "seed"; }
-    .DESTRUCTOR DOC <$ Reports destruction before the owning thread completes its join. $>
+    DOC <$ Reports destruction before the owning thread completes its join. $>
+    .DESTRUCTOR
       FUNCTION()
     {
       IF (.destructions??) { .destructions-> ++; }
     }
   }
 
-  ::local_state DOC <$ Stores a distinct owned object in each thread. $>
+  DOC <$ Stores a distinct owned object in each thread. $>
+  ::local_state
     VAR PER_THREAD state;
 
-  ::entry DOC <$ Mutates thread-local storage and optionally waits for a second worker to overlap its lifetime. $>
+  DOC <$ Mutates thread-local storage and optionally waits for a second worker to overlap its lifetime. $>
+  ::entry
     STRUCT
   {
     .destructions VAR MUT->I32;
     .arrived VAR MUT->ATOMIC#I32;
     .letter VAR BYTE;
     .expected VAR STRING_CONSTANT;
-    .OPERATOR() DOC <$ Checks initialization, isolation during overlap, and persistent access to the same thread-local object. $>
+    DOC <$ Checks initialization, isolation during overlap, and persistent access to the same thread-local object. $>
+    .OPERATOR()
       FUNCTION()
     {
       TEST_ASSERT(local_state.text == "seed");
@@ -43,7 +49,8 @@ IMPORT std;
     }
   }
 
-  ::concurrent_owned_state INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Two simultaneous threads and their parent retain distinct owned strings and each worker destroys its own state once. $>
+  DOC <$ Two simultaneous threads and their parent retain distinct owned strings and each worker destroys its own state once. $>
+  ::concurrent_owned_state INCLUDE_IF(OS_MACOS || ARCH_IS_JVM)
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     local_state.text := "main";
@@ -71,7 +78,8 @@ IMPORT std;
     local_state.text := "seed";
   }
 
-  ::fresh_state_after_thread_exit INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Successive threads start from the initializer instead of retaining the previous thread's mutated owned state. $>
+  DOC <$ Successive threads start from the initializer instead of retaining the previous thread's mutated owned state. $>
+  ::fresh_state_after_thread_exit INCLUDE_IF(OS_MACOS || ARCH_IS_JVM)
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR destructions I32 := 0;

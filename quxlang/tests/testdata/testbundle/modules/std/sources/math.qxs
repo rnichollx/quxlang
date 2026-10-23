@@ -2,9 +2,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 PRIVATE(MODULE, RUNTIME_MODULE)
 {
-  ::binary64 DOC <$ Converts binary64 values to and from canonical IEEE encodings. $> STRUCT
+  DOC <$ Converts binary64 values to and from canonical IEEE encodings. $>
+  ::binary64 STRUCT
   {
-    ::encode DOC <$ Returns the canonical binary64 encoding emitted by Quxlang serialization. $>
+    DOC <$ Returns the canonical binary64 encoding emitted by Quxlang serialization. $>
+    ::encode
       FUNCTION(@ARG:value F64): U64
     {
       VAR bytes [8]BYTE;
@@ -15,7 +17,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       RETURN result;
     }
 
-    ::decode DOC <$ Decodes an IEEE binary64 encoding through Quxlang deserialization. $>
+    DOC <$ Decodes an IEEE binary64 encoding through Quxlang deserialization. $>
+    ::decode
       FUNCTION(@ARG:encoding U64): F64
     {
       VAR bytes [8]BYTE;
@@ -28,7 +31,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   }
 }
 
-::sqrt DOC <$
+DOC <$
   Computes the correctly rounded binary64 square root with round-to-nearest,
   ties-to-even semantics using native Quxlang arithmetic. Positive infinity and
   zero are preserved. Negative values and NaNs produce canonical NaN.
@@ -36,6 +39,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   exact integer squares and remainders determine the final rounded significand.
   No system math routine, assembly or floating-point environment is used.
   $>
+::sqrt
   FUNCTION(@ARG:value F64): F64
 {
   VAR encoding U64 := binary64::encode(value);

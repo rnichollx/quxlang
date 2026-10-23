@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::BENCHMARK_TIMESPEC DOC <$ Stores a native monotonic timestamp with 64-bit seconds and nanoseconds. $>
+DOC <$ Stores a native monotonic timestamp with 64-bit seconds and nanoseconds. $>
+::BENCHMARK_TIMESPEC
   IBC_STRUCT
 {
   .seconds VAR I64;
@@ -57,7 +58,8 @@ LANGUAGE QUXLANG EN 0.0;
   EXTERN_PROCEDURE["java/lang/System":"nanoTime"]
   CALLABLE CALLCONV JVM_STATIC(; RETURN I64);
 
-::BENCHMARK_CLOCK DOC <$ Returns a target monotonic timestamp in nanoseconds. $>
+DOC <$ Returns a target monotonic timestamp in nanoseconds. $>
+::BENCHMARK_CLOCK
   FUNCTION(): U64
 {
   STATIC_IF(OS_MACOS || OS_LINUX)
@@ -87,7 +89,8 @@ LANGUAGE QUXLANG EN 0.0;
   STATIC_ELSE { COMPILATION_ERROR ON_LOWER "Benchmark timing is unavailable on this target"; }
 }
 
-::BENCHMARK_OPERATION_COUNT DOC <$ Converts and validates one measurement operation count before timing starts. $>
+DOC <$ Converts and validates one measurement operation count before timing starts. $>
+::BENCHMARK_OPERATION_COUNT
   FUNCTION(@VALUE:value AUTO(count_type)): U64
 {
   VAR result U64;
@@ -97,14 +100,16 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN result;
 }
 
-::BENCHMARK_ACCUMULATE DOC <$ Adds a completed measurement with checked duration and operation totals. $>
+DOC <$ Adds a completed measurement with checked duration and operation totals. $>
+::BENCHMARK_ACCUMULATE
   FUNCTION(@ELAPSED:elapsed U64, @COUNT:count U64, @CHANNEL:channel SZ, @STATE:state MUT& BENCHMARK_STATE)
 {
   state.durations[channel] := state.durations[channel] +? elapsed;
   state.counts[channel] := state.counts[channel] +? count;
 }
 
-::BENCHMARK_RECORD DOC <$ Stops a measurement before updating its channel accumulators. $>
+DOC <$ Stops a measurement before updating its channel accumulators. $>
+::BENCHMARK_RECORD
   FUNCTION(@START:start U64, @COUNT:count U64, @CHANNEL:channel SZ, @STATE:state MUT& BENCHMARK_STATE)
 {
   VAR end U64 := BENCHMARK_CLOCK();

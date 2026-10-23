@@ -2,14 +2,16 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::custom_unary_postfix_tests NAMESPACE
 {
-  ::probe DOC <$ Records separate unary operator dispatch and the lifetime of its receiver. $>
+  DOC <$ Records separate unary operator dispatch and the lifetime of its receiver. $>
+  ::probe
     STRUCT MOVE_ONLY
   {
     .events VAR MUT->I32;
     .alive VAR MUT->I32;
     .truth VAR BOOL;
     .mask VAR U8;
-    .CONSTRUCTOR DOC <$ Starts an observable receiver lifetime with a fixed bit mask. $>
+    DOC <$ Starts an observable receiver lifetime with a fixed bit mask. $>
+    .CONSTRUCTOR
       FUNCTION(@events MUT& I32, @alive MUT& I32, @truth BOOL)
     {
       .events := events<-;
@@ -19,27 +21,31 @@ LANGUAGE QUXLANG EN 0.0;
       events := events * 10 + 1;
       alive++;
     }
-    .DESTRUCTOR DOC <$ Records the end of the receiver lifetime. $>
+    DOC <$ Records the end of the receiver lifetime. $>
+    .DESTRUCTOR
       FUNCTION()
     {
       .events-> := .events-> * 10 + 9;
       .alive-> --;
     }
-    .OPERATOR?? DOC <$ Returns the stored Boolean and records presence dispatch. $>
+    DOC <$ Returns the stored Boolean and records presence dispatch. $>
+    .OPERATOR??
       FUNCTION() CONST: BOOL
     {
       TEST_ASSERT(.alive-> == 1);
       .events-> := .events-> * 10 + 2;
       RETURN .truth;
     }
-    .OPERATOR!! DOC <$ Returns the inverse Boolean and records logical-negation dispatch. $>
+    DOC <$ Returns the inverse Boolean and records logical-negation dispatch. $>
+    .OPERATOR!!
       FUNCTION() CONST: BOOL
     {
       TEST_ASSERT(.alive-> == 1);
       .events-> := .events-> * 10 + 4;
       RETURN .truth !!;
     }
-    .OPERATOR#!! DOC <$ Returns the inverted mask and records bitwise-negation dispatch. $>
+    DOC <$ Returns the inverted mask and records bitwise-negation dispatch. $>
+    .OPERATOR#!!
       FUNCTION() CONST: U8
     {
       TEST_ASSERT(.alive-> == 1);
@@ -64,7 +70,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::absence_from_presence DOC <$ Absence testing inverts a single presence call. $>
+  DOC <$ Absence testing inverts a single presence call. $>
+  ::absence_from_presence
     DUAL_TEST
   {
     VAR calls I32 := 0;
@@ -75,14 +82,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(calls == 2);
   }
 
-  ::receiver DOC <$ Records a single evaluation and preserves constant receiver identity. $>
+  DOC <$ Records a single evaluation and preserves constant receiver identity. $>
+  ::receiver
     FUNCTION(@object CONST& probe): CONST& probe
   {
     object.events-> := object.events-> * 10 + 6;
     RETURN object;
   }
 
-  ::distinct_dispatch DOC <$ Unary expressions evaluate their receiver once, preserve its stored values, and share presence dispatch for ?? and !?. $>
+  DOC <$ Unary expressions evaluate their receiver once, preserve its stored values, and share presence dispatch for ?? and !?. $>
+  ::distinct_dispatch
     DUAL_TEST
   {
     VAR mode I32 := 0;
@@ -115,7 +124,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::temporary_cleanup DOC <$ Temporary receivers survive each unary call and expire before continuation, including a chained built-in negation. $>
+  DOC <$ Temporary receivers survive each unary call and expire before continuation, including a chained built-in negation. $>
+  ::temporary_cleanup
     DUAL_TEST
   {
     VAR events I32 := 0;

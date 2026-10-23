@@ -2,53 +2,61 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::virtual_generated_member_tests NAMESPACE
 {
-  ::lifetime_counter DOC <$ Counts destruction of the containing virtual base. $>
+  DOC <$ Counts destruction of the containing virtual base. $>
+  ::lifetime_counter
     STRUCT
   {
     .deaths VAR MUT->I32;
-    .DESTRUCTOR DOC <$ Records destruction when a counter has been attached. $>
+    DOC <$ Records destruction when a counter has been attached. $>
+    .DESTRUCTOR
       FUNCTION()
     {
       IF (.deaths??) { .deaths-> := .deaths-> + 1; }
     }
   }
 
-  ::root DOC <$ Stores owned text in the shared virtual base. $>
+  DOC <$ Stores owned text in the shared virtual base. $>
+  ::root
     STRUCT VIRTUAL_POLYMORPHIC
   {
     .text VAR std::string;
     .lifetime VAR lifetime_counter;
   }
 
-  ::left DOC <$ Adds an ordinary field beside the shared virtual base. $>
+  DOC <$ Adds an ordinary field beside the shared virtual base. $>
+  ::left
     STRUCT VIRTUAL_POLYMORPHIC
   {
     .shared VIRTUAL_BASE root;
     .value VAR I32;
   }
 
-  ::right DOC <$ Reaches the same virtual base through a second branch. $>
+  DOC <$ Reaches the same virtual base through a second branch. $>
+  ::right
     STRUCT VIRTUAL_POLYMORPHIC
   {
     .shared VIRTUAL_BASE root;
     .value VAR I32;
   }
 
-  ::diamond DOC <$ Uses generated lifetime and value operations for both branches. $>
+  DOC <$ Uses generated lifetime and value operations for both branches. $>
+  ::diamond
     STRUCT VIRTUAL_POLYMORPHIC
   {
     .left BASE left;
     .right BASE right;
   }
 
-  ::envelope DOC <$ Owns a complete virtual diamond as an ordinary field. $>
+  DOC <$ Owns a complete virtual diamond as an ordinary field. $>
+  ::envelope
     STRUCT
   {
     .value VAR diamond;
     .tail VAR I32;
   }
 
-  ::contained_complete_object DOC <$ Generated operations on an ordinary wrapper preserve the lifetime and identity of its virtual polymorphic field. $>
+  DOC <$ Generated operations on an ordinary wrapper preserve the lifetime and identity of its virtual polymorphic field. $>
+  ::contained_complete_object
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source envelope;
@@ -66,18 +74,21 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((moved.value.right.shared<- AS DYNAMIC MUT->diamond) == moved.value<-);
   }
 
-  ::failing_envelope DOC <$ Throws after copying a complete virtual diamond into an ordinary field. $>
+  DOC <$ Throws after copying a complete virtual diamond into an ordinary field. $>
+  ::failing_envelope
     STRUCT
   {
     .value VAR diamond;
-    .CONSTRUCTOR DOC <$ Completes field construction before throwing from the enclosing constructor body. $>
+    DOC <$ Completes field construction before throwing from the enclosing constructor body. $>
+    .CONSTRUCTOR
       FUNCTION(@OTHER CONST& diamond) :> .value:(@OTHER OTHER)
     {
       THROW I32(@OTHER 42);
     }
   }
 
-  ::contained_construction_cleanup DOC <$ A failed enclosing constructor destroys its completed virtual polymorphic field once before entering the handler. $>
+  DOC <$ A failed enclosing constructor destroys its completed virtual polymorphic field once before entering the handler. $>
+  ::contained_construction_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR deaths I32 := 0;
@@ -103,7 +114,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(deaths == 2);
   }
 
-  ::default_and_copy DOC <$ Default construction initializes the virtual base once and copying preserves owned values and complete-object identity. $>
+  DOC <$ Default construction initializes the virtual base once and copying preserves owned values and complete-object identity. $>
+  ::default_and_copy
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source diamond;
@@ -124,7 +136,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(source.left.shared.text == "shared text");
   }
 
-  ::move_construction DOC <$ Moving a diamond transfers owned text once while retaining distinct complete-object identities. $>
+  DOC <$ Moving a diamond transfers owned text once while retaining distinct complete-object identities. $>
+  ::move_construction
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source diamond;
@@ -141,7 +154,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(moved.left.shared.text == "moved text");
   }
 
-  ::assignment_and_swap DOC <$ Generated assignment and swap update each shared virtual base once without exchanging object identity. $>
+  DOC <$ Generated assignment and swap update each shared virtual base once without exchanging object identity. $>
+  ::assignment_and_swap
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR first diamond;
@@ -174,19 +188,24 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(first.left.shared.text == "replacement");
   }
 
-  ::explicit_value DOC <$ Makes user-declared constructors distinguishable from generated constructors. $>
+  DOC <$ Makes user-declared constructors distinguishable from generated constructors. $>
+  ::explicit_value
     STRUCT VIRTUAL_POLYMORPHIC
   {
     .value VAR I32;
-    .CONSTRUCTOR DOC <$ Supplies a visible default value. $>
+    DOC <$ Supplies a visible default value. $>
+    .CONSTRUCTOR
       FUNCTION() { .value := 10; }
-    .CONSTRUCTOR DOC <$ Makes copy constructor selection observable. $>
+    DOC <$ Makes copy constructor selection observable. $>
+    .CONSTRUCTOR
       FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 1; }
-    .CONSTRUCTOR DOC <$ Makes move constructor selection observable. $>
+    DOC <$ Makes move constructor selection observable. $>
+    .CONSTRUCTOR
       FUNCTION(@OTHER TEMP& explicit_value) { .value := OTHER.value + 2; }
   }
 
-  ::virtual_base_destruction DOC <$ Generated destructors release the shared virtual base exactly once for each original, copied, and moved object. $>
+  DOC <$ Generated destructors release the shared virtual base exactly once for each original, copied, and moved object. $>
+  ::virtual_base_destruction
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR deaths I32 := 0;
@@ -203,13 +222,15 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(deaths == 3);
   }
 
-  ::explicit_derived DOC <$ Requires user-declared constructors through their subobject entries. $>
+  DOC <$ Requires user-declared constructors through their subobject entries. $>
+  ::explicit_derived
     STRUCT VIRTUAL_POLYMORPHIC
   {
     .base BASE explicit_value;
   }
 
-  ::user_constructors DOC <$ User constructors suppress corresponding implicit overloads in both complete objects and base subobjects. $>
+  DOC <$ User constructors suppress corresponding implicit overloads in both complete objects and base subobjects. $>
+  ::user_constructors
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source explicit_value;
@@ -226,24 +247,29 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(derived_move.base.value == 12);
   }
 
-  ::no_default DOC <$ Disables implicit default construction even with no user constructors. $>
+  DOC <$ Disables implicit default construction even with no user constructors. $>
+  ::no_default
     STRUCT VIRTUAL_POLYMORPHIC NO_IMPLICIT_DEFAULT_CONSTRUCTOR
   {
     .value VAR I32;
   }
 
-  ::converted_value DOC <$ Combines a conversion constructor with generated default and copy constructors. $>
+  DOC <$ Combines a conversion constructor with generated default and copy constructors. $>
+  ::converted_value
     STRUCT VIRTUAL_POLYMORPHIC
   {
     .value VAR I32;
-    .CONSTRUCTOR DOC <$ Initializes from an integer supplied through argument conversion. $>
+    DOC <$ Initializes from an integer supplied through argument conversion. $>
+    .CONSTRUCTOR
       FUNCTION(@OTHER I32) { .value := OTHER; }
   }
 
-  ::read_value DOC <$ Receives a complete virtual polymorphic object by value. $>
+  DOC <$ Receives a complete virtual polymorphic object by value. $>
+  ::read_value
     FUNCTION(@value converted_value): I32 { RETURN value.value; }
 
-  ::argument_construction DOC <$ By-value arguments use complete-object constructors for copying and conversion, while an unrelated explicit constructor permits generated default construction. $>
+  DOC <$ By-value arguments use complete-object constructors for copying and conversion, while an unrelated explicit constructor permits generated default construction. $>
+  ::argument_construction
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value converted_value;
@@ -253,7 +279,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(read_value(@value I32(@OTHER 71)) == 71);
   }
 
-  ::default_suppression DOC <$ Virtual polymorphic classes honor the default-constructor suppression tag. $>
+  DOC <$ Virtual polymorphic classes honor the default-constructor suppression tag. $>
+  ::default_suppression
     STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value no_default;

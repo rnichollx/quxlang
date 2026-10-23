@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::closure_copy_tests NAMESPACE
 {
-  ::capture_failure_prefix DOC <$ A failing capture construction destroys only completed captures in reverse order. $>
+  DOC <$ A failing capture construction destroys only completed captures in reverse order. $>
+  ::capture_failure_prefix
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR position I32 := 1;
@@ -50,7 +51,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::copy_failure_prefix DOC <$ A failing closure copy destroys only completed captures in reverse order. $>
+  DOC <$ A failing closure copy destroys only completed captures in reverse order. $>
+  ::copy_failure_prefix
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR position I32 := 1;

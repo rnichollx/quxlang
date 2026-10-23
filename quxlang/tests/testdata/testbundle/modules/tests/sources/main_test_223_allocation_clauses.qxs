@@ -2,17 +2,20 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::allocation_clause_tests NAMESPACE
 {
-  ::allocator DOC <$ Records typed allocation and deallocation calls on one receiver. $> STRUCT
+  DOC <$ Records typed allocation and deallocation calls on one receiver. $>
+  ::allocator STRUCT
   {
     .allocations VAR I32;
     .deallocations VAR I32;
-    .ALLOCATE DOC <$ Allocates storage for the selected payload type. $>
+    DOC <$ Allocates storage for the selected payload type. $>
+    .ALLOCATE
       TEMPLATE(@T TYPE) FUNCTION(): ->TYPED_STORAGE(T)
     {
       .allocations++;
       RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::ALLOC();
     }
-    .DEALLOCATE DOC <$ Releases storage for the selected payload type. $>
+    DOC <$ Releases storage for the selected payload type. $>
+    .DEALLOCATE
       TEMPLATE(@T TYPE) FUNCTION(@PTR:ptr ->TYPED_STORAGE(T))
     {
       TEST_ASSERT(ptr??);
@@ -21,24 +24,30 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::allocator_class DOC <$ Supplies typed allocation operations through class members. $> STRUCT
+  DOC <$ Supplies typed allocation operations through class members. $>
+  ::allocator_class STRUCT
   {
-    ::ALLOCATE DOC <$ Allocates storage for the selected payload type. $>
+    DOC <$ Allocates storage for the selected payload type. $>
+    ::ALLOCATE
       TEMPLATE(@T:payload TYPE) FUNCTION(): ->TYPED_STORAGE(payload)
     { RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(payload)::ALLOC(); }
-    ::DEALLOCATE DOC <$ Releases storage for the selected payload type. $>
+    DOC <$ Releases storage for the selected payload type. $>
+    ::DEALLOCATE
       TEMPLATE(@T:payload TYPE) FUNCTION(@PTR:ptr ->TYPED_STORAGE(payload))
     { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(payload)::DEALLOC(@PTR ptr); }
   }
 
-  ::source DOC <$ Counts initializer evaluation. $> FUNCTION(@count MUT& I32): I32
+  DOC <$ Counts initializer evaluation. $>
+  ::source FUNCTION(@count MUT& I32): I32
   { count++; RETURN 37; }
 
-  ::select_slot DOC <$ Counts evaluation of a pointer-slot operand. $>
+  DOC <$ Counts evaluation of a pointer-slot operand. $>
+  ::select_slot
     FUNCTION(@slot MUT& MUT->I32, @count MUT& I32): MUT& MUT->I32
   { count++; RETURN slot; }
 
-  ::optional_receiver DOC <$ Optional operations evaluate each slot once and skip allocation, initializer, and deallocation calls when the slot already has the requested state. $> DUAL_TEST
+  DOC <$ Optional operations evaluate each slot once and skip allocation, initializer, and deallocation calls when the slot already has the requested state. $>
+  ::optional_receiver DUAL_TEST
   {
     VAR memory allocator;
     VAR pointer MUT->I32;
@@ -61,7 +70,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(memory.deallocations == 1);
   }
 
-  ::class_and_required_slots DOC <$ Class allocator dispatch supports inferred pointer-slot types and explicit payload types. $> DUAL_TEST
+  DOC <$ Class allocator dispatch supports inferred pointer-slot types and explicit payload types. $>
+  ::class_and_required_slots DUAL_TEST
   {
     VAR pointer MUT->I32;
     NEW TO(pointer) WITH(allocator_class) := 41;
@@ -78,16 +88,20 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(pointer == NULL);
   }
 
-  ::owner DOC <$ Stores a pointer managed through inferred member-slot operations. $> STRUCT
+  DOC <$ Stores a pointer managed through inferred member-slot operations. $>
+  ::owner STRUCT
   {
     .ptr VAR MUT->I32;
-    .initialize DOC <$ Constructs the pointee through a member reference. $> FUNCTION()
+    DOC <$ Constructs the pointee through a member reference. $>
+    .initialize FUNCTION()
     { NEW OPTIONAL TO(.ptr) := 47; }
-    .release DOC <$ Deletes the pointee and clears the member reference. $> FUNCTION()
+    DOC <$ Deletes the pointee and clears the member reference. $>
+    .release FUNCTION()
     { DELETE OPTIONAL FROM(.ptr); }
   }
 
-  ::member_slots DOC <$ Member-slot operations infer the pointee and remain idempotent. $> DUAL_TEST
+  DOC <$ Member-slot operations infer the pointee and remain idempotent. $>
+  ::member_slots DUAL_TEST
   {
     VAR object owner;
     object.initialize();
@@ -98,7 +112,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(object.ptr == NULL);
   }
 
-  ::fixed_array_slots DOC <$ Inferred fixed-array payloads use shared array construction and destruction. $> DUAL_TEST
+  DOC <$ Inferred fixed-array payloads use shared array construction and destruction. $>
+  ::fixed_array_slots DUAL_TEST
   {
     VAR pointer MUT-> [2]I32;
     NEW TO(pointer) :[53, 59];
@@ -108,17 +123,21 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(pointer == NULL);
   }
 
-  ::virtual_allocator DOC <$ Supplies complete-object storage for polymorphic payloads. $> STRUCT
+  DOC <$ Supplies complete-object storage for polymorphic payloads. $>
+  ::virtual_allocator STRUCT
   {
-    ::ALLOCATE DOC <$ Allocates complete-object storage with the payload's layout. $>
+    DOC <$ Allocates complete-object storage with the payload's layout. $>
+    ::ALLOCATE
       TEMPLATE(@T:payload TYPE) FUNCTION(): ->VIRTUAL_STORAGE
     { RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_ALLOC(@SIZE SIZEOF(payload), @ALIGN ALIGNOF(payload)); }
-    ::DEALLOCATE DOC <$ Releases complete-object storage with the payload's layout. $>
+    DOC <$ Releases complete-object storage with the payload's layout. $>
+    ::DEALLOCATE
       TEMPLATE(@T:payload TYPE) FUNCTION(@PTR:ptr ->VIRTUAL_STORAGE)
     { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_DEALLOC(@PTR ptr, @SIZE SIZEOF(payload), @ALIGN ALIGNOF(payload)); }
   }
 
-  ::polymorphic_item DOC <$ Records virtual destruction of an allocated complete object. $> STRUCT POLYMORPHIC
+  DOC <$ Records virtual destruction of an allocated complete object. $>
+  ::polymorphic_item STRUCT POLYMORPHIC
   {
     .destroyed VAR MUT->I32;
     .CONSTRUCTOR FUNCTION(@destroyed MUT->I32)
@@ -127,8 +146,8 @@ LANGUAGE QUXLANG EN 0.0;
     { .destroyed-> += 1; }
   }
 
-  ::polymorphic_slot INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
-    DOC <$ Custom allocator selection retains complete-object construction and virtual destruction. $> UNIT_TEST
+  DOC <$ Custom allocator selection retains complete-object construction and virtual destruction. $>
+  ::polymorphic_slot INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
   {
     VAR destroyed I32;
     VAR pointer MUT->polymorphic_item;
@@ -138,7 +157,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(destroyed == 1);
   }
 
-  ::optional_pointer_delete DOC <$ Optional deletion accepts null pointer values and destroys a non-null operand once. $> DUAL_TEST
+  DOC <$ Optional deletion accepts null pointer values and destroys a non-null operand once. $>
+  ::optional_pointer_delete DUAL_TEST
   {
     VAR memory allocator;
     VAR pointer MUT->I32;

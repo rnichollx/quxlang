@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::aggregate_procedure_tests NAMESPACE
 {
-  ::record DOC <$ Combines differently sized scalar fields and a three-element array. $>
+  DOC <$ Combines differently sized scalar fields and a three-element array. $>
+  ::record
     STRUCT
   {
     .tag VAR U8;
@@ -11,7 +12,8 @@ LANGUAGE QUXLANG EN 0.0;
     .words VAR [3]U64;
   }
 
-  ::transform DOC <$ Mutates its private argument copy and returns the complete record by value. $>
+  DOC <$ Mutates its private argument copy and returns the complete record by value. $>
+  ::transform
     FUNCTION(@value record, @amount I32): record
   {
     value.tag := 9;
@@ -23,7 +25,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN value;
   }
 
-  ::mixed_record_value_roundtrip DOC <$ Indirect aggregate argument and result passing preserve every field and independent nested-array storage. $>
+  DOC <$ Indirect aggregate argument and result passing preserve every field and independent nested-array storage. $>
+  ::mixed_record_value_roundtrip
     DUAL_TEST
   {
     VAR pointer CONST->PROCEDURE(@value record, @amount I32: record) := transform<-;
@@ -56,10 +59,12 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(result.words[1] == 2);
   }
 
-  ::floating_record DOC <$ Contains three floating-point fields passed and returned as one value. $>
+  DOC <$ Contains three floating-point fields passed and returned as one value. $>
+  ::floating_record
     STRUCT { .first VAR F64; .second VAR F64; .third VAR F64; }
 
-  ::rotate DOC <$ Permutes three floating-point fields without changing their values. $>
+  DOC <$ Permutes three floating-point fields without changing their values. $>
+  ::rotate
     FUNCTION(@value floating_record): floating_record
   {
     VAR result floating_record;
@@ -69,7 +74,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN result;
   }
 
-  ::floating_record_roundtrip DOC <$ Indirect calls preserve all fields of a homogeneous floating-point aggregate. $>
+  DOC <$ Indirect calls preserve all fields of a homogeneous floating-point aggregate. $>
+  ::floating_record_roundtrip
     DUAL_TEST
   {
     VAR pointer CONST->PROCEDURE(@value floating_record: floating_record) := rotate<-;

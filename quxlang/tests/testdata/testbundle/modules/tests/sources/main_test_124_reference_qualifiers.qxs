@@ -44,7 +44,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::temporary_parameter_access DOC <$ Temporary-reference parameters provide mutable access while explicit forwarding retains their declared qualification. $>
+  DOC <$ Temporary-reference parameters provide mutable access while explicit forwarding retains their declared qualification. $>
+  ::temporary_parameter_access
     DUAL_TEST
   {
     VAR value I32 := 4;
@@ -66,7 +67,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(another == 13);
   }
 
-  ::temporary_local_access DOC <$ Local temporary-reference bindings provide mutable access while retaining their declared qualification for forwarding. $>
+  DOC <$ Local temporary-reference bindings provide mutable access while retaining their declared qualification for forwarding. $>
+  ::temporary_local_access
     DUAL_TEST
   {
     VAR value I32 := 4;
@@ -82,7 +84,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == 10);
   }
 
-  ::auto_copies_referenced_objects DOC <$ AUTO variables copy referenced objects into independent mutable storage while preserving pointer values. $>
+  DOC <$ AUTO variables copy referenced objects into independent mutable storage while preserving pointer values. $>
+  ::auto_copies_referenced_objects
     DUAL_TEST
   {
     VAR source I32 := 7;
@@ -112,7 +115,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(other == 29);
   }
 
-  ::auto_copies_record DOC <$ AUTO copies record state without aliasing the source record or deep-copying its pointer fields. $>
+  DOC <$ AUTO copies record state without aliasing the source record or deep-copying its pointer fields. $>
+  ::auto_copies_record
     DUAL_TEST
   {
     VAR external I32 := 7;
@@ -129,7 +133,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(external == 23);
   }
 
-  ::write_parameter DOC <$ Access to a write-reference parameter yields a mutable reference. $>
+  DOC <$ Access to a write-reference parameter yields a mutable reference. $>
+  ::write_parameter
     FUNCTION(@value WRITE& I32, @elements WRITE& [2]I32): VOID
   {
     TEST_ASSERT(SAME_TYPES(DECLTYPE(value), WRITE& I32));
@@ -145,7 +150,8 @@ LANGUAGE QUXLANG EN 0.0;
     elements[1] := elements[0] + value;
   }
 
-  ::write_parameter_access DOC <$ Write-reference parameters expose mutable scalar and array access within the function body. $>
+  DOC <$ Write-reference parameters expose mutable scalar and array access within the function body. $>
+  ::write_parameter_access
     DUAL_TEST
   {
     VAR value I32;
@@ -156,14 +162,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(elements[1] == 16);
   }
 
-  ::write_pair DOC <$ Writes both output parameters in source order without reading their previous values. $>
+  DOC <$ Writes both output parameters in source order without reading their previous values. $>
+  ::write_pair
     FUNCTION(@first WRITE& I32, @second WRITE& I32)
   {
     first := 11;
     second := 29;
   }
 
-  ::output_aliases DOC <$ Output references update their original storage and preserve write order when both arguments alias. $>
+  DOC <$ Output references update their original storage and preserve write order when both arguments alias. $>
+  ::output_aliases
     DUAL_TEST
   {
     VAR first I32;
@@ -183,10 +191,12 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(elements[1] == 11);
   }
 
-  ::record DOC <$ Holds scalar state and a pointer to separately owned mutable storage. $>
+  DOC <$ Holds scalar state and a pointer to separately owned mutable storage. $>
+  ::record
     STRUCT { .number VAR I32; .link VAR MUT->I32; }
 
-  ::const_view_identity DOC <$ Const views observe later mutations while a stored mutable pointer retains its pointee access. $>
+  DOC <$ Const views observe later mutations while a stored mutable pointer retains its pointee access. $>
+  ::const_view_identity
     DUAL_TEST
   {
     VAR external I32 := 7;

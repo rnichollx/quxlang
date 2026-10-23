@@ -2,11 +2,13 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::loop_limit_tests NAMESPACE
 {
-  ::bound DOC <$ Records one loop header operand evaluation. $>
+  DOC <$ Records one loop header operand evaluation. $>
+  ::bound
     FUNCTION(@events MUT& I32, @digit I32, @value I32): I32
   { events := events * 10 + digit; RETURN value; }
 
-  ::exclusive_limit_and_overshoot DOC <$ LIMIT terminates on greater-or-equal values even when stepping does not land exactly on the bound. $>
+  DOC <$ LIMIT terminates on greater-or-equal values even when stepping does not land exactly on the bound. $>
+  ::exclusive_limit_and_overshoot
     DUAL_TEST
   {
     VAR digits I32 := 0;
@@ -19,7 +21,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(visits == 0);
   }
 
-  ::header_order_and_frozen_limit DOC <$ START, LIMIT and BY evaluate once in order, and later writes do not change the captured limit. $>
+  DOC <$ START, LIMIT and BY evaluate once in order, and later writes do not change the captured limit. $>
+  ::header_order_and_frozen_limit
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -43,7 +46,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(digits == 159);
   }
 
-  ::filtered_continue_cleanup DOC <$ Filtered iterations advance toward LIMIT and CONTINUE destroys body locals before the next visited iteration. $>
+  DOC <$ Filtered iterations advance toward LIMIT and CONTINUE destroys body locals before the next visited iteration. $>
+  ::filtered_continue_cleanup
     DUAL_TEST
   {
     VAR visits I32 := 0;

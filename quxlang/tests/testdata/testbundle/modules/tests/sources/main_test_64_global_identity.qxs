@@ -3,10 +3,12 @@ IMPORT std;
 
 ::global_identity_tests NAMESPACE
 {
-  ::constant_number DOC <$ Supplies immutable storage for value-copy tests. $>
+  DOC <$ Supplies immutable storage for value-copy tests. $>
+  ::constant_number
     STATIC U64 := 17;
 
-  ::mutable_local_copies DOC <$ Copies of a static value have independently mutable local storage without changing the static source. $>
+  DOC <$ Copies of a static value have independently mutable local storage without changing the static source. $>
+  ::mutable_local_copies
     DUAL_TEST
   {
     VAR explicit_copy U64 := constant_number;
@@ -20,19 +22,23 @@ IMPORT std;
     TEST_ASSERT(constant_number == 17);
   }
 
-  ::signed_alias DOC <$ Names the same type used by the signed global instantiation. $>
+  DOC <$ Names the same type used by the signed global instantiation. $>
+  ::signed_alias
     ALIAS I32;
 
-  ::text DOC <$ Owns independent mutable text for each template type argument. $>
+  DOC <$ Owns independent mutable text for each template type argument. $>
+  ::text
     TEMPLATE(@T TYPE AUTO) VAR CONSTEXPR_OK std::string := "seed";
 
-  ::signed_text DOC <$ Returns the persistent signed instantiation by reference. $>
+  DOC <$ Returns the persistent signed instantiation by reference. $>
+  ::signed_text
     FUNCTION(): MUT& std::string
   {
     RETURN text#(I32);
   }
 
-  ::type_argument_storage DOC <$ Same-width distinct types have independent globals while aliases resolve to the same object. $>
+  DOC <$ Same-width distinct types have independent globals while aliases resolve to the same object. $>
+  ::type_argument_storage
     DUAL_TEST
   {
     TEST_ASSERT(text#(I32) == "seed");
@@ -48,7 +54,8 @@ IMPORT std;
     text#(U32) := "seed";
   }
 
-  ::repeated_reference_access DOC <$ Calls returning a global reference preserve identity and mutations across subsequent calls. $>
+  DOC <$ Calls returning a global reference preserve identity and mutations across subsequent calls. $>
+  ::repeated_reference_access
     DUAL_TEST
   {
     TEST_ASSERT(signed_text() == "seed");

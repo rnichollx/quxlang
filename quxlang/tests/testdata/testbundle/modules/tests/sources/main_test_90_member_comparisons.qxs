@@ -2,13 +2,15 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::member_comparison_tests NAMESPACE
 {
-  ::number DOC <$ Orders by one key while ignoring other storage and counting comparator invocations. $>
+  DOC <$ Orders by one key while ignoring other storage and counting comparator invocations. $>
+  ::number
     STRUCT
   {
     .ignored VAR I32;
     .key VAR I32;
     .calls VAR MUT->I32;
-    .OPERATOR<=> DOC <$ Compares only keys and records exactly one invocation. $>
+    DOC <$ Compares only keys and records exactly one invocation. $>
+    .OPERATOR<=>
       FUNCTION(@OTHER CONST& number) CONST: ORDER
     {
       .calls-> ++;
@@ -16,7 +18,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::derived_comparison_matrix DOC <$ All seven comparisons derive from the custom ordering rather than field layout and invoke it once per expression. $>
+  DOC <$ All seven comparisons derive from the custom ordering rather than field layout and invoke it once per expression. $>
+  ::derived_comparison_matrix
     DUAL_TEST
   {
     VAR calls I32 := 0;
@@ -33,14 +36,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(calls == 175);
   }
 
-  ::operand DOC <$ Records source evaluation before returning a comparison operand by reference. $>
+  DOC <$ Records source evaluation before returning a comparison operand by reference. $>
+  ::operand
     FUNCTION(@value CONST& number, @events MUT& I32, @digit I32): CONST& number
   {
     events := events * 10 + digit;
     RETURN value;
   }
 
-  ::derived_evaluation_order DOC <$ Derived comparison operators preserve left-to-right single evaluation and a single custom comparator call. $>
+  DOC <$ Derived comparison operators preserve left-to-right single evaluation and a single custom comparator call. $>
+  ::derived_evaluation_order
     DUAL_TEST
   {
     VAR calls I32 := 0;

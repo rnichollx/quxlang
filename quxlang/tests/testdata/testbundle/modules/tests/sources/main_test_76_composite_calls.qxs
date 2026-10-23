@@ -2,14 +2,16 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::composite_call_tests NAMESPACE
 {
-  ::mutate DOC <$ Mutates a forwarded reference and returns a reference to the same storage. $>
+  DOC <$ Mutates a forwarded reference and returns a reference to the same storage. $>
+  ::mutate
     FUNCTION(@value MUT& I32, @amount I32): MUT& I32
   {
     value += amount;
     RETURN value;
   }
 
-  ::reference_result DOC <$ APPLY preserves aliases across split, join, forwarding, and a reference-valued result. $>
+  DOC <$ APPLY preserves aliases across split, join, forwarding, and a reference-valued result. $>
+  ::reference_result
     DUAL_TEST
   {
     VAR number I32 := 7;
@@ -25,7 +27,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(joined.value == 31);
   }
 
-  ::consume DOC <$ Consumes an owned argument before either returning or throwing. $>
+  DOC <$ Consumes an owned argument before either returning or throwing. $>
+  ::consume
     FUNCTION(@value array_lifetime_tests::element, @events CONST& I32, @fail BOOL): I32
   {
     TEST_ASSERT(value.copied);
@@ -36,7 +39,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN value.number;
   }
 
-  ::owned_call DOC <$ Forwarding a composite moves its owned field into a value parameter without copying or duplicate cleanup. $>
+  DOC <$ Forwarding a composite moves its owned field into a value parameter without copying or duplicate cleanup. $>
+  ::owned_call
     FUNCTION(@fail BOOL)
   {
     VAR attempts I32 := 0;
@@ -69,13 +73,15 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 4);
   }
 
-  ::owned_normal_return DOC <$ An applied call destroys its moved value parameter on normal return. $>
+  DOC <$ An applied call destroys its moved value parameter on normal return. $>
+  ::owned_normal_return
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     owned_call(@fail FALSE);
   }
 
-  ::owned_exception_cleanup DOC <$ An applied call destroys its moved value parameter before transferring to an exception handler. $>
+  DOC <$ An applied call destroys its moved value parameter before transferring to an exception handler. $>
+  ::owned_exception_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     owned_call(@fail TRUE);

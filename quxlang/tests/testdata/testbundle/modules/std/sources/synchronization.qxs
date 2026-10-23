@@ -6,9 +6,10 @@ IMPORT posix;
 
 PRIVATE(MODULE)
 {
-  ::wait_while_atomic_equals INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  DOC <$
     Blocks while state still contains expected and may return spuriously.
     $>
+  ::wait_while_atomic_equals INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     FUNCTION(@state MUT->ATOMIC#I32, @expected I32)
   {
     STATIC_IF(OS_LINUX)
@@ -31,9 +32,10 @@ PRIVATE(MODULE)
     }
   }
 
-  ::wake_one_atomic_waiter INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  DOC <$
     Wakes at most one thread sleeping on state.
     $>
+  ::wake_one_atomic_waiter INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     FUNCTION(@state MUT->ATOMIC#I32)
   {
     STATIC_IF(OS_LINUX)
@@ -50,9 +52,10 @@ PRIVATE(MODULE)
         @address IBC_GETADDR(@PTR state), @size SIZEOF(I32));
     }
   }
-  ::wake_all_atomic_waiters INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  DOC <$
     Wakes every thread sleeping on state.
     $>
+  ::wake_all_atomic_waiters INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     FUNCTION(@state MUT->ATOMIC#I32)
   {
     STATIC_IF(OS_LINUX)
@@ -70,9 +73,10 @@ PRIVATE(MODULE)
     }
   }
 }
-::thin_mutex DOC <$
+DOC <$
   A compact non-recursive mutex optimized to minimize object size.
   $>
+::thin_mutex
   STRUCT ROOTED
 {
   PRIVATE(MODULE)
@@ -80,7 +84,8 @@ PRIVATE(MODULE)
     .atomic_state INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) VAR ATOMIC#I32;
   }
 
-  .CONSTRUCTOR DOC <$ Creates an unlocked thin mutex. $>
+  DOC <$ Creates an unlocked thin mutex. $>
+  .CONSTRUCTOR
     FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
@@ -92,7 +97,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .DESTRUCTOR DOC <$ Destroys a thin mutex after all users leave. $>
+  DOC <$ Destroys a thin mutex after all users leave. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
@@ -104,7 +110,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .lock DOC <$ Blocks until the current thread acquires this thin mutex. $>
+  DOC <$ Blocks until the current thread acquires this thin mutex. $>
+  .lock
     FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS)
@@ -154,7 +161,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .try_lock DOC <$ Attempts to acquire this thin mutex without blocking. $>
+  DOC <$ Attempts to acquire this thin mutex without blocking. $>
+  .try_lock
     FUNCTION(): BOOL
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS)
@@ -175,7 +183,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .unlock DOC <$ Releases this thin mutex owned by the current thread. $>
+  DOC <$ Releases this thin mutex owned by the current thread. $>
+  .unlock
     FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS)
@@ -204,9 +213,10 @@ PRIVATE(MODULE)
   }
 }
 
-::ordering_mutex DOC <$
+DOC <$
   A non-recursive mutex optimized for traditional throughput-oriented locking.
   $>
+::ordering_mutex
   STRUCT ROOTED
 {
   PRIVATE(MODULE)
@@ -217,7 +227,8 @@ PRIVATE(MODULE)
     .macos_native INCLUDE_IF(OS_MACOS) VAR posix::native_mutex_storage;
   }
 
-  .CONSTRUCTOR DOC <$ Creates an unlocked ordering mutex. $>
+  DOC <$ Creates an unlocked ordering mutex. $>
+  .CONSTRUCTOR
     FUNCTION()
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
@@ -257,7 +268,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .DESTRUCTOR DOC <$ Releases an ordering mutex after all users leave. $>
+  DOC <$ Releases an ordering mutex after all users leave. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
@@ -293,7 +305,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .lock DOC <$ Blocks until the current thread acquires this ordering mutex. $>
+  DOC <$ Blocks until the current thread acquires this ordering mutex. $>
+  .lock
     FUNCTION()
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
@@ -330,7 +343,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .try_lock DOC <$ Attempts to acquire this ordering mutex without blocking. $>
+  DOC <$ Attempts to acquire this ordering mutex without blocking. $>
+  .try_lock
     FUNCTION(): BOOL
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
@@ -371,7 +385,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .unlock DOC <$ Releases this ordering mutex owned by the current thread. $>
+  DOC <$ Releases this ordering mutex owned by the current thread. $>
+  .unlock
     FUNCTION()
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
@@ -409,18 +424,20 @@ PRIVATE(MODULE)
   }
 }
 
-::unfair_mutex DOC <$
+DOC <$
   A process-local mutex shared with the allocator. Contenders may acquire
   ownership before previously blocked threads.
-  $> ALIAS RUNTIME_MODULE::mutex;
+  $>
+::unfair_mutex ALIAS RUNTIME_MODULE::mutex;
 
-::condition_variable DOC <$
+DOC <$
   A process-local condition variable backed by an atomic notification sequence.
   Wait registers the sequence before releasing the supplied mutex and
   reacquires the mutex before returning. Callers recheck their predicate
   because waits may return spuriously. Concurrent waiters use the same mutex,
   which protects the predicate. Notifications follow predicate changes.
-  $> STRUCT ROOTED
+  $>
+::condition_variable STRUCT ROOTED
 {
   PRIVATE(CLASS)
   {
@@ -428,15 +445,17 @@ PRIVATE(MODULE)
     .waiters VAR ATOMIC#U32;
   }
 
-  .CONSTRUCTOR DOC <$ Creates a condition variable with no waiters. $> FUNCTION()
+  DOC <$ Creates a condition variable with no waiters. $>
+  .CONSTRUCTOR FUNCTION()
   {
     STATIC_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE) { UNIMPLEMENTED; }
   }
 
-  .wait DOC <$
+  DOC <$
     Releases the owned mutex while waiting and reacquires it before returning.
     The mutex type supplies lock and unlock operations.
-    $> FUNCTION(@locked_mutex MUT& AUTO)
+    $>
+  .wait FUNCTION(@locked_mutex MUT& AUTO)
   {
     VAR observed I32 := .sequence.LOAD#ATOMIC_ACQUIRE();
     // Registration precedes unlocking so predicate changes observe this waiter.
@@ -447,14 +466,16 @@ PRIVATE(MODULE)
     locked_mutex.lock();
   }
 
-  .notify_one DOC <$ Wakes one thread waiting on this condition variable. $> FUNCTION()
+  DOC <$ Wakes one thread waiting on this condition variable. $>
+  .notify_one FUNCTION()
   {
     .sequence.ADD#ATOMIC_RELEASE(1);
     IF (.waiters.LOAD#ATOMIC_ACQUIRE() == 0) { RETURN; }
     wake_one_atomic_waiter(@state .sequence<-);
   }
 
-  .notify_all DOC <$ Wakes every thread waiting on this condition variable. $> FUNCTION()
+  DOC <$ Wakes every thread waiting on this condition variable. $>
+  .notify_all FUNCTION()
   {
     .sequence.ADD#ATOMIC_RELEASE(1);
     IF (.waiters.LOAD#ATOMIC_ACQUIRE() == 0) { RETURN; }
@@ -463,10 +484,11 @@ PRIVATE(MODULE)
 }
 
 
-::semaphore DOC <$
+DOC <$
   A process-local counting semaphore. acquire consumes one permit, try_acquire
   never blocks, and release publishes one or more permits.
   $>
+::semaphore
   STRUCT ROOTED
 {
   PRIVATE(CLASS)
@@ -476,13 +498,15 @@ PRIVATE(MODULE)
     .count VAR SZ;
   }
 
-  .CONSTRUCTOR DOC <$ Creates a semaphore containing initial_count permits. $>
+  DOC <$ Creates a semaphore containing initial_count permits. $>
+  .CONSTRUCTOR
     FUNCTION(@initial_count SZ DEFAULT(0))
   {
     .count := initial_count;
   }
 
-  .acquire DOC <$ Blocks until one permit is available and consumes it. $>
+  DOC <$ Blocks until one permit is available and consumes it. $>
+  .acquire
     FUNCTION()
   {
     .mtx.lock();
@@ -494,7 +518,8 @@ PRIVATE(MODULE)
     .mtx.unlock();
   }
 
-  .try_acquire DOC <$ Consumes one available permit without blocking. $>
+  DOC <$ Consumes one available permit without blocking. $>
+  .try_acquire
     FUNCTION(): BOOL
   {
     .mtx.lock();
@@ -508,7 +533,8 @@ PRIVATE(MODULE)
     RETURN TRUE;
   }
 
-  .release DOC <$ Adds count permits and wakes blocked acquirers. $>
+  DOC <$ Adds count permits and wakes blocked acquirers. $>
+  .release
     FUNCTION(@count SZ DEFAULT(1))
   {
     ASSERT(count != 0, "Semaphore release count must be nonzero.");

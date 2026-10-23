@@ -2,12 +2,14 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::new_argument_lifetime_tests NAMESPACE
 {
-  ::record DOC <$ Observes a live constructor argument and records its own distinct allocated lifetime. $>
+  DOC <$ Observes a live constructor argument and records its own distinct allocated lifetime. $>
+  ::record
     STRUCT
   {
     .events VAR MUT->I32;
     .value VAR I32;
-    .CONSTRUCTOR DOC <$ Records entry only after both explicit arguments finish evaluating. $>
+    DOC <$ Records entry only after both explicit arguments finish evaluating. $>
+    .CONSTRUCTOR
       FUNCTION(@first CONST& short_circuit_tests::temporary, @second I32,
         @events MUT& I32, @bodies MUT& I32)
     {
@@ -17,11 +19,13 @@ LANGUAGE QUXLANG EN 0.0;
       bodies ++;
       events := events * 10 + 3;
     }
-    .DESTRUCTOR DOC <$ Records deletion after constructor argument temporaries have expired. $>
+    DOC <$ Records deletion after constructor argument temporaries have expired. $>
+    .DESTRUCTOR
       FUNCTION() { .events-> := .events-> * 10 + 4; }
   }
 
-  ::successful_arguments DOC <$ NEW retains an owned argument through construction and destroys it before the next statement while the allocated object remains live. $>
+  DOC <$ NEW retains an owned argument through construction and destroys it before the next statement while the allocated object remains live. $>
+  ::successful_arguments
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -39,7 +43,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 12354);
   }
 
-  ::throwing_argument_and_retry DOC <$ A later NEW argument failure destroys the completed temporary without entering the target constructor, and a following allocation succeeds. $>
+  DOC <$ A later NEW argument failure destroys the completed temporary without entering the target constructor, and a following allocation succeeds. $>
+  ::throwing_argument_and_retry
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;

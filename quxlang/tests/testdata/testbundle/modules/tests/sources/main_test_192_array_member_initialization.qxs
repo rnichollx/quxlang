@@ -2,14 +2,16 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::array_member_initialization_tests NAMESPACE
 {
-  ::record DOC <$ Stores a fixed array followed by a pointer field. $>
+  DOC <$ Stores a fixed array followed by a pointer field. $>
+  ::record
     STRUCT
   {
     .cells VAR [6]I32;
     .events VAR MUT->I32;
   }
 
-  ::default_array_member DOC <$ Default construction initializes every fixed-array member element and the following pointer independently. $>
+  DOC <$ Default construction initializes every fixed-array member element and the following pointer independently. $>
+  ::default_array_member
     DUAL_TEST
   {
     VAR object record;

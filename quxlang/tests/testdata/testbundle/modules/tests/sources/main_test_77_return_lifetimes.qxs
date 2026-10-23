@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::return_lifetime_tests NAMESPACE
 {
-  ::select_owned DOC <$ Moves one of two local objects into the return value and destroys the unselected local before returning. $>
+  DOC <$ Moves one of two local objects into the return value and destroys the unselected local before returning. $>
+  ::select_owned
     FUNCTION(@source CONST& array_lifetime_tests::element, @first BOOL): array_lifetime_tests::element
   {
     VAR one array_lifetime_tests::element := source;
@@ -13,7 +14,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN MOVE(two);
   }
 
-  ::selected_return DOC <$ Both early and trailing returns retain one owner until the caller destroys the result. $>
+  DOC <$ Both early and trailing returns retain one owner until the caller destroys the result. $>
+  ::selected_return
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
@@ -40,7 +42,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::copy_return DOC <$ Constructs a return value from a local while two owned locals remain live. $>
+  DOC <$ Constructs a return value from a local while two owned locals remain live. $>
+  ::copy_return
     FUNCTION(@source CONST& array_lifetime_tests::element): array_lifetime_tests::element
   {
     VAR one array_lifetime_tests::element := source;
@@ -50,7 +53,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN array_lifetime_tests::element(@OTHER one);
   }
 
-  ::copied_return_cleanup DOC <$ Successful return construction precedes reverse local cleanup and gives the caller independent ownership. $>
+  DOC <$ Successful return construction precedes reverse local cleanup and gives the caller independent ownership. $>
+  ::copied_return_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
@@ -70,7 +74,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 213);
   }
 
-  ::failed_return_cleanup DOC <$ Failure while constructing the return value destroys both completed locals and never destroys the incomplete result. $>
+  DOC <$ Failure while constructing the return value destroys both completed locals and never destroys the incomplete result. $>
+  ::failed_return_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;

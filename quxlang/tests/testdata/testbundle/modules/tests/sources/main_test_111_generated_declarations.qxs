@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::generated_declaration_tests NAMESPACE
 {
-  ::generated_arrays DOC <$ Each expansion initializes distinct array storage and owns cleanup on normal, return and exception paths. $>
+  DOC <$ Each expansion initializes distinct array storage and owns cleanup on normal, return and exception paths. $>
+  ::generated_arrays
     TEMPLATE(@throws VALUE BOOL)
     FUNCTION(@stop I32, @events MUT& I32): I32
   {
@@ -32,7 +33,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN total;
   }
 
-  ::snapshot_array_extent DOC <$ A generated array declaration freezes the visible static count as its extent. $>
+  DOC <$ A generated array declaration freezes the visible static count as its extent. $>
+  ::snapshot_array_extent
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     STATIC_VAR count SZ := 1;
@@ -46,7 +48,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::early_returns DOC <$ Repeated calls initialize each generated array anew and destroy only the expanded blocks reached before return. $>
+  DOC <$ Repeated calls initialize each generated array anew and destroy only the expanded blocks reached before return. $>
+  ::early_returns
     DUAL_TEST
   {
     VAR pass I32 := 0;
@@ -68,7 +71,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::exception_exits DOC <$ A throw from each generated block unwinds its local before reaching the caller and skips later blocks. $>
+  DOC <$ A throw from each generated block unwinds its local before reaching the caller and skips later blocks. $>
+  ::exception_exits
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR stop I32 := 1;

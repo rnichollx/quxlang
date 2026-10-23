@@ -2,18 +2,24 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::template_constraint_tests NAMESPACE
 {
-  ::selected DOC <$ Matches exactly the narrow integer type. $>
+  DOC <$ Matches exactly the narrow integer type. $>
+  ::selected
     TEMPLATE(@T TYPE I32) FUNCTION(): I32 { RETURN 1; }
-  ::selected DOC <$ Matches exactly the wide integer type. $>
+  DOC <$ Matches exactly the wide integer type. $>
+  ::selected
     TEMPLATE(@T TYPE I64) FUNCTION(): I32 { RETURN 2; }
-  ::selected DOC <$ Matches exactly a mutable narrow-integer reference. $>
+  DOC <$ Matches exactly a mutable narrow-integer reference. $>
+  ::selected
     TEMPLATE(@T TYPE MUT& I32) FUNCTION(): I32 { RETURN 3; }
-  ::selected DOC <$ Matches exactly a constant narrow-integer reference. $>
+  DOC <$ Matches exactly a constant narrow-integer reference. $>
+  ::selected
     TEMPLATE(@T TYPE CONST& I32) FUNCTION(): I32 { RETURN 4; }
-  ::narrow_alias DOC <$ Names the same type as the narrow integer constraint. $>
+  DOC <$ Names the same type as the narrow integer constraint. $>
+  ::narrow_alias
     ALIAS I32;
 
-  ::exact_type_overloads DOC <$ Concrete type constraints distinguish widths and reference qualifiers while aliases preserve canonical selection. $>
+  DOC <$ Concrete type constraints distinguish widths and reference qualifiers while aliases preserve canonical selection. $>
+  ::exact_type_overloads
     DUAL_TEST
   {
     TEST_ASSERT(selected#(I32)() == 1);

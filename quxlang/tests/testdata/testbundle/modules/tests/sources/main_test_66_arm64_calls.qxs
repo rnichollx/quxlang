@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::arm64_call_tests INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) NAMESPACE
 {
-  ::encode_arguments DOC <$ Encodes eight register arguments and two full-width stack arguments in declaration order. $>
+  DOC <$ Encodes eight register arguments and two full-width stack arguments in declaration order. $>
+  ::encode_arguments
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(@a U64, @b U64, @c U64, @d U64, @e U64, @f U64, @g U64, @h U64, @i U64, @j U64; RETURN U64)
   {
@@ -30,14 +31,16 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::register_and_stack_arguments DOC <$ Named arguments bind to the correct native register or stack slot regardless of call-site order. $>
+  DOC <$ Named arguments bind to the correct native register or stack slot regardless of call-site order. $>
+  ::register_and_stack_arguments
     UNIT_TEST
   {
     TEST_ASSERT(encode_arguments(@j 0, @i 9, @h 8, @g 7, @f 6, @e 5, @d 4, @c 3, @b 2, @a 1) == 1234567890);
     TEST_ASSERT(encode_arguments(@a 9, @b 8, @c 7, @d 6, @e 5, @f 4, @g 3, @h 2, @i 1, @j 0) == 9876543210);
   }
 
-  ::add_through_pointer DOC <$ Reads and updates pointed-to storage, returning its original value through the native result register. $>
+  DOC <$ Reads and updates pointed-to storage, returning its original value through the native result register. $>
+  ::add_through_pointer
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(@value MUT->U64, @amount U64; RETURN U64)
   {
@@ -48,7 +51,8 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::pointer_mutation_and_return DOC <$ Native calls preserve full-width pointer arguments, caller-visible writes and scalar return values. $>
+  DOC <$ Native calls preserve full-width pointer arguments, caller-visible writes and scalar return values. $>
+  ::pointer_mutation_and_return
     UNIT_TEST
   {
     VAR value U64 := 4294967296;
@@ -58,7 +62,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == 4294967314);
   }
 
-  ::mixed_double DOC <$ Uses independently allocated integer and double-precision argument registers. $>
+  DOC <$ Uses independently allocated integer and double-precision argument registers. $>
+  ::mixed_double
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(@left F64, @scale I64, @right F64, @bias I64; RETURN F64)
   {
@@ -70,7 +75,8 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::mixed_single DOC <$ Uses independently allocated integer and single-precision argument registers. $>
+  DOC <$ Uses independently allocated integer and single-precision argument registers. $>
+  ::mixed_single
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(@left F32, @scale I32, @right F32, @bias I32; RETURN F32)
   {
@@ -82,7 +88,8 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::mixed_scalar_registers DOC <$ Interleaved float and integer declarations preserve values, signs and floating-point returns in both widths. $>
+  DOC <$ Interleaved float and integer declarations preserve values, signs and floating-point returns in both widths. $>
+  ::mixed_scalar_registers
     UNIT_TEST
   {
     TEST_ASSERT(mixed_double(@bias 2, @right 1.5, @scale 3, @left 8.5) == 23.0);
@@ -95,7 +102,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(mixed_single(@bias small_bias, @right 8.5, @scale small_scale, @left 1.5) == 19.0);
   }
 
-  ::encode_doubles DOC <$ Encodes eight vector-register arguments and a ninth double from the stack. $>
+  DOC <$ Encodes eight vector-register arguments and a ninth double from the stack. $>
+  ::encode_doubles
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(@a F64, @b F64, @c F64, @d F64, @e F64, @f F64, @g F64, @h F64, @i F64; RETURN F64)
   {
@@ -121,7 +129,8 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::floating_register_and_stack_arguments DOC <$ Double arguments cross from vector registers to stack storage without losing their declaration order. $>
+  DOC <$ Double arguments cross from vector registers to stack storage without losing their declaration order. $>
+  ::floating_register_and_stack_arguments
     UNIT_TEST
   {
     TEST_ASSERT(encode_doubles(@i 9.0, @h 8.0, @g 7.0, @f 6.0, @e 5.0, @d 4.0, @c 3.0, @b 2.0, @a 1.0) == 123456789.0);

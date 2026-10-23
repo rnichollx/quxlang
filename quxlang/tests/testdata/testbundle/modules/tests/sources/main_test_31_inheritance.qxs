@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::inheritance_tests DOC <$ Exercises base subobjects, virtual dispatch, construction, and destruction. $>
+DOC <$ Exercises base subobjects, virtual dispatch, construction, and destruction. $>
+::inheritance_tests
 NAMESPACE
 {
   ::dispatch_base STRUCT POLYMORPHIC
@@ -33,9 +34,10 @@ NAMESPACE
     RETURN dispatch_base::.value(@THIS object);
   }
 
-  ::virtual_dispatch_and_inherited_member_test DOC <$
+  DOC <$
   Verifies implicit derived-to-base conversion, inherited member lookup, virtual dispatch, and qualified direct calls.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::virtual_dispatch_and_inherited_member_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object dispatch_derived;
     object.stored_value := 37;
@@ -45,9 +47,10 @@ NAMESPACE
     TEST_ASSERT(call_base_value_directly(@object object) == 1);
   }
 
-  ::copied_polymorphic_dispatch DOC <$
+  DOC <$
   Copying a derived object preserves derived dispatch and creates independent base-subobject storage.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::copied_polymorphic_dispatch DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR original dispatch_derived;
     original.stored_value := 13;
@@ -62,18 +65,21 @@ NAMESPACE
     TEST_ASSERT(copied.base_part<- != original.base_part<-);
   }
 
-  ::repeated_value_base DOC <$ Supplies storage for two distinct base subobjects of the same type. $>
+  DOC <$ Supplies storage for two distinct base subobjects of the same type. $>
+  ::repeated_value_base
     STRUCT { .number VAR I32; }
-  ::repeated_value_record DOC <$ Keeps repeated base subobjects accessible through explicit selectors. $>
+  DOC <$ Keeps repeated base subobjects accessible through explicit selectors. $>
+  ::repeated_value_record
     STRUCT
   {
     .left BASE repeated_value_base;
     .right BASE repeated_value_base;
   }
 
-  ::repeated_base_storage_identity DOC <$
+  DOC <$
   Explicit base selectors preserve separate storage through reference binding and generated copy construction.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::repeated_base_storage_identity DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR original repeated_value_record;
     original.left.number := 3;
@@ -120,9 +126,10 @@ NAMESPACE
     RETURN object.value();
   }
 
-  ::secondary_base_virtual_dispatch_test DOC <$
+  DOC <$
   Verifies that a non-primary polymorphic base uses its own stable virtual slot ordinals.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::secondary_base_virtual_dispatch_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object secondary_dispatch_derived;
     object.right.stored_value := 82;
@@ -155,9 +162,10 @@ NAMESPACE
     }
   }
 
-  ::construction_phase_virtual_dispatch_test DOC <$
+  DOC <$
   Verifies that a base constructor dispatches through the base construction phase and that steady dispatch is restored afterward.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::construction_phase_virtual_dispatch_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object construction_phase_derived;
     TEST_ASSERT(object.base_part.observed_value == 1);
@@ -200,9 +208,10 @@ NAMESPACE
     }
   }
 
-  ::destruction_phase_virtual_dispatch_test DOC <$
+  DOC <$
   Verifies most-derived dispatch in the derived destructor body and base dispatch after the base destruction transition.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::destruction_phase_virtual_dispatch_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR trace I32 := 0;
     {
@@ -261,9 +270,10 @@ NAMESPACE
     }
   }
 
-  ::nested_header_phase_transition_test DOC <$
+  DOC <$
   Verifies that entering a base phase rewrites every runtime header owned by that active base hierarchy.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::nested_header_phase_transition_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR destruction_trace I32 := 0;
     {
@@ -278,9 +288,10 @@ NAMESPACE
   {
   }
 
-  ::dynamic_downcast_and_cross_cast_test DOC <$
+  DOC <$
   Verifies successful downcasts and cross-casts as well as a failed unrelated cast in native and constexpr execution.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::dynamic_downcast_and_cross_cast_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR dispatch_object dispatch_derived;
     dispatch_object.stored_value := 61;
@@ -345,9 +356,10 @@ NAMESPACE
     RETURN object.value(@argument argument);
   }
 
-  ::virtual_enable_if_precedes_slot_resolution_test DOC <$
+  DOC <$
   Verifies disabled virtual declarations do not introduce or override slots and enabled overload ordinals dispatch correctly.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::virtual_enable_if_precedes_slot_resolution_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object enable_if_dispatch_derived;
     TEST_ASSERT(call_enable_if_virtual_value(@object object, @argument 42) == 43);
@@ -398,9 +410,10 @@ NAMESPACE
     }
   }
 
-  ::virtual_base_constructor_test DOC <$
+  DOC <$
   Verifies that a complete object owns its shared virtual base while direct bases use synthesized subobject constructors.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::virtual_base_constructor_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object virtual_constructor_diamond :[40];
 
@@ -456,9 +469,10 @@ NAMESPACE
     }
   }
 
-  ::base_and_field_destruction_order_test DOC <$
+  DOC <$
   Verifies derived body, derived fields, base body, and base fields are destroyed in that order.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::base_and_field_destruction_order_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR order I32 := 0;
     {
@@ -478,9 +492,10 @@ NAMESPACE
     .value VAR I32;
   }
 
-  ::polymorphic_copy_remains_static_test DOC <$
+  DOC <$
   Verifies ordinary copy construction remains available without becoming a virtual operation.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::polymorphic_copy_remains_static_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source ordinary_polymorphic_value;
     source.value := 19;
@@ -547,9 +562,10 @@ NAMESPACE
     }
   }
 
-  ::virtual_destructor_delete_through_base_test DOC <$
+  DOC <$
   Verifies allocation-info recovery, most-derived virtual destruction, and virtual deallocation through a base pointer.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::virtual_destructor_delete_through_base_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR trace I32 := 0;
     VAR object MUT->polymorphic_delete_derived := NEW polymorphic_delete_derived;
@@ -572,9 +588,10 @@ NAMESPACE
     }
   }
 
-  ::nonvirtual_polymorphic_delete_exact_type_test DOC <$
+  DOC <$
   Verifies the exact-type NONVIRTUAL deletion path while leaving invalid base deletion as undefined behavior.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::nonvirtual_polymorphic_delete_exact_type_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR trace I32 := 0;
     VAR object MUT->nonvirtual_delete_value := NEW nonvirtual_delete_value;
@@ -639,9 +656,10 @@ NAMESPACE
     .right BASE static_downcast_derived;
   }
 
-  ::unchecked_static_downcast_pointer_and_reference_test DOC <$
+  DOC <$
   Recovers an exact nonpolymorphic complete object from a secondary base pointer or reference.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::unchecked_static_downcast_pointer_and_reference_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object static_downcast_derived;
     object.base_part.value := 73;
@@ -663,9 +681,10 @@ NAMESPACE
     TEST_ASSERT((null_derived??) == FALSE);
   }
 
-  ::unchecked_static_downcast_transitive_test DOC <$
+  DOC <$
   Reverses a multi-level base path to the exact complete destination.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::unchecked_static_downcast_transitive_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object static_downcast_further_derived;
     VAR base_pointer MUT->static_downcast_base := object.base_part.base_part<-;
@@ -673,9 +692,10 @@ NAMESPACE
     TEST_ASSERT(derived_pointer == object<-);
   }
 
-  ::unchecked_static_downcast_polymorphic_test DOC <$
+  DOC <$
   Recovers a polymorphic complete object from its secondary base.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::unchecked_static_downcast_polymorphic_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object secondary_dispatch_derived;
     VAR base_pointer MUT->secondary_dispatch_right := object.right<-;
@@ -683,9 +703,10 @@ NAMESPACE
     TEST_ASSERT(derived_pointer == object<-);
   }
 
-  ::unchecked_static_downcast_virtual_diamond_test DOC <$
+  DOC <$
   Accepts multiple inheritance paths to one shared virtual base subobject.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::unchecked_static_downcast_virtual_diamond_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object virtual_constructor_diamond :[40];
     VAR base_pointer MUT->virtual_constructor_root := object.left_branch.shared_root<-;
@@ -710,9 +731,10 @@ NAMESPACE
     .middle BASE static_downcast_virtual_middle;
   }
 
-  ::unchecked_static_downcast_virtual_suffix_test DOC <$
+  DOC <$
   Recovers the complete object through a virtual edge with nonvirtual prefix and suffix bases.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::unchecked_static_downcast_virtual_suffix_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object static_downcast_virtual_complete;
     VAR base_pointer MUT->static_downcast_base := object.middle.shared.base_part<-;
@@ -726,52 +748,58 @@ NAMESPACE
     .separate BASE static_downcast_virtual_container;
   }
 
-  ::unchecked_static_downcast_mixed_repeated_base_test DOC <$
+  DOC <$
   Rejects a source type present in both a virtual and a separate nonvirtual subobject.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::unchecked_static_downcast_mixed_repeated_base_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object static_downcast_mixed_repeated;
     VAR base_pointer MUT->static_downcast_base := object.shared.base_part<-;
     VAR derived_pointer MUT->static_downcast_mixed_repeated := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_mixed_repeated;
   }
 
-  ::unchecked_static_downcast_repeated_base_test DOC <$
+  DOC <$
   Rejects repeated nonvirtual source bases even when the expression selects one branch.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::unchecked_static_downcast_repeated_base_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object static_downcast_repeated;
     VAR base_pointer MUT->static_downcast_base := object.left.base_part<-;
     VAR derived_pointer MUT->static_downcast_repeated := base_pointer AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_repeated;
   }
 
-  ::unchecked_static_downcast_repeated_reference_test DOC <$
+  DOC <$
   Rejects ambiguous nonvirtual base references at compilation time.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::unchecked_static_downcast_repeated_reference_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object static_downcast_repeated;
     VAR derived_reference MUT& static_downcast_repeated := object.left.base_part AS UNCHECKED_STATIC_DOWNCAST MUT& static_downcast_repeated;
   }
 
-  ::unchecked_static_downcast_unrelated_test DOC <$
+  DOC <$
   Rejects destinations which do not contain the source type as a base.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::unchecked_static_downcast_unrelated_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object static_downcast_padding;
     VAR pointer MUT->static_downcast_base := object<- AS UNCHECKED_STATIC_DOWNCAST MUT->static_downcast_base;
   }
 
-  ::unchecked_static_downcast_const_removal_test DOC <$
+  DOC <$
   Rejects removing CONST from the source reference.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::unchecked_static_downcast_const_removal_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object static_downcast_derived;
     VAR base_reference CONST& static_downcast_base := object.base_part;
     VAR derived_reference MUT& static_downcast_derived := base_reference AS UNCHECKED_STATIC_DOWNCAST MUT& static_downcast_derived;
   }
 
-  ::unchecked_static_downcast_requires_exact_type_test DOC <$
+  DOC <$
   Constant evaluation rejects a destination that is only an intermediate base of the complete object.
-  $> STATIC_TEST EXPECT_FAIL KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::unchecked_static_downcast_requires_exact_type_test STATIC_TEST EXPECT_FAIL KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object static_downcast_further_derived;
     VAR base_pointer MUT->static_downcast_base := object.base_part.base_part<-;
@@ -785,23 +813,26 @@ NAMESPACE
     }
   }
 
-  ::unchecked_static_downcast_constructor_control_test DOC <$
+  DOC <$
   Confirms the ordinary cast can call the conversion constructor.
-  $> DUAL_TEST
+  $>
+  ::unchecked_static_downcast_constructor_control_test DUAL_TEST
   {
     VAR object static_downcast_constructor_trap := 42 AS static_downcast_constructor_trap;
   }
 
-  ::unchecked_static_downcast_constructor_overload_test DOC <$
+  DOC <$
   The built-in cast never falls back to an ordinary conversion constructor.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::unchecked_static_downcast_constructor_overload_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object static_downcast_constructor_trap := 42 AS UNCHECKED_STATIC_DOWNCAST static_downcast_constructor_trap;
   }
 
-  ::unchecked_static_downcast_new_constructor_test DOC <$
+  DOC <$
   The built-in cast cannot be selected as a NEW FROM constructor mode.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::unchecked_static_downcast_new_constructor_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object MUT->static_downcast_constructor_trap := NEW static_downcast_constructor_trap FROM UNCHECKED_STATIC_DOWNCAST 42;
   }
@@ -811,9 +842,10 @@ NAMESPACE
     RETURN (-< = DYNAMIC_TYPE_OF(pointer))();
   }
 
-  ::dynamic_type_of_base_pointer_test DOC <$
+  DOC <$
   Reports the complete dynamic type through mutable and constant base pointers.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::dynamic_type_of_base_pointer_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object dispatch_derived;
     VAR base_pointer MUT->dispatch_base := object<-;
@@ -826,9 +858,10 @@ NAMESPACE
     TEST_ASSERT(dynamic_type_from_lambda(@pointer base_pointer) == identity);
   }
 
-  ::dynamic_type_of_secondary_and_virtual_base_test DOC <$
+  DOC <$
   Reports the same complete type through secondary and shared virtual base subobjects.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::dynamic_type_of_secondary_and_virtual_base_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR secondary secondary_dispatch_derived;
     TEST_ASSERT(DYNAMIC_TYPE_OF(secondary.left<-) == TYPE_INDEX_OF(secondary_dispatch_derived));
@@ -844,9 +877,10 @@ NAMESPACE
     .right BASE dispatch_base;
   }
 
-  ::dynamic_type_of_repeated_base_test DOC <$
+  DOC <$
   Both distinct copies of a polymorphic base identify the same complete object type.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::dynamic_type_of_repeated_base_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object dynamic_type_repeated_bases;
     TEST_ASSERT(DYNAMIC_TYPE_OF(object.left<-) == TYPE_INDEX_OF(dynamic_type_repeated_bases));
@@ -859,9 +893,10 @@ NAMESPACE
     RETURN pointer;
   }
 
-  ::dynamic_type_of_evaluates_pointer_once_test DOC <$
+  DOC <$
   Evaluates the pointer expression exactly once, including function-call operands.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::dynamic_type_of_evaluates_pointer_once_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object dispatch_derived;
     VAR calls I32 := 0;
@@ -906,42 +941,47 @@ NAMESPACE
     }
   }
 
-  ::dynamic_type_of_lifetime_phase_test DOC <$
+  DOC <$
   Uses the active constructor or destructor type, and the complete type during steady object lifetime.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::dynamic_type_of_lifetime_phase_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object dynamic_type_phase_derived;
     TEST_ASSERT(object.observed_type == TYPE_INDEX_OF(dynamic_type_phase_base));
     TEST_ASSERT(object.read_type() == TYPE_INDEX_OF(dynamic_type_phase_derived));
   }
 
-  ::dynamic_type_of_null_pointer_test DOC <$
+  DOC <$
   Constant evaluation diagnoses the undefined behavior of querying a null pointer.
-  $> STATIC_TEST EXPECT_FAIL KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::dynamic_type_of_null_pointer_test STATIC_TEST EXPECT_FAIL KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR pointer MUT->dispatch_base;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(pointer);
   }
 
-  ::dynamic_type_of_nonpolymorphic_pointer_test DOC <$
+  DOC <$
   Rejects a pointer to a struct without dynamic type metadata.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::dynamic_type_of_nonpolymorphic_pointer_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object static_downcast_base;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(object<-);
   }
 
-  ::dynamic_type_of_nonstruct_pointer_test DOC <$
+  DOC <$
   Rejects pointers to primitive types.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::dynamic_type_of_nonstruct_pointer_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 7;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(value<-);
   }
 
-  ::dynamic_type_of_object_reference_test DOC <$
+  DOC <$
   Reports the complete dynamic type through an object reference.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::dynamic_type_of_object_reference_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object dispatch_derived;
     VAR identity TYPE_INDEX := DYNAMIC_TYPE_OF(object);
@@ -962,9 +1002,10 @@ NAMESPACE
     .value FUNCTION(): I32;
   }
 
-  ::type_is_polymorphic_categories_test DOC <$
+  DOC <$
   Recognizes both polymorphic struct categories, including structs without virtual methods.
-  $> DUAL_TEST
+  $>
+  ::type_is_polymorphic_categories_test DUAL_TEST
   {
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(dispatch_base));
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(dispatch_derived));
@@ -974,9 +1015,10 @@ NAMESPACE
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(static_downcast_derived) == FALSE);
   }
 
-  ::type_is_polymorphic_other_types_test DOC <$
+  DOC <$
   Tests the exact type without following pointers, references, or array elements.
-  $> DUAL_TEST
+  $>
+  ::type_is_polymorphic_other_types_test DUAL_TEST
   {
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(I32) == FALSE);
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(BOOL) == FALSE);
@@ -988,9 +1030,10 @@ NAMESPACE
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_interface) == FALSE);
   }
 
-  ::type_is_polymorphic_resolved_types_test DOC <$
+  DOC <$
   Resolves aliases, concrete template arguments, and expression types before testing polymorphism.
-  $> DUAL_TEST
+  $>
+  ::type_is_polymorphic_resolved_types_test DUAL_TEST
   {
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_alias));
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(polymorphic_trait_template#(I32)));
@@ -1007,24 +1050,27 @@ NAMESPACE
     }
   }
 
-  ::type_is_polymorphic_enable_if_test DOC <$
+  DOC <$
   Supports querying the enclosing type while selecting its virtual methods.
-  $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+  ::type_is_polymorphic_enable_if_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object polymorphic_trait_enabled;
     TEST_ASSERT(object.value() == 7);
   }
 
-  ::type_is_polymorphic_function_argument_test DOC <$
+  DOC <$
   Rejects function names as type arguments.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::type_is_polymorphic_function_argument_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(count_dynamic_type_pointer_evaluation) == FALSE);
   }
 
-  ::type_is_polymorphic_value_argument_test DOC <$
+  DOC <$
   Rejects variables as type arguments.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+  ::type_is_polymorphic_value_argument_test STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR number I32 := 1;
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(number) == FALSE);

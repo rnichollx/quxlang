@@ -2,21 +2,27 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::struct_modifier_tests NAMESPACE
 {
-  ::explicit_value DOC <$ Supplies explicit value operations while suppressing generated counterparts. $>
+  DOC <$ Supplies explicit value operations while suppressing generated counterparts. $>
+  ::explicit_value
     STRUCT NO_IMPLICIT_CONSTRUCTORS NO_IMPLICIT_ASSIGNMENT NO_DEFAULT_SWAP
   {
     .value VAR I32;
-    .CONSTRUCTOR DOC <$ Initializes a value from the named input. $>
+    DOC <$ Initializes a value from the named input. $>
+    .CONSTRUCTOR
       FUNCTION(@value I32) { .value := value; }
-    .CONSTRUCTOR DOC <$ Makes the explicit copy operation observable. $>
+    DOC <$ Makes the explicit copy operation observable. $>
+    .CONSTRUCTOR
       FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 1; }
-    .OPERATOR:= DOC <$ Makes the explicit assignment operation observable. $>
+    DOC <$ Makes the explicit assignment operation observable. $>
+    .OPERATOR:=
       FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 2; }
-    .OPERATOR<-> DOC <$ Exchanges values through the explicitly declared swap. $>
+    DOC <$ Exchanges values through the explicitly declared swap. $>
+    .OPERATOR<->
       FUNCTION(@OTHER MUT& explicit_value) { .value <-> OTHER.value; }
   }
 
-  ::explicit_operations_remain_available DOC <$ Suppressing generated operations does not suppress the corresponding user declarations. $>
+  DOC <$ Suppressing generated operations does not suppress the corresponding user declarations. $>
+  ::explicit_operations_remain_available
     DUAL_TEST
   {
     VAR first explicit_value :(@value 5);
@@ -32,20 +38,23 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(first.value == 5);
   }
 
-  ::stable DOC <$ Retains the address of its own field until destruction. $>
+  DOC <$ Retains the address of its own field until destruction. $>
+  ::stable
     STRUCT ROOTED
   {
     .value VAR I32;
     .identity VAR MUT->I32;
     .deaths VAR MUT->I32;
-    .CONSTRUCTOR DOC <$ Captures a field address after its initialization. $>
+    DOC <$ Captures a field address after its initialization. $>
+    .CONSTRUCTOR
       FUNCTION(@deaths MUT& I32)
     {
       .value := 17;
       .identity := .value<-;
       .deaths := deaths<-;
     }
-    .DESTRUCTOR DOC <$ Verifies stable storage before recording destruction. $>
+    DOC <$ Verifies stable storage before recording destruction. $>
+    .DESTRUCTOR
       FUNCTION()
     {
       TEST_ASSERT(.identity == .value<-);
@@ -54,7 +63,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::rooted_scope_cleanup DOC <$ Rooted local storage retains field identity through reference mutation and exceptional cleanup. $>
+  DOC <$ Rooted local storage retains field identity through reference mutation and exceptional cleanup. $>
+  ::rooted_scope_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR deaths I32 := 0;

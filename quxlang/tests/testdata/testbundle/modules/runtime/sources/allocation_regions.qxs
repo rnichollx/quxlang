@@ -2,10 +2,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
-PRIVATE(MODULE) ::layer3_bitmap_word DOC <$
+DOC <$
   Matches the target's native atomic integer width: 64 bits on 64-bit targets
   and 32 bits on 32-bit targets, using the target-sized unsigned integer type.
-  $> ALIAS UINTPTR;
+  $>
+PRIVATE(MODULE) ::layer3_bitmap_word ALIAS UINTPTR;
 PRIVATE(MODULE) ::layer3_bitmap_word_bits STATIC SZ := SIZEOF(layer3_bitmap_word) * 8;
 
 PRIVATE(MODULE) ::layer4_region_backing_limit STATIC SZ := 16;
@@ -14,18 +15,20 @@ PRIVATE(MODULE) ::layer3_region_exclusive STATIC U32 := 2147483648;
 PRIVATE(MODULE) ::layer3_region_requested STATIC U32 := 1073741824;
 PRIVATE(MODULE) ::layer3_region_readers STATIC U32 := 1073741823;
 
-PRIVATE(MODULE) ::layer3_region_control DOC <$
+DOC <$
   Retains stable identity after backing retirement. Region access requires shared
   or exclusive ownership. Intrusive links require the allocation-class mutex.
   The complete 32-bit semaphore is supported by every native address-wait API.
-  $> STRUCT
+  $>
+PRIVATE(MODULE) ::layer3_region_control STRUCT
 {
   .semaphore VAR ATOMIC#U32;
   .region VAR MUT->layer3_region;
   .next VAR MUT->layer3_region_control;
   .prev VAR MUT->layer3_region_control;
 
-  .try_shared DOC <$ Acquires one shared region use without waiting. $>
+  DOC <$ Acquires one shared region use without waiting. $>
+  .try_shared
     FUNCTION(): BOOL
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
@@ -38,7 +41,8 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
     RETURN FALSE;
   }
 
-  .shared DOC <$ Acquires shared access, registering notification before sleeping. $>
+  DOC <$ Acquires shared access, registering notification before sleeping. $>
+  .shared
     FUNCTION()
   {
     LOOP WHILE (.try_shared() == FALSE) DO
@@ -56,11 +60,13 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
     }
   }
 
-  .release_shared DOC <$ Completes all region accesses before dropping the reader count. $>
+  DOC <$ Completes all region accesses before dropping the reader count. $>
+  .release_shared
     FUNCTION()
   { .semaphore.FETCH_SUBTRACT#ATOMIC_RELEASE(1); }
 
-  .try_exclusive DOC <$ Requests exclusive ownership and drains existing readers. $>
+  DOC <$ Requests exclusive ownership and drains existing readers. $>
+  .try_exclusive
     FUNCTION(): BOOL
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
@@ -75,7 +81,8 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
     RETURN FALSE;
   }
 
-  .release_exclusive DOC <$ Clears ownership and fulfills registered notification obligations. $>
+  DOC <$ Clears ownership and fulfills registered notification obligations. $>
+  .release_exclusive
     FUNCTION()
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
@@ -84,7 +91,8 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
     { notify_all_at_address(@address IBC_GETADDR(@PTR .semaphore<-), @size SIZEOF(U32)); }
   }
 
-  .unlink DOC <$ Removes a published control under its class mutex. $>
+  DOC <$ Removes a published control under its class mutex. $>
+  .unlink
     FUNCTION()
   {
     .prev->.next := .next;
@@ -92,11 +100,12 @@ PRIVATE(MODULE) ::layer3_region_control DOC <$
   }
 }
 
-PRIVATE(MODULE) ::layer3_region DOC <$
+DOC <$
   Stores metadata before aligned payload slots. Set bitmap bits include all
   pointers cached in plates and all live application allocations. Unused bits
   stay clear and are excluded from fullness checks.
-  $> STRUCT
+  $>
+PRIVATE(MODULE) ::layer3_region STRUCT
 {
   .control VAR MUT->layer3_region_control;
   .class_control VAR MUT->layer3_region_class;
@@ -106,10 +115,11 @@ PRIVATE(MODULE) ::layer3_region DOC <$
   .next_free VAR MUT->layer3_region;
 }
 
-PRIVATE(MODULE) ::layer3_region_class DOC <$
+DOC <$
   Owns circular available, fully issued, and detached control lists. Layout is
   initialized under the mutex before first publication and remains immutable.
-  $> STRUCT
+  $>
+PRIVATE(MODULE) ::layer3_region_class STRUCT
 {
   .mtx VAR mutex;
   .available VAR layer3_region_control;
@@ -119,7 +129,8 @@ PRIVATE(MODULE) ::layer3_region_class DOC <$
   .payload_offset VAR SZ;
   .slot_count VAR SZ;
 
-  .initialize DOC <$ Establishes sentinel links and immutable slot geometry once. $>
+  DOC <$ Establishes sentinel links and immutable slot geometry once. $>
+  .initialize
     FUNCTION(@size SZ, @align SZ)
   {
     IF (.block_size != 0) { RETURN; }
@@ -135,7 +146,8 @@ PRIVATE(MODULE) ::layer3_region_class DOC <$
   }
 }
 
-PRIVATE(MODULE) ::layer3_region_insert DOC <$ Inserts a control before a circular-list position under its mutex. $>
+DOC <$ Inserts a control before a circular-list position under its mutex. $>
+PRIVATE(MODULE) ::layer3_region_insert
   FUNCTION(@node MUT->layer3_region_control, @before MUT->layer3_region_control)
 {
   node->.next := before;
@@ -144,7 +156,8 @@ PRIVATE(MODULE) ::layer3_region_insert DOC <$ Inserts a control before a circula
   before->.prev := node;
 }
 
-PRIVATE(MODULE) ::layer4_region_pool DOC <$ Retains a bounded cross-class stack of unassigned regions. $> STRUCT
+DOC <$ Retains a bounded cross-class stack of unassigned regions. $>
+PRIVATE(MODULE) ::layer4_region_pool STRUCT
 {
   .mtx VAR mutex;
   .head VAR MUT->layer3_region;
@@ -152,10 +165,11 @@ PRIVATE(MODULE) ::layer4_region_pool DOC <$ Retains a bounded cross-class stack 
 }
 PRIVATE(MODULE) ::layer4_region_backing VAR layer4_region_pool;
 
-PRIVATE(MODULE) ::layer4_region_acquire DOC <$
+DOC <$
   Acquires reusable backing or maps an aligned region. The original mapping is
   retained for whole-mapping release on platforms that cannot unmap subranges.
-  $> FUNCTION(): MUT->layer3_region
+  $>
+PRIVATE(MODULE) ::layer4_region_acquire FUNCTION(): MUT->layer3_region
 {
   layer4_region_backing.mtx.lock();
   VAR result MUT->layer3_region := layer4_region_backing.head;
@@ -177,7 +191,8 @@ PRIVATE(MODULE) ::layer4_region_acquire DOC <$
   RETURN result;
 }
 
-PRIVATE(MODULE) ::layer4_region_release DOC <$ Caches up to sixteen empty regions and unmaps excess backing outside the pool lock. $>
+DOC <$ Caches up to sixteen empty regions and unmaps excess backing outside the pool lock. $>
+PRIVATE(MODULE) ::layer4_region_release
   FUNCTION(@region MUT->layer3_region)
 {
   layer4_region_backing.mtx.lock();
@@ -194,7 +209,8 @@ PRIVATE(MODULE) ::layer4_region_release DOC <$ Caches up to sixteen empty region
   layer5_unmap_region(@address mapping, @bytes allocator_slab_region_size * 2);
 }
 
-PRIVATE(MODULE) ::layer3_region_controls DOC <$ Allocates a stable chunk of controls and publishes them on the detached list, returning false on allocation failure. $>
+DOC <$ Allocates a stable chunk of controls and publishes them on the detached list, returning false on allocation failure. $>
+PRIVATE(MODULE) ::layer3_region_controls
   FUNCTION(@root MUT& layer3_region_class): BOOL
 {
   VAR mapping ADDRESS := layer5_map_region(@bytes allocator_slab_region_size);
@@ -218,7 +234,8 @@ PRIVATE(MODULE) ::layer3_region_controls DOC <$ Allocates a stable chunk of cont
   RETURN TRUE;
 }
 
-PRIVATE(MODULE) ::layer3_region_empty DOC <$ Checks whether every payload slot has been returned while region access is held. $>
+DOC <$ Checks whether every payload slot has been returned while region access is held. $>
+PRIVATE(MODULE) ::layer3_region_empty
   FUNCTION(@region MUT->layer3_region): BOOL
 {
   VAR words SZ := (region->.class_control->.slot_count + layer3_bitmap_word_bits - 1) / layer3_bitmap_word_bits;
@@ -227,7 +244,8 @@ PRIVATE(MODULE) ::layer3_region_empty DOC <$ Checks whether every payload slot h
   RETURN TRUE;
 }
 
-PRIVATE(MODULE) ::layer3_region_full DOC <$ Checks every valid slot while region access is held. $>
+DOC <$ Checks every valid slot while region access is held. $>
+PRIVATE(MODULE) ::layer3_region_full
   FUNCTION(@region MUT->layer3_region): BOOL
 {
   VAR slots SZ := region->.class_control->.slot_count;
@@ -240,7 +258,8 @@ PRIVATE(MODULE) ::layer3_region_full DOC <$ Checks every valid slot while region
   RETURN TRUE;
 }
 
-PRIVATE(MODULE) ::layer3_region_retire DOC <$ Detaches empty backing under exclusive access before returning it to the shared pool. $>
+DOC <$ Detaches empty backing under exclusive access before returning it to the shared pool. $>
+PRIVATE(MODULE) ::layer3_region_retire
   FUNCTION(@control MUT->layer3_region_control)
 {
   IF (control->.try_exclusive() == FALSE) { RETURN; }
@@ -260,11 +279,12 @@ PRIVATE(MODULE) ::layer3_region_retire DOC <$ Detaches empty backing under exclu
   control->.release_exclusive();
 }
 
-PRIVATE(MODULE) ::layer3_region_return_batch DOC <$
+DOC <$
   Returns the final region group from an address-sorted plate. One shared
   region access protects all returns, with one atomic update per bitmap word.
   Availability publication and retirement checks occur once for the group.
-  $> TEMPLATE(@count VALUE SZ)
+  $>
+PRIVATE(MODULE) ::layer3_region_return_batch TEMPLATE(@count VALUE SZ)
   FUNCTION(@cache MUT& addr_cache#(@count count))
 {
   ASSERT(cache.used > 0, "A region return batch requires at least one address.");
@@ -311,20 +331,22 @@ PRIVATE(MODULE) ::layer3_region_return_batch DOC <$
   IF (empty) { layer3_region_retire(@control control); }
 }
 
-PRIVATE(MODULE) ::layer3_region_return DOC <$
+DOC <$
   Returns a single slot through the region batch protocol during uncached deallocation.
-  $> FUNCTION(@address ADDRESS)
+  $>
+PRIVATE(MODULE) ::layer3_region_return FUNCTION(@address ADDRESS)
 {
   VAR cache addr_cache#(@count 1);
   cache.push(address);
   layer3_region_return_batch#(@count 1)(@cache cache);
 }
 
-PRIVATE(MODULE) ::layer3_region_refill DOC <$
+DOC <$
   Claims slots into a privately owned plate. List selection never retains the
   list mutex while acquiring region access, scanning bitmaps, or mapping memory.
   A failed refill returns false and leaves any claimed slots owned by the cache.
-  $> TEMPLATE(@count VALUE SZ)
+  $>
+PRIVATE(MODULE) ::layer3_region_refill TEMPLATE(@count VALUE SZ)
   FUNCTION(@root MUT& layer3_region_class, @cache MUT& addr_cache#(@count count)): BOOL
 {
   LOOP WHILE (cache.used < count) DO

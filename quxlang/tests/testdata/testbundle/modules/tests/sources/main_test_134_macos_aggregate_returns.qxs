@@ -2,26 +2,31 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::macos_aggregate_return_tests INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) NAMESPACE
 {
-  ::division32 DOC <$ Matches the macOS div_t field order and integer widths. $>
+  DOC <$ Matches the macOS div_t field order and integer widths. $>
+  ::division32
     IBC_STRUCT TRIVIALLY_RELOCATABLE
   {
     .quotient VAR I32;
     .remainder VAR I32;
   }
-  ::division64 DOC <$ Matches the macOS lldiv_t field order and long-long widths. $>
+  DOC <$ Matches the macOS lldiv_t field order and long-long widths. $>
+  ::division64
     IBC_STRUCT TRIVIALLY_RELOCATABLE
   {
     .quotient VAR I64;
     .remainder VAR I64;
   }
-  ::divide32 DOC <$ Returns the system quotient/remainder pair in a C aggregate. $>
+  DOC <$ Returns the system quotient/remainder pair in a C aggregate. $>
+  ::divide32
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"div"]
     CALLABLE CALLCONV CCALL(@numerator I32, @denominator I32; RETURN division32);
-  ::divide64 DOC <$ Returns a two-register system quotient/remainder aggregate. $>
+  DOC <$ Returns a two-register system quotient/remainder aggregate. $>
+  ::divide64
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"lldiv"]
     CALLABLE CALLCONV CCALL(@numerator I64, @denominator I64; RETURN division64);
 
-  ::packed_integer_return DOC <$ Both halves of an eight-byte C aggregate survive positive and negative quotient/remainder returns. $>
+  DOC <$ Both halves of an eight-byte C aggregate survive positive and negative quotient/remainder returns. $>
+  ::packed_integer_return
     UNIT_TEST
   {
     TEST_ASSERT(SIZEOF(division32) == 8);
@@ -38,7 +43,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(negative_denominator.remainder == 2);
   }
 
-  ::two_register_return DOC <$ A sixteen-byte C aggregate preserves full-width quotient and remainder values in both returned registers. $>
+  DOC <$ A sixteen-byte C aggregate preserves full-width quotient and remainder values in both returned registers. $>
+  ::two_register_return
     UNIT_TEST
   {
     TEST_ASSERT(SIZEOF(division64) == 16);
@@ -56,12 +62,15 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(positive.remainder == 17);
   }
 
-  ::signed_value DOC <$ Exposes a eight-byte trivially relocatable integer wrapper. $>
+  DOC <$ Exposes a eight-byte trivially relocatable integer wrapper. $>
+  ::signed_value
     IBC_STRUCT TRIVIALLY_RELOCATABLE { .value VAR I64; }
-  ::absolute DOC <$ Passes and returns the integer wrapper through the system C ABI. $>
+  DOC <$ Passes and returns the integer wrapper through the system C ABI. $>
+  ::absolute
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"labs"]
     CALLABLE CALLCONV CCALL(@value signed_value; RETURN signed_value);
-  ::integer_wrapper_argument DOC <$ A user struct crosses an external parameter and return boundary in an integer register. $>
+  DOC <$ A user struct crosses an external parameter and return boundary in an integer register. $>
+  ::integer_wrapper_argument
     UNIT_TEST
   {
     VAR input signed_value;

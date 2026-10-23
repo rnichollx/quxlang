@@ -2,25 +2,30 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::explicit_storage_call_tests NAMESPACE
 {
-  ::record DOC <$ Records positional construction and the selected explicit destructor argument. $>
+  DOC <$ Records positional construction and the selected explicit destructor argument. $>
+  ::record
     STRUCT
   {
     .events VAR MUT->I32;
     .value VAR I32;
-    .CONSTRUCTOR DOC <$ Preserves positional value binding and records completed initialization. $>
+    DOC <$ Preserves positional value binding and records completed initialization. $>
+    .CONSTRUCTOR
       FUNCTION(%value I32, %events MUT& I32)
     {
       .value := value;
       .events := events<-;
       events := events * 10 + 3;
     }
-    .DESTRUCTOR DOC <$ Records ordinary destruction. $>
+    DOC <$ Records ordinary destruction. $>
+    .DESTRUCTOR
       FUNCTION() { .events-> := .events-> * 10 + 4; }
-    .DESTRUCTOR DOC <$ Records the caller-supplied destruction event. $>
+    DOC <$ Records the caller-supplied destruction event. $>
+    .DESTRUCTOR
       FUNCTION(@digit I32) { .events-> := .events-> * 10 + digit; }
   }
 
-  ::positional_placement DOC <$ Positional placement expression and statement arguments execute once and initialize reusable storage. $>
+  DOC <$ Positional placement expression and statement arguments execute once and initialize reusable storage. $>
+  ::positional_placement
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -39,7 +44,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 234);
   }
 
-  ::named_destruction DOC <$ Explicit destructor arguments select the matching overload and end the placed object's lifetime before storage reuse. $>
+  DOC <$ Explicit destructor arguments select the matching overload and end the placed object's lifetime before storage reuse. $>
+  ::named_destruction
     DUAL_TEST KNOWN_BROKEN
   {
     VAR events I32 := 0;

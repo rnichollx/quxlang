@@ -13,7 +13,8 @@ LANGUAGE QUXLANG EN 0.0;
     .right BASE right;
   }
 
-  ::canonical_builtin DOC <$ The built-in view shares complete-object identity while lowercase methods remain user-defined. $>
+  DOC <$ The built-in view shares complete-object identity while lowercase methods remain user-defined. $>
+  ::canonical_builtin
   DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object complete;
@@ -32,7 +33,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((empty_view??) == FALSE);
   }
 
-  ::lowercase_is_not_builtin DOC <$ The compiler view does not introduce a lowercase dynamic_type method. $>
+  DOC <$ The compiler view does not introduce a lowercase dynamic_type method. $>
+  ::lowercase_is_not_builtin
   STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object complete;
@@ -40,14 +42,16 @@ LANGUAGE QUXLANG EN 0.0;
     view->.dynamic_type();
   }
 
-  ::read_reference DOC <$ Counts evaluation of a polymorphic reference operand. $>
+  DOC <$ Counts evaluation of a polymorphic reference operand. $>
+  ::read_reference
   FUNCTION(@object CONST& left, @calls MUT& I32): CONST& left
   {
     calls := calls + 1;
     RETURN object;
   }
 
-  ::reference_evaluated_once DOC <$ A reference expression is evaluated once and preserves the complete object identity. $>
+  DOC <$ A reference expression is evaluated once and preserves the complete object identity. $>
+  ::reference_evaluated_once
   DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object complete;
@@ -57,7 +61,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((-< = DYNAMIC_TYPE_OF(object.right))() == TYPE_INDEX_OF(complete));
   }
 
-  ::nonpolymorphic_reference DOC <$ Ordinary object references cannot report a dynamic type. $>
+  DOC <$ Ordinary object references cannot report a dynamic type. $>
+  ::nonpolymorphic_reference
   STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object I32 := 1;

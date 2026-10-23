@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::runtime_branch_lifetime_tests NAMESPACE
 {
-  ::selected_scope DOC <$ Phase selection destroys branch locals in reverse order before continuation or exception propagation. $>
+  DOC <$ Phase selection destroys branch locals in reverse order before continuation or exception propagation. $>
+  ::selected_scope
     FUNCTION(@events MUT& I32, @fail BOOL)
   {
     VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
@@ -25,7 +26,8 @@ LANGUAGE QUXLANG EN 0.0;
     events := events * 10 + 7;
   }
 
-  ::normal_continuation DOC <$ The selected phase releases both locals before the shared continuation and preserves the enclosing local until function exit. $>
+  DOC <$ The selected phase releases both locals before the shared continuation and preserves the enclosing local until function exit. $>
+  ::normal_continuation
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -34,7 +36,8 @@ LANGUAGE QUXLANG EN 0.0;
     ELSE { TEST_ASSERT(events == 4379); }
   }
 
-  ::exception_cleanup DOC <$ A selected phase unwinds both branch locals and the enclosing local before the caller handles its phase-specific exception. $>
+  DOC <$ A selected phase unwinds both branch locals and the enclosing local before the caller handles its phase-specific exception. $>
+  ::exception_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -57,7 +60,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::without_else DOC <$ Phase statements without an alternative destroy active locals before continuation and leave no state from the skipped branch. $>
+  DOC <$ Phase statements without an alternative destroy active locals before continuation and leave no state from the skipped branch. $>
+  ::without_else
     DUAL_TEST
   {
     VAR events I32 := 0;

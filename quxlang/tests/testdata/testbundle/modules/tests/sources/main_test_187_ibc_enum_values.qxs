@@ -2,16 +2,21 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::ibc_enum_value_tests NAMESPACE
 {
-  ::code DOC <$ Declares byte-sized interoperation values in a different order from their numeric ordering. $>
+  DOC <$ Declares byte-sized interoperation values in a different order from their numeric ordering. $>
+  ::code
     IBC_ENUM BITS(8) [high = 255, zero DEFAULT = 0, low = 1];
-  ::open_code DOC <$ Permits unnamed byte representations for interoperation round trips. $>
+  DOC <$ Permits unnamed byte representations for interoperation round trips. $>
+  ::open_code
     IBC_ENUM BITS(8) [zero DEFAULT = 0, high = 255] ALLOW_UNKNOWN;
-  ::default_width DOC <$ Uses the implicit enum width without declaring a default value. $>
+  DOC <$ Uses the implicit enum width without declaring a default value. $>
+  ::default_width
     IBC_ENUM [zero = 0, one = 1, two = 2];
-  ::ordinary DOC <$ Provides an ordinary nominal enum with the same declared values. $>
+  DOC <$ Provides an ordinary nominal enum with the same declared values. $>
+  ::ordinary
     ENUM BITS(8) [high = 255, zero DEFAULT = 0, low = 1];
 
-  ::declared_values DOC <$ IBC_ENUM retains default selection, numeric ordering, byte representation and nominal distinction. $>
+  DOC <$ IBC_ENUM retains default selection, numeric ordering, byte representation and nominal distinction. $>
+  ::declared_values
     DUAL_TEST
   {
     VAR value code;
@@ -29,7 +34,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(implicit_width > default_width::one);
   }
 
-  ::unknown_representations DOC <$ Every byte representation survives IBC_ENUM deserialization and serialization when unknown values are allowed. $>
+  DOC <$ Every byte representation survives IBC_ENUM deserialization and serialization when unknown values are allowed. $>
+  ::unknown_representations
     DUAL_TEST
   {
     VAR raw U16 := 0;
@@ -46,7 +52,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::missing_default DOC <$ An IBC_ENUM without a declared default requires explicit initialization. $>
+  DOC <$ An IBC_ENUM without a declared default requires explicit initialization. $>
+  ::missing_default
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   { VAR value default_width; }
 }

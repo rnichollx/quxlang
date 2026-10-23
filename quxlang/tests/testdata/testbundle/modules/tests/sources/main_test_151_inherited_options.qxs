@@ -2,16 +2,21 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::inherited_option_tests NAMESPACE
 {
-  ::leaf DOC <$ Inherits through a forward-declared intermediate option. $>
+  DOC <$ Inherits through a forward-declared intermediate option. $>
+  ::leaf
     OPTION NUMBER DEFAULT_FROM(middle);
-  ::middle DOC <$ Shares the numeric source without creating mutable storage. $>
+  DOC <$ Shares the numeric source without creating mutable storage. $>
+  ::middle
     OPTION NUMBER DEFAULT_FROM(base);
-  ::base DOC <$ Supplies the terminal numeric default. $>
+  DOC <$ Supplies the terminal numeric default. $>
+  ::base
     OPTION NUMBER DEFAULT(17);
-  ::configured DOC <$ Inherits the existing target override instead of its source default of 42. $>
+  DOC <$ Inherits the existing target override instead of its source default of 42. $>
+  ::configured
     OPTION NUMBER DEFAULT_FROM(::option_num);
 
-  ::numeric_chain_and_override DOC <$ Forward references and repeated option resolution preserve defaults and configured source values. $>
+  DOC <$ Forward references and repeated option resolution preserve defaults and configured source values. $>
+  ::numeric_chain_and_override
     DUAL_TEST
   {
     TEST_ASSERT(leaf == 17);
@@ -23,12 +28,15 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SAME_TYPES([configured]BYTE, [5]BYTE));
   }
 
-  ::independent DOC <$ Allows a target override without changing the inherited source. $>
+  DOC <$ Allows a target override without changing the inherited source. $>
+  ::independent
     OPTION NUMBER DEFAULT_FROM(base);
-  ::expected_independent DOC <$ Supplies the expected value for configuration-isolation validation. $>
+  DOC <$ Supplies the expected value for configuration-isolation validation. $>
+  ::expected_independent
     OPTION NUMBER DEFAULT(17);
 
-  ::derived_override_is_independent DOC <$ Resolving a configured derived option never modifies its source or sibling defaults. $>
+  DOC <$ Resolving a configured derived option never modifies its source or sibling defaults. $>
+  ::derived_override_is_independent
     DUAL_TEST
   {
     TEST_ASSERT(independent == expected_independent);
@@ -37,9 +45,12 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(middle == 17);
   }
 
-  ::truth DOC <$ Supplies an inherited Boolean default. $> OPTION BOOL DEFAULT(TRUE);
-  ::inherited_truth DOC <$ Retains the Boolean kind through inheritance. $> OPTION BOOL DEFAULT_FROM(truth);
-  ::boolean_selection DOC <$ Inherited Boolean values select static branches. $>
+  DOC <$ Supplies an inherited Boolean default. $>
+  ::truth OPTION BOOL DEFAULT(TRUE);
+  DOC <$ Retains the Boolean kind through inheritance. $>
+  ::inherited_truth OPTION BOOL DEFAULT_FROM(truth);
+  DOC <$ Inherited Boolean values select static branches. $>
+  ::boolean_selection
     DUAL_TEST
   {
     TEST_ASSERT(inherited_truth);
@@ -47,13 +58,17 @@ LANGUAGE QUXLANG EN 0.0;
     STATIC_ELSE { TEST_ASSERT(FALSE); }
   }
 
-  ::nested DOC <$ Gives an inherited default a distinct lexical source. $> NAMESPACE
+  DOC <$ Gives an inherited default a distinct lexical source. $>
+  ::nested NAMESPACE
   {
-    ::base DOC <$ Shadows the enclosing numeric option. $> OPTION NUMBER DEFAULT(29);
-    ::value DOC <$ Resolves its source relative to the declaration. $> OPTION NUMBER DEFAULT_FROM(base);
+    DOC <$ Shadows the enclosing numeric option. $>
+    ::base OPTION NUMBER DEFAULT(29);
+    DOC <$ Resolves its source relative to the declaration. $>
+    ::value OPTION NUMBER DEFAULT_FROM(base);
   }
 
-  ::declaration_context DOC <$ Caller locals cannot shadow the source of an inherited default. $>
+  DOC <$ Caller locals cannot shadow the source of an inherited default. $>
+  ::declaration_context
     DUAL_TEST
   {
     VAR base I32 := 91;
@@ -62,26 +77,41 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(base == 91);
   }
 
-  ::self_cycle DOC <$ Forms a direct default cycle for semantic rejection. $> OPTION NUMBER DEFAULT_FROM(self_cycle);
-  ::cycle_first DOC <$ Forms the first edge of an indirect cycle. $> OPTION NUMBER DEFAULT_FROM(cycle_second);
-  ::cycle_second DOC <$ Closes an indirect default cycle. $> OPTION NUMBER DEFAULT_FROM(cycle_first);
-  ::wrong_kind DOC <$ Refers to a Boolean option from a numeric option. $> OPTION NUMBER DEFAULT_FROM(truth);
-  ::ordinary DOC <$ Supplies a non-option symbol for default validation. $> STATIC I32 := 7;
-  ::non_option DOC <$ Refers to a constant instead of an option. $> OPTION NUMBER DEFAULT_FROM(ordinary);
-  ::missing DOC <$ Refers to an absent declaration. $> OPTION NUMBER DEFAULT_FROM(absent_option);
-  ::required DOC <$ Has no source default or configured value. $> OPTION NUMBER;
-  ::inherited_required DOC <$ Reaches a source without a resolvable value. $> OPTION NUMBER DEFAULT_FROM(required);
+  DOC <$ Forms a direct default cycle for semantic rejection. $>
+  ::self_cycle OPTION NUMBER DEFAULT_FROM(self_cycle);
+  DOC <$ Forms the first edge of an indirect cycle. $>
+  ::cycle_first OPTION NUMBER DEFAULT_FROM(cycle_second);
+  DOC <$ Closes an indirect default cycle. $>
+  ::cycle_second OPTION NUMBER DEFAULT_FROM(cycle_first);
+  DOC <$ Refers to a Boolean option from a numeric option. $>
+  ::wrong_kind OPTION NUMBER DEFAULT_FROM(truth);
+  DOC <$ Supplies a non-option symbol for default validation. $>
+  ::ordinary STATIC I32 := 7;
+  DOC <$ Refers to a constant instead of an option. $>
+  ::non_option OPTION NUMBER DEFAULT_FROM(ordinary);
+  DOC <$ Refers to an absent declaration. $>
+  ::missing OPTION NUMBER DEFAULT_FROM(absent_option);
+  DOC <$ Has no source default or configured value. $>
+  ::required OPTION NUMBER;
+  DOC <$ Reaches a source without a resolvable value. $>
+  ::inherited_required OPTION NUMBER DEFAULT_FROM(required);
 
-  ::reject_self_cycle DOC <$ Direct default cycles are invalid. $>
+  DOC <$ Direct default cycles are invalid. $>
+  ::reject_self_cycle
     STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := self_cycle; }
-  ::reject_indirect_cycle DOC <$ Indirect default cycles are invalid. $>
+  DOC <$ Indirect default cycles are invalid. $>
+  ::reject_indirect_cycle
     STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := cycle_first; }
-  ::reject_kind_mismatch DOC <$ Default inheritance preserves the declared option kind. $>
+  DOC <$ Default inheritance preserves the declared option kind. $>
+  ::reject_kind_mismatch
     STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := wrong_kind; }
-  ::reject_non_option DOC <$ Ordinary constants cannot supply DEFAULT_FROM declarations. $>
+  DOC <$ Ordinary constants cannot supply DEFAULT_FROM declarations. $>
+  ::reject_non_option
     STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := non_option; }
-  ::reject_missing_source DOC <$ Unresolved inherited default sources are invalid. $>
+  DOC <$ Unresolved inherited default sources are invalid. $>
+  ::reject_missing_source
     STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := missing; }
-  ::reject_missing_value DOC <$ A chain ending at an unconfigured required option cannot supply a value. $>
+  DOC <$ A chain ending at an unconfigured required option cannot supply a value. $>
+  ::reject_missing_value
     STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := inherited_required; }
 }

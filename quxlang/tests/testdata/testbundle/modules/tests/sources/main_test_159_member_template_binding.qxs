@@ -2,19 +2,23 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::member_template_binding_tests NAMESPACE
 {
-  ::receiver DOC <$ Stores receiver state observed by explicitly and implicitly generic methods. $> STRUCT
+  DOC <$ Stores receiver state observed by explicitly and implicitly generic methods. $>
+  ::receiver STRUCT
   {
     .calls VAR I32;
-    .explicit_value DOC <$ Uses a named type-template argument while mutating the receiver. $>
+    DOC <$ Uses a named type-template argument while mutating the receiver. $>
+    .explicit_value
       TEMPLATE(@T:element_type TYPE)
       FUNCTION(@value element_type): element_type
     { .calls++; RETURN value; }
-    .deduced_value DOC <$ Deduces the argument type while retaining receiver identity. $>
+    DOC <$ Deduces the argument type while retaining receiver identity. $>
+    .deduced_value
       FUNCTION(@value DECAY(element_type)): element_type
     { .calls++; RETURN value; }
   }
 
-  ::explicit_named_type DOC <$ Ordinary named template arguments preserve the member receiver across distinct instantiations. $>
+  DOC <$ Ordinary named template arguments preserve the member receiver across distinct instantiations. $>
+  ::explicit_named_type
     DUAL_TEST
   {
     VAR object receiver;
@@ -23,7 +27,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(object.calls == 2);
   }
 
-  ::deduced_type DOC <$ Implicit generic member calls deduce distinct scalar types without copying the receiver. $>
+  DOC <$ Implicit generic member calls deduce distinct scalar types without copying the receiver. $>
+  ::deduced_type
     DUAL_TEST
   {
     VAR object receiver;

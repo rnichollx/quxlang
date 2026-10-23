@@ -33,7 +33,8 @@ PRIVATE(MODULE)
     .context_identity VAR MUT->async_context_control;
     .pending VAR ATOMIC#SZ;
 
-    .CONSTRUCTOR DOC <$ Creates stable async-file state for one context and native file. $>
+    DOC <$ Creates stable async-file state for one context and native file. $>
+    .CONSTRUCTOR
       FUNCTION(%native_ref file_ref, %context_identity MUT->async_context_control)
       :> .owned_file:(@native_ref native_ref)
     {
@@ -55,25 +56,28 @@ PRIVATE(MODULE)
     .macos_control INCLUDE_IF(OS_MACOS) VAR macos_async_control_block;
   }
 
-  ::async_request_address INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  DOC <$
     Exposes one live request address to an operating-system queue.
     $>
+  ::async_request_address INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     FUNCTION(@request MUT->async_request): ADDRESS
   {
     RETURN IBC_GETADDR(@PTR request);
   }
 
-  ::async_request_at INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  DOC <$
     Recovers a live request previously exposed to an operating-system queue.
     $>
+  ::async_request_at INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     FUNCTION(@address ADDRESS): MUT->async_request
   {
     RETURN IBC_PUN#(MUT->async_request)(@ADDR address);
   }
 
-  ::async_transfer_size INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  DOC <$
     Caps one native asynchronous transfer at a 32-bit byte count.
     $>
+  ::async_transfer_size INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     FUNCTION(@size SZ): U32
   {
     VAR maximum U32 := (0 AS U32) #!!;
@@ -91,9 +95,10 @@ PRIVATE(MODULE)
     }
   }
 
-  ::allocate_async_request INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  DOC <$
     Allocates stable request state and takes ownership of one completion callable.
     $>
+  ::allocate_async_request INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     FUNCTION(
       @file_control MUT->async_file_control,
       @context_control MUT->async_context_control,
@@ -112,9 +117,10 @@ PRIVATE(MODULE)
     RETURN request;
   }
 
-  ::complete_async_request INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+  DOC <$
     Delivers one completion, releases its erased callable, and frees request state.
     $>
+  ::complete_async_request INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     FUNCTION(
       @request MUT->async_request,
       @succeeded BOOL,
@@ -146,9 +152,10 @@ PRIVATE(MODULE)
 
 }
 
-::async_worker_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+DOC <$
   Binds one thread invocation to the stable state of an async context.
   $>
+::async_worker_entry INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
   STRUCT MOVE_ONLY
 {
   PRIVATE(MODULE)
@@ -156,13 +163,15 @@ PRIVATE(MODULE)
     .control VAR MUT->async_context_control;
   }
 
-  .CONSTRUCTOR DOC <$ Binds one worker entry to stable async-context state. $>
+  DOC <$ Binds one worker entry to stable async-context state. $>
+  .CONSTRUCTOR
     FUNCTION(@control MUT->async_context_control)
   {
     .control := control;
   }
 
-  .OPERATOR() DOC <$ Processes completions until the context receives a stop packet. $>
+  DOC <$ Processes completions until the context receives a stop packet. $>
+  .OPERATOR()
     FUNCTION()
   {
     LOOP WHILE (wait_for_async_completion(@control .control)) DO
@@ -172,11 +181,12 @@ PRIVATE(MODULE)
 }
 
 
-::async_context INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+DOC <$
   Owns one platform completion queue: io_uring on Linux, an I/O completion
   port on Windows, or kqueue on macOS. Callbacks run on threads that call
   wait_one, including workers owned by thread_pool.
   $>
+::async_context INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
   STRUCT MOVE_ONLY
 {
   PRIVATE(MODULE)
@@ -185,7 +195,8 @@ PRIVATE(MODULE)
 
   }
 
-  .CONSTRUCTOR DOC <$ Creates a completion queue with room for entries in flight. $>
+  DOC <$ Creates a completion queue with room for entries in flight. $>
+  .CONSTRUCTOR
     FUNCTION(@entries SZ)
   {
     ASSERT(entries != 0, "An async context requires at least one entry.");
@@ -213,7 +224,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers ownership of another context without moving native queue state. $>
+  DOC <$ Transfers ownership of another context without moving native queue state. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& async_context)
   {
     VAR empty_control MUT->async_context_control;
@@ -223,7 +235,8 @@ PRIVATE(MODULE)
     .control <-> other_control;
   }
 
-  .DESTRUCTOR DOC <$ Releases the native queue after all requests have completed. $>
+  DOC <$ Releases the native queue after all requests have completed. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     IF (.control??)
@@ -242,7 +255,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .valid DOC <$ Reports whether the platform completion queue was created. $>
+  DOC <$ Reports whether the platform completion queue was created. $>
+  .valid
     FUNCTION(): BOOL
   {
     IF ((.control??) == FALSE)
@@ -252,7 +266,8 @@ PRIVATE(MODULE)
     RETURN .control->.valid;
   }
 
-  .outstanding DOC <$ Returns the number of operations whose callbacks have not returned. $>
+  DOC <$ Returns the number of operations whose callbacks have not returned. $>
+  .outstanding
     FUNCTION(): SZ
   {
     IF ((.control??) == FALSE)
@@ -262,7 +277,8 @@ PRIVATE(MODULE)
     RETURN .control->.outstanding.LOAD#ATOMIC_ACQUIRE();
   }
 
-  .wait_one DOC <$ Waits for one completion and executes its callback on this thread. $>
+  DOC <$ Waits for one completion and executes its callback on this thread. $>
+  .wait_one
     FUNCTION(): BOOL
   {
     ASSERT(.valid(), "Cannot wait on an unavailable async context.");
@@ -282,19 +298,21 @@ PRIVATE(MODULE)
 }
 
 
-::async_file INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+DOC <$
   Owns a native file used for positioned asynchronous transfers. The context,
   file object, buffer storage, and objects referenced by callback captures must
   remain alive through completion. Every operation requires the same
   async_context used at construction.
   $>
+::async_file INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
   STRUCT MOVE_ONLY
 {
   PRIVATE(MODULE)
   {
     .control VAR MUT->async_file_control;
 
-    .assert_context DOC <$ Rejects use with a context other than the construction context. $>
+    DOC <$ Rejects use with a context other than the construction context. $>
+    .assert_context
       FUNCTION(@context MUT& async_context)
     {
       ASSERT(context.valid(), "Cannot use an unavailable async context.");
@@ -304,10 +322,11 @@ PRIVATE(MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$
+  DOC <$
     Takes ownership of native_ref and binds it to context. Windows handles must
     have been opened with FILE_FLAG_OVERLAPPED.
     $>
+  .CONSTRUCTOR
     FUNCTION(@context MUT& async_context, @native_ref file_ref)
   {
     ASSERT(context.valid(), "Cannot create an async file for an unavailable context.");
@@ -327,7 +346,8 @@ PRIVATE(MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers stable file state, including operations already in flight. $>
+  DOC <$ Transfers stable file state, including operations already in flight. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& async_file)
   {
     VAR empty_control MUT->async_file_control;
@@ -337,7 +357,8 @@ PRIVATE(MODULE)
     .control <-> other_control;
   }
 
-  .DESTRUCTOR DOC <$ Closes and releases the file after every operation has completed. $>
+  DOC <$ Closes and releases the file after every operation has completed. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     IF (.control??)
@@ -348,10 +369,11 @@ PRIVATE(MODULE)
     }
   }
 
-  .read DOC <$
+  DOC <$
     Starts a positioned read. Submission failures invoke callback immediately
     with succeeded set to false.
     $>
+  .read
     FUNCTION(
       @context MUT& async_context,
       @buffer CONST& buffer_ref,
@@ -378,10 +400,11 @@ PRIVATE(MODULE)
     }
   }
 
-  .write DOC <$
+  DOC <$
     Starts a positioned write. Submission failures invoke callback immediately
     with succeeded set to false.
     $>
+  .write
     FUNCTION(
       @context MUT& async_context,
       @buffer CONST& buffer_ref,
@@ -408,28 +431,32 @@ PRIVATE(MODULE)
     }
   }
 
-  .pending DOC <$ Returns this file's number of unfinished transfers. $>
+  DOC <$ Returns this file's number of unfinished transfers. $>
+  .pending
     FUNCTION(@context MUT& async_context): SZ
   {
     .assert_context(@context context);
     RETURN .control->.pending.LOAD#ATOMIC_ACQUIRE();
   }
 
-  .is_open DOC <$ Reports whether this object still owns its native file. $>
+  DOC <$ Reports whether this object still owns its native file. $>
+  .is_open
     FUNCTION(@context MUT& async_context): BOOL
   {
     .assert_context(@context context);
     RETURN .control->.owned_file.is_open();
   }
 
-  .reference DOC <$ Returns a non-owning native reference after validating context identity. $>
+  DOC <$ Returns a non-owning native reference after validating context identity. $>
+  .reference
     FUNCTION(@context MUT& async_context): file_ref
   {
     .assert_context(@context context);
     RETURN .control->.owned_file.reference();
   }
 
-  .close DOC <$ Closes the file after all of its asynchronous transfers have completed. $>
+  DOC <$ Closes the file after all of its asynchronous transfers have completed. $>
+  .close
     FUNCTION(@context MUT& async_context): BOOL
   {
     .assert_context(@context context);
@@ -440,11 +467,12 @@ PRIVATE(MODULE)
 }
 
 
-::thread_pool INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) DOC <$
+DOC <$
   Owns native worker threads that wait on one async_context and execute its
   completion callbacks. Destruction drains callbacks, posts stop packets, and
   joins every worker. The referenced context must outlive the pool.
   $>
+::thread_pool INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
   STRUCT MOVE_ONLY
 {
   PRIVATE(MODULE)
@@ -454,7 +482,8 @@ PRIVATE(MODULE)
     .context_control VAR MUT->async_context_control;
   }
 
-  .CONSTRUCTOR DOC <$ Starts worker_count completion workers for context. $>
+  DOC <$ Starts worker_count completion workers for context. $>
+  .CONSTRUCTOR
     FUNCTION(@context MUT& async_context, @worker_count SZ)
   {
     ASSERT(context.valid(), "Cannot start a thread pool for an unavailable async context.");
@@ -481,7 +510,8 @@ PRIVATE(MODULE)
     };
   }
 
-  .CONSTRUCTOR DOC <$ Transfers worker ownership without changing their context state. $>
+  DOC <$ Transfers worker ownership without changing their context state. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& thread_pool)
   {
     VAR empty_workers MUT=>>TYPED_STORAGE(thread);
@@ -499,7 +529,8 @@ PRIVATE(MODULE)
     .context_control <-> other_context;
   }
 
-  .DESTRUCTOR DOC <$ Drains outstanding callbacks and joins every worker. $>
+  DOC <$ Drains outstanding callbacks and joins every worker. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     IF (.joinable())
@@ -508,17 +539,19 @@ PRIVATE(MODULE)
     }
   }
 
-  .joinable DOC <$ Reports whether this object still owns worker threads. $>
+  DOC <$ Reports whether this object still owns worker threads. $>
+  .joinable
     FUNCTION(): BOOL
   {
     RETURN .workers??;
   }
 
-  .join DOC <$
+  DOC <$
     Drains the context, stops its workers, and consumes pool ownership. No
     thread may start a new operation on the context after join begins, and a
     completion callback must not call join on its own pool.
     $>
+  .join
     FUNCTION()
   {
     ASSERT(.joinable(), "Cannot join a non-joinable thread pool.");

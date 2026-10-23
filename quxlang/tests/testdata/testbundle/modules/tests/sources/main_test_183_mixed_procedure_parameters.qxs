@@ -2,14 +2,17 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::mixed_procedure_parameter_tests NAMESPACE
 {
-  ::encode DOC <$ Distinguishes positional parameter order from the separately named middle parameter. $>
+  DOC <$ Distinguishes positional parameter order from the separately named middle parameter. $>
+  ::encode
     FUNCTION(%first I32, @middle I32, %last I32): I32
   { RETURN first * 100 + middle * 10 + last; }
 
-  ::signature DOC <$ Interleaves named and positional types in a callable signature. $>
+  DOC <$ Interleaves named and positional types in a callable signature. $>
+  ::signature
     ALIAS PROCEDURE(I32, @middle I32, I32: I32);
 
-  ::binding_and_groups DOC <$ Mixed indirect calls bind positional groups independently of named argument placement and evaluate all expressions in written order. $>
+  DOC <$ Mixed indirect calls bind positional groups independently of named argument placement and evaluate all expressions in written order. $>
+  ::binding_and_groups
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(signature, PROCEDURE(@middle I32, I32, I32: I32)));
@@ -28,11 +31,13 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 456);
   }
 
-  ::update DOC <$ Mutates a positional reference using a named scalar and returns the original reference. $>
+  DOC <$ Mutates a positional reference using a named scalar and returns the original reference. $>
+  ::update
     FUNCTION(%value MUT& I32, @amount I32): MUT& I32
   { value += amount; RETURN value; }
 
-  ::mixed_reference_result DOC <$ Mixed procedure signatures preserve writable argument and return identity through a copied pointer. $>
+  DOC <$ Mixed procedure signatures preserve writable argument and return identity through a copied pointer. $>
+  ::mixed_reference_result
     DUAL_TEST
   {
     VAR pointer CONST->PROCEDURE(MUT& I32, @amount I32: MUT& I32) := update<-;

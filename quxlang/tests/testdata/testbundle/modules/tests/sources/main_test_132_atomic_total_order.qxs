@@ -3,7 +3,8 @@ IMPORT std;
 
 ::atomic_total_order_tests NAMESPACE
 {
-  ::cross_location_store_load INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Sequentially consistent store-load pairs cannot both read the preceding zero values across two locations. $>
+  DOC <$ Sequentially consistent store-load pairs cannot both read the preceding zero values across two locations. $>
+  ::cross_location_store_load INCLUDE_IF(OS_MACOS || ARCH_IS_JVM)
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR left ATOMIC#I32;

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::unevaluated_owned_expression_tests NAMESPACE
 {
-  ::construction_and_throw DOC <$ TYPEOF inspects owned construction and a throwing call without constructing arguments or executing the call. $>
+  DOC <$ TYPEOF inspects owned construction and a throwing call without constructing arguments or executing the call. $>
+  ::construction_and_throw
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -16,7 +17,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
   }
 
-  ::placement_has_no_lifetime DOC <$ TYPEOF of placement computes the pointer type without starting a lifetime or changing storage before a real placement. $>
+  DOC <$ TYPEOF of placement computes the pointer type without starting a lifetime or changing storage before a real placement. $>
+  ::placement_has_no_lifetime
     DUAL_TEST
   {
     VAR events I32 := 0;

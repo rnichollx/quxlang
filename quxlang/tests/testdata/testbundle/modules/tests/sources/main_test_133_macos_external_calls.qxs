@@ -2,24 +2,30 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::macos_external_call_tests INCLUDE_IF(OS_MACOS) NAMESPACE
 {
-  ::split_fraction DOC <$ Calls the system double decomposition routine with a floating output pointer. $>
+  DOC <$ Calls the system double decomposition routine with a floating output pointer. $>
+  ::split_fraction
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"modf"]
     CALLABLE CALLCONV CCALL(@value F64, @integral MUT->F64; RETURN F64);
-  ::split_exponent DOC <$ Calls the system decomposition routine with an integer output pointer. $>
+  DOC <$ Calls the system decomposition routine with an integer output pointer. $>
+  ::split_exponent
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"frexp"]
     CALLABLE CALLCONV CCALL(@value F64, @exponent MUT->I32; RETURN F64);
-  ::scale_exponent DOC <$ Calls a system routine with arguments in floating and integer registers. $>
+  DOC <$ Calls a system routine with arguments in floating and integer registers. $>
+  ::scale_exponent
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"ldexp"]
     CALLABLE CALLCONV CCALL(@value F64, @exponent I32; RETURN F64);
-  ::move_bytes DOC <$ Calls the system overlap-safe byte copy routine and returns its destination. $>
+  DOC <$ Calls the system overlap-safe byte copy routine and returns its destination. $>
+  ::move_bytes
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"memmove"]
     CALLABLE CALLCONV CCALL(@destination MUT=>>BYTE, @source CONST=>>BYTE, @count SZ; RETURN MUT=>>BYTE);
 
-  ::maximum_encoded_size DOC <$ Queries the CoreFoundation UTF encoding bound through its declared framework install name. $>
+  DOC <$ Queries the CoreFoundation UTF encoding bound through its declared framework install name. $>
+  ::maximum_encoded_size
     EXTERN_PROCEDURE["/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation":"CFStringGetMaximumSizeForEncoding"]
     CALLABLE CALLCONV CCALL(@length I64, @encoding U32; RETURN I64);
 
-  ::multiple_dynamic_libraries DOC <$ Resolves framework and libSystem imports from distinct dylib ordinals in one executable. $>
+  DOC <$ Resolves framework and libSystem imports from distinct dylib ordinals in one executable. $>
+  ::multiple_dynamic_libraries
     UNIT_TEST
   {
     TEST_ASSERT(maximum_encoded_size(@length 0, @encoding 134217984) == 0);
@@ -27,7 +33,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(scale_exponent(@value 3, @exponent 2) == 12);
   }
 
-  ::floating_and_output_arguments DOC <$ External floating arguments, scalar returns and output pointers preserve exact positive and negative decompositions. $>
+  DOC <$ External floating arguments, scalar returns and output pointers preserve exact positive and negative decompositions. $>
+  ::floating_and_output_arguments
     UNIT_TEST
   {
     VAR integral F64 := 99;
@@ -47,7 +54,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(scale_exponent(@value 8, @exponent 0 - 3) == 1);
   }
 
-  ::overlapping_pointer_arguments DOC <$ External pointer arguments retain offsets, overlap semantics, destination identity and adjacent guard bytes. $>
+  DOC <$ External pointer arguments retain offsets, overlap semantics, destination identity and adjacent guard bytes. $>
+  ::overlapping_pointer_arguments
     UNIT_TEST
   {
     VAR bytes [8]BYTE :[91, 1, 2, 3, 4, 5, 6, 92];

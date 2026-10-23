@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::exception_allocate_storage DOC <$ Allocates exception storage without recursively throwing on allocation failure. $>
+DOC <$ Allocates exception storage without recursively throwing on allocation failure. $>
+::exception_allocate_storage
 TEMPLATE(@T TYPE AUTO) FUNCTION() NOEXCEPT: MUT->TYPED_STORAGE(T)
 {
   RUNTIME CONSTEXPR
@@ -22,7 +23,8 @@ TEMPLATE(@T TYPE AUTO) FUNCTION() NOEXCEPT: MUT->TYPED_STORAGE(T)
   }
 }
 
-::exception_deallocate_storage DOC <$ Releases storage obtained from exception_allocate_storage. $>
+DOC <$ Releases storage obtained from exception_allocate_storage. $>
+::exception_deallocate_storage
 TEMPLATE(@T TYPE AUTO) FUNCTION(@storage MUT->TYPED_STORAGE(T)) NOEXCEPT
 {
   DEFAULT_ALLOCATOR#(T)::DEALLOC(@PTR storage);

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT foolib;
 
-::alias_tests DOC <$ Transparent aliases preserve identity, lexical lookup, and declaration privacy. $>
+DOC <$ Transparent aliases preserve identity, lexical lookup, and declaration privacy. $>
+::alias_tests
 NAMESPACE
 {
   ::type_identity_test DUAL_TEST
@@ -75,7 +76,8 @@ NAMESPACE
     TEST_ASSERT(SAME_TYPES(conditional_integer, I32));
   }
 
-  ::aliased_array_reference_storage DOC <$ Templated and chained array aliases share the same storage through an explicitly bound reference. $>
+  DOC <$ Templated and chained array aliases share the same storage through an explicitly bound reference. $>
+  ::aliased_array_reference_storage
     DUAL_TEST
   {
     VAR values fixed_array#(@T integer_chain, @count 3);
@@ -92,7 +94,8 @@ NAMESPACE
     TEST_ASSERT(reference[2] == 11);
   }
 
-  ::aliased_primary_argument_binding DOC <$ A function alias preserves its primary argument name and overload selection for explicit and bare calls. $>
+  DOC <$ A function alias preserves its primary argument name and overload selection for explicit and bare calls. $>
+  ::aliased_primary_argument_binding
     DUAL_TEST
   {
     VAR small I32 := 7;
@@ -228,7 +231,8 @@ NAMESPACE
   }
 
   ::integer_chain ALIAS integer;
-  ::integer DOC <$ An alternative spelling for the built-in signed 32-bit integer. $> ALIAS I32;
+  DOC <$ An alternative spelling for the built-in signed 32-bit integer. $>
+  ::integer ALIAS I32;
   ::integer_pointer ALIAS ->integer;
   ::integer_reference ALIAS MUT& integer;
   ::integer_array ALIAS [3]integer;
@@ -261,7 +265,8 @@ NAMESPACE
   }
 
   ::conditional_integer INCLUDE_IF(FALSE) ALIAS nonexistent;
-  ::conditional_integer INCLUDE_IF(TRUE) DOC <$ The active alias ignores an inactive conflicting declaration. $> ALIAS I32;
+  DOC <$ The active alias ignores an inactive conflicting declaration. $>
+  ::conditional_integer INCLUDE_IF(TRUE) ALIAS I32;
 
   ::lexical_scope NAMESPACE
   {

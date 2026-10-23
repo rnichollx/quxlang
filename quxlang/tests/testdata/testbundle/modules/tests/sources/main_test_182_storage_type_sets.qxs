@@ -2,10 +2,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::storage_type_set_tests NAMESPACE
 {
-  ::slot_type DOC <$ Permits three distinct object types in the same explicitly managed storage. $>
+  DOC <$ Permits three distinct object types in the same explicitly managed storage. $>
+  ::slot_type
     ALIAS TYPED_STORAGE(I32, placement_argument_tests::record, U64);
 
-  ::canonical_type_set DOC <$ Storage type lists form a set, preserving identity across ordering, aliases and repeated entries. $>
+  DOC <$ Storage type lists form a set, preserving identity across ordering, aliases and repeated entries. $>
+  ::canonical_type_set
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(slot_type,
@@ -16,7 +18,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SAME_TYPES(TYPED_STORAGE(I32), TYPED_STORAGE(U32)) == FALSE);
   }
 
-  ::successive_types DOC <$ Explicit destruction permits switching among every allowed type and returning to an owned type without extra destructor calls. $>
+  DOC <$ Explicit destruction permits switching among every allowed type and returning to an owned type without extra destructor calls. $>
+  ::successive_types
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -41,7 +44,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 3434);
   }
 
-  ::unlisted_type DOC <$ A type set does not permit an unlisted type merely because another allowed type has the same width. $>
+  DOC <$ A type set does not permit an unlisted type merely because another allowed type has the same width. $>
+  ::unlisted_type
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR slot slot_type;

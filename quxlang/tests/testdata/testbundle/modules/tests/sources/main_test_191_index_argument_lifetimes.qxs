@@ -2,19 +2,22 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::index_argument_lifetime_tests NAMESPACE
 {
-  ::indexed DOC <$ Index operators observe owned argument lifetimes and distinguish value from address dispatch. $>
+  DOC <$ Index operators observe owned argument lifetimes and distinguish value from address dispatch. $>
+  ::indexed
     STRUCT
   {
     .value VAR SZ;
     .events VAR MUT->I32;
-    .OPERATOR[] DOC <$ Consumes an index while its owned predecessor remains alive. $>
+    DOC <$ Consumes an index while its owned predecessor remains alive. $>
+    .OPERATOR[]
       FUNCTION(%first CONST& short_circuit_tests::temporary, %second SZ) MUT: SZ
     {
       TEST_ASSERT(first.alive-> == 1);
       .events-> := .events-> * 10 + 4;
       RETURN .value + second;
     }
-    .OPERATOR[&] DOC <$ Returns storage only after observing both live index arguments. $>
+    DOC <$ Returns storage only after observing both live index arguments. $>
+    .OPERATOR[&]
       FUNCTION(%first CONST& short_circuit_tests::temporary, %second SZ) MUT: MUT->SZ
     {
       TEST_ASSERT(first.alive-> == 1);
@@ -24,21 +27,24 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::receiver DOC <$ Records evaluation of the indexed object before index arguments. $>
+  DOC <$ Records evaluation of the indexed object before index arguments. $>
+  ::receiver
     FUNCTION(@object MUT& indexed): MUT& indexed
   {
     object.events-> := object.events-> * 10 + 1;
     RETURN object;
   }
 
-  ::throwing_index DOC <$ Throws after recording the second index operand. $>
+  DOC <$ Throws after recording the second index operand. $>
+  ::throwing_index
     FUNCTION(@events MUT& I32): SZ
   {
     events := events * 10 + 3;
     THROW I32(@OTHER 42);
   }
 
-  ::normal_cleanup DOC <$ Owned index arguments survive operator invocation and expire before the next statement for both bracket spellings. $>
+  DOC <$ Owned index arguments survive operator invocation and expire before the next statement for both bracket spellings. $>
+  ::normal_cleanup
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -59,7 +65,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(object.value == 29);
   }
 
-  ::throwing_cleanup DOC <$ Failure of the second index destroys its completed predecessor and skips either index operator body. $>
+  DOC <$ Failure of the second index destroys its completed predecessor and skips either index operator body. $>
+  ::throwing_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;

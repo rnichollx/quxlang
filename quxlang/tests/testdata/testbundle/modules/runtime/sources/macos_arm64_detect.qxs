@@ -7,9 +7,10 @@ IMPORT syscall;
 ::macos_arm64_capabilities_loaded VAR BOOL;
 ::macos_arm64_capabilities_available VAR BOOL;
 
-::macos_arm64_has_capability INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) DOC <$
+DOC <$
   Returns whether hw.optional.arm.caps contains one public Apple capability bit.
   $>
+::macos_arm64_has_capability INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64)
   FUNCTION(@bit SZ): BOOL
 {
   IF (macos_arm64_capabilities_loaded == FALSE)

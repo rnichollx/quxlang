@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
-PRIVATE(MODULE) ::unwind_capture INCLUDE_IF(OS_WINDOWS == FALSE) DOC <$ Saves the calling frame register state for native stack walking. $>
+DOC <$ Saves the calling frame register state for native stack walking. $>
+PRIVATE(MODULE) ::unwind_capture INCLUDE_IF(OS_WINDOWS == FALSE)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR)
 {
@@ -26,7 +27,8 @@ ASM_PROCEDURE X64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_restore INCLUDE_IF(OS_WINDOWS == FALSE) DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
+DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
+PRIVATE(MODULE) ::unwind_restore INCLUDE_IF(OS_WINDOWS == FALSE)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR, @ip UINTPTR)
 {
@@ -44,7 +46,8 @@ ASM_PROCEDURE X64
   JMP R11
 }
 
-PRIVATE(MODULE) ::unwind_capture DOC <$ Saves the calling frame register state for native stack walking. $>
+DOC <$ Saves the calling frame register state for native stack walking. $>
+PRIVATE(MODULE) ::unwind_capture
 ASM_PROCEDURE X86
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR)
 {
@@ -62,7 +65,8 @@ ASM_PROCEDURE X86
   RET
 }
 
-PRIVATE(MODULE) ::unwind_restore DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
+DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
+PRIVATE(MODULE) ::unwind_restore
 ASM_PROCEDURE X86
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR, @ip UINTPTR)
 {
@@ -78,7 +82,8 @@ ASM_PROCEDURE X86
   JMP ECX
 }
 
-PRIVATE(MODULE) ::unwind_capture DOC <$ Saves the calling frame register state for native stack walking. $>
+DOC <$ Saves the calling frame register state for native stack walking. $>
+PRIVATE(MODULE) ::unwind_capture
 ASM_PROCEDURE ARM64
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR)
 {
@@ -108,7 +113,8 @@ ASM_PROCEDURE ARM64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_restore DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
+DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
+PRIVATE(MODULE) ::unwind_restore
 ASM_PROCEDURE ARM64
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR, @ip UINTPTR)
 {
@@ -141,7 +147,8 @@ ASM_PROCEDURE ARM64
   BR X17
 }
 
-PRIVATE(MODULE) ::unwind_capture DOC <$ Saves the calling frame register state for native stack walking. $>
+DOC <$ Saves the calling frame register state for native stack walking. $>
+PRIVATE(MODULE) ::unwind_capture
 ASM_PROCEDURE Z_ARCH
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR)
 {
@@ -167,7 +174,8 @@ ASM_PROCEDURE Z_ARCH
   BR %r14
 }
 
-PRIVATE(MODULE) ::unwind_restore DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
+DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
+PRIVATE(MODULE) ::unwind_restore
 ASM_PROCEDURE Z_ARCH
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR, @ip UINTPTR)
 {
@@ -195,7 +203,8 @@ ASM_PROCEDURE Z_ARCH
   BR %r1
 }
 
-PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_LINUX) DOC <$ Returns the beginning of the executable unwind section. $>
+DOC <$ Returns the beginning of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_LINUX)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -203,7 +212,8 @@ ASM_PROCEDURE X64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_MACOS) DOC <$ Returns the beginning of the executable unwind section. $>
+DOC <$ Returns the beginning of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_MACOS)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -211,7 +221,8 @@ ASM_PROCEDURE X64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_LINUX) DOC <$ Returns the beginning of the executable unwind section. $>
+DOC <$ Returns the beginning of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_LINUX)
 ASM_PROCEDURE X86
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -219,7 +230,8 @@ ASM_PROCEDURE X86
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_LINUX) DOC <$ Returns the beginning of the executable unwind section. $>
+DOC <$ Returns the beginning of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_LINUX)
 ASM_PROCEDURE ARM64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -228,7 +240,8 @@ ASM_PROCEDURE ARM64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_MACOS) DOC <$ Returns the beginning of the executable unwind section. $>
+DOC <$ Returns the beginning of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_MACOS)
 ASM_PROCEDURE ARM64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -237,7 +250,8 @@ ASM_PROCEDURE ARM64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_LINUX) DOC <$ Returns the beginning of the executable unwind section. $>
+DOC <$ Returns the beginning of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_LINUX)
 ASM_PROCEDURE Z_ARCH
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -245,7 +259,8 @@ ASM_PROCEDURE Z_ARCH
   BR %r14
 }
 
-PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_LINUX) DOC <$ Returns the end of the executable unwind section. $>
+DOC <$ Returns the end of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_LINUX)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -253,7 +268,8 @@ ASM_PROCEDURE X64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_MACOS) DOC <$ Returns the end of the executable unwind section. $>
+DOC <$ Returns the end of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_MACOS)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -261,7 +277,8 @@ ASM_PROCEDURE X64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_LINUX) DOC <$ Returns the end of the executable unwind section. $>
+DOC <$ Returns the end of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_LINUX)
 ASM_PROCEDURE X86
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -269,7 +286,8 @@ ASM_PROCEDURE X86
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_LINUX) DOC <$ Returns the end of the executable unwind section. $>
+DOC <$ Returns the end of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_LINUX)
 ASM_PROCEDURE ARM64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -278,7 +296,8 @@ ASM_PROCEDURE ARM64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_MACOS) DOC <$ Returns the end of the executable unwind section. $>
+DOC <$ Returns the end of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_MACOS)
 ASM_PROCEDURE ARM64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -287,7 +306,8 @@ ASM_PROCEDURE ARM64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_LINUX) DOC <$ Returns the end of the executable unwind section. $>
+DOC <$ Returns the end of the executable unwind section. $>
+PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_LINUX)
 ASM_PROCEDURE Z_ARCH
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -295,7 +315,8 @@ ASM_PROCEDURE Z_ARCH
   BR %r14
 }
 
-PRIVATE(MODULE) ::unwind_capture INCLUDE_IF(OS_WINDOWS) DOC <$ Saves the Windows x64 nonvolatile register state, including full XMM values. $>
+DOC <$ Saves the Windows x64 nonvolatile register state, including full XMM values. $>
+PRIVATE(MODULE) ::unwind_capture INCLUDE_IF(OS_WINDOWS)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR)
 {
@@ -351,7 +372,8 @@ ASM_PROCEDURE X64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_restore INCLUDE_IF(OS_WINDOWS) DOC <$ Restores the Windows x64 register state and enters a landing pad. $>
+DOC <$ Restores the Windows x64 register state and enters a landing pad. $>
+PRIVATE(MODULE) ::unwind_restore INCLUDE_IF(OS_WINDOWS)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR, @ip UINTPTR)
 {
@@ -401,7 +423,8 @@ ASM_PROCEDURE X64
   JMP R11
 }
 
-PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_WINDOWS) DOC <$ Returns a boundary of the executable DWARF unwind section. $>
+DOC <$ Returns a boundary of the executable DWARF unwind section. $>
+PRIVATE(MODULE) ::unwind_section_begin INCLUDE_IF(OS_WINDOWS)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {
@@ -409,7 +432,8 @@ ASM_PROCEDURE X64
   RET
 }
 
-PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_WINDOWS) DOC <$ Returns a boundary of the executable DWARF unwind section. $>
+DOC <$ Returns a boundary of the executable DWARF unwind section. $>
+PRIVATE(MODULE) ::unwind_section_end INCLUDE_IF(OS_WINDOWS)
 ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL NOEXCEPT(; RETURN ADDRESS)
 {

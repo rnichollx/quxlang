@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::EXCEPTION_UNWIND_RECORD DOC <$ Owns one native propagation independently of the reference-counted exception frame. $>
+DOC <$ Owns one native propagation independently of the reference-counted exception frame. $>
+::EXCEPTION_UNWIND_RECORD
 STRUCT
 {
   .exception_class VAR U64;
@@ -14,7 +15,8 @@ STRUCT
 PRIVATE(MODULE) ::exception_reserved_records VAR PER_THREAD [4]EXCEPTION_UNWIND_RECORD;
 PRIVATE(MODULE) ::exception_reserved_in_use VAR PER_THREAD [4]BOOL;
 
-::EXCEPTION_RECORD_RELEASE DOC <$ Releases remaining frame ownership and returns the independent propagation record. $>
+DOC <$ Releases remaining frame ownership and returns the independent propagation record. $>
+::EXCEPTION_RECORD_RELEASE
 FUNCTION(@RECORD:record ADDRESS) NOEXCEPT
 {
   VAR pointer MUT->EXCEPTION_UNWIND_RECORD := IBC_PUN#(MUT->EXCEPTION_UNWIND_RECORD)(@ADDR record);
@@ -31,13 +33,15 @@ FUNCTION(@RECORD:record ADDRESS) NOEXCEPT
   }
 }
 
-::EXCEPTION_TERMINATE DOC <$ Terminates when exception propagation cannot satisfy the language contract. $>
+DOC <$ Terminates when exception propagation cannot satisfy the language contract. $>
+::EXCEPTION_TERMINATE
 FUNCTION() NOEXCEPT
 {
   PANIC "Exception propagation cannot continue.";
 }
 
-::EXCEPTION_NATIVE_THROW DOC <$ Transfers one owned frame reference to an independent native unwind record. $>
+DOC <$ Transfers one owned frame reference to an independent native unwind record. $>
+::EXCEPTION_NATIVE_THROW
 FUNCTION(@FRAME:frame MUT->EXCEPTION_FRAME)
 {
   VAR storage MUT->TYPED_STORAGE(EXCEPTION_UNWIND_RECORD) := exception_allocate_storage#EXCEPTION_UNWIND_RECORD();
@@ -73,14 +77,16 @@ FUNCTION(@FRAME:frame MUT->EXCEPTION_FRAME)
   EXCEPTION_TERMINATE();
 }
 
-::EXCEPTION_RESUME DOC <$ Continues native cleanup using the original unwind record. $>
+DOC <$ Continues native cleanup using the original unwind record. $>
+::EXCEPTION_RESUME
 FUNCTION(@RECORD:record ADDRESS)
 {
   unwind_resume(@record record);
   EXCEPTION_TERMINATE();
 }
 
-PRIVATE(MODULE) ::exception_read_byte DOC <$ Reads one byte of compiler-generated unwind data and advances its cursor. $>
+DOC <$ Reads one byte of compiler-generated unwind data and advances its cursor. $>
+PRIVATE(MODULE) ::exception_read_byte
   FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: U8
 {
   VAR pointer IBC CONST->U8 := IBC_PUN#(IBC CONST->U8)(@ADDR cursor);
@@ -89,7 +95,8 @@ PRIVATE(MODULE) ::exception_read_byte DOC <$ Reads one byte of compiler-generate
   RETURN value;
 }
 
-PRIVATE(MODULE) ::exception_read_uleb DOC <$ Decodes one unsigned LEB128 integer from compiler-generated unwind data. $>
+DOC <$ Decodes one unsigned LEB128 integer from compiler-generated unwind data. $>
+PRIVATE(MODULE) ::exception_read_uleb
   FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: UINTPTR
 {
   VAR value UINTPTR := 0;
@@ -104,7 +111,8 @@ PRIVATE(MODULE) ::exception_read_uleb DOC <$ Decodes one unsigned LEB128 integer
   };
 }
 
-PRIVATE(MODULE) ::exception_read_offset DOC <$ Reads an unsigned offset using the LSDA call-site encoding. $>
+DOC <$ Reads an unsigned offset using the LSDA call-site encoding. $>
+PRIVATE(MODULE) ::exception_read_offset
   FUNCTION(@cursor MUT& ADDRESS, @encoding U8) NOEXCEPT: UINTPTR
 {
   IF (encoding == 1) { RETURN exception_read_uleb(@cursor cursor); }
@@ -126,7 +134,8 @@ PRIVATE(MODULE) ::exception_read_offset DOC <$ Reads an unsigned offset using th
   RETURN value;
 }
 
-::EXCEPTION_PERSONALITY DOC <$ Selects Quxlang TRY boundaries and installs platform cleanup contexts without language type dispatch. $>
+DOC <$ Selects Quxlang TRY boundaries and installs platform cleanup contexts without language type dispatch. $>
+::EXCEPTION_PERSONALITY
 FUNCTION(%version I32, %actions I32, %exception_class U64, %record ADDRESS, %context ADDRESS) NOEXCEPT: I32
 {
   IF (version != 1) { RETURN 3; }

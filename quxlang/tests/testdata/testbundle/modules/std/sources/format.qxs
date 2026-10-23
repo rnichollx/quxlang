@@ -2,14 +2,17 @@ LANGUAGE QUXLANG EN 0.0;
 
 PRIVATE(MODULE)
 {
-  ::format_string_writer DOC <$ Collects formatted bytes in an owned string. $> STRUCT
+  DOC <$ Collects formatted bytes in an owned string. $>
+  ::format_string_writer STRUCT
   {
     .text VAR string;
-    .write_byte DOC <$ Appends one byte to the formatted result. $>
+    DOC <$ Appends one byte to the formatted result. $>
+    .write_byte
       FUNCTION(@ARG:value BYTE) MUT { .text.push_back(value); }
   }
 
-  ::format_value DOC <$ Writes a constant byte sequence through a byte writer. $>
+  DOC <$ Writes a constant byte sequence through a byte writer. $>
+  ::format_value
     FUNCTION(@output MUT& AUTO, @value STRING_CONSTANT)
   {
     LOOP INIT { VAR cursor CONST=>>BYTE := value.BEGIN(); }
@@ -17,21 +20,24 @@ PRIVATE(MODULE)
     { output.write_byte(cursor[0]); }
   }
 
-  ::format_value DOC <$ Writes an owned string through a byte writer. $>
+  DOC <$ Writes an owned string through a byte writer. $>
+  ::format_value
     FUNCTION(@output MUT& AUTO, @value CONST& AUTO(text_type)) ENABLE_IF(SAME_TYPES(text_type, string))
   {
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(value.size()) DO
     { output.write_byte(value[index]); }
   }
 
-  ::format_value DOC <$ Formats Boolean values as true or false. $>
+  DOC <$ Formats Boolean values as true or false. $>
+  ::format_value
     FUNCTION(@output MUT& AUTO, @value BOOL)
   {
     IF (value) { format_value(@output output, @value "true"); }
     ELSE { format_value(@output output, @value "false"); }
   }
 
-  ::format_integer DOC <$ Writes an integer in the selected radix, including the minimum signed value. $>
+  DOC <$ Writes an integer in the selected radix, including the minimum signed value. $>
+  ::format_integer
     TEMPLATE(@radix VALUE U8, @uppercase VALUE BOOL)
     FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
   {
@@ -64,15 +70,17 @@ PRIVATE(MODULE)
     }
   }
 
-  ::format_value DOC <$ Writes the exact decimal spelling of a numeric constant. $>
+  DOC <$ Writes the exact decimal spelling of a numeric constant. $>
+  ::format_value
     FUNCTION(@output MUT& AUTO, @value NUMERIC_CONSTANT)
   { format_value(@output output, @value (value AS STRING_CONSTANT)); }
 
-  ::format_value DOC <$ Writes an integer in decimal. $>
+  DOC <$ Writes an integer in decimal. $>
+  ::format_value
     FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
   { format_integer#(@radix 10, @uppercase FALSE)(@output output, @value value); }
 
-  ::format_float DOC <$
+  DOC <$
     Formats binary floating values as fixed or scientific decimal with the
     selected fractional precision. Exact integer ratios preserve the source
     value through decimal rounding; halfway values round away from zero.
@@ -80,6 +88,7 @@ PRIVATE(MODULE)
     fractional digits. Uppercase styles capitalize the exponent and nonfinite
     values. Style zero selects scientific notation outside [0.0001, 10^16).
     $>
+  ::format_float
     TEMPLATE(@style VALUE BYTE, @precision VALUE SZ)
     FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
     ENABLE_IF(SAME_TYPES(float_type, F32) || SAME_TYPES(float_type, F64))
@@ -155,15 +164,18 @@ PRIVATE(MODULE)
     }
   }
 
-  ::format_value DOC <$ Formats binary floating values with six fractional digits and automatic scientific notation. $>
+  DOC <$ Formats binary floating values with six fractional digits and automatic scientific notation. $>
+  ::format_value
     FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
     ENABLE_IF(SAME_TYPES(float_type, F32) || SAME_TYPES(float_type, F64))
   { format_float#(@style 0, @precision 6)(@output output, @value value); }
 
-  ::format_specification DOC <$ Dispatches typed arguments for one compile-time numeric format specification. $>
+  DOC <$ Dispatches typed arguments for one compile-time numeric format specification. $>
+  ::format_specification
     TEMPLATE(@style VALUE BYTE, @precision VALUE SZ) STRUCT
   {
-    ::write DOC <$ Validates and applies a numeric modifier to a typed integer. $>
+    DOC <$ Validates and applies a numeric modifier to a typed integer. $>
+    ::write
       FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
     {
       STATIC_IF(style != 'd' && style != 'b' && style != 'B' && style != 'o' && style != 'x' && style != 'X')
@@ -173,7 +185,8 @@ PRIVATE(MODULE)
       format_integer#(@radix radix, @uppercase (style == 'X'))(@output output, @value value);
     }
 
-    ::write DOC <$ Validates and applies fixed or scientific formatting to a binary floating value. $>
+    DOC <$ Validates and applies fixed or scientific formatting to a binary floating value. $>
+    ::write
       FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
       ENABLE_IF(SAME_TYPES(float_type, F32) || SAME_TYPES(float_type, F64))
     {
@@ -182,10 +195,11 @@ PRIVATE(MODULE)
       format_float#(@style style, @precision precision)(@output output, @value value);
     }
 
-    ::write DOC <$
+    DOC <$
       Formats numeric literals using exact decimal digit division for integer
       radices. Floating modifiers convert literals to binary64 before formatting.
       $>
+    ::write
       FUNCTION(@output MUT& AUTO, @value NUMERIC_LITERAL_ANY(literal_type))
     {
       STATIC_IF(style == 'f' || style == 'F' || style == 'e' || style == 'E')
@@ -239,7 +253,8 @@ PRIVATE(MODULE)
     }
   }
 
-  ::format_selected_value DOC <$ Dispatches an unmodified or explicitly modified field after compile-time parsing. $>
+  DOC <$ Dispatches an unmodified or explicitly modified field after compile-time parsing. $>
+  ::format_selected_value
     TEMPLATE(@style VALUE BYTE, @precision VALUE SZ)
     FUNCTION(@output MUT& AUTO, @value CONST& AUTO)
   {
@@ -247,7 +262,7 @@ PRIVATE(MODULE)
     STATIC_ELSE { format_specification#(@style style, @precision precision)::write(@output output, @value value); }
   }
 
-  ::format_arguments DOC <$
+  DOC <$
     Evaluates brace syntax and argument selection during compilation. Empty
     fields consume positional arguments in order. Decimal fields select a
     positional index; other fields select an exact keyword name. Automatic and
@@ -256,6 +271,7 @@ PRIVATE(MODULE)
     cause compilation errors. Numeric modifiers follow a colon; floating modifiers
     accept a fractional precision from zero through eighteen.
     $>
+  ::format_arguments
     TEMPLATE(@T:text VALUE STRING_CONSTANT)
     FUNCTION(@output MUT& AUTO, @positional CONST& AUTO(positional_type), @named CONST& AUTO(named_type))
   {
@@ -409,7 +425,7 @@ PRIVATE(MODULE)
   }
 }
 
-::fmt DOC <$
+DOC <$
   Returns an owned string formatted from a constant template argument. Fields
   {}, {0} and {name} select positional or keyword arguments. Doubled braces
   escape literal braces. All arguments and fields are checked at compile time.
@@ -424,6 +440,7 @@ PRIVATE(MODULE)
   Numeric rounding uses nearest values with ties away from zero. Uppercase
   modifiers capitalize digits, exponent markers and nonfinite values.
   $>
+::fmt
   TEMPLATE(@T:text VALUE STRING_CONSTANT)
   FUNCTION(%...args CONST& AUTO, @KWARGS ...): string
 {
@@ -432,11 +449,12 @@ PRIVATE(MODULE)
   RETURN output.text AS TEMP& string;
 }
 
-::printf DOC <$
+DOC <$
   Writes a compile-time-validated brace format to standard output and flushes
   before returning. The positional pack and KWARGS must match the format fields.
   Output failures throw. No newline is appended.
   $>
+::printf
   TEMPLATE(@T:text VALUE STRING_CONSTANT)
   FUNCTION(%...args CONST& AUTO, @KWARGS ...)
 {
@@ -445,7 +463,8 @@ PRIVATE(MODULE)
   output.flush();
 }
 
-::print DOC <$ Writes a string constant to standard output without appending a newline. Output failures throw. $>
+DOC <$ Writes a string constant to standard output without appending a newline. Output failures throw. $>
+::print
   FUNCTION(@ARG:text STRING_CONSTANT)
 {
   AUTO output := open_standard_output_writer();
@@ -453,7 +472,8 @@ PRIVATE(MODULE)
   output.flush();
 }
 
-::print DOC <$ Writes an owned string to standard output without appending a newline. Output failures throw. $>
+DOC <$ Writes an owned string to standard output without appending a newline. Output failures throw. $>
+::print
   FUNCTION(@ARG:text CONST& AUTO(text_type)) ENABLE_IF(SAME_TYPES(text_type, string))
 {
   AUTO output := open_standard_output_writer();

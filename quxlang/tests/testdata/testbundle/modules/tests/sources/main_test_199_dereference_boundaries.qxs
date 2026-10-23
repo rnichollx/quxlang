@@ -2,16 +2,19 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::dereference_boundary_tests NAMESPACE
 {
-  ::throwing_proxy DOC <$ Throws after dereferencing a borrowed target while its temporary receiver remains alive. $>
+  DOC <$ Throws after dereferencing a borrowed target while its temporary receiver remains alive. $>
+  ::throwing_proxy
     STRUCT MOVE_ONLY
   {
     .target VAR custom_dereference_tests::borrowed;
-    .CONSTRUCTOR DOC <$ Constructs an owned borrowing wrapper before the throwing operation. $>
+    DOC <$ Constructs an owned borrowing wrapper before the throwing operation. $>
+    .CONSTRUCTOR
       FUNCTION(@events MUT& I32, @alive MUT& I32, @value MUT& I32)
       :> .target:(@events events, @alive alive, @value value)
     {
     }
-    .OPERATOR-> DOC <$ Observes the target before throwing without modifying it. $>
+    DOC <$ Observes the target before throwing without modifying it. $>
+    .OPERATOR->
       FUNCTION() CONST: MUT& I32
     {
       VAR referent MUT& I32 := .target->;
@@ -20,7 +23,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::throwing_receiver_cleanup DOC <$ A failed custom dereference destroys its temporary receiver before enclosing locals and handler entry. $>
+  DOC <$ A failed custom dereference destroys its temporary receiver before enclosing locals and handler entry. $>
+  ::throwing_receiver_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -45,7 +49,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(alive == 0);
   }
 
-  ::constant_assignment DOC <$ A constant dereference result cannot be assigned through its returned reference. $>
+  DOC <$ A constant dereference result cannot be assigned through its returned reference. $>
+  ::constant_assignment
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object custom_dereference_tests::proxy;
@@ -53,7 +58,8 @@ LANGUAGE QUXLANG EN 0.0;
     view-> := 17;
   }
 
-  ::constant_reference_strengthening DOC <$ A constant dereference result cannot initialize a mutable reference. $>
+  DOC <$ A constant dereference result cannot initialize a mutable reference. $>
+  ::constant_reference_strengthening
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object custom_dereference_tests::proxy;

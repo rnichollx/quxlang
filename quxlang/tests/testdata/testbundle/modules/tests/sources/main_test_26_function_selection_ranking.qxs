@@ -1,14 +1,16 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::ranking_tests DOC <$ Tests the better-fit ordering used to select function overloads. $>
+DOC <$ Tests the better-fit ordering used to select function overloads. $>
+::ranking_tests
 NAMESPACE
 {
-    ::value_source_better_fit_order_test DOC <$
+    DOC <$
     Verifies the complete implemented better-fit ladder for a pure value: identity, temporary materialization,
     direct template matching, temporary template matching, const materialization, const template matching, and
     implicit class conversion. Rank 7 is reserved for user-declared binding conversions and has no conversion form
     to exercise.
-    $> DUAL_TEST
+    $>
+    ::value_source_better_fit_order_test DUAL_TEST
     {
         TEST_ASSERT(value_identity_before_temporary_materialization(@ARG source_value(1)));
         TEST_ASSERT(temporary_materialization_before_direct_template_match(@ARG source_value(2)));
@@ -20,12 +22,13 @@ NAMESPACE
         TEST_ASSERT(read_after_value_implicit_conversion(@ARG source_value(8)) == 8);
     }
 
-    ::reference_source_better_fit_order_test DOC <$
+    DOC <$
     Verifies the complete implemented better-fit ladder for a mutable reference: identity, direct template matching,
     const requalification, requalification with template matching, objectization, objectization with template matching,
     and implicit class conversion. Rank 7 is reserved for user-declared binding conversions and has no conversion form
     to exercise.
-    $> DUAL_TEST
+    $>
+    ::reference_source_better_fit_order_test DUAL_TEST
     {
         VAR source source_value := source_value(8);
         TEST_ASSERT(reference_identity_before_direct_template_match(@ARG source));
@@ -37,19 +40,21 @@ NAMESPACE
         TEST_ASSERT(read_after_reference_implicit_conversion(@ARG source) == 8);
     }
 
-    ::temporary_reference_requalification_order_test DOC <$
+    DOC <$
     Verifies that an existing temporary reference selects an exact temporary-reference parameter before a permitted
     const-reference requalification, for both concrete and templated parameter types.
-    $> DUAL_TEST
+    $>
+    ::temporary_reference_requalification_order_test DUAL_TEST
     {
         TEST_ASSERT(temporary_reference_requalification_order_is_preserved(@ARG source_value(9)));
     }
 
-    ::literal_better_fit_order_test DOC <$
+    DOC <$
     Verifies literal-specific ordering: numeric constants, string constants, and null-pointer initialization are
     preferred to direct template matching, while a fitting unsigned integer is preferred to a signed integer and a
     fitting signed integer is preferred to a floating-point conversion.
-    $> DUAL_TEST
+    $>
+    ::literal_better_fit_order_test DUAL_TEST
     {
         TEST_ASSERT(numeric_constant_before_direct_template_match(@ARG 10));
         TEST_ASSERT(string_constant_before_direct_template_match(@ARG "ranking"));

@@ -3,7 +3,8 @@ IMPORT std;
 
 ::byte_regex_tests NAMESPACE
 {
-  ::check DOC <$ Verifies literal replacement bytes and nonoverlapping match counts. $>
+  DOC <$ Verifies literal replacement bytes and nonoverlapping match counts. $>
+  ::check
     FUNCTION(@pattern STRING_CONSTANT, @input STRING_CONSTANT, @count SZ, @expected STRING_CONSTANT)
   {
     VAR pattern_string std::string := pattern;

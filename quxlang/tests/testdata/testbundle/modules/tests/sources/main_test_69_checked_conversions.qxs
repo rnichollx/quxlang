@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::checked_conversion_tests NAMESPACE
 {
-  ::unsigned_limits DOC <$ Checked conversions preserve both endpoints of an unsigned destination. $>
+  DOC <$ Checked conversions preserve both endpoints of an unsigned destination. $>
+  ::unsigned_limits
     TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum U64)
   {
     VAR zero U64 := 0;
@@ -12,7 +13,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((high AS U64) == maximum);
   }
 
-  ::unsigned_endpoints DOC <$ Checks exact narrowing endpoints across standard and non-byte unsigned widths. $>
+  DOC <$ Checks exact narrowing endpoints across standard and non-byte unsigned widths. $>
+  ::unsigned_endpoints
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     unsigned_limits#(U5)(@maximum 31);
@@ -22,7 +24,8 @@ LANGUAGE QUXLANG EN 0.0;
     unsigned_limits#(U32)(@maximum 4294967295);
   }
 
-  ::signed_endpoints DOC <$ Checked conversions preserve signed endpoints and valid signedness changes. $>
+  DOC <$ Checked conversions preserve signed endpoints and valid signedness changes. $>
+  ::signed_endpoints
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR low I16 := (0 AS I16) - 128;
@@ -41,7 +44,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((same_width AS CHECKED I8) == 127);
   }
 
-  ::signed_byte_above_maximum DOC <$ Checked signed narrowing rejects the first value above the positive bound. $>
+  DOC <$ Checked signed narrowing rejects the first value above the positive bound. $>
+  ::signed_byte_above_maximum
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -55,7 +59,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::signed_byte_below_minimum DOC <$ Checked signed narrowing rejects the first value below the negative bound. $>
+  DOC <$ Checked signed narrowing rejects the first value below the negative bound. $>
+  ::signed_byte_below_minimum
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -69,7 +74,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::negative_to_unsigned DOC <$ Checked conversion rejects a negative source even when its bit width fits the unsigned destination. $>
+  DOC <$ Checked conversion rejects a negative source even when its bit width fits the unsigned destination. $>
+  ::negative_to_unsigned
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -83,7 +89,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::unsigned_byte_above_maximum DOC <$ Checked unsigned narrowing rejects the first value that loses a high bit. $>
+  DOC <$ Checked unsigned narrowing rejects the first value that loses a high bit. $>
+  ::unsigned_byte_above_maximum
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -97,7 +104,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::nonbyte_signed_above_maximum DOC <$ Checked narrowing enforces a non-byte signed range rather than its storage-byte range. $>
+  DOC <$ Checked narrowing enforces a non-byte signed range rather than its storage-byte range. $>
+  ::nonbyte_signed_above_maximum
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -111,7 +119,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::nonbyte_unsigned_above_maximum DOC <$ Checked narrowing enforces a non-byte unsigned range rather than its storage-byte range. $>
+  DOC <$ Checked narrowing enforces a non-byte unsigned range rather than its storage-byte range. $>
+  ::nonbyte_unsigned_above_maximum
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -125,7 +134,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::same_width_signedness DOC <$ Checked conversions reject values outside the range after a signedness change. $>
+  DOC <$ Checked conversions reject values outside the range after a signedness change. $>
+  ::same_width_signedness
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught U32 := 0;
@@ -138,7 +148,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught == 3);
   }
 
-  ::conversion_cleanup DOC <$ Conversion failure unwinds deferred actions before entering the handler. $>
+  DOC <$ Conversion failure unwinds deferred actions before entering the handler. $>
+  ::conversion_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR cleaned U32 := 0;

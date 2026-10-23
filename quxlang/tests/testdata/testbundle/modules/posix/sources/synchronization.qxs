@@ -1,19 +1,19 @@
 LANGUAGE QUXLANG EN 0.0;
 
 
+DOC <$ Storage matching pthread_mutex_t in the x86-64 glibc ABI. $>
 ::native_mutex_storage
   INCLUDE_IF(OS_LINUX && ARCH_IS_X64 && ENVIRONMENT_IS_GLIBC)
-  DOC <$ Storage matching pthread_mutex_t in the x86-64 glibc ABI. $>
   ALIAS ALIGNED_STORAGE(40, 8);
 
+DOC <$ Storage matching pthread_mutex_t in the macOS LP64 ABI. $>
 ::native_mutex_storage
   INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  DOC <$ Storage matching pthread_mutex_t in the macOS LP64 ABI. $>
   ALIAS ALIGNED_STORAGE(64, 8);
 
+DOC <$ Storage matching pthread_cond_t in the macOS LP64 ABI. $>
 ::native_condition_storage
   INCLUDE_IF(OS_MACOS && (ARCH_IS_X64 || ARCH_IS_ARM64))
-  DOC <$ Storage matching pthread_cond_t in the macOS LP64 ABI. $>
   ALIAS ALIGNED_STORAGE(48, 8);
 
 

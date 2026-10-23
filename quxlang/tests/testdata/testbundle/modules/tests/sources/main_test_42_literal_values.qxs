@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::literal_value_tests NAMESPACE
 {
-  ::string_escape_bytes DOC <$ Decodes each supported escape and preserves embedded zero bytes. $>
+  DOC <$ Decodes each supported escape and preserves embedded zero bytes. $>
+  ::string_escape_bytes
     DUAL_TEST
   {
     VAR value STRING_CONSTANT := "A\n\t\r\0\\\"Z";
@@ -17,7 +18,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value.BEGIN()[7] == 90);
   }
 
-  ::character_escape_bytes DOC <$ Gives character escapes the same byte values as the corresponding string escapes. $>
+  DOC <$ Gives character escapes the same byte values as the corresponding string escapes. $>
+  ::character_escape_bytes
     DUAL_TEST
   {
     TEST_ASSERT(('A' AS BYTE) == 65);
@@ -30,7 +32,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(('"' AS BYTE) == 34);
   }
 
-  ::decimal_width_boundaries DOC <$ Preserves exact decimal values at unsigned and signed width boundaries. $>
+  DOC <$ Preserves exact decimal values at unsigned and signed width boundaries. $>
+  ::decimal_width_boundaries
     DUAL_TEST
   {
     VAR small U8 := 255;
@@ -47,7 +50,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((largest #-- 1) == (positive AS ASSUME U64));
   }
 
-  ::exact_fractional_values DOC <$ Keeps exactly representable binary fractions unchanged through arithmetic. $>
+  DOC <$ Keeps exactly representable binary fractions unchanged through arithmetic. $>
+  ::exact_fractional_values
     DUAL_TEST
   {
     VAR small F32 := 0.125;
@@ -60,7 +64,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((large / 0.5) == 0.125);
   }
 
-  ::string_constant_copy_boundaries DOC <$ Copies the exact length and byte range of empty and zero-containing constants. $>
+  DOC <$ Copies the exact length and byte range of empty and zero-containing constants. $>
+  ::string_constant_copy_boundaries
     DUAL_TEST
   {
     VAR empty STRING_CONSTANT := "";

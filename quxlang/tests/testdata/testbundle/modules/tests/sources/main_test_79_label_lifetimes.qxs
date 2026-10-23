@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::label_lifetime_tests NAMESPACE
 {
-  ::break_outer_block DOC <$ Breaking an outer labelled block unwinds nested deferred actions and locals while retaining enclosing storage. $>
+  DOC <$ Breaking an outer labelled block unwinds nested deferred actions and locals while retaining enclosing storage. $>
+  ::break_outer_block
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -26,7 +27,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 43219);
   }
 
-  ::break_inner_block DOC <$ Breaking an inner label preserves outer locals until a later outer exit. $>
+  DOC <$ Breaking an inner label preserves outer locals until a later outer exit. $>
+  ::break_inner_block
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -49,7 +51,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 43521);
   }
 
-  ::goto_from_handler DOC <$ Leaving a catch handler by GOTO performs deferred cleanup and restores the previous exception state. $>
+  DOC <$ Leaving a catch handler by GOTO performs deferred cleanup and restores the previous exception state. $>
+  ::goto_from_handler
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;

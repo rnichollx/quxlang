@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::hadix_map DOC <$
+DOC <$
   Owns unique keys and mapped values in a hash-radix table. hasher_type.hash accepts
   a constant key reference and returns U64. Key comparison supplies a total
   order, and keys that compare equal must have identical hashes. Values have
@@ -18,18 +18,21 @@ LANGUAGE QUXLANG EN 0.0;
   copy the hasher; exchange transfers it with the records.
   Moves leave the source empty and retain its hasher.
   $>
+::hadix_map
   TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO, @hasher_type TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE, RUNTIME_MODULE)
   {
-    ::boundary DOC <$ Orders an incremental bucket boundary before every equal-hash entry. $>
+    DOC <$ Orders an incremental bucket boundary before every equal-hash entry. $>
+    ::boundary
       STRUCT
     {
       .hash VAR U64;
       .OPERATOR<=> FUNCTION(@OTHER CONST& AUTO) CONST: ORDER { RETURN .hash <=> OTHER.hash; }
     }
 
-    ::record DOC <$ Owns one map key and its associated value at a stable address. $>
+    DOC <$ Owns one map key and its associated value at a stable address. $>
+    ::record
       STRUCT
     {
       .key VAR INDEX;
@@ -39,14 +42,16 @@ LANGUAGE QUXLANG EN 0.0;
         .key:(@OTHER FORWARD(key)), .value:(@OTHER FORWARD(value)) { }
     }
 
-    ::index DOC <$ Stores non-owning indexing metadata for a separately allocated map record. $>
+    DOC <$ Stores non-owning indexing metadata for a separately allocated map record. $>
+    ::index
       STRUCT
     {
       .hash VAR U64;
       .record VAR MUT->hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record;
     }
 
-    ::probe DOC <$ Orders a lookup key by reversed hash followed by key comparison. $>
+    DOC <$ Orders a lookup key by reversed hash followed by key comparison. $>
+    ::probe
       STRUCT
     {
       .hash VAR U64;
@@ -58,14 +63,16 @@ LANGUAGE QUXLANG EN 0.0;
       }
     }
 
-    ::search_result DOC <$ Identifies a matching stable record and its traversal position when requested. $>
+    DOC <$ Identifies a matching stable record and its traversal position when requested. $>
+    ::search_result
       STRUCT
     {
       .record VAR MUT->hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record;
       .position VAR SZ;
     }
 
-    ::bucket DOC <$ Owns records indexed by fifteen unordered inline entries and a sorted AVL overflow sequence. Separate hash and record arrays support independent hash comparisons. $>
+    DOC <$ Owns records indexed by fifteen unordered inline entries and a sorted AVL overflow sequence. Separate hash and record arrays support independent hash comparisons. $>
+    ::bucket
       STRUCT ALIGN(SIZEOF(SZ) * 8) MOVE_ONLY
     {
       .hashes VAR [15]U64;
@@ -83,7 +90,8 @@ LANGUAGE QUXLANG EN 0.0;
       }
       .size FUNCTION() CONST: SZ { RETURN .used + .overflow.size(); }
 
-      .search DOC <$ Scans inline hashes before searching ordered overflow nodes. compute_position selects traversal rank calculation. An absent key returns a null record. $>
+      DOC <$ Scans inline hashes before searching ordered overflow nodes. compute_position selects traversal rank calculation. An absent key returns a null record. $>
+      .search
         TEMPLATE(@compute_position VALUE BOOL)
         FUNCTION(@ARG:probe CONST& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::probe) CONST: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::search_result
       {
@@ -126,7 +134,8 @@ LANGUAGE QUXLANG EN 0.0;
         RETURN result;
       }
 
-      .at_rank DOC <$ Returns the indexing metadata at a valid rank. $>
+      DOC <$ Returns the indexing metadata at a valid rank. $>
+      .at_rank
         FUNCTION(@ARG:index SZ) CONST: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::index
       {
         IF (index < .used)
@@ -139,7 +148,8 @@ LANGUAGE QUXLANG EN 0.0;
         RETURN .overflow[index - .used];
       }
 
-      .insert DOC <$ Appends inline metadata or inserts it into the ordered overflow sequence. $>
+      DOC <$ Appends inline metadata or inserts it into the ordered overflow sequence. $>
+      .insert
         FUNCTION(@ARG:entry CONST& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::index) MUT
       {
         IF (.used < 15)
@@ -150,7 +160,8 @@ LANGUAGE QUXLANG EN 0.0;
         .overflow.insert(@index .overflow.lower_bound(probe), @value entry);
       }
 
-      .fill_prefix DOC <$ Fills available inline slots by extracting overflow entries without allocating. $>
+      DOC <$ Fills available inline slots by extracting overflow entries without allocating. $>
+      .fill_prefix
         FUNCTION() MUT
       {
         LOOP WHILE (.used < 15 && .overflow.empty() == FALSE) DO
@@ -163,7 +174,8 @@ LANGUAGE QUXLANG EN 0.0;
         }
       }
 
-      .erase DOC <$ Removes one record and restores the inline prefix without allocating. $>
+      DOC <$ Removes one record and restores the inline prefix without allocating. $>
+      .erase
         FUNCTION(@ARG:index SZ) MUT
       {
         VAR removed hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::index := .at_rank(index);
@@ -180,7 +192,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::iterator DOC <$ Traverses mut map items in bucket order. Structural changes may invalidate iterators; retained record references remain valid. $>
+  DOC <$ Traverses mut map items in bucket order. Structural changes may invalidate iterators; retained record references remain valid. $>
+  ::iterator
     STRUCT
   {
     PRIVATE(MODULE)
@@ -189,7 +202,8 @@ LANGUAGE QUXLANG EN 0.0;
       .bucket VAR SZ;
       .position VAR SZ;
       .node VAR MUT->avl_node#(@T hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::index, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-      .normalize DOC <$ Advances over empty buckets and initializes overflow traversal when needed. $>
+      DOC <$ Advances over empty buckets and initializes overflow traversal when needed. $>
+      .normalize
         FUNCTION() MUT
       {
         LOOP WHILE (.bucket < .owner->.buckets.size()) DO
@@ -205,10 +219,12 @@ LANGUAGE QUXLANG EN 0.0;
       .CONSTRUCTOR FUNCTION(@owner MUT->hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type), @bucket SZ, @position SZ)
       { .owner := owner; .bucket := bucket; .position := position; .normalize(); }
     }
-    .OPERATOR== DOC <$ Compares owner and traversal position. $>
+    DOC <$ Compares owner and traversal position. $>
+    .OPERATOR==
       FUNCTION(@OTHER CONST& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::iterator) CONST: BOOL
     { RETURN .owner == OTHER.owner && .bucket == OTHER.bucket && .position == OTHER.position; }
-    .OPERATOR++ DOC <$ Advances to the next item and returns the previous iterator. $>
+    DOC <$ Advances to the next item and returns the previous iterator. $>
+    .OPERATOR++
       FUNCTION() MUT: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::iterator
     {
       INVARIANT(.bucket < .owner->.buckets.size(), "Cannot advance a hadix end iterator.");
@@ -224,7 +240,8 @@ LANGUAGE QUXLANG EN 0.0;
       .normalize();
       RETURN previous;
     }
-    .OPERATOR-> DOC <$ Returns an immutable key and a mut mapped-value reference. $>
+    DOC <$ Returns an immutable key and a mut mapped-value reference. $>
+    .OPERATOR->
       FUNCTION() CONST: map#[INDEX:VALUE]::item_ref
     {
       INVARIANT(.bucket < .owner->.buckets.size(), "Cannot dereference a hadix end iterator.");
@@ -235,7 +252,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::const_iterator DOC <$ Traverses const map items in bucket order. Structural changes may invalidate iterators; retained record references remain valid. $>
+  DOC <$ Traverses const map items in bucket order. Structural changes may invalidate iterators; retained record references remain valid. $>
+  ::const_iterator
     STRUCT
   {
     PRIVATE(MODULE)
@@ -244,7 +262,8 @@ LANGUAGE QUXLANG EN 0.0;
       .bucket VAR SZ;
       .position VAR SZ;
       .node VAR MUT->avl_node#(@T hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::index, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
-      .normalize DOC <$ Advances over empty buckets and initializes overflow traversal when needed. $>
+      DOC <$ Advances over empty buckets and initializes overflow traversal when needed. $>
+      .normalize
         FUNCTION() MUT
       {
         LOOP WHILE (.bucket < .owner->.buckets.size()) DO
@@ -260,10 +279,12 @@ LANGUAGE QUXLANG EN 0.0;
       .CONSTRUCTOR FUNCTION(@owner CONST->hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type), @bucket SZ, @position SZ)
       { .owner := owner; .bucket := bucket; .position := position; .normalize(); }
     }
-    .OPERATOR== DOC <$ Compares owner and traversal position. $>
+    DOC <$ Compares owner and traversal position. $>
+    .OPERATOR==
       FUNCTION(@OTHER CONST& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::const_iterator) CONST: BOOL
     { RETURN .owner == OTHER.owner && .bucket == OTHER.bucket && .position == OTHER.position; }
-    .OPERATOR++ DOC <$ Advances to the next item and returns the previous iterator. $>
+    DOC <$ Advances to the next item and returns the previous iterator. $>
+    .OPERATOR++
       FUNCTION() MUT: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::const_iterator
     {
       INVARIANT(.bucket < .owner->.buckets.size(), "Cannot advance a hadix end iterator.");
@@ -279,7 +300,8 @@ LANGUAGE QUXLANG EN 0.0;
       .normalize();
       RETURN previous;
     }
-    .OPERATOR-> DOC <$ Returns an immutable key and a const mapped-value reference. $>
+    DOC <$ Returns an immutable key and a const mapped-value reference. $>
+    .OPERATOR->
       FUNCTION() CONST: map#[INDEX:VALUE]::const_item_ref
     {
       INVARIANT(.bucket < .owner->.buckets.size(), "Cannot dereference a hadix end iterator.");
@@ -293,7 +315,8 @@ LANGUAGE QUXLANG EN 0.0;
 
   PRIVATE(MODULE, RUNTIME_MODULE)
   {
-    ::reverse_hash DOC <$ Reverses all 64 hash bits to order incremental bucket ranges. $>
+    DOC <$ Reverses all 64 hash bits to order incremental bucket ranges. $>
+    ::reverse_hash
       FUNCTION(@ARG:value U64): U64
     {
       VAR result U64 := value;
@@ -307,11 +330,13 @@ LANGUAGE QUXLANG EN 0.0;
 
     .buckets VAR geometric_array#(hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::bucket);
     .entries VAR SZ;
-    .bucket_mask DOC <$ Stores the next-power-of-two directory mask. Empty storage uses zero. $>
+    DOC <$ Stores the next-power-of-two directory mask. Empty storage uses zero. $>
+    .bucket_mask
       VAR SZ;
     .hasher VAR hasher_type;
 
-    .bucket_index DOC <$ Folds low hash bits into the current incremental bucket directory. $>
+    DOC <$ Folds low hash bits into the current incremental bucket directory. $>
+    .bucket_index
       FUNCTION(@ARG:hash U64) CONST: SZ
     {
       VAR count SZ := .buckets.size();
@@ -323,7 +348,8 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN candidate #&& (.bucket_mask #-- 1);
     }
 
-    .split_bucket DOC <$ Appends one bucket, then partitions its partner without allocating or moving records. $>
+    DOC <$ Appends one bucket, then partitions its partner without allocating or moving records. $>
+    .split_bucket
       FUNCTION() MUT
     {
       VAR index SZ := .buckets.size();
@@ -357,7 +383,8 @@ LANGUAGE QUXLANG EN 0.0;
       right.fill_prefix();
     }
 
-    .join_bucket DOC <$ Stages overflow metadata before merging the final bucket into its partner. $>
+    DOC <$ Stages overflow metadata before merging the final bucket into its partner. $>
+    .join_bucket
       FUNCTION() MUT
     {
       VAR index SZ := .buckets.size() - 1;
@@ -407,7 +434,8 @@ LANGUAGE QUXLANG EN 0.0;
       IF ((count #&& (count - 1)) == 0) { .bucket_mask := count - 1; }
     }
 
-    .insert_record DOC <$ Commits an owned record after bucket growth and index allocation succeed. $>
+    DOC <$ Commits an owned record after bucket growth and index allocation succeed. $>
+    .insert_record
       FUNCTION(@record MUT& unique_ptr#(hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record), @hash U64) MUT: MUT& VALUE
     {
       IF UNLIKELY (.entries == ((0 AS SZ) #!!)) { THROW container_error::size_overflow; }
@@ -423,7 +451,8 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN inserted->.value;
     }
 
-    .find_record DOC <$ Returns the matching record or null. $>
+    DOC <$ Returns the matching record or null. $>
+    .find_record
       FUNCTION(@key CONST& INDEX, @hash U64) CONST: MUT->hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record
     {
       IF (.entries == 0) { RETURN NULL; }
@@ -436,10 +465,13 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  .CONSTRUCTOR DOC <$ Creates an empty table with a default-constructed hasher. $> FUNCTION() { }
-  .CONSTRUCTOR DOC <$ Creates an empty table with the supplied hash policy. $>
+  DOC <$ Creates an empty table with a default-constructed hasher. $>
+  .CONSTRUCTOR FUNCTION() { }
+  DOC <$ Creates an empty table with the supplied hash policy. $>
+  .CONSTRUCTOR
     FUNCTION(@hasher AUTO& hasher_type) :> .hasher:(@OTHER FORWARD(hasher)) { }
-  .CONSTRUCTOR DOC <$ Copies all entries into independent stable records. $>
+  DOC <$ Copies all entries into independent stable records. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER CONST& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)) :> .hasher:(@OTHER OTHER.hasher)
   {
     LOOP ITEM(bucket) IN(OTHER.buckets) DO
@@ -449,45 +481,57 @@ LANGUAGE QUXLANG EN 0.0;
       LOOP ITEM(entry) IN(bucket.overflow) DO { .insert(@key entry.record->.key, @value entry.record->.value); }
     }
   }
-  .OPERATOR:= DOC <$ Copies OTHER before replacing this table. $>
+  DOC <$ Copies OTHER before replacing this table. $>
+  .OPERATOR:=
     FUNCTION(@OTHER CONST& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)) MUT
   { VAR replacement hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type) := OTHER; THIS <-> replacement; }
-  .CONSTRUCTOR DOC <$ Copies the hash policy and transfers buckets and records, leaving OTHER empty. $>
+  DOC <$ Copies the hash policy and transfers buckets and records, leaving OTHER empty. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)) :> .hasher:(@OTHER OTHER.hasher AS CONST& hasher_type)
   { .buckets <-> OTHER.buckets; .entries <-> OTHER.entries; .bucket_mask <-> OTHER.bucket_mask; }
-  .OPERATOR<-> DOC <$ Exchanges hash policies, bucket ownership, and entry counts. $>
+  DOC <$ Exchanges hash policies, bucket ownership, and entry counts. $>
+  .OPERATOR<->
     FUNCTION(@OTHER MUT& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)) MUT
   { .hasher <-> OTHER.hasher; .buckets <-> OTHER.buckets; .entries <-> OTHER.entries; .bucket_mask <-> OTHER.bucket_mask; }
-  .OPERATOR:= DOC <$ Transfers ownership after releasing the previous contents. Self-move preserves the contents. $>
+  DOC <$ Transfers ownership after releasing the previous contents. Self-move preserves the contents. $>
+  .OPERATOR:=
     FUNCTION(@OTHER TEMP& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)) MUT
   {
     IF (THIS<- == OTHER<-) { RETURN; }
     VAR replacement hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type) := MOVE(OTHER);
     THIS <-> replacement;
   }
-  .size DOC <$ Returns the number of entries. $> FUNCTION() CONST: SZ { RETURN .entries; }
-  .empty DOC <$ Reports whether the table contains no entries. $> FUNCTION() CONST: BOOL { RETURN .entries == 0; }
-  .bucket_count DOC <$ Returns the current number of incremental hash buckets. $>
+  DOC <$ Returns the number of entries. $>
+  .size FUNCTION() CONST: SZ { RETURN .entries; }
+  DOC <$ Reports whether the table contains no entries. $>
+  .empty FUNCTION() CONST: BOOL { RETURN .entries == 0; }
+  DOC <$ Returns the current number of incremental hash buckets. $>
+  .bucket_count
     FUNCTION() CONST: SZ { RETURN .buckets.size(); }
-  .clear DOC <$ Destroys all records and indexing nodes. $>
+  DOC <$ Destroys all records and indexing nodes. $>
+  .clear
     FUNCTION() MUT { .buckets.clear(); .entries := 0; .bucket_mask := 0; }
-  .contains DOC <$ Reports whether key is present. $>
+  DOC <$ Reports whether key is present. $>
+  .contains
     FUNCTION(@ARG:key CONST& INDEX) CONST: BOOL { RETURN .find_record(@key key, @hash .hasher.hash(key))??; }
-  .at DOC <$ Returns the mapped value. Throws container_error::missing_key when key is absent. $>
+  DOC <$ Returns the mapped value. Throws container_error::missing_key when key is absent. $>
+  .at
     FUNCTION(@ARG:key CONST& INDEX) MUT: MUT& VALUE
   {
     VAR record MUT->hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record := .find_record(@key key, @hash .hasher.hash(key));
     IF UNLIKELY (record!?) { THROW container_error::missing_key; }
     RETURN record->.value;
   }
-  .at DOC <$ Returns the constant mapped value. Throws container_error::missing_key when key is absent. $>
+  DOC <$ Returns the constant mapped value. Throws container_error::missing_key when key is absent. $>
+  .at
     FUNCTION(@ARG:key CONST& INDEX) CONST: CONST& VALUE
   {
     VAR record MUT->hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record := .find_record(@key key, @hash .hasher.hash(key));
     IF UNLIKELY (record!?) { THROW container_error::missing_key; }
     RETURN record->.value;
   }
-  .OPERATOR[] DOC <$ Finds a key or inserts it with a default-constructed mapped value. $>
+  DOC <$ Finds a key or inserts it with a default-constructed mapped value. $>
+  .OPERATOR[]
     FUNCTION(%key AUTO& INDEX) MUT: MUT& VALUE
   {
     VAR hash U64 := .hasher.hash(key);
@@ -496,7 +540,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR record unique_ptr#(hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record) := make_unique#(hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::record)(@EXPLICIT FORWARD(key));
     RETURN .insert_record(@record record, @hash hash);
   }
-  .insert DOC <$ Inserts a missing key and value. An existing key leaves the supplied temporaries unconsumed. $>
+  DOC <$ Inserts a missing key and value. An existing key leaves the supplied temporaries unconsumed. $>
+  .insert
     FUNCTION(@key AUTO& INDEX, @value AUTO& VALUE) MUT: BOOL
   {
     VAR hash U64 := .hasher.hash(key);
@@ -505,7 +550,8 @@ LANGUAGE QUXLANG EN 0.0;
     .insert_record(@record record, @hash hash);
     RETURN TRUE;
   }
-  .insert_or_assign DOC <$ Inserts a missing key or assigns its existing mapped value. Returns whether insertion occurred. $>
+  DOC <$ Inserts a missing key or assigns its existing mapped value. Returns whether insertion occurred. $>
+  .insert_or_assign
     FUNCTION(@key AUTO& INDEX, @value AUTO& VALUE) MUT: BOOL
   {
     VAR hash U64 := .hasher.hash(key);
@@ -515,7 +561,8 @@ LANGUAGE QUXLANG EN 0.0;
     .insert_record(@record record, @hash hash);
     RETURN TRUE;
   }
-  .erase DOC <$ Removes a matching key and joins at most one bucket pair when excess capacity exceeds hysteresis. $>
+  DOC <$ Removes a matching key and joins at most one bucket pair when excess capacity exceeds hysteresis. $>
+  .erase
     FUNCTION(@ARG:key CONST& INDEX) MUT: BOOL
   {
     IF (.entries == 0) { RETURN FALSE; }
@@ -535,17 +582,22 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN TRUE;
   }
 
-  .BEGIN DOC <$ Returns the first mut item iterator. $>
+  DOC <$ Returns the first mut item iterator. $>
+  .BEGIN
     FUNCTION() MUT: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::iterator
   { RETURN hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::iterator(@owner THIS<-, @bucket 0, @position 0); }
-  .END DOC <$ Returns the mut past-the-end iterator. $>
+  DOC <$ Returns the mut past-the-end iterator. $>
+  .END
     FUNCTION() MUT: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::iterator
   { RETURN hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::iterator(@owner THIS<-, @bucket .buckets.size(), @position 0); }
-  .items DOC <$ Exposes mut item iteration with immutable keys. $>
+  DOC <$ Exposes mut item iteration with immutable keys. $>
+  .items
     FUNCTION() MUT: MUT& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type) { RETURN THIS; }
-  .IV_PAIRS DOC <$ Exposes key and value projections for INDEX/VALUE loops. $>
+  DOC <$ Exposes key and value projections for INDEX/VALUE loops. $>
+  .IV_PAIRS
     FUNCTION() MUT: MUT& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type) { RETURN THIS; }
-  .find DOC <$ Returns the iterator for key, or END if absent. $>
+  DOC <$ Returns the iterator for key, or END if absent. $>
+  .find
     FUNCTION(@ARG:key CONST& INDEX) MUT: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::iterator
   {
     IF (.entries == 0) { RETURN .END(); }
@@ -560,17 +612,22 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::iterator(@owner THIS<-, @bucket index, @position found.position);
   }
 
-  .BEGIN DOC <$ Returns the first const item iterator. $>
+  DOC <$ Returns the first const item iterator. $>
+  .BEGIN
     FUNCTION() CONST: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::const_iterator
   { RETURN hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::const_iterator(@owner THIS<-, @bucket 0, @position 0); }
-  .END DOC <$ Returns the const past-the-end iterator. $>
+  DOC <$ Returns the const past-the-end iterator. $>
+  .END
     FUNCTION() CONST: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::const_iterator
   { RETURN hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::const_iterator(@owner THIS<-, @bucket .buckets.size(), @position 0); }
-  .items DOC <$ Exposes const item iteration with immutable keys. $>
+  DOC <$ Exposes const item iteration with immutable keys. $>
+  .items
     FUNCTION() CONST: CONST& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type) { RETURN THIS; }
-  .IV_PAIRS DOC <$ Exposes key and value projections for INDEX/VALUE loops. $>
+  DOC <$ Exposes key and value projections for INDEX/VALUE loops. $>
+  .IV_PAIRS
     FUNCTION() CONST: CONST& hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type) { RETURN THIS; }
-  .find DOC <$ Returns the iterator for key, or END if absent. $>
+  DOC <$ Returns the iterator for key, or END if absent. $>
+  .find
     FUNCTION(@ARG:key CONST& INDEX) CONST: hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type)::const_iterator
   {
     IF (.entries == 0) { RETURN .END(); }
@@ -586,14 +643,17 @@ LANGUAGE QUXLANG EN 0.0;
   }
 }
 
-::hadix_map DOC <$ Owns a hash-radix map using the serialization-based default_hasher policy. $>
+DOC <$ Owns a hash-radix map using the serialization-based default_hasher policy. $>
+::hadix_map
   TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO)
   ALIAS hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type default_hasher);
 
-::unordered_map DOC <$ Owns a hash-radix map using the selected hasher_type policy. $>
+DOC <$ Owns a hash-radix map using the selected hasher_type policy. $>
+::unordered_map
   TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO, @hasher_type TYPE AUTO)
   ALIAS hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type hasher_type);
 
-::unordered_map DOC <$ Owns a hash-radix map using the serialization-based default_hasher policy. $>
+DOC <$ Owns a hash-radix map using the serialization-based default_hasher policy. $>
+::unordered_map
   TEMPLATE(@INDEX TYPE AUTO, @VALUE TYPE AUTO)
   ALIAS hadix_map#(@INDEX INDEX, @VALUE VALUE, @hasher_type default_hasher);

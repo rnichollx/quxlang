@@ -7,14 +7,16 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::accept_type DOC <$ Accepts any explicitly supplied type without inspecting its declaration. $>
+DOC <$ Accepts any explicitly supplied type without inspecting its declaration. $>
+::accept_type
   TEMPLATE(@T TYPE AUTO) FUNCTION(): BOOL
 {
   RETURN SAME_TYPES(T, T);
 }
 
 
-::accept_deduced_type DOC <$ Accepts a value whose type is deduced by the function template. $>
+DOC <$ Accepts a value whose type is deduced by the function template. $>
+::accept_deduced_type
   FUNCTION(@ARG:value AUTO& AUTO(t)): BOOL
 {
   RETURN SAME_TYPES(t, t);

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::visit_exception_lifetime_tests NAMESPACE
 {
-  ::block_exit DOC <$ Throwing from a VISIT block destroys its retained subject-expression temporary before entering the handler. $>
+  DOC <$ Throwing from a VISIT block destroys its retained subject-expression temporary before entering the handler. $>
+  ::block_exit
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR evaluations I32 := 0;
@@ -31,7 +32,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(destructions == 1);
   }
 
-  ::extended_continuation_exit DOC <$ VISIT EXTEND retains its subject-expression temporary through nested scopes and releases it during exceptional exit. $>
+  DOC <$ VISIT EXTEND retains its subject-expression temporary through nested scopes and releases it during exceptional exit. $>
+  ::extended_continuation_exit
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR evaluations I32 := 0;

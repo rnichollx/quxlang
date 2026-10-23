@@ -84,7 +84,8 @@ final class QuxlangSymbols {
         while (lexer.getTokenType() != null) {
             ProgressManager.checkCanceled();
             IElementType type = lexer.getTokenType();
-            if (type != TokenType.WHITE_SPACE && type != QuxlangToken.COMMENT && type != QuxlangToken.DOC) {
+            if (type != TokenType.WHITE_SPACE && type != QuxlangToken.COMMENT && type != QuxlangToken.DOC
+                && !lexer.getTokenText().equals("DOC")) {
                 tokens.add(new Token(lexer.getTokenText(), lexer.getTokenStart()));
             }
             lexer.advance();
@@ -217,7 +218,7 @@ final class QuxlangSymbols {
         while (kindIndex < region.end() && !DECLARATIONS.contains(text(kindIndex))) {
             if (text(kindIndex).equals("TEMPLATE")) {
                 template = true;
-            } else if (!Set.of("DOC", "ENABLE_IF", "INCLUDE_IF", "PRIVATE").contains(text(kindIndex))) {
+            } else if (!Set.of("ENABLE_IF", "INCLUDE_IF", "PRIVATE").contains(text(kindIndex))) {
                 return start;
             }
             ++kindIndex;

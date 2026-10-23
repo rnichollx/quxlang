@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT syscall;
 IMPORT posix;
 
-::notify_all_at_address DOC <$
+DOC <$
   Wakes all threads waiting on address. Size is in bytes: Linux supports 4,
   macOS 14.4 or later supports 4 and 8, and Windows supports 1, 2, 4 and 8.
   Returns false for unsupported sizes or platforms, null or misaligned addresses,
@@ -12,6 +12,7 @@ IMPORT posix;
   macOS and Windows use process-local address waits.
   The caller must publish the new atomic value before notifying.
   $>
+::notify_all_at_address
   FUNCTION(@address ADDRESS, @size SZ): BOOL
 {
   STATIC_IF(OS_LINUX)
@@ -56,7 +57,7 @@ IMPORT posix;
   }
 }
 
-::notify_one_at_address DOC <$
+DOC <$
   Wakes at most one thread waiting on address. Size is in bytes: Linux supports 4,
   macOS 14.4 or later supports 4 and 8, and Windows supports 1, 2, 4 and 8.
   Returns false for unsupported sizes, null or misaligned addresses,
@@ -65,6 +66,7 @@ IMPORT posix;
   macOS and Windows use process-local address waits.
   The caller must publish the new atomic value before notifying.
   $>
+::notify_one_at_address
   FUNCTION(@address ADDRESS, @size SZ): BOOL
 {
   STATIC_IF(OS_LINUX)
@@ -112,11 +114,12 @@ IMPORT posix;
   }
 }
 
-::wait_at_u32_address DOC <$
+DOC <$
   Atomically compares the complete aligned 32-bit word with expected before
   sleeping. Returns after a changed value, notification, or spurious wakeup.
   The caller retries its atomic ownership acquisition after every return.
-  $> FUNCTION(@address ADDRESS, @expected U32)
+  $>
+::wait_at_u32_address FUNCTION(@address ADDRESS, @expected U32)
 {
   STATIC_IF(OS_LINUX)
   {
@@ -135,7 +138,8 @@ IMPORT posix;
   STATIC_ELSE { UNIMPLEMENTED; }
 }
 
-::yield_thread_execution DOC <$ Gives runnable threads an opportunity to complete contended operations. $>
+DOC <$ Gives runnable threads an opportunity to complete contended operations. $>
+::yield_thread_execution
   FUNCTION()
 {
   STATIC_IF(OS_LINUX) { syscall::linux::sched_yield(); }

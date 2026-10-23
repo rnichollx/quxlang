@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::conversion_boundary_tests NAMESPACE
 {
-  ::signed_limits DOC <$ Explicit conversion modes agree at both representable signed endpoints. $>
+  DOC <$ Explicit conversion modes agree at both representable signed endpoints. $>
+  ::signed_limits
     TEMPLATE(@T TYPE, @minimum VALUE I64, @maximum VALUE I64) FUNCTION()
   {
     VAR lower I64 := minimum;
@@ -21,7 +22,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(partial_upper == checked_upper);
   }
 
-  ::valid_narrowing_endpoints DOC <$ CHECKED, ASSUME, and PARTIAL preserve exact limits for 8-, 16-, and 32-bit signed destinations. $>
+  DOC <$ CHECKED, ASSUME, and PARTIAL preserve exact limits for 8-, 16-, and 32-bit signed destinations. $>
+  ::valid_narrowing_endpoints
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     signed_limits#(@T I8, @minimum (0 - 128), @maximum 127)();
@@ -29,7 +31,8 @@ LANGUAGE QUXLANG EN 0.0;
     signed_limits#(@T I32, @minimum (0 - 2147483648), @maximum 2147483647)();
   }
 
-  ::partial_low_bits DOC <$ PARTIAL narrowing retains low bits and interprets them using the destination signedness. $>
+  DOC <$ PARTIAL narrowing retains low bits and interprets them using the destination signedness. $>
+  ::partial_low_bits
     DUAL_TEST
   {
     VAR positive I16 := 128;
@@ -45,7 +48,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((bits AS PARTIAL I5) == (0 - 1));
   }
 
-  ::widening_signedness DOC <$ Widening sign-extends signed values and zero-extends unsigned values, including non-byte-width sources. $>
+  DOC <$ Widening sign-extends signed values and zero-extends unsigned values, including non-byte-width sources. $>
+  ::widening_signedness
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR signed_byte I8 := 0 - 128;
@@ -66,7 +70,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((d AS CHECKED U5) == unsigned_bits);
   }
 
-  ::exact_integer_float_limits DOC <$ Integer types whose ranges fit the float significand convert exactly at their extreme values. $>
+  DOC <$ Integer types whose ranges fit the float significand convert exactly at their extreme values. $>
+  ::exact_integer_float_limits
     DUAL_TEST
   {
     VAR signed_high I25 := 16777215;
@@ -88,7 +93,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(e == (zero64 - 9007199254740992.0));
   }
 
-  ::fractional_literal_subtraction DOC <$ Subtracting exact fractional literals produces a value that can initialize a floating-point object. $>
+  DOC <$ Subtracting exact fractional literals produces a value that can initialize a floating-point object. $>
+  ::fractional_literal_subtraction
     DUAL_TEST
   {
     VAR value F32 := 0.0 - 1.0;

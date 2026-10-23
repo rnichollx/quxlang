@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::exception_unwind_context DOC <$ Preserves a native frame's DWARF register values and exception-table location. $>
+DOC <$ Preserves a native frame's DWARF register values and exception-table location. $>
+::exception_unwind_context
 STRUCT
 {
   .registers VAR [256]UINTPTR;
@@ -19,7 +20,8 @@ STRUCT
   .fde_end VAR ADDRESS;
 }
 
-PRIVATE(MODULE) ::unwind_register_rule DOC <$ Describes one caller register's location relative to the current frame. $>
+DOC <$ Describes one caller register's location relative to the current frame. $>
+PRIVATE(MODULE) ::unwind_register_rule
 STRUCT
 {
   .kind VAR U8;
@@ -28,7 +30,8 @@ STRUCT
   .expression VAR ADDRESS;
 }
 
-PRIVATE(MODULE) ::unwind_cfi_state DOC <$ Holds the caller-frame address rule and the register recovery rules at one instruction. $>
+DOC <$ Holds the caller-frame address rule and the register recovery rules at one instruction. $>
+PRIVATE(MODULE) ::unwind_cfi_state
 STRUCT
 {
   .registers VAR [128]unwind_register_rule;
@@ -38,32 +41,37 @@ STRUCT
   .stack_argument_size VAR UINTPTR;
 }
 
-PRIVATE(MODULE) ::unwind_address DOC <$ Interprets a native ABI register word as an address. $>
+DOC <$ Interprets a native ABI register word as an address. $>
+PRIVATE(MODULE) ::unwind_address
 FUNCTION(@word UINTPTR) NOEXCEPT: ADDRESS
 {
   RETURN IBC_LOAD#ADDRESS(@ADDR (IBC_GETADDR(@PTR word<-)));
 }
 
-PRIVATE(MODULE) ::unwind_word DOC <$ Reads the native ABI representation of an address. $>
+DOC <$ Reads the native ABI representation of an address. $>
+PRIVATE(MODULE) ::unwind_word
 FUNCTION(@address ADDRESS) NOEXCEPT: UINTPTR
 {
   RETURN IBC_LOAD#UINTPTR(@ADDR (IBC_GETADDR(@PTR address<-)));
 }
 
-PRIVATE(MODULE) ::unwind_load_word DOC <$ Reads a saved machine register from the native stack. $>
+DOC <$ Reads a saved machine register from the native stack. $>
+PRIVATE(MODULE) ::unwind_load_word
 FUNCTION(@address ADDRESS) NOEXCEPT: UINTPTR
 {
   RETURN IBC_LOAD#UINTPTR(@ADDR address);
 }
 
-PRIVATE(MODULE) ::unwind_add_offset DOC <$ Applies a signed DWARF displacement without changing address provenance. $>
+DOC <$ Applies a signed DWARF displacement without changing address provenance. $>
+PRIVATE(MODULE) ::unwind_add_offset
 FUNCTION(@address ADDRESS, @offset I64) NOEXCEPT: ADDRESS
 {
   IF (offset < 0) { RETURN address - ((I64() - offset) AS PARTIAL UINTPTR); }
   RETURN address + (offset AS PARTIAL UINTPTR);
 }
 
-PRIVATE(MODULE) ::unwind_read_signed DOC <$ Decodes a signed LEB128 operand in a DWARF instruction. $>
+DOC <$ Decodes a signed LEB128 operand in a DWARF instruction. $>
+PRIVATE(MODULE) ::unwind_read_signed
 FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: I64
 {
   VAR value I64 := 0;
@@ -82,7 +90,8 @@ FUNCTION(@cursor MUT& ADDRESS) NOEXCEPT: I64
   };
 }
 
-PRIVATE(MODULE) ::unwind_read_pointer DOC <$ Decodes an absolute or relative DWARF encoded pointer. $>
+DOC <$ Decodes an absolute or relative DWARF encoded pointer. $>
+PRIVATE(MODULE) ::unwind_read_pointer
 FUNCTION(@cursor MUT& ADDRESS, @encoding U8, @base ADDRESS) NOEXCEPT: ADDRESS
 {
   IF (encoding == 255) { RETURN ADDRESS(); }
@@ -110,7 +119,8 @@ FUNCTION(@cursor MUT& ADDRESS, @encoding U8, @base ADDRESS) NOEXCEPT: ADDRESS
   RETURN result;
 }
 
-PRIVATE(MODULE) ::unwind_find_frame DOC <$ Locates a frame description in this executable's retained DWARF section. $>
+DOC <$ Locates a frame description in this executable's retained DWARF section. $>
+PRIVATE(MODULE) ::unwind_find_frame
 FUNCTION(@context MUT& exception_unwind_context) NOEXCEPT: BOOL
 {
   VAR cursor ADDRESS := unwind_section_begin();
@@ -188,7 +198,8 @@ FUNCTION(@context MUT& exception_unwind_context) NOEXCEPT: BOOL
   RETURN FALSE;
 }
 
-PRIVATE(MODULE) ::unwind_evaluate_expression DOC <$ Evaluates a DWARF stack expression against one suspended register context. $>
+DOC <$ Evaluates a DWARF stack expression against one suspended register context. $>
+PRIVATE(MODULE) ::unwind_evaluate_expression
 FUNCTION(@expression ADDRESS, @context CONST& exception_unwind_context) NOEXCEPT: UINTPTR
 {
   VAR cursor ADDRESS := expression;
@@ -251,7 +262,8 @@ FUNCTION(@expression ADDRESS, @context CONST& exception_unwind_context) NOEXCEPT
   RETURN stack[0];
 }
 
-PRIVATE(MODULE) ::unwind_evaluate_cfi DOC <$ Applies DWARF frame instructions up to the suspended instruction address. $>
+DOC <$ Applies DWARF frame instructions up to the suspended instruction address. $>
+PRIVATE(MODULE) ::unwind_evaluate_cfi
 FUNCTION(@state MUT& unwind_cfi_state, @initial CONST& unwind_cfi_state,
   @context CONST& exception_unwind_context, @begin ADDRESS, @end ADDRESS, @limit UINTPTR) NOEXCEPT
 {
@@ -339,7 +351,8 @@ FUNCTION(@state MUT& unwind_cfi_state, @initial CONST& unwind_cfi_state,
   }
 }
 
-PRIVATE(MODULE) ::unwind_caller DOC <$ Recovers the caller register state and records this frame's canonical stack address. $>
+DOC <$ Recovers the caller register state and records this frame's canonical stack address. $>
+PRIVATE(MODULE) ::unwind_caller
 FUNCTION(@context MUT& exception_unwind_context, @caller MUT& exception_unwind_context) NOEXCEPT: BOOL
 {
   IF (context.ip == 0) { RETURN FALSE; }
@@ -397,35 +410,40 @@ FUNCTION(@context MUT& exception_unwind_context, @caller MUT& exception_unwind_c
   RETURN TRUE;
 }
 
-PRIVATE(MODULE) ::unwind_ip DOC <$ Returns the suspended instruction address exposed to a personality. $>
+DOC <$ Returns the suspended instruction address exposed to a personality. $>
+PRIVATE(MODULE) ::unwind_ip
 FUNCTION(@context ADDRESS) NOEXCEPT: UINTPTR
 {
   VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
   RETURN pointer->.ip;
 }
 
-PRIVATE(MODULE) ::unwind_region DOC <$ Returns the current function's code base for LSDA offsets. $>
+DOC <$ Returns the current function's code base for LSDA offsets. $>
+PRIVATE(MODULE) ::unwind_region
 FUNCTION(@context ADDRESS) NOEXCEPT: UINTPTR
 {
   VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
   RETURN pointer->.region;
 }
 
-PRIVATE(MODULE) ::unwind_lsda DOC <$ Returns the current frame's language-specific exception data. $>
+DOC <$ Returns the current frame's language-specific exception data. $>
+PRIVATE(MODULE) ::unwind_lsda
 FUNCTION(@context ADDRESS) NOEXCEPT: ADDRESS
 {
   VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
   RETURN pointer->.lsda;
 }
 
-PRIVATE(MODULE) ::unwind_set_register DOC <$ Installs one exception-delivery register in a suspended context. $>
+DOC <$ Installs one exception-delivery register in a suspended context. $>
+PRIVATE(MODULE) ::unwind_set_register
 FUNCTION(@context ADDRESS, @index I32, @value ADDRESS) NOEXCEPT
 {
   VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
   pointer->.registers[index AS CHECKED SZ] := unwind_word(@address value);
 }
 
-PRIVATE(MODULE) ::unwind_set_ip DOC <$ Discards the suspended call's outgoing stack arguments and selects its landing-pad instruction address. $>
+DOC <$ Discards the suspended call's outgoing stack arguments and selects its landing-pad instruction address. $>
+PRIVATE(MODULE) ::unwind_set_ip
 FUNCTION(@context ADDRESS, @value UINTPTR) NOEXCEPT
 {
   VAR pointer MUT->exception_unwind_context := IBC_PUN#(MUT->exception_unwind_context)(@ADDR context);
@@ -436,7 +454,8 @@ FUNCTION(@context ADDRESS, @value UINTPTR) NOEXCEPT
   pointer->.ip := value;
 }
 
-PRIVATE(MODULE) ::unwind_cleanup_pass DOC <$ Runs cleanup personalities until the selected handler receives the exception. $>
+DOC <$ Runs cleanup personalities until the selected handler receives the exception. $>
+PRIVATE(MODULE) ::unwind_cleanup_pass
 FUNCTION(@record MUT->EXCEPTION_UNWIND_RECORD)
 {
   VAR context exception_unwind_context := record->.cursor;
@@ -463,7 +482,8 @@ FUNCTION(@record MUT->EXCEPTION_UNWIND_RECORD)
   };
 }
 
-PRIVATE(MODULE) ::unwind_raise DOC <$ Searches for a handler without modifying the stack, then starts native cleanup. $>
+DOC <$ Searches for a handler without modifying the stack, then starts native cleanup. $>
+PRIVATE(MODULE) ::unwind_raise
 FUNCTION(@record ADDRESS): I32
 {
   VAR pointer MUT->EXCEPTION_UNWIND_RECORD := IBC_PUN#(MUT->EXCEPTION_UNWIND_RECORD)(@ADDR record);
@@ -494,7 +514,8 @@ FUNCTION(@record ADDRESS): I32
   };
 }
 
-PRIVATE(MODULE) ::unwind_resume DOC <$ Resumes cleanup from the current call site, including enclosing handlers in an inlined frame. $>
+DOC <$ Resumes cleanup from the current call site, including enclosing handlers in an inlined frame. $>
+PRIVATE(MODULE) ::unwind_resume
 FUNCTION(@record ADDRESS)
 {
   VAR pointer MUT->EXCEPTION_UNWIND_RECORD := IBC_PUN#(MUT->EXCEPTION_UNWIND_RECORD)(@ADDR record);

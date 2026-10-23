@@ -2,17 +2,21 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::method_binding_tests NAMESPACE
 {
-  ::counter DOC <$ A mutable receiver exposes overloaded methods through a retained binding. $>
+  DOC <$ A mutable receiver exposes overloaded methods through a retained binding. $>
+  ::counter
     STRUCT
   {
     .value VAR I32;
-    .add DOC <$ Adds the signed argument and returns updated receiver state. $>
+    DOC <$ Adds the signed argument and returns updated receiver state. $>
+    .add
       FUNCTION(@amount I32): I32 { .value += amount; RETURN .value; }
-    .add DOC <$ Adds an unsigned argument with a distinguishing offset. $>
+    DOC <$ Adds an unsigned argument with a distinguishing offset. $>
+    .add
       FUNCTION(@amount U32): I32 { .value += (amount AS ASSUME I32) + 100; RETURN .value; }
   }
 
-  ::copy_retains_receiver DOC <$ Copies of a bound method share its original receiver and observe later mutations of that object. $>
+  DOC <$ Copies of a bound method share its original receiver and observe later mutations of that object. $>
+  ::copy_retains_receiver
     DUAL_TEST
   {
     VAR first counter;
@@ -32,7 +36,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(first.value == 23);
   }
 
-  ::overload_selection_after_binding DOC <$ A retained method binding selects overloads from each later argument type without changing receivers. $>
+  DOC <$ A retained method binding selects overloads from each later argument type without changing receivers. $>
+  ::overload_selection_after_binding
     DUAL_TEST
   {
     VAR value counter;
@@ -44,7 +49,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value.value == 110);
   }
 
-  ::copy_chain_retains_receiver DOC <$ Copies retain the bound receiver through a chain of local declarations. $>
+  DOC <$ Copies retain the bound receiver through a chain of local declarations. $>
+  ::copy_chain_retains_receiver
     DUAL_TEST
   {
     VAR value counter;

@@ -1,35 +1,43 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::default_hasher DOC <$
+DOC <$
   Hashes the SERIALIZE byte stream with a streaming 64-bit FNV-1a cycle and a
   final avalanche. No serialization buffer is allocated. Equal keys must have
   identical serialized bytes; types with different equality semantics require
   a custom hash policy. This deterministic hash is not cryptographic.
-  $> STRUCT
+  $>
+::default_hasher STRUCT
 {
   PRIVATE(MODULE, RUNTIME_MODULE)
   {
-    ::output_slot DOC <$ Folds one serialized byte into a shared FNV-1a hash state. $> STRUCT
+    DOC <$ Folds one serialized byte into a shared FNV-1a hash state. $>
+    ::output_slot STRUCT
     {
       .state VAR MUT->U64;
-      .OPERATOR:= DOC <$ Mixes one byte using unsigned wrapping multiplication. $>
+      DOC <$ Mixes one byte using unsigned wrapping multiplication. $>
+      .OPERATOR:=
         FUNCTION(@OTHER BYTE) MUT
       { .state-> := (.state-> #^^ ((OTHER AS U8) AS U64)) * 1099511628211; }
     }
 
-    ::output_iterator DOC <$ Consumes serialized bytes directly without allocating an intermediate buffer. $> STRUCT
+    DOC <$ Consumes serialized bytes directly without allocating an intermediate buffer. $>
+    ::output_iterator STRUCT
     {
       .slot VAR default_hasher::output_slot;
-      .CONSTRUCTOR DOC <$ Binds an iterator to a live hash accumulator. $>
+      DOC <$ Binds an iterator to a live hash accumulator. $>
+      .CONSTRUCTOR
         FUNCTION(@EXPLICIT:state MUT->U64) { .slot.state := state; }
-      .OPERATOR++ DOC <$ Returns an iterator sharing the accumulator; byte assignment advances the hash. $>
+      DOC <$ Returns an iterator sharing the accumulator; byte assignment advances the hash. $>
+      .OPERATOR++
         FUNCTION() MUT: default_hasher::output_iterator { RETURN THIS; }
-      .OPERATOR-> DOC <$ Returns the byte-assignment sink used by SERIALIZE. $>
+      DOC <$ Returns the byte-assignment sink used by SERIALIZE. $>
+      .OPERATOR->
         FUNCTION(): MUT& default_hasher::output_slot { RETURN .slot; }
     }
   }
 
-  .hash DOC <$ Returns a hash of every byte emitted by value.SERIALIZE. $>
+  DOC <$ Returns a hash of every byte emitted by value.SERIALIZE. $>
+  .hash
     FUNCTION(@ARG:value CONST& AUTO) CONST: U64
   {
     VAR state U64 := 14695981039346656037;

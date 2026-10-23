@@ -116,7 +116,7 @@ final class QuxlangSymbolsTest {
     }
 
     @Test void commentsAndDocumentationDoNotIntroduceDeclarations() {
-        assertResolution("::<d>value DOC <$ @fake I32; ::value STRUCT {} $> VAR I32; // @fake\n ::run FUNCTION() { RETURN <r>value; }", GLOBAL);
+        assertResolution("DOC <$ @fake I32; ::value STRUCT {} $> ::<d>value VAR I32; // @fake\n ::run FUNCTION() { RETURN <r>value; }", GLOBAL);
     }
 
     @Test void callColorIsLimitedToBalancedCallParentheses() {

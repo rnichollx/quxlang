@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::layout_type_operand_tests NAMESPACE
 {
-  ::check_array_layout DOC <$ Fixed arrays retain element alignment and multiply element cell size at each dimension. $>
+  DOC <$ Fixed arrays retain element alignment and multiply element cell size at each dimension. $>
+  ::check_array_layout
     TEMPLATE(@T TYPE AUTO)
     FUNCTION()
   {
@@ -14,7 +15,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(ALIGNOF([2][3]T) == ALIGNOF(T));
   }
 
-  ::array_dimensions INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Array layout identities hold across scalar element sizes and nested dimensions without constructing array values. $>
+  DOC <$ Array layout identities hold across scalar element sizes and nested dimensions without constructing array values. $>
+  ::array_dimensions INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
     DUAL_TEST
   {
     check_array_layout#(@T BYTE)();
@@ -25,7 +27,8 @@ LANGUAGE QUXLANG EN 0.0;
     check_array_layout#(@T F64)();
   }
 
-  ::unevaluated_construction INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Layout queries through TYPEOF do not construct or destroy owned operands. $>
+  DOC <$ Layout queries through TYPEOF do not construct or destroy owned operands. $>
+  ::unevaluated_construction INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
     DUAL_TEST
   {
     VAR events I32 := 0;

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::throw_operand_lifetime_tests NAMESPACE
 {
-  ::produce_value DOC <$ Observes a live operand temporary and either returns the intended exception value or throws a replacement during evaluation. $>
+  DOC <$ Observes a live operand temporary and either returns the intended exception value or throws a replacement during evaluation. $>
+  ::produce_value
     FUNCTION(@probe CONST& short_circuit_tests::temporary,
       @events MUT& I32, @fail BOOL): I32
   {
@@ -12,7 +13,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN 73;
   }
 
-  ::evaluation_cleanup DOC <$ THROW destroys operand temporaries before enclosing locals whether operand evaluation returns a value or itself throws. $>
+  DOC <$ THROW destroys operand temporaries before enclosing locals whether operand evaluation returns a value or itself throws. $>
+  ::evaluation_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;

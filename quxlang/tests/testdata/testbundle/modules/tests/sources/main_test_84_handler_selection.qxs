@@ -2,12 +2,15 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::handler_selection_tests NAMESPACE
 {
-  ::first DOC <$ One nominal exception type with a scalar payload. $>
+  DOC <$ One nominal exception type with a scalar payload. $>
+  ::first
     STRUCT { .value VAR I32; }
-  ::second DOC <$ A distinct exception type with the same field layout. $>
+  DOC <$ A distinct exception type with the same field layout. $>
+  ::second
     STRUCT { .value VAR I32; }
 
-  ::raise_selected DOC <$ Throws one of four types that share the same scalar storage width. $>
+  DOC <$ Throws one of four types that share the same scalar storage width. $>
+  ::raise_selected
     FUNCTION(@mode I32)
   {
     IF (mode == 0) { THROW I32(@OTHER 17); }
@@ -23,7 +26,8 @@ LANGUAGE QUXLANG EN 0.0;
     THROW value;
   }
 
-  ::nominal_type_dispatch DOC <$ Handler selection distinguishes signedness and nominal structure identity independently of equal storage layout. $>
+  DOC <$ Handler selection distinguishes signedness and nominal structure identity independently of equal storage layout. $>
+  ::nominal_type_dispatch
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
@@ -42,7 +46,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nonmatching_handler_propagation DOC <$ Nonmatching inner handlers propagate the original exception through local cleanup into an outer typed handler. $>
+  DOC <$ Nonmatching inner handlers propagate the original exception through local cleanup into an outer typed handler. $>
+  ::nonmatching_handler_propagation
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;

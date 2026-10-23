@@ -2,19 +2,24 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::enum_flagset_value_tests NAMESPACE
 {
-  ::allocated DOC <$ Exercises implicit enum allocation around explicit values and reserved ranges. $>
+  DOC <$ Exercises implicit enum allocation around explicit values and reserved ranges. $>
+  ::allocated
     ENUM BITS(4) [late = 9, zero DEFAULT, RESERVED FROM(1) TO(3), first, second];
 
-  ::open_code DOC <$ Represents every four-bit value, including unnamed and reserved values. $>
+  DOC <$ Represents every four-bit value, including unnamed and reserved values. $>
+  ::open_code
     ENUM BITS(4) [zero DEFAULT = 0, RESERVED FROM(4) TO(7), last = 15] ALLOW_UNKNOWN;
 
-  ::permissions DOC <$ Provides three independently addressable bits. $>
+  DOC <$ Provides three independently addressable bits. $>
+  ::permissions
     FLAGSET BITS(3) [read = 1, write = 2, execute = 4];
 
-  ::composite_permissions DOC <$ Groups the first two bits into a composite membership query. $>
+  DOC <$ Groups the first two bits into a composite membership query. $>
+  ::composite_permissions
     FLAGSET BITS(3) [both = 3, execute = 4];
 
-  ::serialized_byte DOC <$ Serializes a one-byte enum value for assertions about its assigned representation. $>
+  DOC <$ Serializes a one-byte enum value for assertions about its assigned representation. $>
+  ::serialized_byte
     FUNCTION(@value AUTO): BYTE
   {
     VAR output [1]BYTE;
@@ -22,7 +27,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN output[0];
   }
 
-  ::implicit_enum_allocation DOC <$ Explicit and reserved enum values are skipped when assigning implicit cases. $>
+  DOC <$ Explicit and reserved enum values are skipped when assigning implicit cases. $>
+  ::implicit_enum_allocation
     DUAL_TEST
   {
     VAR initial allocated;
@@ -36,7 +42,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(allocated::second < allocated::late);
   }
 
-  ::unknown_enum_padding_and_roundtrip DOC <$ Every input byte decodes to its low four bits when unknown enum values are allowed. $>
+  DOC <$ Every input byte decodes to its low four bits when unknown enum values are allowed. $>
+  ::unknown_enum_padding_and_roundtrip
     DUAL_TEST
   {
     VAR raw U16 := 0;
@@ -55,7 +62,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::composite_membership_truth_table DOC <$ Composite flags require every constituent bit, while zero remains false in Boolean conversion. $>
+  DOC <$ Composite flags require every constituent bit, while zero remains false in Boolean conversion. $>
+  ::composite_membership_truth_table
     DUAL_TEST
   {
     VAR raw U8 := 0;
@@ -74,7 +82,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::flagset_binary_truth_tables DOC <$ All bitwise flagset operators match their integer truth functions within the declared three-bit width. $>
+  DOC <$ All bitwise flagset operators match their integer truth functions within the declared three-bit width. $>
+  ::flagset_binary_truth_tables
     DUAL_TEST
   {
     VAR left U8 := 0;
@@ -99,7 +108,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::flagset_compound_truth_tables DOC <$ Compound bitwise assignments preserve the destination flagset width for every pair of three-bit inputs. $>
+  DOC <$ Compound bitwise assignments preserve the destination flagset width for every pair of three-bit inputs. $>
+  ::flagset_compound_truth_tables
     DUAL_TEST
   {
     VAR left U8 := 0;

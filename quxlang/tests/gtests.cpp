@@ -731,7 +731,7 @@ TEST(parsing, functum_combining)
 
 TEST(parsing, declaration_doc_block)
 {
-    std::string test_string = "::foo DOC <$\n    asdf jlk\n    the quick brown fox jumped over the fence\n    $> FUNCTION(%a I32, %b I32) { }";
+    std::string test_string = "DOC <$\n    asdf jlk\n    the quick brown fox jumped over the fence\n    $> ::foo FUNCTION(%a I32, %b I32) { }";
 
     auto file = parse_file_text(test_string);
 
@@ -741,9 +741,9 @@ TEST(parsing, declaration_doc_block)
     EXPECT_EQ(*global.doc, "\nasdf jlk\nthe quick brown fox jumped over the fence\n");
 }
 
-TEST(parsing, declaration_doc_block_after_include_if)
+TEST(parsing, declaration_doc_block_before_declaration)
 {
-    std::string test_string = "::foo INCLUDE_IF(ARCH_IS_X64) DOC <$x$> FUNCTION() { }";
+    std::string test_string = "DOC <$x$> PRIVATE(MODULE) ::foo INCLUDE_IF(ARCH_IS_X64) FUNCTION() { }";
 
     auto file = parse_file_text(test_string);
 
@@ -752,11 +752,49 @@ TEST(parsing, declaration_doc_block_after_include_if)
     ASSERT_TRUE(global.include_if.has_value());
     ASSERT_TRUE(global.doc.has_value());
     EXPECT_EQ(*global.doc, "x");
+    ASSERT_TRUE(global.privacy.has_value());
+
+    quxlang::ast2_file_declaration nested = parse_file_text(R"(
+        DOC <$outer$> ::outer STRUCT
+        {
+            DOC <$base$> .BASE parent;
+            DOC <$field$> .field VAR I32;
+            .plain VAR I32;
+            DOC <$inner$> ::inner STRUCT { .plain VAR I32; }
+        }
+        ::plain STRUCT {}
+        DOC <$import$> IMPORT library;
+        DOC <$union$> ::choice UNION
+        {
+            DOC <$method$> .read FUNCTION() {}
+        }
+    )");
+    ASSERT_EQ(nested.declarations.size(), 4);
+    quxlang::global_subdeclaration const& outer = nested.declarations[0].get_as< quxlang::global_subdeclaration >();
+    EXPECT_EQ(outer.doc, "outer");
+    std::vector< quxlang::subdeclaration > const& members = outer.decl.get_as< quxlang::ast2_struct_declaration >().declarations;
+    ASSERT_EQ(members.size(), 4);
+    EXPECT_EQ(members[0].get_as< quxlang::member_subdeclaration >().doc, "base");
+    EXPECT_EQ(members[1].get_as< quxlang::member_subdeclaration >().doc, "field");
+    EXPECT_FALSE(members[2].get_as< quxlang::member_subdeclaration >().doc.has_value());
+    quxlang::global_subdeclaration const& inner = members[3].get_as< quxlang::global_subdeclaration >();
+    EXPECT_EQ(inner.doc, "inner");
+    EXPECT_FALSE(inner.decl.get_as< quxlang::ast2_struct_declaration >().declarations[0].get_as< quxlang::member_subdeclaration >().doc.has_value());
+    EXPECT_FALSE(nested.declarations[1].get_as< quxlang::global_subdeclaration >().doc.has_value());
+    EXPECT_EQ(nested.declarations[2].get_as< quxlang::global_subdeclaration >().doc, "import");
+    quxlang::global_subdeclaration const& choice = nested.declarations[3].get_as< quxlang::global_subdeclaration >();
+    EXPECT_EQ(choice.doc, "union");
+    std::vector< quxlang::subdeclaration > const& union_members = choice.decl.get_as< quxlang::ast2_union_declaration >().declarations;
+    ASSERT_EQ(union_members.size(), 1);
+    EXPECT_EQ(union_members[0].get_as< quxlang::member_subdeclaration >().doc, "method");
 }
 
 TEST(parsing, declaration_rejects_multiple_doc_blocks)
 {
-    EXPECT_THROW(parse_file_text("::foo DOC <$x$> DOC <$y$> FUNCTION() { }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("DOC <$x$> DOC <$y$> ::foo FUNCTION() { }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo DOC <$x$> FUNCTION() { }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("DOC <$x$>"), std::logic_error);
+    EXPECT_THROW(parse_file_text("DOC <$x$> PRIVATE(MODULE) { ::foo STRUCT {} }"), std::logic_error);
 }
 
 TEST(parsing, parse_function_args)

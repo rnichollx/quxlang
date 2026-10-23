@@ -2,18 +2,21 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::custom_dereference_tests NAMESPACE
 {
-  ::proxy DOC <$ Selects mutable or constant access to borrowed integer storage. $>
+  DOC <$ Selects mutable or constant access to borrowed integer storage. $>
+  ::proxy
     STRUCT
   {
     .pointer VAR MUT->I32;
     .events VAR MUT->I32;
-    .OPERATOR-> DOC <$ Records mutable dereference and returns the original target. $>
+    DOC <$ Records mutable dereference and returns the original target. $>
+    .OPERATOR->
       FUNCTION() MUT: MUT& I32
     {
       .events-> := .events-> * 10 + 2;
       RETURN .pointer->;
     }
-    .OPERATOR-> DOC <$ Records constant dereference and preserves constant result qualification. $>
+    DOC <$ Records constant dereference and preserves constant result qualification. $>
+    .OPERATOR->
       FUNCTION() CONST: CONST& I32
     {
       .events-> := .events-> * 10 + 3;
@@ -21,25 +24,29 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::receiver DOC <$ Records receiver evaluation and retains mutable wrapper identity. $>
+  DOC <$ Records receiver evaluation and retains mutable wrapper identity. $>
+  ::receiver
     FUNCTION(@object MUT& proxy): MUT& proxy
   {
     object.events-> := object.events-> * 10 + 1;
     RETURN object;
   }
 
-  ::borrowed DOC <$ An owned temporary wrapper borrows a separately owned integer. $>
+  DOC <$ An owned temporary wrapper borrows a separately owned integer. $>
+  ::borrowed
     STRUCT MOVE_ONLY
   {
     .lifetime VAR short_circuit_tests::temporary;
     .pointer VAR MUT->I32;
-    .CONSTRUCTOR DOC <$ Starts a temporary lifetime while retaining an external target address. $>
+    DOC <$ Starts a temporary lifetime while retaining an external target address. $>
+    .CONSTRUCTOR
       FUNCTION(@events MUT& I32, @alive MUT& I32, @value MUT& I32)
       :> .lifetime:(@events events, @alive alive, @digit 1)
     {
       .pointer := value<-;
     }
-    .OPERATOR-> DOC <$ Returns the external target while the wrapper is alive. $>
+    DOC <$ Returns the external target while the wrapper is alive. $>
+    .OPERATOR->
       FUNCTION() CONST: MUT& I32
     {
       TEST_ASSERT(.lifetime.alive-> == 1);
@@ -48,7 +55,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::qualified_dispatch DOC <$ Compound dereference evaluates its receiver once, and constant views select the constant result overload. $>
+  DOC <$ Compound dereference evaluates its receiver once, and constant views select the constant result overload. $>
+  ::qualified_dispatch
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -70,7 +78,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 3);
   }
 
-  ::wrapper_address DOC <$ Taking a wrapper address does not invoke its dereference operator, and a pointer to the wrapper preserves its identity. $>
+  DOC <$ Taking a wrapper address does not invoke its dereference operator, and a pointer to the wrapper preserves its identity. $>
+  ::wrapper_address
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -88,7 +97,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == 31);
   }
 
-  ::temporary_borrowed_result DOC <$ References and addresses returned through temporary wrappers remain valid for the independently owned target after wrapper destruction. $>
+  DOC <$ References and addresses returned through temporary wrappers remain valid for the independently owned target after wrapper destruction. $>
+  ::temporary_borrowed_result
     DUAL_TEST
   {
     VAR events I32 := 0;

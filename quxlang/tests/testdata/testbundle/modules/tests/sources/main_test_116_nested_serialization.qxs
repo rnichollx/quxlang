@@ -2,9 +2,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::nested_serialization_tests NAMESPACE
 {
-  ::inner DOC <$ Contains a non-byte-width integer followed by a Boolean. $>
+  DOC <$ Contains a non-byte-width integer followed by a Boolean. $>
+  ::inner
     STRUCT { .number VAR U12; .enabled VAR BOOL; }
-  ::record DOC <$ Combines nested fields, a fixed array and an integer wider than a machine word. $>
+  DOC <$ Combines nested fields, a fixed array and an integer wider than a machine word. $>
+  ::record
     STRUCT
   {
     .marker VAR BYTE;
@@ -13,7 +15,8 @@ LANGUAGE QUXLANG EN 0.0;
     .wide VAR U128;
   }
 
-  ::exact_bytes_and_independent_roundtrip DOC <$ Serialization follows declaration and element order without layout padding, preserving adjacent guards and returned iterators. $>
+  DOC <$ Serialization follows declaration and element order without layout padding, preserving adjacent guards and returned iterators. $>
+  ::exact_bytes_and_independent_roundtrip
     DUAL_TEST
   {
     VAR source record;
@@ -62,7 +65,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(bytes[25] == 219);
   }
 
-  ::wide_integer_bytes DOC <$ A U128 value serializes exactly sixteen little-endian bytes and round-trips. $>
+  DOC <$ A U128 value serializes exactly sixteen little-endian bytes and round-trips. $>
+  ::wide_integer_bytes
     DUAL_TEST
   {
     VAR value U128 := 18446744073709551617;
@@ -85,7 +89,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(bytes[17] == 90);
   }
 
-  ::array_element_bytes DOC <$ Fixed arrays serialize each element in index order. $>
+  DOC <$ Fixed arrays serialize each element in index order. $>
+  ::array_element_bytes
     DUAL_TEST
   {
     VAR value [2]U16;
@@ -108,7 +113,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(bytes[5] == 90);
   }
 
-  ::empty_array_bytes DOC <$ Empty arrays preserve the iterator and surrounding bytes in both directions. $>
+  DOC <$ Empty arrays preserve the iterator and surrounding bytes in both directions. $>
+  ::empty_array_bytes
     DUAL_TEST
   {
     VAR value [0]U16 :[];
@@ -120,7 +126,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(bytes[0] == 165);
   }
 
-  ::multidimensional_array_bytes DOC <$ Nested arrays serialize in outer then inner index order. $>
+  DOC <$ Nested arrays serialize in outer then inner index order. $>
+  ::multidimensional_array_bytes
     DUAL_TEST
   {
     VAR value [2][2]U16;
@@ -149,10 +156,12 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(bytes[8] == 165);
   }
 
-  ::scalar_record DOC <$ Places a nested record between scalar fields. $>
+  DOC <$ Places a nested record between scalar fields. $>
+  ::scalar_record
     STRUCT { .marker VAR BYTE; .payload VAR inner; .tail VAR U16; }
 
-  ::nested_field_bytes DOC <$ Nested records concatenate their fields without alignment padding. $>
+  DOC <$ Nested records concatenate their fields without alignment padding. $>
+  ::nested_field_bytes
     DUAL_TEST
   {
     VAR value scalar_record;

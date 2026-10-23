@@ -2,33 +2,43 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::nominal_associated_declaration_tests NAMESPACE
 {
-  ::phase DOC <$ Defines associated declarations in the owning enum scope. $>
+  DOC <$ Defines associated declarations in the owning enum scope. $>
+  ::phase
     ENUM BITS(8) [idle DEFAULT = 0, running = 1, complete = 2]
   {
-    ::self DOC <$ Refers to the complete enclosing nominal type. $> ALIAS phase;
-    ::initial DOC <$ Constructs the selected initial state through its associated scope. $>
+    DOC <$ Refers to the complete enclosing nominal type. $>
+    ::self ALIAS phase;
+    DOC <$ Constructs the selected initial state through its associated scope. $>
+    ::initial
       FUNCTION(): self { RETURN idle; }
-    .next DOC <$ Returns the following state without mutating the receiver. $>
+    DOC <$ Returns the following state without mutating the receiver. $>
+    .next
       FUNCTION() CONST: phase
     {
       IF (THIS == idle) { RETURN running; }
       RETURN complete;
     }
-    .advance DOC <$ Mutates the original enum receiver using its associated method. $>
+    DOC <$ Mutates the original enum receiver using its associated method. $>
+    .advance
       FUNCTION() { THIS := .next(); }
   }
 
-  ::permissions DOC <$ Defines methods alongside generated flag membership fields. $>
+  DOC <$ Defines methods alongside generated flag membership fields. $>
+  ::permissions
     FLAGSET BITS(3) [read = 1, write = 2, execute = 4]
   {
-    ::self DOC <$ Names the enclosing flagset type from its associated body. $> ALIAS permissions;
-    .grant DOC <$ Adds flags to the original receiver. $>
+    DOC <$ Names the enclosing flagset type from its associated body. $>
+    ::self ALIAS permissions;
+    DOC <$ Adds flags to the original receiver. $>
+    .grant
       FUNCTION(@value self) { THIS #||= value; }
-    .can_read DOC <$ Observes a generated membership field through a constant receiver. $>
+    DOC <$ Observes a generated membership field through a constant receiver. $>
+    .can_read
       FUNCTION() CONST: BOOL { RETURN .read; }
   }
 
-  ::enum_methods DOC <$ Associated enum aliases, factory lookup and methods retain nominal identity and writable receiver state. $>
+  DOC <$ Associated enum aliases, factory lookup and methods retain nominal identity and writable receiver state. $>
+  ::enum_methods
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(phase::self, phase));
@@ -42,7 +52,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == phase::complete);
   }
 
-  ::flagset_methods DOC <$ Associated flagset methods coexist with generated membership and preserve mutation through a constant observing reference. $>
+  DOC <$ Associated flagset methods coexist with generated membership and preserve mutation through a constant observing reference. $>
+  ::flagset_methods
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(permissions::self, permissions));

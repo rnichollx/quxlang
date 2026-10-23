@@ -2,9 +2,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::container_dynarr_copy_aliased_string DOC <$
+DOC <$
   Copies an owning element before growth invalidates its original storage.
   $>
+::container_dynarr_copy_aliased_string
   DUAL_TEST
 {
   VAR values std::dynarr#(std::string);
@@ -16,10 +17,11 @@ IMPORT std;
   TEST_ASSERT(values[1] == "first");
 }
 
-::container_dynarr_aliased_string_insertion DOC <$
+DOC <$
   Stages an aliased owning element before either reallocating storage or
   shifting the source element during insertion.
   $>
+::container_dynarr_aliased_string_insertion
   DUAL_TEST
 {
   VAR values std::dynarr#(std::string);
@@ -49,10 +51,11 @@ IMPORT std;
 }
 
 // Container growth reports overflow through the native exception runtime.
-::container_ordered_permuted_erase_and_reinsert DOC <$
+DOC <$
   Checks membership, values, size, and traversal after each deletion and
   reinsertion across multiple AVL tree shapes.
   $>
+::container_ordered_permuted_erase_and_reinsert
   UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   VAR stride I32 := 1;
@@ -113,18 +116,21 @@ IMPORT std;
 }
 
 
-::container_move_only_value DOC <$ Stores one integer and permits ownership transfer but not copying. $>
+DOC <$ Stores one integer and permits ownership transfer but not copying. $>
+::container_move_only_value
   STRUCT MOVE_ONLY
 {
   .value VAR I32;
 
-  .CONSTRUCTOR DOC <$ Constructs a value from an integer. $>
+  DOC <$ Constructs a value from an integer. $>
+  .CONSTRUCTOR
     FUNCTION(@value I32)
   {
     .value := value;
   }
 
-  .CONSTRUCTOR DOC <$ Transfers the stored integer from OTHER. $>
+  DOC <$ Transfers the stored integer from OTHER. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& container_move_only_value)
   {
     VAR source_value MUT& I32 := OTHER.value AS MUT& I32;
@@ -132,7 +138,8 @@ IMPORT std;
     source_value := (0 AS I32) - 1;
   }
 
-  .OPERATOR<=> DOC <$ Orders values by their stored integer. $>
+  DOC <$ Orders values by their stored integer. $>
+  .OPERATOR<=>
     FUNCTION(@OTHER CONST& container_move_only_value) CONST: ORDER
   {
     RETURN .value <=> OTHER.value;
@@ -140,21 +147,24 @@ IMPORT std;
 }
 
 
-::container_lifetime_value DOC <$
+DOC <$
   Tracks live logical values across container copies, moves, relocation, and
   destruction.
   $>
+::container_lifetime_value
   STRUCT
 {
   .alive VAR MUT->I32;
   .value VAR I32;
 
-  .CONSTRUCTOR DOC <$ Constructs an untracked default value. $>
+  DOC <$ Constructs an untracked default value. $>
+  .CONSTRUCTOR
     FUNCTION()
   {
   }
 
-  .CONSTRUCTOR DOC <$ Constructs a tracked value and increments alive. $>
+  DOC <$ Constructs a tracked value and increments alive. $>
+  .CONSTRUCTOR
     FUNCTION(@alive MUT& I32, @value I32)
   {
     .alive := alive<-;
@@ -162,7 +172,8 @@ IMPORT std;
     .alive-> ++;
   }
 
-  .CONSTRUCTOR DOC <$ Copies a tracked value and increments alive. $>
+  DOC <$ Copies a tracked value and increments alive. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER CONST& container_lifetime_value)
   {
     .alive := OTHER.alive;
@@ -173,7 +184,8 @@ IMPORT std;
     }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers tracking ownership without changing alive. $>
+  DOC <$ Transfers tracking ownership without changing alive. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& container_lifetime_value)
   {
     .value := OTHER.value;
@@ -181,7 +193,8 @@ IMPORT std;
     .alive <-> source_alive;
   }
 
-  .DESTRUCTOR DOC <$ Decrements alive when this object owns a tracked value. $>
+  DOC <$ Decrements alive when this object owns a tracked value. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     IF (.alive??)
@@ -192,7 +205,8 @@ IMPORT std;
 }
 
 
-::sum_const_dynarr DOC <$ Sums a dynamic array through its constant value range. $>
+DOC <$ Sums a dynamic array through its constant value range. $>
+::sum_const_dynarr
   FUNCTION(@values CONST& std::dynarr#(I32)): I32
 {
   VAR total I32 := 0;
@@ -204,7 +218,8 @@ IMPORT std;
 }
 
 
-::sum_const_list DOC <$ Sums a list through its constant value range. $>
+DOC <$ Sums a list through its constant value range. $>
+::sum_const_list
   FUNCTION(@values CONST& std::list#(I32)): I32
 {
   VAR total I32 := 0;
@@ -216,7 +231,8 @@ IMPORT std;
 }
 
 
-::sum_const_map DOC <$ Sums map keys and values through constant projections. $>
+DOC <$ Sums map keys and values through constant projections. $>
+::sum_const_map
   FUNCTION(@values CONST& std::map#[I32:I32]): I32
 {
   VAR total I32 := 0;
@@ -228,7 +244,8 @@ IMPORT std;
 }
 
 
-::sum_const_set DOC <$ Sums a set through its constant value range. $>
+DOC <$ Sums a set through its constant value range. $>
+::sum_const_set
   FUNCTION(@values CONST& std::set#(I32)): I32
 {
   VAR total I32 := 0;
@@ -240,7 +257,8 @@ IMPORT std;
 }
 
 
-::populate_balanced_integer_map DOC <$ Inserts keys one through seven around a balanced root. $>
+DOC <$ Inserts keys one through seven around a balanced root. $>
+::populate_balanced_integer_map
   FUNCTION(@values MUT& std::map#[I32:I32])
 {
   TEST_ASSERT(values.insert(@key (4 AS I32), @value (40 AS I32)));
@@ -253,7 +271,8 @@ IMPORT std;
 }
 
 
-::populate_balanced_integer_set DOC <$ Inserts keys one through seven around a balanced root. $>
+DOC <$ Inserts keys one through seven around a balanced root. $>
+::populate_balanced_integer_set
   FUNCTION(@values MUT& std::set#(I32))
 {
   TEST_ASSERT(values.insert(@key (4 AS I32)));

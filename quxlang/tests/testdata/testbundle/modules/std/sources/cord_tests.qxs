@@ -1,9 +1,10 @@
 LANGUAGE QUXLANG EN 0.0;
 
-PRIVATE(MODULE) ::cord_avl_invariants DOC <$
+DOC <$
   Verifies logarithmic height under skewed growth and both inner-heavy AVL
   double rotations with distinguishable leaves.
-  $> UNIT_TEST
+  $>
+PRIVATE(MODULE) ::cord_avl_invariants UNIT_TEST
 {
   VAR appended cord#(I32);
   VAR iteration SZ := 0;

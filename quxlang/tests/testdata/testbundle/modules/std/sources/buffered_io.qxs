@@ -1,30 +1,35 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::standard_output INCLUDE_IF(OS_MACOS || OS_LINUX) DOC <$ Borrows the process standard output descriptor. $>
+DOC <$ Borrows the process standard output descriptor. $>
+::standard_output INCLUDE_IF(OS_MACOS || OS_LINUX)
   FUNCTION(): file_ref
 {
   RETURN file_ref(@descriptor 1);
 }
 
-::standard_input INCLUDE_IF(OS_MACOS || OS_LINUX) DOC <$ Borrows the process standard input descriptor. $>
+DOC <$ Borrows the process standard input descriptor. $>
+::standard_input INCLUDE_IF(OS_MACOS || OS_LINUX)
   FUNCTION(): file_ref
 {
   RETURN file_ref(@descriptor 0);
 }
 
-::standard_output INCLUDE_IF(OS_WINDOWS) DOC <$ Returns the process standard output handle. $>
+DOC <$ Returns the process standard output handle. $>
+::standard_output INCLUDE_IF(OS_WINDOWS)
   FUNCTION(): file_ref
 {
   RETURN file_ref(@handle file_ref::get_standard_handle(-11));
 }
 
-::standard_input INCLUDE_IF(OS_WINDOWS) DOC <$ Returns the process standard input handle. $>
+DOC <$ Returns the process standard input handle. $>
+::standard_input INCLUDE_IF(OS_WINDOWS)
   FUNCTION(): file_ref
 {
   RETURN file_ref(@handle file_ref::get_standard_handle(-10));
 }
 
-::buffered_writer DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures by exception. $>
+DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures by exception. $>
+::buffered_writer
   STRUCT MOVE_ONLY
 {
   PRIVATE(CLASS)
@@ -34,10 +39,12 @@ LANGUAGE QUXLANG EN 0.0;
     .used VAR SZ;
   }
 
-  .CONSTRUCTOR DOC <$ Borrows file without assuming responsibility for closing it. $>
+  DOC <$ Borrows file without assuming responsibility for closing it. $>
+  .CONSTRUCTOR
     FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
 
-  .flush DOC <$ Writes all pending bytes, including partial native writes, or throws on failure. $>
+  DOC <$ Writes all pending bytes, including partial native writes, or throws on failure. $>
+  .flush
     FUNCTION() MUT
   {
     LOOP INIT { VAR offset SZ := 0; } WHILE (offset < .used) DO
@@ -51,7 +58,8 @@ LANGUAGE QUXLANG EN 0.0;
     .used := 0;
   }
 
-  .write_byte DOC <$ Appends one byte and flushes a full buffer. $>
+  DOC <$ Appends one byte and flushes a full buffer. $>
+  .write_byte
     FUNCTION(@ARG:value BYTE) MUT
   {
     .bytes[.used] := value;
@@ -59,7 +67,8 @@ LANGUAGE QUXLANG EN 0.0;
     IF UNLIKELY (.used == 16384) { .flush(); }
   }
 
-  .write DOC <$ Appends the bytes of a string constant. $>
+  DOC <$ Appends the bytes of a string constant. $>
+  .write
     FUNCTION(@ARG:text STRING_CONSTANT) MUT
   {
     LOOP INIT { VAR cursor CONST=>>BYTE := text.BEGIN(); }
@@ -67,13 +76,15 @@ LANGUAGE QUXLANG EN 0.0;
     { .write_byte(cursor[0]); }
   }
 
-  .write DOC <$ Appends a dynamic array of bytes. $>
+  DOC <$ Appends a dynamic array of bytes. $>
+  .write
     FUNCTION(@ARG:text CONST& dynarr#BYTE) MUT
   {
     LOOP ITEM(value) IN(text) DO { .write_byte(value); }
   }
 
-  .write DOC <$ Flushes pending bytes and writes a byte range, completing partial transfers or throwing on failure. $>
+  DOC <$ Flushes pending bytes and writes a byte range, completing partial transfers or throwing on failure. $>
+  .write
     FUNCTION(@ARG:bytes CONST& buffer_ref) MUT
   {
     .flush();
@@ -87,7 +98,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  .write_unsigned DOC <$ Appends the decimal representation of an unsigned integer. $>
+  DOC <$ Appends the decimal representation of an unsigned integer. $>
+  .write_unsigned
     FUNCTION(@ARG:value U64) MUT
   {
     VAR digits [20]BYTE;
@@ -102,7 +114,8 @@ LANGUAGE QUXLANG EN 0.0;
     LOOP VALUE(index) FROM(begin) UNTIL(20) DO { .write_byte(digits[index]); }
   }
 
-  .write_signed DOC <$ Appends the decimal representation of a signed integer, including its minimum value. $>
+  DOC <$ Appends the decimal representation of a signed integer, including its minimum value. $>
+  .write_signed
     FUNCTION(@ARG:value I64) MUT
   {
     IF (value < 0)
@@ -113,7 +126,8 @@ LANGUAGE QUXLANG EN 0.0;
     ELSE { .write_unsigned(value AS CHECKED U64); }
   }
 
-  .write_fixed DOC <$ Formats a finite value of magnitude below 2^64 with up to eighteen fractional digits, rounding halfway values away from zero. $>
+  DOC <$ Formats a finite value of magnitude below 2^64 with up to eighteen fractional digits, rounding halfway values away from zero. $>
+  .write_fixed
     FUNCTION(@value F64, @precision SZ) MUT
   {
     IF (precision > 18 || value != value) { THROW (1 AS I32); }
@@ -141,7 +155,8 @@ LANGUAGE QUXLANG EN 0.0;
   }
 }
 
-::buffered_reader DOC <$ Reads bytes and lines from a borrowed file using bounded read-ahead storage. $>
+DOC <$ Reads bytes and lines from a borrowed file using bounded read-ahead storage. $>
+::buffered_reader
   STRUCT MOVE_ONLY
 {
   PRIVATE(CLASS)
@@ -152,10 +167,12 @@ LANGUAGE QUXLANG EN 0.0;
     .available VAR SZ;
   }
 
-  .CONSTRUCTOR DOC <$ Borrows file without assuming responsibility for closing it. $>
+  DOC <$ Borrows file without assuming responsibility for closing it. $>
+  .CONSTRUCTOR
     FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
 
-  .read_byte DOC <$ Supplies the next byte and returns true, or supplies zero and returns false at end of file. Read failures throw. $>
+  DOC <$ Supplies the next byte and returns true, or supplies zero and returns false at end of file. Read failures throw. $>
+  .read_byte
     FUNCTION(@ARG:value WRITE& BYTE) MUT: BOOL
   {
     IF (.position == .available)
@@ -173,7 +190,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN TRUE;
   }
 
-  .read_line DOC <$ Replaces line with bytes preceding the next linefeed. Returns false only when end of file precedes any bytes. $>
+  DOC <$ Replaces line with bytes preceding the next linefeed. Returns false only when end of file precedes any bytes. $>
+  .read_line
     FUNCTION(@ARG:line MUT& dynarr#BYTE) MUT: BOOL
   {
     line.clear();
@@ -189,9 +207,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 PRIVATE(MODULE)
 {
-  ::open_standard_output_writer INCLUDE_IF(ARCH_IS_JVM == FALSE) DOC <$
+  DOC <$
     Opens a buffered byte writer for the native standard output interface.
-    $> FUNCTION(): buffered_writer
+    $>
+  ::open_standard_output_writer INCLUDE_IF(ARCH_IS_JVM == FALSE) FUNCTION(): buffered_writer
   {
     RETURN standard_output() AS buffered_writer;
   }
@@ -200,22 +219,26 @@ PRIVATE(MODULE)
     EXTERN_PROCEDURE["java/io/PrintStream":"checkError"]
     CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> RUNTIME_MODULE::java_print_stream; RETURN BOOL);
 
-  ::jvm_standard_output_writer INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  DOC <$
     Borrows Java standard output through the byte-writer interface.
-    $> STRUCT
+    $>
+  ::jvm_standard_output_writer INCLUDE_IF(ARCH_IS_JVM) STRUCT
   {
     .stream VAR ~> RUNTIME_MODULE::java_print_stream;
 
-    .CONSTRUCTOR DOC <$ Captures the current Java standard output stream. $>
+    DOC <$ Captures the current Java standard output stream. $>
+    .CONSTRUCTOR
       FUNCTION() { .stream := RUNTIME_MODULE::jvm_system_out(); }
 
-    .write_byte DOC <$ Writes one byte without character-set conversion. $>
+    DOC <$ Writes one byte without character-set conversion. $>
+    .write_byte
       FUNCTION(@ARG:value BYTE) MUT
     {
       RUNTIME_MODULE::jvm_printstream_write(@THIS .stream, @VALUE (value AS U8 AS I32));
     }
 
-    .flush DOC <$ Flushes output and throws I32(1) when the stream reports an error. $>
+    DOC <$ Flushes output and throws I32(1) when the stream reports an error. $>
+    .flush
       FUNCTION() MUT
     {
       RUNTIME_MODULE::jvm_printstream_flush(@THIS .stream);
@@ -223,9 +246,10 @@ PRIVATE(MODULE)
     }
   }
 
-  ::open_standard_output_writer INCLUDE_IF(ARCH_IS_JVM) DOC <$
+  DOC <$
     Opens a byte writer for the Java standard output interface.
-    $> FUNCTION(): jvm_standard_output_writer
+    $>
+  ::open_standard_output_writer INCLUDE_IF(ARCH_IS_JVM) FUNCTION(): jvm_standard_output_writer
   {
     RETURN jvm_standard_output_writer();
   }

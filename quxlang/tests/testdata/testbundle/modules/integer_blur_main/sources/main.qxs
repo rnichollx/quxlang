@@ -16,7 +16,8 @@ IMPORT syscall;
   .pixels VAR =>>TYPED_STORAGE(U16);
 }
 
-::open_input_file DOC <$ Opens one input file for reading on the target operating system. $>
+DOC <$ Opens one input file for reading on the target operating system. $>
+::open_input_file
   FUNCTION(@path CONST=>>BYTE): I32
 {
   VAR descriptor I32 := 0 - 1;
@@ -43,7 +44,8 @@ IMPORT syscall;
   RETURN descriptor;
 }
 
-::open_output_file DOC <$ Opens one output file for replacement on the target operating system. $>
+DOC <$ Opens one output file for replacement on the target operating system. $>
+::open_output_file
   FUNCTION(@path CONST=>>BYTE): I32
 {
   VAR descriptor I32 := 0 - 1;
@@ -76,7 +78,8 @@ IMPORT syscall;
   RETURN descriptor;
 }
 
-::seek_file_end DOC <$ Seeks one descriptor to its end and returns the resulting offset. $>
+DOC <$ Seeks one descriptor to its end and returns the resulting offset. $>
+::seek_file_end
   FUNCTION(@fd I32): SZ
 {
   VAR result SZ := (0 AS SZ) #!!;
@@ -107,7 +110,8 @@ IMPORT syscall;
   RETURN result;
 }
 
-::seek_file_start DOC <$ Seeks one descriptor to its beginning and returns the resulting offset. $>
+DOC <$ Seeks one descriptor to its beginning and returns the resulting offset. $>
+::seek_file_start
   FUNCTION(@fd I32): SZ
 {
   VAR result SZ := (0 AS SZ) #!!;
@@ -138,7 +142,8 @@ IMPORT syscall;
   RETURN result;
 }
 
-::map_file_storage DOC <$ Maps anonymous storage for one complete image file. $>
+DOC <$ Maps anonymous storage for one complete image file. $>
+::map_file_storage
   FUNCTION(@size SZ): ADDRESS
 {
   VAR result ADDRESS;
@@ -157,7 +162,8 @@ IMPORT syscall;
   RETURN result;
 }
 
-::unmap_file_storage DOC <$ Unmaps storage previously returned by map_file_storage. $>
+DOC <$ Unmaps storage previously returned by map_file_storage. $>
+::unmap_file_storage
   FUNCTION(@address ADDRESS, @size SZ): I32
 {
   VAR result I32 := 0 - 1;
@@ -176,7 +182,8 @@ IMPORT syscall;
   RETURN result;
 }
 
-::argument_equals DOC <$ Returns whether a null-terminated argument equals one string constant. $>
+DOC <$ Returns whether a null-terminated argument equals one string constant. $>
+::argument_equals
   FUNCTION(@argument IBC CONST=>>BYTE, @expected STRING_CONSTANT): BOOL
 {
   VAR index SZ := 0;
@@ -192,7 +199,8 @@ IMPORT syscall;
   RETURN argument[index] == 0;
 }
 
-::report_active_stepping DOC <$ Prints the selected benchmark stepping. $>
+DOC <$ Prints the selected benchmark stepping. $>
+::report_active_stepping
   FUNCTION(): I32
 {
   VAR stepping SZ := ACTIVE_STEPPING;
@@ -241,7 +249,8 @@ IMPORT syscall;
   RETURN 0;
 }
 
-::fail DOC <$ Writes one benchmark diagnostic and returns the failure exit code. $>
+DOC <$ Writes one benchmark diagnostic and returns the failure exit code. $>
+::fail
   FUNCTION(@message STRING_CONSTANT): I32
 {
   RUNTIME_MODULE::write(@fd 2, @msg "integer_blur: ");
@@ -250,7 +259,8 @@ IMPORT syscall;
   RETURN 1;
 }
 
-::read_complete DOC <$ Reads exactly count bytes and rejects an error or early end of file. $>
+DOC <$ Reads exactly count bytes and rejects an error or early end of file. $>
+::read_complete
   FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
@@ -272,7 +282,8 @@ IMPORT syscall;
   RETURN TRUE;
 }
 
-::write_complete DOC <$ Writes exactly count bytes and rejects an error or stalled write. $>
+DOC <$ Writes exactly count bytes and rejects an error or stalled write. $>
+::write_complete
   FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
@@ -294,7 +305,8 @@ IMPORT syscall;
   RETURN TRUE;
 }
 
-::decode_u32 DOC <$ Decodes one little-endian 32-bit integer. $>
+DOC <$ Decodes one little-endian 32-bit integer. $>
+::decode_u32
   FUNCTION(@bytes CONST=>>BYTE): U32
 {
   VAR result U32 := bytes[0] AS U8 AS U32;
@@ -304,7 +316,8 @@ IMPORT syscall;
   RETURN result;
 }
 
-::encode_u32 DOC <$ Encodes one 32-bit integer in little-endian byte order. $>
+DOC <$ Encodes one 32-bit integer in little-endian byte order. $>
+::encode_u32
   FUNCTION(@bytes MUT=>>BYTE, @value U32)
 {
   bytes[0] := value AS PARTIAL U8 AS BYTE;
@@ -313,14 +326,16 @@ IMPORT syscall;
   bytes[3] := value #-- 24 AS PARTIAL U8 AS BYTE;
 }
 
-::header_is_valid DOC <$ Returns whether a byte buffer starts with the QIMG16LE signature. $>
+DOC <$ Returns whether a byte buffer starts with the QIMG16LE signature. $>
+::header_is_valid
   FUNCTION(@bytes CONST=>>BYTE): BOOL
 {
   RETURN bytes[0] == 81 && bytes[1] == 73 && bytes[2] == 77 && bytes[3] == 71 &&
          bytes[4] == 49 && bytes[5] == 54 && bytes[6] == 76 && bytes[7] == 69;
 }
 
-::horizontal_border_pixel DOC <$ Loads one source pixel with horizontal edge clamping. $>
+DOC <$ Loads one source pixel with horizontal edge clamping. $>
+::horizontal_border_pixel
   FUNCTION(
     @source CONST=>>TYPED_STORAGE(U16),
     @width SZ,
@@ -340,7 +355,8 @@ IMPORT syscall;
   RETURN (PUN source[row * width + selected_column] AS U16) AS U32;
 }
 
-::vertical_border_pixel DOC <$ Loads one source pixel with vertical edge clamping. $>
+DOC <$ Loads one source pixel with vertical edge clamping. $>
+::vertical_border_pixel
   FUNCTION(
     @source CONST=>>TYPED_STORAGE(U16),
     @width SZ,
@@ -361,7 +377,8 @@ IMPORT syscall;
   RETURN (PUN source[selected_row * width + column] AS U16) AS U32;
 }
 
-::horizontal_pass DOC <$ Applies one horizontal seven-tap integer convolution pass. $>
+DOC <$ Applies one horizontal seven-tap integer convolution pass. $>
+::horizontal_pass
   FUNCTION(
     @source CONST=>>TYPED_STORAGE(U16),
     @destination =>>TYPED_STORAGE(U16),
@@ -413,7 +430,8 @@ IMPORT syscall;
   };
 }
 
-::vertical_pass DOC <$ Applies one vertical seven-tap integer convolution pass. $>
+DOC <$ Applies one vertical seven-tap integer convolution pass. $>
+::vertical_pass
   FUNCTION(
     @source CONST=>>TYPED_STORAGE(U16),
     @destination =>>TYPED_STORAGE(U16),
@@ -471,7 +489,8 @@ IMPORT syscall;
   };
 }
 
-::destroy_pixels DOC <$ Ends the lifetime of every constructed pixel in one buffer. $>
+DOC <$ Ends the lifetime of every constructed pixel in one buffer. $>
+::destroy_pixels
   FUNCTION(@pixels =>>TYPED_STORAGE(U16), @count SZ)
 {
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
@@ -480,7 +499,8 @@ IMPORT syscall;
   };
 }
 
-::blur DOC <$ Executes the complete fixed integer-blur workload. $>
+DOC <$ Executes the complete fixed integer-blur workload. $>
+::blur
   FUNCTION(@value MUT& image_data)
 {
   VAR temporary =>>TYPED_STORAGE(U16) :=
@@ -508,9 +528,10 @@ IMPORT syscall;
   );
 }
 
-::load_jvm_image INCLUDE_IF(ARCH_IS_JVM) DOC <$
+DOC <$
   Loads one QIMG16LE image through the Java file API.
   $>
+::load_jvm_image INCLUDE_IF(ARCH_IS_JVM)
   FUNCTION(
     @input_path CONST& std::string,
     @value MUT& image_data,
@@ -608,9 +629,10 @@ IMPORT syscall;
   RETURN TRUE;
 }
 
-::write_jvm_image INCLUDE_IF(ARCH_IS_JVM) DOC <$
+DOC <$
   Writes one QIMG16LE image through the Java file API.
   $>
+::write_jvm_image INCLUDE_IF(ARCH_IS_JVM)
   FUNCTION(
     @output_path CONST& std::string,
     @value CONST& image_data,
@@ -665,9 +687,10 @@ IMPORT syscall;
   RETURN TRUE;
 }
 
-::run_jvm INCLUDE_IF(ARCH_IS_JVM) DOC <$
+DOC <$
   Loads, blurs, and writes one QIMG16LE image through the Java file API.
   $>
+::run_jvm INCLUDE_IF(ARCH_IS_JVM)
   FUNCTION(
     @input_path CONST& std::string,
     @output_path CONST& std::string

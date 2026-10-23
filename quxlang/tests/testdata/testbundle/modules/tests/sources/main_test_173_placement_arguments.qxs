@@ -2,30 +2,35 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::placement_argument_tests NAMESPACE
 {
-  ::record DOC <$ Records completed construction and explicit destruction in the shared evaluation sequence. $>
+  DOC <$ Records completed construction and explicit destruction in the shared evaluation sequence. $>
+  ::record
     STRUCT
   {
     .events VAR MUT->I32;
     .value VAR I32;
-    .CONSTRUCTOR DOC <$ Initializes the value after all call arguments have been evaluated. $>
+    DOC <$ Initializes the value after all call arguments have been evaluated. $>
+    .CONSTRUCTOR
       FUNCTION(@value I32, @events MUT& I32)
     {
       .events := events<-;
       .value := value;
       events := events * 10 + 3;
     }
-    .DESTRUCTOR DOC <$ Records destruction of a successfully constructed object. $>
+    DOC <$ Records destruction of a successfully constructed object. $>
+    .DESTRUCTOR
       FUNCTION() { .events-> := .events-> * 10 + 4; }
   }
 
-  ::destination DOC <$ Records destination evaluation and returns the original storage reference. $>
+  DOC <$ Records destination evaluation and returns the original storage reference. $>
+  ::destination
     FUNCTION(@slot MUT& TYPED_STORAGE(record), @events MUT& I32): MUT& TYPED_STORAGE(record)
   {
     events := events * 10 + 1;
     RETURN slot;
   }
 
-  ::argument DOC <$ Records an argument evaluation and optionally throws before construction begins. $>
+  DOC <$ Records an argument evaluation and optionally throws before construction begins. $>
+  ::argument
     FUNCTION(@events MUT& I32, @fail BOOL): I32
   {
     events := events * 10 + 2;
@@ -33,7 +38,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN 17;
   }
 
-  ::expression_order DOC <$ Placement expressions evaluate the destination once before named arguments and retain the object until explicit destruction. $>
+  DOC <$ Placement expressions evaluate the destination once before named arguments and retain the object until explicit destruction. $>
+  ::expression_order
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -46,7 +52,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 12314);
   }
 
-  ::statement_argument_failure DOC <$ A throwing placement argument leaves storage reusable without constructing or destroying the target object. $>
+  DOC <$ A throwing placement argument leaves storage reusable without constructing or destroying the target object. $>
+  ::statement_argument_failure
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;

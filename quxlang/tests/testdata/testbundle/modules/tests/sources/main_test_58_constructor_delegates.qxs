@@ -2,19 +2,22 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::constructor_delegate_tests NAMESPACE
 {
-  ::record_digit DOC <$ Records delegate argument evaluation and returns the selected field identifier. $>
+  DOC <$ Records delegate argument evaluation and returns the selected field identifier. $>
+  ::record_digit
     FUNCTION(@events MUT& I32, @digit I32): I32
   {
     events := events * 10 + digit;
     RETURN digit;
   }
 
-  ::leaf DOC <$ Records construction attempts and destruction of completed subobjects. $>
+  DOC <$ Records construction attempts and destruction of completed subobjects. $>
+  ::leaf
     STRUCT
   {
     .destroyed VAR MUT->I32;
     .digit VAR I32;
-    .CONSTRUCTOR DOC <$ Throws after recording an attempt when this subobject is selected to fail. $>
+    DOC <$ Throws after recording an attempt when this subobject is selected to fail. $>
+    .CONSTRUCTOR
       FUNCTION(@built MUT& I32, @destroyed MUT& I32, @digit I32, @fail I32)
     {
       .destroyed := destroyed<-;
@@ -22,18 +25,21 @@ LANGUAGE QUXLANG EN 0.0;
       built := built * 10 + digit;
       IF (digit == fail) { THROW I32(@OTHER digit); }
     }
-    .DESTRUCTOR DOC <$ Records only successfully constructed subobjects. $>
+    DOC <$ Records only successfully constructed subobjects. $>
+    .DESTRUCTOR
       FUNCTION() { .destroyed-> := .destroyed-> * 10 + .digit; }
   }
 
-  ::owner DOC <$ Lists delegates out of declaration order to expose initialization ordering. $>
+  DOC <$ Lists delegates out of declaration order to expose initialization ordering. $>
+  ::owner
     STRUCT
   {
     .first VAR leaf;
     .second VAR leaf;
     .zero VAR I32;
     .destroyed VAR MUT->I32;
-    .CONSTRUCTOR DOC <$ Initializes fields through named arguments before entering the constructor body. $>
+    DOC <$ Initializes fields through named arguments before entering the constructor body. $>
+    .CONSTRUCTOR
       FUNCTION(@arguments MUT& I32, @built MUT& I32, @destroyed MUT& I32, @fail I32)
       :> .second:(@built built, @destroyed destroyed, @digit record_digit(@events arguments, @digit 2), @fail fail),
          .first:(@built built, @destroyed destroyed, @digit record_digit(@events arguments, @digit 1), @fail fail)
@@ -41,11 +47,13 @@ LANGUAGE QUXLANG EN 0.0;
       .destroyed := destroyed<-;
       built := built * 10 + 9;
     }
-    .DESTRUCTOR DOC <$ Distinguishes complete-owner destruction from partial-construction cleanup. $>
+    DOC <$ Distinguishes complete-owner destruction from partial-construction cleanup. $>
+    .DESTRUCTOR
       FUNCTION() { .destroyed-> := .destroyed-> * 10 + 9; }
   }
 
-  ::field_declaration_order DOC <$ Delegate expressions follow field declaration order and omitted scalar fields are default initialized. $>
+  DOC <$ Delegate expressions follow field declaration order and omitted scalar fields are default initialized. $>
+  ::field_declaration_order
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR arguments I32 := 0;
@@ -63,7 +71,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(destroyed == 921);
   }
 
-  ::delegate_failure_cleanup DOC <$ A throwing delegate prevents later argument evaluation and owner-body execution, then destroys the completed prefix. $>
+  DOC <$ A throwing delegate prevents later argument evaluation and owner-body execution, then destroys the completed prefix. $>
+  ::delegate_failure_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 1;
@@ -100,19 +109,22 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::derived DOC <$ Uses reversed delegate order for one direct base and one ordinary field. $>
+  DOC <$ Uses reversed delegate order for one direct base and one ordinary field. $>
+  ::derived
     STRUCT
   {
     .base_part BASE leaf;
     .field VAR leaf;
-    .CONSTRUCTOR DOC <$ Forwards the same state references to the base and field constructors. $>
+    DOC <$ Forwards the same state references to the base and field constructors. $>
+    .CONSTRUCTOR
       FUNCTION(@built MUT& I32, @destroyed MUT& I32)
       :> .field:(@built built, @destroyed destroyed, @digit 2, @fail 0),
          .base_part:(@built built, @destroyed destroyed, @digit 1, @fail 0)
     { }
   }
 
-  ::base_before_field DOC <$ Direct bases initialize before ordinary fields and survive until after field destruction. $>
+  DOC <$ Direct bases initialize before ordinary fields and survive until after field destruction. $>
+  ::base_before_field
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR built I32 := 0;
@@ -127,7 +139,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(destroyed == 21);
   }
 
-  ::checked_digit DOC <$ Records argument evaluation and optionally throws before returning a constructor argument. $>
+  DOC <$ Records argument evaluation and optionally throws before returning a constructor argument. $>
+  ::checked_digit
     FUNCTION(@events MUT& I32, @digit I32, @fail I32): I32
   {
     events := events * 10 + digit;
@@ -135,13 +148,15 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN digit;
   }
 
-  ::argument_failure_owner DOC <$ Separates argument evaluation failure from failure inside a field constructor. $>
+  DOC <$ Separates argument evaluation failure from failure inside a field constructor. $>
+  ::argument_failure_owner
     STRUCT
   {
     .first VAR leaf;
     .second VAR leaf;
     .last VAR I32;
-    .CONSTRUCTOR DOC <$ Evaluates checked arguments before each field construction and records successful body entry. $>
+    DOC <$ Evaluates checked arguments before each field construction and records successful body entry. $>
+    .CONSTRUCTOR
       FUNCTION(@arguments MUT& I32, @built MUT& I32, @destroyed MUT& I32, @fail I32)
       :> .first:(@built built, @destroyed destroyed, @digit checked_digit(@events arguments, @digit 1, @fail fail), @fail 0),
          .second:(@built built, @destroyed destroyed, @digit checked_digit(@events arguments, @digit 2, @fail fail), @fail 0),
@@ -151,7 +166,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::argument_failure_before_construction DOC <$ Throwing arguments prevent the affected constructor, later delegates and owner body from executing. $>
+  DOC <$ Throwing arguments prevent the affected constructor, later delegates and owner body from executing. $>
+  ::argument_failure_before_construction
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 1;
@@ -188,7 +204,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::successful_checked_arguments DOC <$ Successful checked arguments reach every delegate and the owner body without premature field destruction. $>
+  DOC <$ Successful checked arguments reach every delegate and the owner body without premature field destruction. $>
+  ::successful_checked_arguments
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR arguments I32 := 0;

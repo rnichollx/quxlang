@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::storage_reuse_tests NAMESPACE
 {
-  ::repeated_owned_lifetimes DOC <$ Reusing typed storage starts a fresh owned lifetime each time and explicit destruction runs exactly once. $>
+  DOC <$ Reusing typed storage starts a fresh owned lifetime each time and explicit destruction runs exactly once. $>
+  ::repeated_owned_lifetimes
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
@@ -29,7 +30,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 123);
   }
 
-  ::retry_failed_placement DOC <$ A failed placement constructor leaves storage reusable without destroying the incomplete object. $>
+  DOC <$ A failed placement constructor leaves storage reusable without destroying the incomplete object. $>
+  ::retry_failed_placement
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;

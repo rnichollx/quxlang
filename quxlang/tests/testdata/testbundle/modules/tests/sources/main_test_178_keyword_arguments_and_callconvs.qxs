@@ -2,11 +2,13 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::keyword_argument_tests NAMESPACE
 {
-  ::encode DOC <$ Binds reserved public argument names to ordinary local names with distinct decimal positions. $>
+  DOC <$ Binds reserved public argument names to ordinary local names with distinct decimal positions. $>
+  ::encode
     FUNCTION(@GENERIC_THIS:first I32, @GENERIC_OTHER:second I32, @LHS:third I32): I32
   { RETURN first * 100 + second * 10 + third; }
 
-  ::reserved_name_binding DOC <$ Direct and indirect calls retain reserved argument names and evaluate explicitly reordered arguments in written order. $>
+  DOC <$ Direct and indirect calls retain reserved argument names and evaluate explicitly reordered arguments in written order. $>
+  ::reserved_name_binding
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -24,12 +26,15 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 123);
   }
 
-  ::stdcall_type DOC <$ Names a procedure signature carrying the explicit stdcall convention without invoking platform-specific code. $>
+  DOC <$ Names a procedure signature carrying the explicit stdcall convention without invoking platform-specific code. $>
+  ::stdcall_type
     ALIAS PROCEDURE STDCALL(I32: I32);
-  ::stdcall_alias DOC <$ Preserves the convention through an alias. $>
+  DOC <$ Preserves the convention through an alias. $>
+  ::stdcall_alias
     ALIAS stdcall_type;
 
-  ::calling_convention_identity DOC <$ Procedure type identity preserves convention and exception modifiers independently of parameter and return types. $>
+  DOC <$ Procedure type identity preserves convention and exception modifiers independently of parameter and return types. $>
+  ::calling_convention_identity
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(stdcall_type, stdcall_alias));

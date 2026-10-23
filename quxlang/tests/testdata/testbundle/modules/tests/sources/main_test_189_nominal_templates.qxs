@@ -2,23 +2,31 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::nominal_template_tests NAMESPACE
 {
-  ::identity DOC <$ Preserves an integer while testing enclosing-scope lookup in enum expressions. $>
+  DOC <$ Preserves an integer while testing enclosing-scope lookup in enum expressions. $>
+  ::identity
     FUNCTION(@value U32): U32 { RETURN value; }
 
-  ::code DOC <$ Parameterizes an enum's representation width and highest declared value. $>
+  DOC <$ Parameterizes an enum's representation width and highest declared value. $>
+  ::code
     TEMPLATE(@width VALUE U32, @maximum VALUE U32)
     ENUM BITS(identity(@value width)) [zero DEFAULT = 0, high = identity(@value maximum)];
 
-  ::permissions DOC <$ Parameterizes flag storage width while retaining the same three logical flags. $>
+  DOC <$ Parameterizes flag storage width while retaining the same three logical flags. $>
+  ::permissions
     TEMPLATE(@width VALUE U32)
     FLAGSET BITS(width) [read = 1, write = 2, execute = 4];
 
-  ::narrow_code DOC <$ Selects a five-bit enum instantiation. $> ALIAS code#(@width 5, @maximum 17);
-  ::broad_code DOC <$ Selects a byte enum instantiation. $> ALIAS code#(@width 8, @maximum 255);
-  ::narrow_flags DOC <$ Selects a three-bit flagset instantiation. $> ALIAS permissions#(@width 3);
-  ::broad_flags DOC <$ Selects a byte flagset instantiation. $> ALIAS permissions#(@width 8);
+  DOC <$ Selects a five-bit enum instantiation. $>
+  ::narrow_code ALIAS code#(@width 5, @maximum 17);
+  DOC <$ Selects a byte enum instantiation. $>
+  ::broad_code ALIAS code#(@width 8, @maximum 255);
+  DOC <$ Selects a three-bit flagset instantiation. $>
+  ::narrow_flags ALIAS permissions#(@width 3);
+  DOC <$ Selects a byte flagset instantiation. $>
+  ::broad_flags ALIAS permissions#(@width 8);
 
-  ::enum_instantiations DOC <$ Enum templates retain value arguments in nominal identity and evaluate width and enumerator values in their instantiation context. $>
+  DOC <$ Enum templates retain value arguments in nominal identity and evaluate width and enumerator values in their instantiation context. $>
+  ::enum_instantiations
     DUAL_TEST
   {
     VAR first narrow_code;
@@ -31,7 +39,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SAME_TYPES(narrow_code, broad_code) == FALSE);
   }
 
-  ::flagset_instantiations DOC <$ Flagset templates preserve generated operations and remain distinct across representation widths. $>
+  DOC <$ Flagset templates preserve generated operations and remain distinct across representation widths. $>
+  ::flagset_instantiations
     DUAL_TEST
   {
     VAR first narrow_flags := narrow_flags::read #|| narrow_flags::execute;
@@ -46,10 +55,12 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SAME_TYPES(narrow_flags, broad_flags) == FALSE);
   }
 
-  ::tagged DOC <$ Gives identical fixed enum values distinct nominal identities through a type parameter. $>
+  DOC <$ Gives identical fixed enum values distinct nominal identities through a type parameter. $>
+  ::tagged
     TEMPLATE(@T:tag_type TYPE) ENUM [zero DEFAULT = 0, one = 1];
 
-  ::type_parameter_identity DOC <$ Enum type parameters distinguish instantiations even when no enumerator expression depends on them. $>
+  DOC <$ Enum type parameters distinguish instantiations even when no enumerator expression depends on them. $>
+  ::type_parameter_identity
     DUAL_TEST
   {
     VAR first tagged#I32;

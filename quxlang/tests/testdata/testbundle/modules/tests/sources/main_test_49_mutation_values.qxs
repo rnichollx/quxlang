@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::mutation_value_tests NAMESPACE
 {
-  ::increment_results DOC <$ Postfix increment and decrement return the previous value while updating the original object. $>
+  DOC <$ Postfix increment and decrement return the previous value while updating the original object. $>
+  ::increment_results
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR value T := 5;
@@ -22,7 +23,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == 7);
   }
 
-  ::integer_increment_expression_results DOC <$ Checks increment and decrement result values and stored mutations across standard integer widths. $>
+  DOC <$ Checks increment and decrement result values and stored mutations across standard integer widths. $>
+  ::integer_increment_expression_results
     DUAL_TEST
   {
     increment_results#(I8)();
@@ -35,7 +37,8 @@ LANGUAGE QUXLANG EN 0.0;
     increment_results#(U64)();
   }
 
-  ::nonbyte_increment_wrap_results DOC <$ Unsigned non-byte-width wrapping preserves both the old expression value and the updated storage. $>
+  DOC <$ Unsigned non-byte-width wrapping preserves both the old expression value and the updated storage. $>
+  ::nonbyte_increment_wrap_results
     DUAL_TEST
   {
     VAR value U3 := 7;
@@ -51,14 +54,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == 7);
   }
 
-  ::index DOC <$ Records an indexed operand evaluation and returns its requested position. $>
+  DOC <$ Records an indexed operand evaluation and returns its requested position. $>
+  ::index
     FUNCTION(@events MUT& I32, @digit I32, @position SZ): SZ
   {
     events := events * 10 + digit;
     RETURN position;
   }
 
-  ::indexed_assignment_and_swap DOC <$ Assignment and swap evaluate both indexed operands once in source order and preserve adjacent elements. $>
+  DOC <$ Assignment and swap evaluate both indexed operands once in source order and preserve adjacent elements. $>
+  ::indexed_assignment_and_swap
     DUAL_TEST
   {
     VAR values [3]I32;
@@ -81,7 +86,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[2] == 7);
   }
 
-  ::indexed_increment_once DOC <$ Increment and decrement evaluate an indexed receiver once even when their previous values are consumed. $>
+  DOC <$ Increment and decrement evaluate an indexed receiver once even when their previous values are consumed. $>
+  ::indexed_increment_once
     DUAL_TEST
   {
     VAR values [2]I32;
@@ -99,7 +105,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[1] == 9);
   }
 
-  ::scalar_alias_assignment_and_swap DOC <$ Assignment and swap through two references to the same scalar preserve its value and identity. $>
+  DOC <$ Assignment and swap through two references to the same scalar preserve its value and identity. $>
+  ::scalar_alias_assignment_and_swap
     DUAL_TEST
   {
     VAR value I32 := 42;
@@ -113,14 +120,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == 9);
   }
 
-  ::record DOC <$ Combines a scalar and an owning string for generated assignment and swap tests. $>
+  DOC <$ Combines a scalar and an owning string for generated assignment and swap tests. $>
+  ::record
     STRUCT
   {
     .number VAR I32;
     .text VAR std::string;
   }
 
-  ::generated_record_assignment_and_swap DOC <$ Generated operations copy owned members independently and exchange every member of a record. $>
+  DOC <$ Generated operations copy owned members independently and exchange every member of a record. $>
+  ::generated_record_assignment_and_swap
     DUAL_TEST
   {
     VAR first record;

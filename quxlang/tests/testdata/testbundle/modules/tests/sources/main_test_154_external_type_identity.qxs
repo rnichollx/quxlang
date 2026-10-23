@@ -2,14 +2,19 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::external_type_identity_tests NAMESPACE
 {
-  ::object DOC <$ Declares an opaque external identity without constructing a managed object. $>
+  DOC <$ Declares an opaque external identity without constructing a managed object. $>
+  ::object
     EXTERN_TYPE["java.base":"java/lang/Object"];
-  ::text DOC <$ Declares a distinct opaque external identity. $>
+  DOC <$ Declares a distinct opaque external identity. $>
+  ::text
     EXTERN_TYPE["java.base":"java/lang/String"];
-  ::object_alias DOC <$ Retains the nominal identity of an external declaration. $> ALIAS object;
-  ::ordinary DOC <$ Supplies a Quxlang record for nominal distinction. $> STRUCT { }
+  DOC <$ Retains the nominal identity of an external declaration. $>
+  ::object_alias ALIAS object;
+  DOC <$ Supplies a Quxlang record for nominal distinction. $>
+  ::ordinary STRUCT { }
 
-  ::nominal_types_and_aliases DOC <$ External declarations retain nominal type identity without requiring their runtime representation. $>
+  DOC <$ External declarations retain nominal type identity without requiring their runtime representation. $>
+  ::nominal_types_and_aliases
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(object, object));

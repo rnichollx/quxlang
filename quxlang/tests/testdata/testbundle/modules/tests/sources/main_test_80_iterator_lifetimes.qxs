@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::iterator_lifetime_tests NAMESPACE
 {
-  ::filtered_mutation DOC <$ Filter temporaries expire before the body, mutable items alias array storage, and CONTINUE advances rejected and accepted iterations. $>
+  DOC <$ Filter temporaries expire before the body, mutable items alias array storage, and CONTINUE advances rejected and accepted iterations. $>
+  ::filtered_mutation
     DUAL_TEST
   {
     VAR values [4]I32 :[1, 2, 3, 4];
@@ -31,7 +32,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[3] == 4);
   }
 
-  ::explicit_step_and_break DOC <$ An explicit iterator step runs once after CONTINUE and is skipped after BREAK. $>
+  DOC <$ An explicit iterator step runs once after CONTINUE and is skipped after BREAK. $>
+  ::explicit_step_and_break
     DUAL_TEST
   {
     VAR values [4]I32 :[1, 2, 3, 4];
@@ -61,7 +63,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[3] == 4);
   }
 
-  ::indexed_value_aliases DOC <$ Indexed container projections refer to the same element, including filtered mutations. $>
+  DOC <$ Indexed container projections refer to the same element, including filtered mutations. $>
+  ::indexed_value_aliases
     DUAL_TEST
   {
     VAR values std::dynarr#(I32);
@@ -82,7 +85,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[2] == 18);
     TEST_ASSERT(values[3] == 7);
   }
-  ::typed_projections DOC <$ Typed item references retain aliases and typed value objects have independent storage. $>
+  DOC <$ Typed item references retain aliases and typed value objects have independent storage. $>
+  ::typed_projections
     DUAL_TEST
   {
     VAR values std::dynarr#I32;

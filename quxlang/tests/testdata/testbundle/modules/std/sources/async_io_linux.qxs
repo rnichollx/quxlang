@@ -5,10 +5,11 @@ IMPORT syscall;
 
 PRIVATE(MODULE)
 {
-  ::linux_async_context_state INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Stores one mapped io_uring and the synchronized producer and consumer
     cursors used by async_context workers.
     $>
+  ::linux_async_context_state INCLUDE_IF(OS_LINUX)
     STRUCT MOVE_ONLY
   {
     .descriptor VAR I32;
@@ -33,17 +34,19 @@ PRIVATE(MODULE)
     .submission_mutex VAR ordering_mutex;
     .completion_mutex VAR ordering_mutex;
 
-    .CONSTRUCTOR DOC <$ Creates empty state that owns no io_uring descriptor or mappings. $>
+    DOC <$ Creates empty state that owns no io_uring descriptor or mappings. $>
+    .CONSTRUCTOR
       FUNCTION()
     {
       .descriptor := 0 - 1;
     }
   }
 
-  ::linux_io_uring_mmap_offset INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Converts a byte offset to the page offset required by the 32-bit mmap2
     system call while preserving byte offsets on other Linux architectures.
     $>
+  ::linux_io_uring_mmap_offset INCLUDE_IF(OS_LINUX)
     FUNCTION(@byte_offset SZ): SZ
   {
     STATIC_IF(ARCH_IS_X86)
@@ -56,10 +59,11 @@ PRIVATE(MODULE)
     }
   }
 
-  ::map_linux_io_uring_region INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Maps one shared read-write io_uring region and returns its raw kernel
     address, including an encoded error address on failure.
     $>
+  ::map_linux_io_uring_region INCLUDE_IF(OS_LINUX)
     FUNCTION(@descriptor I32, @size SZ, @offset SZ): ADDRESS
   {
     VAR requested ADDRESS;
@@ -75,9 +79,10 @@ PRIVATE(MODULE)
     );
   }
 
-  ::linux_mapping_failed INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Recognizes Linux's pointer-sized negative errno range returned by mmap.
     $>
+  ::linux_mapping_failed INCLUDE_IF(OS_LINUX)
     FUNCTION(@mapping ADDRESS): BOOL
   {
     VAR requested ADDRESS;
@@ -85,9 +90,10 @@ PRIVATE(MODULE)
     RETURN mapping >= first_error;
   }
 
-  ::linux_ring_address INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Returns the address of a byte offset within one live ring mapping.
     $>
+  ::linux_ring_address INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @ring MUT=>>TYPED_STORAGE(BYTE),
       @offset U32
@@ -96,9 +102,10 @@ PRIVATE(MODULE)
     RETURN IBC_GETADDR(@PTR ring) + (offset AS SZ);
   }
 
-  ::linux_ring_atomic_u32 INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Recovers an atomic 32-bit ring cursor at a kernel-provided byte offset.
     $>
+  ::linux_ring_atomic_u32 INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @ring MUT=>>TYPED_STORAGE(BYTE),
       @offset U32
@@ -108,9 +115,10 @@ PRIVATE(MODULE)
     RETURN IBC_PUN#(IBC MUT->ATOMIC#U32)(@ADDR address);
   }
 
-  ::linux_ring_u32 INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Recovers a 32-bit ring field at a kernel-provided byte offset.
     $>
+  ::linux_ring_u32 INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @ring MUT=>>TYPED_STORAGE(BYTE),
       @offset U32
@@ -120,9 +128,10 @@ PRIVATE(MODULE)
     RETURN IBC_PUN#(IBC MUT->U32)(@ADDR address);
   }
 
-  ::linux_ring_u32_array INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Recovers the submission-index array at a kernel-provided byte offset.
     $>
+  ::linux_ring_u32_array INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @ring MUT=>>TYPED_STORAGE(BYTE),
       @offset U32
@@ -132,9 +141,10 @@ PRIVATE(MODULE)
     RETURN IBC_PUN#(IBC MUT=>>U32)(@ADDR address);
   }
 
-  ::linux_completion_array INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Recovers the completion-entry array at a kernel-provided byte offset.
     $>
+  ::linux_completion_array INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @ring MUT=>>TYPED_STORAGE(BYTE),
       @offset U32
@@ -144,9 +154,10 @@ PRIVATE(MODULE)
     RETURN IBC_PUN#(IBC MUT=>>syscall::linux::io_uring_completion_entry)(@ADDR address);
   }
 
-  ::release_linux_async_context_state INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Unmaps every live io_uring region and closes its descriptor.
     $>
+  ::release_linux_async_context_state INCLUDE_IF(OS_LINUX)
     FUNCTION(@state MUT& linux_async_context_state)
   {
     IF (state.submission_entries_mapping??)
@@ -190,9 +201,10 @@ PRIVATE(MODULE)
     }
   }
 
-  ::initialize_linux_async_context INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Creates and maps one io_uring instance with entries submission slots.
     $>
+  ::initialize_linux_async_context INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @state MUT& linux_async_context_state,
       @entries U32
@@ -314,10 +326,11 @@ PRIVATE(MODULE)
     RETURN TRUE;
   }
 
-  ::submit_linux_io_uring_entry INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Publishes one prepared submission entry and enters the kernel while holding
     the ring's single producer lock.
     $>
+  ::submit_linux_io_uring_entry INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @state MUT& linux_async_context_state,
       @entry CONST& syscall::linux::io_uring_submission_entry
@@ -365,9 +378,10 @@ PRIVATE(MODULE)
     RETURN TRUE;
   }
 
-  ::submit_linux_async_transfer INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Builds and publishes one positioned io_uring read or write request.
     $>
+  ::submit_linux_async_transfer INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @state MUT& linux_async_context_state,
       @opcode U8,
@@ -388,9 +402,10 @@ PRIVATE(MODULE)
     RETURN submit_linux_io_uring_entry(@state state, @entry entry);
   }
 
-  ::submit_async_read INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Submits one positioned read to the context's io_uring.
     $>
+  ::submit_async_read INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @request MUT->async_request,
       @native_ref file_ref,
@@ -408,9 +423,10 @@ PRIVATE(MODULE)
     );
   }
 
-  ::submit_async_write INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Submits one positioned write to the context's io_uring.
     $>
+  ::submit_async_write INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @request MUT->async_request,
       @native_ref file_ref,
@@ -428,10 +444,11 @@ PRIVATE(MODULE)
     );
   }
 
-  ::wait_for_async_completion INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Waits for one io_uring completion, executes its callback, and returns false
     only for a thread-pool stop entry.
     $>
+  ::wait_for_async_completion INCLUDE_IF(OS_LINUX)
     FUNCTION(@control MUT->async_context_control): BOOL
   {
     VAR state MUT& linux_async_context_state := control->.linux;
@@ -488,9 +505,10 @@ PRIVATE(MODULE)
     RETURN TRUE;
   }
 
-  ::request_async_stop INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Submits one io_uring no-op completion for every worker that must stop.
     $>
+  ::request_async_stop INCLUDE_IF(OS_LINUX)
     FUNCTION(
       @control MUT->async_context_control,
       @worker_count SZ
@@ -506,9 +524,10 @@ PRIVATE(MODULE)
     };
   }
 
-  ::shutdown_async_context INCLUDE_IF(OS_LINUX) DOC <$
+  DOC <$
     Releases a drained Linux async context.
     $>
+  ::shutdown_async_context INCLUDE_IF(OS_LINUX)
     FUNCTION(@control MUT->async_context_control)
   {
     release_linux_async_context_state(@state control->.linux);

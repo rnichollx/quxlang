@@ -2,25 +2,32 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::wide_flagset_tests NAMESPACE
 {
-  ::flags63 DOC <$ Implicit allocation reaches bit sixty-two after skipping a reserved range. $>
+  DOC <$ Implicit allocation reaches bit sixty-two after skipping a reserved range. $>
+  ::flags63
     FLAGSET BITS(63) [low = 1, RESERVED = 4611686018427387902, high];
 
-  ::flags64 DOC <$ Named bits occupy both ends of a full machine word. $>
+  DOC <$ Named bits occupy both ends of a full machine word. $>
+  ::flags64
     FLAGSET BITS(64) [low = 1, high = 9223372036854775808];
 
-  ::flags65 DOC <$ An implicit flag skips the reserved low word. $>
+  DOC <$ An implicit flag skips the reserved low word. $>
+  ::flags65
     FLAGSET BITS(65) [low = 1, RESERVED = 18446744073709551614, high];
 
-  ::flags128 DOC <$ Flags occupy both ends of a sixteen-byte representation. $>
+  DOC <$ Flags occupy both ends of a sixteen-byte representation. $>
+  ::flags128
     FLAGSET BITS(128) [low = 1, high = 170141183460469231731687303715884105728];
 
-  ::flags129 DOC <$ Implicit allocation skips a reserved range wider than a machine word. $>
+  DOC <$ Implicit allocation skips a reserved range wider than a machine word. $>
+  ::flags129
     FLAGSET BITS(129) [low = 1, RESERVED = 340282366920938463463374607431768211454, high];
 
-  ::flags256 DOC <$ The width is inferred from a computed mask spanning four machine words. $>
+  DOC <$ The width is inferred from a computed mask spanning four machine words. $>
+  ::flags256
     FLAGSET [low = 1, high = (1 AS U256) #++ 255];
 
-  ::wide_values DOC <$ High and unnamed bits survive integer conversion, bitwise operations and guarded serialization. $>
+  DOC <$ High and unnamed bits survive integer conversion, bitwise operations and guarded serialization. $>
+  ::wide_values
     TEMPLATE(@T TYPE AUTO, @integer_type TYPE AUTO, @count VALUE SZ)
     FUNCTION(@high integer_type, @last_byte BYTE)
   {
@@ -79,42 +86,49 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nonbyte_machine_word DOC <$ A sixty-three-bit flagset preserves reserved bits and clears serialized padding. $>
+  DOC <$ A sixty-three-bit flagset preserves reserved bits and clears serialized padding. $>
+  ::nonbyte_machine_word
     DUAL_TEST
   {
     wide_values#(@T flags63, @integer_type U63, @count 8)(@high 4611686018427387904, @last_byte 64);
   }
 
-  ::full_machine_word DOC <$ A sixty-four-bit flagset treats the top bit as an unsigned mask. $>
+  DOC <$ A sixty-four-bit flagset treats the top bit as an unsigned mask. $>
+  ::full_machine_word
     DUAL_TEST
   {
     wide_values#(@T flags64, @integer_type U64, @count 8)(@high 9223372036854775808, @last_byte 128);
   }
 
-  ::nonbyte_word_boundary DOC <$ A sixty-five-bit flagset retains its top bit and unnamed reserved bits. $>
+  DOC <$ A sixty-five-bit flagset retains its top bit and unnamed reserved bits. $>
+  ::nonbyte_word_boundary
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     wide_values#(@T flags65, @integer_type U65, @count 9)(@high 18446744073709551616, @last_byte 1);
   }
 
-  ::full_double_word DOC <$ A 128-bit flagset preserves the top bit through every binary bitwise operation. $>
+  DOC <$ A 128-bit flagset preserves the top bit through every binary bitwise operation. $>
+  ::full_double_word
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     wide_values#(@T flags128, @integer_type U128, @count 16)(@high 170141183460469231731687303715884105728, @last_byte 128);
   }
-  ::beyond_double_word DOC <$ A 129-bit flagset preserves implicit flags, reserved bits and byte padding. $>
+  DOC <$ A 129-bit flagset preserves implicit flags, reserved bits and byte padding. $>
+  ::beyond_double_word
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     wide_values#(@T flags129, @integer_type U129, @count 17)(@high 340282366920938463463374607431768211456, @last_byte 1);
   }
 
-  ::inferred_four_words DOC <$ A computed mask determines a 256-bit representation. $>
+  DOC <$ A computed mask determines a 256-bit representation. $>
+  ::inferred_four_words
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     wide_values#(@T flags256, @integer_type U256, @count 32)(@high (1 AS U256) #++ 255, @last_byte 128);
   }
 
-  ::wide_padding_rejected DOC <$ Deserialization rejects nonzero padding beyond bit 128. $>
+  DOC <$ Deserialization rejects nonzero padding beyond bit 128. $>
+  ::wide_padding_rejected
     STATIC_TEST EXPECT_FAIL
   {
     VAR bytes [17]BYTE;

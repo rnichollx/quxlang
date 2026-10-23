@@ -2,13 +2,16 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::enum_ordering_tests NAMESPACE
 {
-  ::small DOC <$ Declares five values in an order that differs from their numeric representation. $>
+  DOC <$ Declares five values in an order that differs from their numeric representation. $>
+  ::small
     ENUM BITS(5) [highest = 31, zero DEFAULT = 0, middle = 9, first = 1, upper = 17];
 
-  ::wide DOC <$ Includes unsigned enum representations above the signed 32- and 64-bit boundaries. $>
+  DOC <$ Includes unsigned enum representations above the signed 32- and 64-bit boundaries. $>
+  ::wide
     ENUM BITS(64) [highest = 18446744073709551615, zero DEFAULT = 0, upper = 9223372036854775808, first = 1, middle = 2147483648];
 
-  ::explicit_value_order DOC <$ All comparison operators follow numeric enum values, including high bits, rather than declaration order. $>
+  DOC <$ All comparison operators follow numeric enum values, including high bits, rather than declaration order. $>
+  ::explicit_value_order
     DUAL_TEST
   {
     VAR narrow [5]small;
@@ -27,7 +30,8 @@ LANGUAGE QUXLANG EN 0.0;
     comparison_boundary_tests::ordered_pairs#(wide)(@values broad);
   }
 
-  ::unknown_value_order DOC <$ Named, unnamed and reserved ALLOW_UNKNOWN values participate in the same numeric total order. $>
+  DOC <$ Named, unnamed and reserved ALLOW_UNKNOWN values participate in the same numeric total order. $>
+  ::unknown_value_order
     DUAL_TEST
   {
     VAR left_raw U8 := 0;

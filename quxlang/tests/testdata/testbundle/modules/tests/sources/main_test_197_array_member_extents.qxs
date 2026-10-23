@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::array_member_extent_tests NAMESPACE
 {
-  ::array_first DOC <$ Places a fixed array before two scalar fields. $>
+  DOC <$ Places a fixed array before two scalar fields. $>
+  ::array_first
     TEMPLATE(@count VALUE SZ) STRUCT
   {
     .cells VAR [count]I32;
@@ -10,7 +11,8 @@ LANGUAGE QUXLANG EN 0.0;
     .after VAR I32;
   }
 
-  ::array_middle DOC <$ Places a fixed array between two scalar fields. $>
+  DOC <$ Places a fixed array between two scalar fields. $>
+  ::array_middle
     TEMPLATE(@count VALUE SZ) STRUCT
   {
     .before VAR I32;
@@ -18,7 +20,8 @@ LANGUAGE QUXLANG EN 0.0;
     .after VAR I32;
   }
 
-  ::check_fields DOC <$ Checks independent default initialization and subsequent mutation of array and scalar fields. $>
+  DOC <$ Checks independent default initialization and subsequent mutation of array and scalar fields. $>
+  ::check_fields
     TEMPLATE(@T TYPE AUTO, @count VALUE SZ) FUNCTION()
   {
     VAR object T;
@@ -43,49 +46,57 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::first_0 DOC <$ A 0-element array in the first field position has independent storage and default values. $>
+  DOC <$ A 0-element array in the first field position has independent storage and default values. $>
+  ::first_0
     DUAL_TEST
   {
     check_fields#(@T array_first#(@count 0), @count 0)();
   }
 
-  ::first_1 DOC <$ A 1-element array in the first field position has independent storage and default values. $>
+  DOC <$ A 1-element array in the first field position has independent storage and default values. $>
+  ::first_1
     DUAL_TEST
   {
     check_fields#(@T array_first#(@count 1), @count 1)();
   }
 
-  ::first_2 DOC <$ A 2-element array in the first field position has independent storage and default values. $>
+  DOC <$ A 2-element array in the first field position has independent storage and default values. $>
+  ::first_2
     DUAL_TEST
   {
     check_fields#(@T array_first#(@count 2), @count 2)();
   }
 
-  ::first_6 DOC <$ A 6-element array in the first field position has independent storage and default values. $>
+  DOC <$ A 6-element array in the first field position has independent storage and default values. $>
+  ::first_6
     DUAL_TEST
   {
     check_fields#(@T array_first#(@count 6), @count 6)();
   }
 
-  ::middle_0 DOC <$ A 0-element array in the middle field position has independent storage and default values. $>
+  DOC <$ A 0-element array in the middle field position has independent storage and default values. $>
+  ::middle_0
     DUAL_TEST
   {
     check_fields#(@T array_middle#(@count 0), @count 0)();
   }
 
-  ::middle_1 DOC <$ A 1-element array in the middle field position has independent storage and default values. $>
+  DOC <$ A 1-element array in the middle field position has independent storage and default values. $>
+  ::middle_1
     DUAL_TEST
   {
     check_fields#(@T array_middle#(@count 1), @count 1)();
   }
 
-  ::middle_2 DOC <$ A 2-element array in the middle field position has independent storage and default values. $>
+  DOC <$ A 2-element array in the middle field position has independent storage and default values. $>
+  ::middle_2
     DUAL_TEST
   {
     check_fields#(@T array_middle#(@count 2), @count 2)();
   }
 
-  ::middle_6 DOC <$ A 6-element array in the middle field position has independent storage and default values. $>
+  DOC <$ A 6-element array in the middle field position has independent storage and default values. $>
+  ::middle_6
     DUAL_TEST
   {
     check_fields#(@T array_middle#(@count 6), @count 6)();

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::ibc_value_tests NAMESPACE
 {
-  ::record DOC <$ Declares fields in an order different from their lexical names. $>
+  DOC <$ Declares fields in an order different from their lexical names. $>
+  ::record
     IBC_STRUCT
   {
     .z VAR U8;
@@ -10,7 +11,8 @@ LANGUAGE QUXLANG EN 0.0;
     .middle VAR U16;
   }
 
-  ::transform DOC <$ Returns an independently modified IBC record passed by value. $>
+  DOC <$ Returns an independently modified IBC record passed by value. $>
+  ::transform
     FUNCTION(@value record): record
   {
     value.z += 1;
@@ -19,7 +21,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN value;
   }
 
-  ::copy_assignment_and_call DOC <$ IBC records preserve values through copying, assignment, swap and indirect calls. $>
+  DOC <$ IBC records preserve values through copying, assignment, swap and indirect calls. $>
+  ::copy_assignment_and_call
     DUAL_TEST
   {
     VAR original record;
@@ -50,7 +53,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SAME_TYPES(TYPEOF(PUBLIC_FIELD_NAME(record, 2)), TYPEOF("middle")));
   }
 
-  ::native_layout INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) DOC <$ The native IBC layout retains declaration order and natural alignment. $>
+  DOC <$ The native IBC layout retains declaration order and natural alignment. $>
+  ::native_layout INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64)
     DUAL_TEST
   {
     TEST_ASSERT(SIZEOF(record) == 24);

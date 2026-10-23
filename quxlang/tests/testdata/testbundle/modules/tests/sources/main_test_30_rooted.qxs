@@ -1,12 +1,14 @@
 LANGUAGE QUXLANG EN 0.0;
 
 
-::rooted_value DOC <$ Stores mutable state at a stable object address. $>
+DOC <$ Stores mutable state at a stable object address. $>
+::rooted_value
   STRUCT ROOTED
 {
   .value VAR I32;
 
-  .CONSTRUCTOR DOC <$ Initializes the stored value without relocating another rooted object. $>
+  DOC <$ Initializes the stored value without relocating another rooted object. $>
+  .CONSTRUCTOR
     FUNCTION(@value I32)
   {
     .value := value;
@@ -14,14 +16,16 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::set_rooted_value DOC <$ Mutates a rooted object through a reference. $>
+DOC <$ Mutates a rooted object through a reference. $>
+::set_rooted_value
   FUNCTION(@object MUT& rooted_value, @value I32)
 {
   object.value := value;
 }
 
 
-::read_rooted_value DOC <$ Reads a rooted object through a constant reference. $>
+DOC <$ Reads a rooted object through a constant reference. $>
+::read_rooted_value
   FUNCTION(@object CONST& rooted_value): I32
 {
   RETURN object.value;
@@ -65,7 +69,8 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::accept_rooted_value DOC <$ Provides a by-value call surface used to verify copy rejection. $>
+DOC <$ Provides a by-value call surface used to verify copy rejection. $>
+::accept_rooted_value
   FUNCTION(@object rooted_value): I32
 {
   RETURN object.value;
@@ -79,7 +84,8 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::return_named_rooted_value DOC <$ Provides a named-local return path used to verify move rejection. $>
+DOC <$ Provides a named-local return path used to verify move rejection. $>
+::return_named_rooted_value
   FUNCTION(): rooted_value
 {
   VAR object rooted_value :(@value 41);
@@ -93,7 +99,8 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::rooted_wrapper DOC <$ Stores a rooted object inline. $>
+DOC <$ Stores a rooted object inline. $>
+::rooted_wrapper
   STRUCT
 {
   .object VAR rooted_value;
@@ -115,7 +122,8 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::rooted_template DOC <$ Preserves ROOTED lifecycle constraints through template instantiation. $>
+DOC <$ Preserves ROOTED lifecycle constraints through template instantiation. $>
+::rooted_template
   TEMPLATE(@T TYPE AUTO) STRUCT ROOTED
 {
   .value VAR T;
@@ -129,7 +137,8 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::rooted_with_copy_constructor DOC <$ Declares a forbidden copy constructor for validation. $>
+DOC <$ Declares a forbidden copy constructor for validation. $>
+::rooted_with_copy_constructor
   STRUCT ROOTED
 {
   .value VAR I32;
@@ -148,7 +157,8 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::rooted_with_move_constructor DOC <$ Declares a forbidden move constructor for validation. $>
+DOC <$ Declares a forbidden move constructor for validation. $>
+::rooted_with_move_constructor
   STRUCT ROOTED
 {
   .value VAR I32;
@@ -167,7 +177,8 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::rooted_with_swap_operator DOC <$ Declares a forbidden swap operator for validation. $>
+DOC <$ Declares a forbidden swap operator for validation. $>
+::rooted_with_swap_operator
   STRUCT ROOTED
 {
   .value VAR I32;
@@ -187,7 +198,8 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::rooted_with_rhs_swap_operator DOC <$ Declares a forbidden reverse swap operator for validation. $>
+DOC <$ Declares a forbidden reverse swap operator for validation. $>
+::rooted_with_rhs_swap_operator
   STRUCT ROOTED
 {
   .value VAR I32;

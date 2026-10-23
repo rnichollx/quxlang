@@ -2,9 +2,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::assembly_reference_tests INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) NAMESPACE
 {
-  ::storage DOC <$ Supplies global storage reached through a structured assembly relocation. $> VAR U64;
+  DOC <$ Supplies global storage reached through a structured assembly relocation. $>
+  ::storage VAR U64;
 
-  ::storage_address DOC <$ Returns the address formed by paired page and page-offset relocations. $>
+  DOC <$ Returns the address formed by paired page and page-offset relocations. $>
+  ::storage_address
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(; RETURN MUT->U64)
   {
@@ -13,18 +15,21 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::update DOC <$ Mutates pointed-to storage through a concrete Quxlang function reached from assembly. $>
+  DOC <$ Mutates pointed-to storage through a concrete Quxlang function reached from assembly. $>
+  ::update
     FUNCTION(%value MUT->U64, %amount U64)
   { value-> += amount * 3; }
 
-  ::tail_update DOC <$ Tail-branches to a concrete Quxlang function with an explicit C calling convention. $>
+  DOC <$ Tail-branches to a concrete Quxlang function with an explicit C calling convention. $>
+  ::tail_update
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(@value MUT->U64, @amount U64)
   {
     B PROCEDURE_REF("CCALL", update!$[0])
   }
 
-  ::global_address_and_mutation DOC <$ Structured object references preserve global address identity and bidirectional visibility of writes. $>
+  DOC <$ Structured object references preserve global address identity and bidirectional visibility of writes. $>
+  ::global_address_and_mutation
     UNIT_TEST
   {
     storage := 17;
@@ -39,7 +44,8 @@ LANGUAGE QUXLANG EN 0.0;
     storage := 0;
   }
 
-  ::concrete_procedure_call DOC <$ Structured procedure relocations reach the intended Quxlang body with pointer and scalar arguments intact. $>
+  DOC <$ Structured procedure relocations reach the intended Quxlang body with pointer and scalar arguments intact. $>
+  ::concrete_procedure_call
     UNIT_TEST
   {
     VAR value U64 := 17;

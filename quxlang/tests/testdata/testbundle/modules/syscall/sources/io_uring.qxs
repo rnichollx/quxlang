@@ -3,20 +3,22 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::linux INCLUDE_IF(OS_LINUX) NAMESPACE
 {
-  ::io_uring_address DOC <$
+  DOC <$
     Stores one native address in an eight-byte io_uring ABI field. The trailing
     word is present on 32-bit targets so the field retains its kernel ABI size.
     $>
+  ::io_uring_address
     IBC_STRUCT
   {
     .value VAR ADDRESS;
     .padding INCLUDE_IF(BITS(SZ) == BITS(U32)) VAR U32;
   }
 
-  ::io_uring_submission_offsets DOC <$
+  DOC <$
     Matches Linux io_sqring_offsets. The kernel fills these byte offsets during
     io_uring_setup.
     $>
+  ::io_uring_submission_offsets
     IBC_STRUCT
   {
     .head VAR U32;
@@ -30,10 +32,11 @@ LANGUAGE QUXLANG EN 0.0;
     .user_address VAR U64;
   }
 
-  ::io_uring_completion_offsets DOC <$
+  DOC <$
     Matches Linux io_cqring_offsets. The kernel fills these byte offsets during
     io_uring_setup.
     $>
+  ::io_uring_completion_offsets
     IBC_STRUCT
   {
     .head VAR U32;
@@ -47,7 +50,8 @@ LANGUAGE QUXLANG EN 0.0;
     .user_address VAR U64;
   }
 
-  ::io_uring_parameters DOC <$ Matches the Linux io_uring_params setup ABI. $>
+  DOC <$ Matches the Linux io_uring_params setup ABI. $>
+  ::io_uring_parameters
     IBC_STRUCT
   {
     .submission_entries VAR U32;
@@ -62,10 +66,11 @@ LANGUAGE QUXLANG EN 0.0;
     .completion_offsets VAR io_uring_completion_offsets;
   }
 
-  ::io_uring_submission_entry DOC <$
+  DOC <$
     Matches the 64-byte Linux io_uring_sqe layout for ordinary read, write, and
     no-op submissions.
     $>
+  ::io_uring_submission_entry
     IBC_STRUCT
   {
     .opcode VAR U8;
@@ -84,7 +89,8 @@ LANGUAGE QUXLANG EN 0.0;
     .reserved VAR U64;
   }
 
-  ::io_uring_completion_entry DOC <$ Matches the 16-byte Linux io_uring_cqe layout. $>
+  DOC <$ Matches the 16-byte Linux io_uring_cqe layout. $>
+  ::io_uring_completion_entry
     IBC_STRUCT
   {
     .user_data VAR io_uring_address;
@@ -92,7 +98,8 @@ LANGUAGE QUXLANG EN 0.0;
     .flags VAR U32;
   }
 
-  ::io_uring_setup DOC <$ Creates one Linux io_uring instance. $>
+  DOC <$ Creates one Linux io_uring instance. $>
+  ::io_uring_setup
     ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(
       @entries U32,
@@ -105,7 +112,8 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::io_uring_setup DOC <$ Creates one Linux io_uring instance. $>
+  DOC <$ Creates one Linux io_uring instance. $>
+  ::io_uring_setup
     ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(
       @entries U32,
@@ -122,7 +130,8 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::io_uring_setup DOC <$ Creates one Linux io_uring instance. $>
+  DOC <$ Creates one Linux io_uring instance. $>
+  ::io_uring_setup
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(
       @entries U32,
@@ -135,7 +144,8 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::io_uring_setup DOC <$ Creates one Linux io_uring instance. $>
+  DOC <$ Creates one Linux io_uring instance. $>
+  ::io_uring_setup
     ASM_PROCEDURE Z_ARCH
     CALLABLE CALLCONV CCALL(
       @entries U32,
@@ -148,9 +158,10 @@ LANGUAGE QUXLANG EN 0.0;
     BR %r14
   }
 
-  ::io_uring_enter DOC <$
+  DOC <$
     Submits entries and optionally waits for Linux io_uring completions.
     $>
+  ::io_uring_enter
     ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(
       @descriptor I32,
@@ -168,9 +179,10 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::io_uring_enter DOC <$
+  DOC <$
     Submits entries and optionally waits for Linux io_uring completions.
     $>
+  ::io_uring_enter
     ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(
       @descriptor I32,
@@ -201,9 +213,10 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::io_uring_enter DOC <$
+  DOC <$
     Submits entries and optionally waits for Linux io_uring completions.
     $>
+  ::io_uring_enter
     ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(
       @descriptor I32,
@@ -220,9 +233,10 @@ LANGUAGE QUXLANG EN 0.0;
     RET
   }
 
-  ::io_uring_enter DOC <$
+  DOC <$
     Submits entries and optionally waits for Linux io_uring completions.
     $>
+  ::io_uring_enter
     ASM_PROCEDURE Z_ARCH
     CALLABLE CALLCONV CCALL(
       @descriptor I32,

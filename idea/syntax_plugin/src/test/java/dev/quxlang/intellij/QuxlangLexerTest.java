@@ -49,7 +49,7 @@ final class QuxlangLexerTest {
         List<Token> tokens = scan("@ // parameter\n amount . // field\r\n value");
         assertEquals(QuxlangToken.ARGUMENT, tokens.stream().filter(t -> t.text().equals("amount")).findFirst().orElseThrow().type());
         assertEquals(QuxlangToken.MEMBER, tokens.getLast().type());
-        List<Token> documented = scan(".value DOC <$ Field documentation. $> VAR user_type");
+        List<Token> documented = scan("DOC <$ Field documentation. $> .value VAR user_type");
         assertEquals(QuxlangToken.IDENTIFIER, documented.getLast().type());
     }
 
@@ -89,7 +89,7 @@ final class QuxlangLexerTest {
 
     @Test
     void restartsAtEveryTokenBoundary() {
-        String source = "::item STRUCT { .field DOC <$ Field $> VAR user_type; .run FUNCTION(@arg I32) { VAR local I32 := .field; } }\n"
+        String source = "::item STRUCT { DOC <$ Field $> .field VAR user_type; .run FUNCTION(@arg I32) { VAR local I32 := .field; } }\n"
             + "DOC // description\n <$ docs\n @name \"text\" $> call(\"a\\\"b\", 2.5); @ // comment\n OTHER";
         List<Token> tokens = scan(source);
         for (int index = 0; index < tokens.size(); ++index) {

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::pointer_incdec_tests NAMESPACE
 {
-  ::walk DOC <$ Postfix pointer results retain the previous position while each mutation advances exactly one element, including the one-past endpoint. $>
+  DOC <$ Postfix pointer results retain the previous position while each mutation advances exactly one element, including the one-past endpoint. $>
+  ::walk
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR values [4]T;
@@ -43,7 +44,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[3] == 9);
   }
 
-  ::element_width_boundaries DOC <$ One-, four-, and eight-byte pointees exercise forward and reverse postfix results without dereferencing the endpoint. $>
+  DOC <$ One-, four-, and eight-byte pointees exercise forward and reverse postfix results without dereferencing the endpoint. $>
+  ::element_width_boundaries
     DUAL_TEST
   {
     walk#(U8)();

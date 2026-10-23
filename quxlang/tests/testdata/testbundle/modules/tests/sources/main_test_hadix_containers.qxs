@@ -18,37 +18,47 @@ IMPORT std;
     TEST_ASSERT(std::bit_width((0 AS SZ) #!!) == SIZEOF(SZ) * 8);
   }
 
-  ::policy_key DOC <$ Supplies key ordering without a serialization operation. $> STRUCT
+  DOC <$ Supplies key ordering without a serialization operation. $>
+  ::policy_key STRUCT
   {
     .value VAR U64;
-    .OPERATOR<=> DOC <$ Orders keys by their stored value. $>
+    DOC <$ Orders keys by their stored value. $>
+    .OPERATOR<=>
       FUNCTION(@OTHER CONST& policy_key) CONST: ORDER { RETURN .value <=> OTHER.value; }
   }
 
-  ::identity_hash DOC <$ Hashes policy_key directly without serialization. $> STRUCT
+  DOC <$ Hashes policy_key directly without serialization. $>
+  ::identity_hash STRUCT
   {
-    .hash DOC <$ Returns the stored key value as its hash. $>
+    DOC <$ Returns the stored key value as its hash. $>
+    .hash
       FUNCTION(@ARG:key CONST& policy_key) CONST: U64 { RETURN key.value; }
   }
 
-  ::seeded_hash DOC <$ Stores a hash seed and an optional external invocation counter. $> STRUCT
+  DOC <$ Stores a hash seed and an optional external invocation counter. $>
+  ::seeded_hash STRUCT
   {
     .seed VAR U64;
     .calls VAR MUT->SZ;
-    .CONSTRUCTOR DOC <$ Creates the default seed without an invocation counter. $>
+    DOC <$ Creates the default seed without an invocation counter. $>
+    .CONSTRUCTOR
       FUNCTION() { .seed := 7; }
-    .CONSTRUCTOR DOC <$ Binds the supplied seed and invocation counter. $>
+    DOC <$ Binds the supplied seed and invocation counter. $>
+    .CONSTRUCTOR
       FUNCTION(@seed U64, @calls MUT->SZ) { .seed := seed; .calls := calls; }
-    .CONSTRUCTOR DOC <$ Copies the seed and counter binding. $>
+    DOC <$ Copies the seed and counter binding. $>
+    .CONSTRUCTOR
       FUNCTION(@OTHER CONST& seeded_hash) { .seed := OTHER.seed; .calls := OTHER.calls; }
-    .CONSTRUCTOR DOC <$ Transfers the seed and counter binding and clears the source. $>
+    DOC <$ Transfers the seed and counter binding and clears the source. $>
+    .CONSTRUCTOR
       FUNCTION(@OTHER TEMP& seeded_hash)
     {
       .seed := OTHER.seed; .calls := OTHER.calls;
       VAR source MUT& seeded_hash := OTHER AS MUT& seeded_hash;
       source.seed := 0; source.calls := NULL;
     }
-    .hash DOC <$ Counts the invocation when bound and combines the key value with the seed. $>
+    DOC <$ Counts the invocation when bound and combines the key value with the seed. $>
+    .hash
       FUNCTION(@ARG:key CONST& policy_key) CONST: U64
     { IF (.calls??) { .calls-> += 1; } RETURN key.value #^^ .seed; }
   }
@@ -333,19 +343,23 @@ IMPORT std;
     TEST_ASSERT(map.empty());
   }
 
-  ::grouped_key DOC <$ Distributes ordered keys among four hash groups to exercise inline and overflow partitioning. $>
+  DOC <$ Distributes ordered keys among four hash groups to exercise inline and overflow partitioning. $>
+  ::grouped_key
     STRUCT
   {
     .value VAR U64;
-    .fail_comparisons DOC <$ Selects injected failures for comparisons between distinct keys when present. $>
+    DOC <$ Selects injected failures for comparisons between distinct keys when present. $>
+    .fail_comparisons
       VAR CONST->BOOL;
-    .OPERATOR<=> DOC <$ Orders keys by their complete value and reports an injected comparison failure. $>
+    DOC <$ Orders keys by their complete value and reports an injected comparison failure. $>
+    .OPERATOR<=>
       FUNCTION(@OTHER CONST& grouped_key) CONST: ORDER
     {
       IF (.fail_comparisons?? && .fail_comparisons-> && .value != OTHER.value) { THROW (91 AS I32); }
       RETURN .value <=> OTHER.value;
     }
-    .SERIALIZE DOC <$ Emits the hash group shared by every fourth key. $>
+    DOC <$ Emits the hash group shared by every fourth key. $>
+    .SERIALIZE
       FUNCTION(@OUTPUT_ITERATOR:output AUTO(it)) CONST: it
     { (output++)-> := (((.value % 4) AS PARTIAL U8) AS BYTE); RETURN output; }
   }

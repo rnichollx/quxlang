@@ -2,17 +2,22 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::explicit_float_type_tests NAMESPACE
 {
-  ::single DOC <$ Names the explicit standard single-precision format. $>
+  DOC <$ Names the explicit standard single-precision format. $>
+  ::single
     ALIAS F32E8;
-  ::wide DOC <$ Names the explicit standard double-precision format. $>
+  DOC <$ Names the explicit standard double-precision format. $>
+  ::wide
     ALIAS F64E11;
 
-  ::scale_single DOC <$ Doubles a single-precision value across equivalent signature spellings. $>
+  DOC <$ Doubles a single-precision value across equivalent signature spellings. $>
+  ::scale_single
     FUNCTION(%value F32): F32E8 { RETURN value * 2; }
-  ::scale_wide DOC <$ Triples a double-precision value across equivalent signature spellings. $>
+  DOC <$ Triples a double-precision value across equivalent signature spellings. $>
+  ::scale_wide
     FUNCTION(%value F64E11): F64 { RETURN value * 3; }
 
-  ::format_identity DOC <$ Explicit standard formats equal their shorthands while differing exponent widths remain distinct types. $>
+  DOC <$ Explicit standard formats equal their shorthands while differing exponent widths remain distinct types. $>
+  ::format_identity
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(F32E8, F32));
@@ -26,7 +31,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SAME_TYPES(MUT->F64E11, MUT->F64));
   }
 
-  ::values_and_aliases DOC <$ Explicit formats preserve arithmetic, copied values and mutable aliases across their shorthand equivalents. $>
+  DOC <$ Explicit formats preserve arithmetic, copied values and mutable aliases across their shorthand equivalents. $>
+  ::values_and_aliases
     DUAL_TEST
   {
     VAR narrow single := 1.5;
@@ -47,7 +53,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(large / 2 == 1.5);
   }
 
-  ::callable_signatures DOC <$ Equivalent float spellings preserve signatures for direct calls and copied procedure pointers. $>
+  DOC <$ Equivalent float spellings preserve signatures for direct calls and copied procedure pointers. $>
+  ::callable_signatures
     DUAL_TEST
   {
     VAR narrow F32E8 := 1.5;

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::exception_threads DOC <$ Handlers are thread-local while exception handles and the permanent sentinel share atomic ownership. $>
+DOC <$ Handlers are thread-local while exception handles and the permanent sentinel share atomic ownership. $>
+::exception_threads
 UNIT_TEST KNOWN_BROKEN_IF((OS_MACOS || OS_LINUX || OS_WINDOWS) == FALSE)
 {
   VAR shared EXCEPTION_PTR;

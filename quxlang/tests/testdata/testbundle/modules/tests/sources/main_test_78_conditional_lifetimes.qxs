@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::conditional_lifetime_tests NAMESPACE
 {
-  ::nested_selection DOC <$ Condition temporaries are destroyed before branch entry or the next condition, including nested IF and ELSE UNLESS. $>
+  DOC <$ Condition temporaries are destroyed before branch entry or the next condition, including nested IF and ELSE UNLESS. $>
+  ::nested_selection
     DUAL_TEST
   {
     VAR mode I32 := 0;
@@ -56,7 +57,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::throwing_nested_condition DOC <$ A throwing nested condition destroys its temporary before enclosing branch locals and never enters either nested arm. $>
+  DOC <$ A throwing nested condition destroys its temporary before enclosing branch locals and never enters either nested arm. $>
+  ::throwing_nested_condition
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;

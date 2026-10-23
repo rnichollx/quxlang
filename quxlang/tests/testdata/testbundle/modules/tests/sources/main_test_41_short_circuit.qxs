@@ -2,21 +2,24 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::short_circuit_tests NAMESPACE
 {
-  ::record DOC <$ Records operand evaluation and returns its supplied truth value. $>
+  DOC <$ Records operand evaluation and returns its supplied truth value. $>
+  ::record
     FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
   {
     events := events * 10 + digit;
     RETURN value;
   }
 
-  ::temporary DOC <$ Tracks construction and reverse destruction of expression temporaries. $>
+  DOC <$ Tracks construction and reverse destruction of expression temporaries. $>
+  ::temporary
     STRUCT MOVE_ONLY
   {
     .events VAR MUT->I32;
     .alive VAR MUT->I32;
     .digit VAR I32;
 
-    .CONSTRUCTOR DOC <$ Records construction and increments the number of live temporaries. $>
+    DOC <$ Records construction and increments the number of live temporaries. $>
+    .CONSTRUCTOR
       FUNCTION(@events MUT& I32, @alive MUT& I32, @digit I32)
     {
       .events := events<-;
@@ -26,14 +29,16 @@ LANGUAGE QUXLANG EN 0.0;
       alive++;
     }
 
-    .DESTRUCTOR DOC <$ Records destruction and decrements the number of live temporaries. $>
+    DOC <$ Records destruction and decrements the number of live temporaries. $>
+    .DESTRUCTOR
       FUNCTION()
     {
       .events-> := .events-> * 10 + .digit + 4;
       .alive-> --;
     }
 
-    .test DOC <$ Evaluates a Boolean while this temporary remains alive. $>
+    DOC <$ Evaluates a Boolean while this temporary remains alive. $>
+    .test
       FUNCTION(@value BOOL) CONST: BOOL
     {
       TEST_ASSERT(.alive-> > 0);
@@ -41,14 +46,16 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::observe_clean DOC <$ Checks that operand temporaries are gone before the enclosing call begins. $>
+  DOC <$ Checks that operand temporaries are gone before the enclosing call begins. $>
+  ::observe_clean
     FUNCTION(@value BOOL, @alive CONST& I32): BOOL
   {
     TEST_ASSERT(alive == 0);
     RETURN value;
   }
 
-  ::pair_value DOC <$ Reads two live operand temporaries without taking their ownership. $>
+  DOC <$ Reads two live operand temporaries without taking their ownership. $>
+  ::pair_value
     FUNCTION(@first CONST& temporary, @second CONST& temporary, @value BOOL): BOOL
   {
     TEST_ASSERT(first.alive-> == 2);
@@ -56,17 +63,19 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN value;
   }
 
-  ::throw_value DOC <$ Throws after observing a live right-hand-side temporary. $>
+  DOC <$ Throws after observing a live right-hand-side temporary. $>
+  ::throw_value
     FUNCTION(@object CONST& temporary): BOOL
   {
     TEST_ASSERT(object.alive-> == 1);
     THROW I32(@OTHER 42);
   }
 
-  ::and_truth_table_and_rhs_lifetime DOC <$
+  DOC <$
     Checks every truth-table entry, left-to-right single evaluation, skipped
     right operands, and right-operand cleanup before the enclosing call.
     $>
+  ::and_truth_table_and_rhs_lifetime
     DUAL_TEST
   {
     VAR index I32 := 0;
@@ -89,10 +98,11 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::or_truth_table_and_rhs_lifetime DOC <$
+  DOC <$
     Checks every truth-table entry, left-to-right single evaluation, skipped
     right operands, and right-operand cleanup before the enclosing call.
     $>
+  ::or_truth_table_and_rhs_lifetime
     DUAL_TEST
   {
     VAR index I32 := 0;
@@ -115,10 +125,11 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nand_truth_table_and_rhs_lifetime DOC <$
+  DOC <$
     Checks every truth-table entry, left-to-right single evaluation, skipped
     right operands, and right-operand cleanup before the enclosing call.
     $>
+  ::nand_truth_table_and_rhs_lifetime
     DUAL_TEST
   {
     VAR index I32 := 0;
@@ -141,10 +152,11 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nor_truth_table_and_rhs_lifetime DOC <$
+  DOC <$
     Checks every truth-table entry, left-to-right single evaluation, skipped
     right operands, and right-operand cleanup before the enclosing call.
     $>
+  ::nor_truth_table_and_rhs_lifetime
     DUAL_TEST
   {
     VAR index I32 := 0;
@@ -167,10 +179,11 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::implies_truth_table_and_rhs_lifetime DOC <$
+  DOC <$
     Checks every truth-table entry, left-to-right single evaluation, skipped
     right operands, and right-operand cleanup before the enclosing call.
     $>
+  ::implies_truth_table_and_rhs_lifetime
     DUAL_TEST
   {
     VAR index I32 := 0;
@@ -193,10 +206,11 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::implied_truth_table_and_rhs_lifetime DOC <$
+  DOC <$
     Checks every truth-table entry, left-to-right single evaluation, skipped
     right operands, and right-operand cleanup before the enclosing call.
     $>
+  ::implied_truth_table_and_rhs_lifetime
     DUAL_TEST
   {
     VAR index I32 := 0;
@@ -219,7 +233,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::multiple_rhs_temporaries DOC <$ Destroys right-operand temporaries once, in reverse construction order. $>
+  DOC <$ Destroys right-operand temporaries once, in reverse construction order. $>
+  ::multiple_rhs_temporaries
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -234,7 +249,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(alive == 0);
   }
 
-  ::both_operands_own_temporaries DOC <$ Cleans both operands on evaluated and skipped right-hand-side paths. $>
+  DOC <$ Cleans both operands on evaluated and skipped right-hand-side paths. $>
+  ::both_operands_own_temporaries
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -254,7 +270,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 15);
   }
 
-  ::nested_rhs_cleanup DOC <$ Completes inner right-operand cleanup before evaluating an outer right operand. $>
+  DOC <$ Completes inner right-operand cleanup before evaluating an outer right operand. $>
+  ::nested_rhs_cleanup
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -272,7 +289,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 263);
   }
 
-  ::rhs_exception_and_skipped_throw DOC <$ Unwinds evaluated right operands and never constructs skipped throwing operands. $>
+  DOC <$ Unwinds evaluated right operands and never constructs skipped throwing operands. $>
+  ::rhs_exception_and_skipped_throw
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -303,7 +321,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(alive == 0);
   }
 
-  ::loop_condition_cleanup DOC <$ Cleans each evaluated right operand before entering the loop body. $>
+  DOC <$ Cleans each evaluated right operand before entering the loop body. $>
+  ::loop_condition_cleanup
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -320,13 +339,15 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(alive == 0);
   }
 
-  ::return_condition DOC <$ Returns a short-circuit result after cleaning its right operand. $>
+  DOC <$ Returns a short-circuit result after cleaning its right operand. $>
+  ::return_condition
     FUNCTION(@events MUT& I32, @alive MUT& I32): BOOL
   {
     RETURN FALSE || temporary(@events events, @alive alive, @digit 2).test(@value TRUE);
   }
 
-  ::return_cleanup DOC <$ Destroys right-operand temporaries before returning to the caller. $>
+  DOC <$ Destroys right-operand temporaries before returning to the caller. $>
+  ::return_cleanup
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -336,20 +357,24 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(alive == 0);
   }
 
-  ::branch_mutator DOC <$ Changes the source Boolean during cleanup after its result has been evaluated. $>
+  DOC <$ Changes the source Boolean during cleanup after its result has been evaluated. $>
+  ::branch_mutator
     STRUCT MOVE_ONLY
   {
     .source VAR MUT->BOOL;
     .destroyed VAR MUT->I32;
-    .CONSTRUCTOR DOC <$ Retains the source Boolean and destruction counter. $>
+    DOC <$ Retains the source Boolean and destruction counter. $>
+    .CONSTRUCTOR
       FUNCTION(@source MUT& BOOL, @destroyed MUT& I32)
     {
       .source := source<-;
       .destroyed := destroyed<-;
     }
-    .read DOC <$ Reads the source before cleanup changes it. $>
+    DOC <$ Reads the source before cleanup changes it. $>
+    .read
       FUNCTION() CONST: BOOL { RETURN .source->; }
-    .DESTRUCTOR DOC <$ Flips the source and records exactly one destruction. $>
+    DOC <$ Flips the source and records exactly one destruction. $>
+    .DESTRUCTOR
       FUNCTION()
     {
       .source-> := .source-> == FALSE;
@@ -357,7 +382,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::branch_selection_survives_cleanup DOC <$ Preserves both true and false branch decisions when destructors mutate their source. $>
+  DOC <$ Preserves both true and false branch decisions when destructors mutate their source. $>
+  ::branch_selection_survives_cleanup
     DUAL_TEST
   {
     VAR source BOOL := TRUE;
@@ -372,20 +398,24 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(destroyed == 2);
   }
 
-  ::nested_cleanup DOC <$ Evaluates another short-circuit expression while a destructor is running. $>
+  DOC <$ Evaluates another short-circuit expression while a destructor is running. $>
+  ::nested_cleanup
     STRUCT MOVE_ONLY
   {
     .events VAR MUT->I32;
     .alive VAR MUT->I32;
-    .CONSTRUCTOR DOC <$ Retains the event log and temporary count. $>
+    DOC <$ Retains the event log and temporary count. $>
+    .CONSTRUCTOR
       FUNCTION(@events MUT& I32, @alive MUT& I32)
     {
       .events := events<-;
       .alive := alive<-;
     }
-    .read DOC <$ Supplies a true operand with nontrivial cleanup. $>
+    DOC <$ Supplies a true operand with nontrivial cleanup. $>
+    .read
       FUNCTION() CONST: BOOL { RETURN TRUE; }
-    .DESTRUCTOR DOC <$ Completes a nested branch and its temporary destruction before returning. $>
+    DOC <$ Completes a nested branch and its temporary destruction before returning. $>
+    .DESTRUCTOR
       FUNCTION()
     {
       VAR result BOOL := TRUE && temporary(@events .events->, @alive .alive->, @digit 2).test(@value TRUE);
@@ -395,7 +425,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::nested_destructor_frames DOC <$ Keeps suspended branch destinations independent across destructor frames. $>
+  DOC <$ Keeps suspended branch destinations independent across destructor frames. $>
+  ::nested_destructor_frames
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -406,14 +437,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(alive == 0);
   }
 
-  ::outer_value DOC <$ Observes an enclosing temporary after the nested right operand has been cleaned up. $>
+  DOC <$ Observes an enclosing temporary after the nested right operand has been cleaned up. $>
+  ::outer_value
     FUNCTION(@object CONST& temporary, @value BOOL): BOOL
   {
     TEST_ASSERT(object.alive-> == 1);
     RETURN value;
   }
 
-  ::enclosing_temporary_survives DOC <$ Keeps enclosing-expression temporaries alive while discarding only the nested operand temporaries. $>
+  DOC <$ Keeps enclosing-expression temporaries alive while discarding only the nested operand temporaries. $>
+  ::enclosing_temporary_survives
     DUAL_TEST
   {
     VAR events I32 := 0;

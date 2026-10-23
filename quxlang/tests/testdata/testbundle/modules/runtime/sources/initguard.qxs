@@ -4,9 +4,10 @@ IMPORT syscall;
 
 PRIVATE(MODULE)
 {
-  ::initguard_wait_address DOC <$
+  DOC <$
     Returns the address of the low 32-bit state word used by address waits.
     $>
+  ::initguard_wait_address
     FUNCTION(@guard MUT& INITGUARD): ADDRESS
   {
     VAR address ADDRESS := IBC_GETADDR(@PTR guard<-);

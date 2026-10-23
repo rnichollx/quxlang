@@ -2,26 +2,29 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
-::transfer_result DOC <$
+DOC <$
   Reports the outcome of one file transfer. A successful transfer may contain
   fewer bytes than requested, including zero bytes at end of file.
   $>
+::transfer_result
   STRUCT
 {
   .size VAR SZ;
   .succeeded VAR BOOL;
 }
 
-::buffer_ref DOC <$
+DOC <$
   A non-owning reference to a mutable byte range. The referenced storage must
   remain alive for every operation that uses the reference.
   $>
+::buffer_ref
   STRUCT
 {
   .data VAR MUT=>>BYTE;
   .size VAR SZ;
 
-  .CONSTRUCTOR DOC <$ Creates a reference to data[0..size). $>
+  DOC <$ Creates a reference to data[0..size). $>
+  .CONSTRUCTOR
     FUNCTION(@data MUT=>>BYTE, @size SZ)
   {
     .data := data;
@@ -94,27 +97,32 @@ IMPORT syscall;
   EXTERN_PROCEDURE["java/io/RandomAccessFile":"close"]
   CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_random_access_file);
 
-::file_ref INCLUDE_IF(OS_LINUX) DOC <$
+DOC <$
   A non-owning reference to an open Linux file descriptor. Destroying this
   value does not close the descriptor.
   $>
+::file_ref INCLUDE_IF(OS_LINUX)
   STRUCT
 {
   .descriptor VAR I32;
 
-  .CONSTRUCTOR DOC <$ Creates an empty file reference. $>
+  DOC <$ Creates an empty file reference. $>
+  .CONSTRUCTOR
     FUNCTION() { .descriptor := -1; }
 
-  .is_valid DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
+  DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
+  .is_valid
     FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
 
-  .CONSTRUCTOR DOC <$ Creates a non-owning reference to descriptor. $>
+  DOC <$ Creates a non-owning reference to descriptor. $>
+  .CONSTRUCTOR
     FUNCTION(@descriptor I32)
   {
     .descriptor := descriptor;
   }
 
-  .read DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+  DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+  .read
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
@@ -131,7 +139,8 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .write DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
+  DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
+  .write
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
@@ -148,37 +157,43 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .close DOC <$
+  DOC <$
     Closes the referenced descriptor. This operation does not track whether
     another file_ref still refers to the same descriptor.
     $>
+  .close
     FUNCTION(): BOOL
   {
     RETURN syscall::linux::close(@fd .descriptor) == 0;
   }
 }
 
-::file_ref INCLUDE_IF(OS_MACOS) DOC <$
+DOC <$
   A non-owning reference to an open macOS file descriptor. Destroying this
   value does not close the descriptor.
   $>
+::file_ref INCLUDE_IF(OS_MACOS)
   STRUCT
 {
   .descriptor VAR I32;
 
-  .CONSTRUCTOR DOC <$ Creates an empty file reference. $>
+  DOC <$ Creates an empty file reference. $>
+  .CONSTRUCTOR
     FUNCTION() { .descriptor := -1; }
 
-  .is_valid DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
+  DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
+  .is_valid
     FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
 
-  .CONSTRUCTOR DOC <$ Creates a non-owning reference to descriptor. $>
+  DOC <$ Creates a non-owning reference to descriptor. $>
+  .CONSTRUCTOR
     FUNCTION(@descriptor I32)
   {
     .descriptor := descriptor;
   }
 
-  .read DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+  DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+  .read
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
@@ -195,7 +210,8 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .write DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
+  DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
+  .write
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
@@ -212,37 +228,43 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .close DOC <$
+  DOC <$
     Closes the referenced descriptor. This operation does not track whether
     another file_ref still refers to the same descriptor.
     $>
+  .close
     FUNCTION(): BOOL
   {
     RETURN syscall::macos::close(@fd .descriptor) == 0;
   }
 }
 
-::file_ref INCLUDE_IF(ARCH_IS_JVM) DOC <$
+DOC <$
   A non-owning reference to an open Java random-access file. Destroying this
   value does not close the Java object.
   $>
+::file_ref INCLUDE_IF(ARCH_IS_JVM)
   STRUCT
 {
   .random_access_file VAR ~> java_random_access_file;
 
-  .CONSTRUCTOR DOC <$ Creates an empty file reference. $>
+  DOC <$ Creates an empty file reference. $>
+  .CONSTRUCTOR
     FUNCTION() { }
 
-  .is_valid DOC <$ Reports whether the reference contains a Java file object. $>
+  DOC <$ Reports whether the reference contains a Java file object. $>
+  .is_valid
     FUNCTION() CONST: BOOL { RETURN .random_access_file != NULL; }
 
-  .CONSTRUCTOR DOC <$ Creates a non-owning reference to random_access_file. $>
+  DOC <$ Creates a non-owning reference to random_access_file. $>
+  .CONSTRUCTOR
     FUNCTION(@random_access_file ~> java_random_access_file)
   {
     .random_access_file := random_access_file;
   }
 
-  .read DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+  DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+  .read
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
@@ -261,7 +283,8 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .write DOC <$ Writes buffer.size bytes from buffer and stores the outcome in result. $>
+  DOC <$ Writes buffer.size bytes from buffer and stores the outcome in result. $>
+  .write
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
@@ -278,7 +301,8 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .size DOC <$ Returns the current file length in bytes. $>
+  DOC <$ Returns the current file length in bytes. $>
+  .size
     FUNCTION(): SZ
   {
     VAR length I64 := jvm_random_access_file_length(
@@ -287,7 +311,8 @@ IMPORT syscall;
     RETURN length AS CHECKED SZ;
   }
 
-  .truncate DOC <$ Truncates the file to zero bytes. $>
+  DOC <$ Truncates the file to zero bytes. $>
+  .truncate
     FUNCTION()
   {
     jvm_random_access_file_set_length(
@@ -296,7 +321,8 @@ IMPORT syscall;
     );
   }
 
-  .close DOC <$ Closes the referenced Java random-access file. $>
+  DOC <$ Closes the referenced Java random-access file. $>
+  .close
     FUNCTION(): BOOL
   {
     jvm_random_access_file_close(@THIS .random_access_file);
@@ -327,10 +353,11 @@ IMPORT syscall;
 ::windows_close_handle INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"CloseHandle"]
   CALLABLE CALLCONV CCALL(@handle ADDRESS; RETURN BOOL);
 
-::windows_transfer_size INCLUDE_IF(OS_WINDOWS) DOC <$
+DOC <$
   Limits one Windows transfer to the DWORD count accepted by ReadFile and
   WriteFile. Callers can continue with the untransferred suffix.
   $>
+::windows_transfer_size INCLUDE_IF(OS_WINDOWS)
   FUNCTION(@size SZ): U32
 {
   VAR maximum U32 := (0 AS U32) #!!;
@@ -341,35 +368,41 @@ IMPORT syscall;
   RETURN size AS ASSUME U32;
 }
 
-::file_ref INCLUDE_IF(OS_WINDOWS) DOC <$
+DOC <$
   A non-owning reference to an open Windows file HANDLE. Destroying this value
   does not close the handle.
   $>
+::file_ref INCLUDE_IF(OS_WINDOWS)
   STRUCT
 {
-  ::get_standard_handle DOC <$ Borrows a Windows process standard handle selected by ARG. $>
+  DOC <$ Borrows a Windows process standard handle selected by ARG. $>
+  ::get_standard_handle
     EXTERN_PROCEDURE["kernel32":"GetStdHandle"]
     CALLABLE CALLCONV CCALL(@ARG I32; RETURN ADDRESS);
 
   .handle VAR ADDRESS;
 
-  .CONSTRUCTOR DOC <$ Creates an empty file reference. $>
+  DOC <$ Creates an empty file reference. $>
+  .CONSTRUCTOR
     FUNCTION() { }
 
-  .is_valid DOC <$ Rejects null and INVALID_HANDLE_VALUE references. $>
+  DOC <$ Rejects null and INVALID_HANDLE_VALUE references. $>
+  .is_valid
     FUNCTION() CONST: BOOL
   {
     VAR null_address ADDRESS;
     RETURN .handle != NULL && .handle != null_address - (1 AS SZ);
   }
 
-  .CONSTRUCTOR DOC <$ Creates a non-owning reference to handle. $>
+  DOC <$ Creates a non-owning reference to handle. $>
+  .CONSTRUCTOR
     FUNCTION(@handle ADDRESS)
   {
     .handle := handle;
   }
 
-  .read DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+  DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
+  .read
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
@@ -386,7 +419,8 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .write DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
+  DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
+  .write
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
@@ -403,22 +437,24 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .close DOC <$
+  DOC <$
     Closes the referenced handle. This operation does not track whether another
     file_ref still refers to the same handle.
     $>
+  .close
     FUNCTION(): BOOL
   {
     RETURN windows_close_handle(@handle .handle);
   }
 }
 
-::file DOC <$
+DOC <$
   A move-only RAII owner of a file_ref. Default construction creates a closed
   owner. Construction from a valid file_ref transfers exclusive ownership;
   the caller retains no responsibility for closing the native resource.
   Moving releases the source. Destruction closes a valid owned reference once.
   $>
+::file
   STRUCT MOVE_ONLY
 {
   PRIVATE(CLASS)
@@ -426,22 +462,26 @@ IMPORT syscall;
     .native_ref VAR file_ref;
   }
 
-  .CONSTRUCTOR DOC <$ Creates a closed owner. $>
+  DOC <$ Creates a closed owner. $>
+  .CONSTRUCTOR
     FUNCTION() { }
 
-  .CONSTRUCTOR DOC <$ Takes exclusive ownership of native_ref. Empty references remain closed. $>
+  DOC <$ Takes exclusive ownership of native_ref. Empty references remain closed. $>
+  .CONSTRUCTOR
     FUNCTION(@native_ref file_ref)
   {
     .native_ref := native_ref;
   }
 
-  .CONSTRUCTOR DOC <$ Transfers ownership from OTHER and leaves OTHER closed. $>
+  DOC <$ Transfers ownership from OTHER and leaves OTHER closed. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& file)
   {
     .native_ref := OTHER.release();
   }
 
-  .OPERATOR:= DOC <$ Closes the current resource and transfers ownership from OTHER. Self-move preserves ownership. $>
+  DOC <$ Closes the current resource and transfers ownership from OTHER. Self-move preserves ownership. $>
+  .OPERATOR:=
     FUNCTION(@OTHER TEMP& file) MUT
   {
     VAR incoming file_ref := OTHER.release();
@@ -449,22 +489,26 @@ IMPORT syscall;
     .native_ref := incoming;
   }
 
-  .DESTRUCTOR DOC <$ Closes the owned reference if it is valid. $>
+  DOC <$ Closes the owned reference if it is valid. $>
+  .DESTRUCTOR
     FUNCTION() { .close(); }
 
-  .reference DOC <$ Borrows the owned reference without transferring responsibility for closing it. $>
+  DOC <$ Borrows the owned reference without transferring responsibility for closing it. $>
+  .reference
     FUNCTION() CONST: file_ref
   {
     RETURN .native_ref;
   }
 
-  .is_open DOC <$ Reports whether this value owns a valid native reference. $>
+  DOC <$ Reports whether this value owns a valid native reference. $>
+  .is_open
     FUNCTION() CONST: BOOL
   {
     RETURN .native_ref.is_valid();
   }
 
-  .release DOC <$ Transfers responsibility for closing the reference to the caller and leaves this owner closed. $>
+  DOC <$ Transfers responsibility for closing the reference to the caller and leaves this owner closed. $>
+  .release
     FUNCTION() MUT: file_ref
   {
     VAR previous file_ref := .native_ref;
@@ -473,7 +517,8 @@ IMPORT syscall;
     RETURN previous;
   }
 
-  .read DOC <$ Reads into buffer through the owned reference. Closed owners report an unsuccessful transfer. $>
+  DOC <$ Reads into buffer through the owned reference. Closed owners report an unsuccessful transfer. $>
+  .read
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     IF (.is_open())
@@ -485,7 +530,8 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .write DOC <$ Writes buffer through the owned reference. Closed owners report an unsuccessful transfer. $>
+  DOC <$ Writes buffer through the owned reference. Closed owners report an unsuccessful transfer. $>
+  .write
     FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     IF (.is_open())
@@ -497,7 +543,8 @@ IMPORT syscall;
     result := outcome;
   }
 
-  .close DOC <$ Relinquishes ownership before closing the native reference. Closed owners succeed without a native call; failed closes are not retried. $>
+  DOC <$ Relinquishes ownership before closing the native reference. Closed owners succeed without a native call; failed closes are not retried. $>
+  .close
     FUNCTION(): BOOL
   {
     IF (.is_open() == FALSE) { RETURN TRUE; }
@@ -511,11 +558,12 @@ PRIVATE(MODULE)
   ::posix_filesystem INCLUDE_IF(OS_LINUX) ALIAS syscall::linux;
   ::posix_filesystem INCLUDE_IF(OS_MACOS) ALIAS syscall::macos;
 
-  ::open_posix INCLUDE_IF(OS_LINUX || OS_MACOS) DOC <$
+  DOC <$
     Opens a null-terminated copy of path with flags and transfers the descriptor
     to an owning file. Embedded null bytes and open failures throw an I32 value.
     Creation permissions are read/write for all users, restricted by the process umask.
     $>
+  ::open_posix INCLUDE_IF(OS_LINUX || OS_MACOS)
     FUNCTION(@path CONST& string, @flags posix_filesystem::open_flags): file
   {
     VAR native_path dynarr#BYTE;
@@ -540,31 +588,34 @@ PRIVATE(MODULE)
   }
 }
 
-::open_read INCLUDE_IF(OS_LINUX || OS_MACOS) DOC <$
+DOC <$
   Opens an existing path for reading and returns its owner. Embedded null bytes
   and open failures throw an I32 value. The file is closed during unwinding.
   $>
+::open_read INCLUDE_IF(OS_LINUX || OS_MACOS)
   FUNCTION(@path CONST& string): file
 {
   RETURN open_posix(@path path, @flags posix_filesystem::rdonly);
 }
 
-::open_read_write INCLUDE_IF(OS_LINUX || OS_MACOS) DOC <$
+DOC <$
   Opens path for reading and writing, creating it when absent, and returns its
   owner. Existing contents are preserved. Embedded null bytes and open failures
   throw an I32 value. Creation permissions are restricted by the process umask.
   $>
+::open_read_write INCLUDE_IF(OS_LINUX || OS_MACOS)
   FUNCTION(@path CONST& string): file
 {
   RETURN open_posix(@path path,
     @flags posix_filesystem::open_flags::rdwr #|| posix_filesystem::open_flags::creat);
 }
 
-::open_replace INCLUDE_IF(OS_LINUX || OS_MACOS) DOC <$
+DOC <$
   Opens path for reading and writing, creating it when absent and truncating
   existing contents, and returns its owner. Embedded null bytes and open failures
   throw an I32 value. Creation permissions are restricted by the process umask.
   $>
+::open_replace INCLUDE_IF(OS_LINUX || OS_MACOS)
   FUNCTION(@path CONST& string): file
 {
   RETURN open_posix(@path path,
@@ -572,10 +623,11 @@ PRIVATE(MODULE)
       #|| posix_filesystem::open_flags::trunc);
 }
 
-::open_read_write INCLUDE_IF(ARCH_IS_JVM) DOC <$
+DOC <$
   Opens path for Java random-access reading and writing and returns its owner.
   Java I/O exceptions propagate out of the generated JVM program.
   $>
+::open_read_write INCLUDE_IF(ARCH_IS_JVM)
   FUNCTION(@path CONST& string): file
 {
   VAR java_path ~> RUNTIME_MODULE::java_string :=
@@ -590,10 +642,11 @@ PRIVATE(MODULE)
   );
 }
 
-::open_read INCLUDE_IF(ARCH_IS_JVM) DOC <$
+DOC <$
   Opens path for Java random-access reading and returns its owner.
   Java I/O exceptions propagate out of the generated JVM program.
   $>
+::open_read INCLUDE_IF(ARCH_IS_JVM)
   FUNCTION(@path CONST& string): file
 {
   VAR java_path ~> RUNTIME_MODULE::java_string :=
@@ -608,11 +661,12 @@ PRIVATE(MODULE)
   );
 }
 
-::open_replace INCLUDE_IF(ARCH_IS_JVM) DOC <$
+DOC <$
   Opens path for Java random-access reading and writing, truncates it, and
   returns its owner. Java I/O exceptions propagate out of the generated JVM
   program.
   $>
+::open_replace INCLUDE_IF(ARCH_IS_JVM)
   FUNCTION(@path CONST& string): file
 {
   VAR java_path ~> RUNTIME_MODULE::java_string :=
@@ -629,10 +683,11 @@ PRIVATE(MODULE)
   RETURN file(@native_ref reference);
 }
 
-::create_temporary_path INCLUDE_IF(ARCH_IS_JVM) DOC <$
+DOC <$
   Creates an empty temporary file, schedules deletion when the JVM exits, and
   returns its path.
   $>
+::create_temporary_path INCLUDE_IF(ARCH_IS_JVM)
   FUNCTION(): string
 {
   VAR prefix string := "quxlang-cortado-";

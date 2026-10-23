@@ -3,14 +3,16 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT std;
 
 
-::cord_move_only_value DOC <$
+DOC <$
   Tracks one live integer and permits ownership transfer but not copying.
-  $> STRUCT MOVE_ONLY
+  $>
+::cord_move_only_value STRUCT MOVE_ONLY
 {
   .alive VAR MUT->I32;
   .value VAR I32;
 
-  .CONSTRUCTOR DOC <$ Constructs a tracked value and increments alive. $>
+  DOC <$ Constructs a tracked value and increments alive. $>
+  .CONSTRUCTOR
     FUNCTION(@alive MUT& I32, @value I32)
   {
     .alive := alive<-;
@@ -18,7 +20,8 @@ IMPORT std;
     .alive-> ++;
   }
 
-  .CONSTRUCTOR DOC <$ Transfers tracking ownership and the stored integer from OTHER. $>
+  DOC <$ Transfers tracking ownership and the stored integer from OTHER. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& cord_move_only_value)
   {
     VAR source_alive MUT& MUT->I32 := OTHER.alive AS MUT& MUT->I32;
@@ -28,7 +31,8 @@ IMPORT std;
     source_value := (0 AS I32) - 1;
   }
 
-  .DESTRUCTOR DOC <$ Decrements alive when this object owns a tracked value. $>
+  DOC <$ Decrements alive when this object owns a tracked value. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     IF (.alive??)
@@ -39,14 +43,16 @@ IMPORT std;
 }
 
 
-::cord_copyable_lifetime_value DOC <$
+DOC <$
   Tracks copies, moves, and destruction of one integer stored in a cord.
-  $> STRUCT
+  $>
+::cord_copyable_lifetime_value STRUCT
 {
   .alive VAR MUT->I32;
   .value VAR I32;
 
-  .CONSTRUCTOR DOC <$ Constructs a tracked value and increments alive. $>
+  DOC <$ Constructs a tracked value and increments alive. $>
+  .CONSTRUCTOR
     FUNCTION(@alive MUT& I32, @value I32)
   {
     .alive := alive<-;
@@ -54,7 +60,8 @@ IMPORT std;
     .alive-> ++;
   }
 
-  .CONSTRUCTOR DOC <$ Copies a tracked value and increments alive. $>
+  DOC <$ Copies a tracked value and increments alive. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER CONST& cord_copyable_lifetime_value)
   {
     .alive := OTHER.alive;
@@ -65,7 +72,8 @@ IMPORT std;
     }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers tracking ownership without changing alive. $>
+  DOC <$ Transfers tracking ownership without changing alive. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& cord_copyable_lifetime_value)
   {
     .value := OTHER.value;
@@ -73,7 +81,8 @@ IMPORT std;
     .alive <-> source_alive;
   }
 
-  .DESTRUCTOR DOC <$ Decrements alive when this object owns a tracked value. $>
+  DOC <$ Decrements alive when this object owns a tracked value. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     IF (.alive??)
@@ -84,10 +93,11 @@ IMPORT std;
 }
 
 
-::cord_construction_from_elements_and_arrays DOC <$
+DOC <$
   Verifies empty construction, single-element construction, array copying,
   allocation transfer, and complete cord ownership transfer.
-  $> DUAL_TEST
+  $>
+::cord_construction_from_elements_and_arrays DUAL_TEST
 {
   VAR empty_value std::cord#(I32);
   TEST_ASSERT(empty_value.empty());
@@ -125,10 +135,11 @@ IMPORT std;
 }
 
 
-::cord_byte_literal_construction DOC <$
+DOC <$
   Verifies that cord#(BYTE) retains convenient string-constant construction
   while exposing its flattened representation as an element array.
-  $> DUAL_TEST
+  $>
+::cord_byte_literal_construction DUAL_TEST
 {
   VAR value std::cord#(BYTE) := "literal";
   TEST_ASSERT(value.size() == 7);
@@ -144,10 +155,11 @@ IMPORT std;
 }
 
 
-::cord_member_concat_consumes_suffix DOC <$
+DOC <$
   Verifies that concat appends elements in order, consumes its suffix, and
   preserves the canonical empty state for empty operands.
-  $> DUAL_TEST
+  $>
+::cord_member_concat_consumes_suffix DUAL_TEST
 {
   VAR value std::cord#(I32) := std::cord#(I32)(@value (2 AS I32));
   VAR suffix_elements std::dynarr#(I32);
@@ -175,10 +187,11 @@ IMPORT std;
 }
 
 
-::cord_compound_and_temporary_concat DOC <$
+DOC <$
   Verifies compound concatenation and temporary addition while checking that
   each uniquely owned input tree is consumed.
-  $> DUAL_TEST
+  $>
+::cord_compound_and_temporary_concat DUAL_TEST
 {
   VAR value std::cord#(I32) := std::cord#(I32)(@value (31 AS I32));
   VAR suffix std::cord#(I32) := std::cord#(I32)(@value (37 AS I32));
@@ -199,10 +212,11 @@ IMPORT std;
 }
 
 
-::cord_skewed_repeated_concat_remains_ordered DOC <$
+DOC <$
   Repeatedly appends and prepends integer leaves so both skew directions require
   balancing while every element remains in its original logical order.
-  $> UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+::cord_skewed_repeated_concat_remains_ordered UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   VAR appended std::cord#(I32);
   VAR prepended std::cord#(I32);
@@ -234,10 +248,11 @@ IMPORT std;
 }
 
 
-::cord_free_concat_consumes_tall_operand DOC <$
+DOC <$
   Verifies that free concat preserves every element from a tall left tree before
   its suffix and leaves both transferred source cords empty.
-  $> UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  $>
+::cord_free_concat_consumes_tall_operand UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   VAR tall std::cord#(I32);
   VAR iteration SZ := 0;
@@ -269,10 +284,11 @@ IMPORT std;
 }
 
 
-::cord_indexing_and_copy_flatten_cross_leaf_boundaries DOC <$
+DOC <$
   Verifies constant and mutable indexing across leaf boundaries and confirms
   that non-consuming flattening returns an independent contiguous copy.
-  $> DUAL_TEST
+  $>
+::cord_indexing_and_copy_flatten_cross_leaf_boundaries DUAL_TEST
 {
   VAR first_elements std::dynarr#(I32);
   first_elements.push_back(2);
@@ -304,10 +320,11 @@ IMPORT std;
 }
 
 
-::cord_consuming_flatten_supports_move_only_elements DOC <$
+DOC <$
   Verifies that consuming flatten moves elements from all leaves into one array
   and resets the source cord without leaks or copies of T.
-  $> UNIT_TEST
+  $>
+::cord_consuming_flatten_supports_move_only_elements UNIT_TEST
 {
   VAR alive I32 := 0;
   {
@@ -366,10 +383,11 @@ IMPORT std;
 }
 
 
-::cord_branched_copy_is_independent DOC <$
+DOC <$
   Verifies that copy construction duplicates a branched tree and its elements
   so mutation, concatenation, and destruction cannot affect the source.
-  $> DUAL_TEST
+  $>
+::cord_branched_copy_is_independent DUAL_TEST
 {
   VAR empty_value std::cord#(I32);
   VAR empty_copy std::cord#(I32) := empty_value;
@@ -408,10 +426,11 @@ IMPORT std;
 }
 
 
-::cord_copy_assignment_replaces_tree DOC <$
+DOC <$
   Verifies that copy assignment replaces an existing branched tree and leaves
   the source and destination independently mutable.
-  $> DUAL_TEST
+  $>
+::cord_copy_assignment_replaces_tree DUAL_TEST
 {
   VAR source_first std::cord#(I32) :=
     std::cord#(I32)(@value (17 AS I32));
@@ -439,10 +458,11 @@ IMPORT std;
 }
 
 
-::cord_copy_lifetimes_balance DOC <$
+DOC <$
   Verifies that deep copy construction and assignment create one independently
   destroyed element for each logical element in each cord.
-  $> UNIT_TEST
+  $>
+::cord_copy_lifetimes_balance UNIT_TEST
 {
   VAR alive I32 := 0;
   {
@@ -489,9 +509,10 @@ IMPORT std;
 }
 
 
-::cord_move_only_element_copy_construction_is_rejected DOC <$
+DOC <$
   Verifies that copy construction requires the cord element type to be copyable.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+::cord_move_only_element_copy_construction_is_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR alive I32 := 0;
   VAR element cord_move_only_value := cord_move_only_value(
@@ -504,9 +525,10 @@ IMPORT std;
 }
 
 
-::cord_move_only_element_copy_assignment_is_rejected DOC <$
+DOC <$
   Verifies that copy assignment requires the cord element type to be copyable.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+::cord_move_only_element_copy_assignment_is_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR alive I32 := 0;
   VAR source_element cord_move_only_value := cord_move_only_value(
@@ -525,9 +547,10 @@ IMPORT std;
 }
 
 
-::cord_mixed_element_concat_is_rejected DOC <$
+DOC <$
   Verifies that concatenation requires both cords to have the same element type.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+::cord_mixed_element_concat_is_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR integers std::cord#(I32) := std::cord#(I32)(@value (61 AS I32));
   VAR bytes std::cord#(BYTE) := "bytes";
@@ -535,27 +558,30 @@ IMPORT std;
 }
 
 
-::cord_non_byte_literal_construction_is_rejected DOC <$
+DOC <$
   Verifies that string constants are not treated as arrays of non-byte elements.
-  $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  $>
+::cord_non_byte_literal_construction_is_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR invalid std::cord#(I32) := "not integers";
 }
 
 
-::cord_out_of_range_index_fails DOC <$
+DOC <$
   Verifies that indexing at size is rejected instead of reading beyond the cord.
-  $> STATIC_TEST EXPECT_FAIL
+  $>
+::cord_out_of_range_index_fails STATIC_TEST EXPECT_FAIL
 {
   VAR value std::cord#(I32) := std::cord#(I32)(@value (67 AS I32));
   VAR invalid I32 := value[value.size()];
 }
 
 
-::cord_free_concat_self_alias_fails DOC <$
+DOC <$
   Verifies that free binary concat rejects two ownership-transfer arguments that
   refer to the same cord.
-  $> STATIC_TEST EXPECT_FAIL
+  $>
+::cord_free_concat_self_alias_fails STATIC_TEST EXPECT_FAIL
 {
   VAR value std::cord#(I32) := std::cord#(I32)(@value (71 AS I32));
   VAR invalid std::cord#(I32) := std::concat#(I32)(

@@ -2,13 +2,15 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::exception_tests NAMESPACE
 {
-  ::read_current DOC <$ Reads the active handler from a separately called function. $>
+  DOC <$ Reads the active handler from a separately called function. $>
+  ::read_current
     FUNCTION() NOEXCEPT: EXCEPTION_PTR
   {
     RETURN CURRENT_EXCEPTION();
   }
 
-  ::saved_exception DOC <$ A saved handle retains the original object beyond its handler and permits later propagation. $>
+  DOC <$ A saved handle retains the original object beyond its handler and permits later propagation. $>
+  ::saved_exception
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR saved EXCEPTION_PTR;
@@ -27,7 +29,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::current_exception_nesting DOC <$ Nested handlers restore the previous current exception after their local cleanup. $>
+  DOC <$ Nested handlers restore the previous current exception after their local cleanup. $>
+  ::current_exception_nesting
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     TRY { THROW I32(@OTHER 42); }
@@ -45,7 +48,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::current_during_unwind DOC <$ A propagating exception becomes current only after its handler is entered. $>
+  DOC <$ A propagating exception becomes current only after its handler is entered. $>
+  ::current_during_unwind
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR observed BOOL := FALSE;
@@ -71,7 +75,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::saved_out_of_memory DOC <$ The permanent sentinel reference survives ordinary handle ownership and repeated throws. $>
+  DOC <$ The permanent sentinel reference survives ordinary handle ownership and repeated throws. $>
+  ::saved_out_of_memory
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR saved EXCEPTION_PTR;
@@ -87,13 +92,15 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(saved??);
   }
 
-  ::raise_integer DOC <$ Propagates an integer through an ordinary function call. $>
+  DOC <$ Propagates an integer through an ordinary function call. $>
+  ::raise_integer
     FUNCTION()
   {
     THROW I32(@OTHER 42);
   }
 
-  ::exact_reference DOC <$ Binds an exception by its explicit reference type. $>
+  DOC <$ Binds an exception by its explicit reference type. $>
+  ::exact_reference
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -106,7 +113,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::call_propagation DOC <$ Finds a caller handler before unwinding a callee. $>
+  DOC <$ Finds a caller handler before unwinding a callee. $>
+  ::call_propagation
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -115,7 +123,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::mutable_rethrow DOC <$ Rethrow preserves changes to the original exception payload. $>
+  DOC <$ Rethrow preserves changes to the original exception payload. $>
+  ::mutable_rethrow
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value I32 := 0;
@@ -132,7 +141,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == 17);
   }
 
-  ::default_and_sentinel DOC <$ Ordinary objects bypass the sentinel handler and reach the default. $>
+  DOC <$ Ordinary objects bypass the sentinel handler and reach the default. $>
+  ::default_and_sentinel
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -143,7 +153,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::deferred_cleanup DOC <$ Exceptional scope exit executes deferred actions before entering a handler. $>
+  DOC <$ Exceptional scope exit executes deferred actions before entering a handler. $>
+  ::deferred_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -157,7 +168,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 21);
   }
 
-  ::nonthrowing_body DOC <$ NOEXCEPT permits exceptions that are handled inside the callable. $>
+  DOC <$ NOEXCEPT permits exceptions that are handled inside the callable. $>
+  ::nonthrowing_body
     FUNCTION() NOEXCEPT: I32
   {
     TRY { raise_integer(); }
@@ -165,13 +177,15 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN 0;
   }
 
-  ::caught_inside_noexcept DOC <$ An internal handler satisfies the callable's nonthrowing contract. $>
+  DOC <$ An internal handler satisfies the callable's nonthrowing contract. $>
+  ::caught_inside_noexcept
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     TEST_ASSERT(nonthrowing_body() == 42);
   }
 
-  ::sentinel_rethrow DOC <$ The allocation-failure sentinel has no ordinary object or typed binding. $>
+  DOC <$ The allocation-failure sentinel has no ordinary object or typed binding. $>
+  ::sentinel_rethrow
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -186,7 +200,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::nested_handler DOC <$ Handling another exception does not replace the lexical rethrow payload. $>
+  DOC <$ Handling another exception does not replace the lexical rethrow payload. $>
+  ::nested_handler
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -206,14 +221,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::recorded_exception DOC <$ Records destruction of both the source and owned exception objects. $>
+  DOC <$ Records destruction of both the source and owned exception objects. $>
+  ::recorded_exception
     STRUCT
   {
     .count VAR MUT->I32;
     .DESTRUCTOR FUNCTION() { .count-> += 1; }
   }
 
-  ::payload_lifetime DOC <$ The caught payload survives cleanup and is destroyed on handler exit. $>
+  DOC <$ The caught payload survives cleanup and is destroyed on handler exit. $>
+  ::payload_lifetime
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR count I32 := 0;
@@ -227,7 +244,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(count == 2);
   }
 
-  ::sentinel_during_cleanup DOC <$ A deferred action can handle the sentinel while another exception propagates. $>
+  DOC <$ A deferred action can handle the sentinel while another exception propagates. $>
+  ::sentinel_during_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -243,27 +261,31 @@ LANGUAGE QUXLANG EN 0.0;
     CATCH error CONST& I32 { TEST_ASSERT(caught); }
   }
 
-  ::value_catch_rejected DOC <$ Typed catch bindings must be references. $>
+  DOC <$ Typed catch bindings must be references. $>
+  ::value_catch_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     TRY { raise_integer(); }
     CATCH error I32 {}
   }
 
-  ::pointer_catch_rejected DOC <$ A pointer value does not provide a catch reference binding. $>
+  DOC <$ A pointer value does not provide a catch reference binding. $>
+  ::pointer_catch_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     TRY { raise_integer(); }
     CATCH error CONST->I32 {}
   }
 
-  ::rethrow_without_handler_rejected DOC <$ RETHROW is only valid in a lexical catch. $>
+  DOC <$ RETHROW is only valid in a lexical catch. $>
+  ::rethrow_without_handler_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     RETHROW;
   }
 
-  ::cross_callable_rethrow_rejected DOC <$ A lambda cannot rethrow its enclosing callable's exception. $>
+  DOC <$ A lambda cannot rethrow its enclosing callable's exception. $>
+  ::cross_callable_rethrow_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     TRY { raise_integer(); }
@@ -274,13 +296,15 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::uncaught_rejected DOC <$ Uncaught exceptions are constant-evaluation errors. $>
+  DOC <$ Uncaught exceptions are constant-evaluation errors. $>
+  ::uncaught_rejected
     STATIC_TEST EXPECT_FAIL
   {
     raise_integer();
   }
 
-  ::noexcept_escape_rejected DOC <$ A caller cannot catch an exception that escapes a nonthrowing callable. $>
+  DOC <$ A caller cannot catch an exception that escapes a nonthrowing callable. $>
+  ::noexcept_escape_rejected
     STATIC_TEST EXPECT_FAIL
   {
     AUTO action := -< NOEXCEPT { raise_integer(); };
@@ -288,7 +312,8 @@ LANGUAGE QUXLANG EN 0.0;
     CATCH DEFAULT {}
   }
 
-  ::defer_escape_rejected DOC <$ Deferred actions are implicitly nonthrowing. $>
+  DOC <$ Deferred actions are implicitly nonthrowing. $>
+  ::defer_escape_rejected
     STATIC_TEST EXPECT_FAIL
   {
     TRY { DEFER raise_integer(); }
@@ -301,7 +326,8 @@ LANGUAGE QUXLANG EN 0.0;
   }
   ::subobject_owner STRUCT { .member VAR escaping_subobject; }
 
-  ::subobject_destructor_escape DOC <$ A subobject exception cannot escape an implicit destructor boundary. $>
+  DOC <$ A subobject exception cannot escape an implicit destructor boundary. $>
+  ::subobject_destructor_escape
     STATIC_TEST EXPECT_FAIL
   {
     TRY { VAR owner subobject_owner; }
@@ -318,7 +344,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::destructor_nested_exception DOC <$ A destructor may handle a local exception while the original exception continues outward. $>
+  DOC <$ A destructor may handle a local exception while the original exception continues outward. $>
+  ::destructor_nested_exception
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR observed BOOL := FALSE;
@@ -335,7 +362,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::defer_catch_return_rejected DOC <$ Catch bodies do not bypass deferred-action return restrictions. $>
+  DOC <$ Catch bodies do not bypass deferred-action return restrictions. $>
+  ::defer_catch_return_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     DEFER
@@ -345,7 +373,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::enter_try_rejected DOC <$ GOTO cannot enter a protected region from outside it. $>
+  DOC <$ GOTO cannot enter a protected region from outside it. $>
+  ::enter_try_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     GOTO :inside;
@@ -372,7 +401,8 @@ LANGUAGE QUXLANG EN 0.0;
     ::raise FUNCTION() { THROW I32(@OTHER 42); }
   }
 
-  ::indirect_exception_calls DOC <$ Procedure, virtual, and interface calls propagate through ordinary catcher boundaries. $>
+  DOC <$ Procedure, virtual, and interface calls propagate through ordinary catcher boundaries. $>
+  ::indirect_exception_calls
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught I32 := 0;
@@ -395,7 +425,8 @@ LANGUAGE QUXLANG EN 0.0;
     .DESTRUCTOR FUNCTION() { .destroyed-> := TRUE; }
   }
 
-  ::universal_polymorphic_view DOC <$ All polymorphic subobjects share one canonical interface with dynamic type and virtual destruction. $>
+  DOC <$ All polymorphic subobjects share one canonical interface with dynamic type and virtual destruction. $>
+  ::universal_polymorphic_view
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR destroyed BOOL := FALSE;
@@ -414,7 +445,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(destroyed);
   }
 
-  ::polymorphic_base DOC <$ A unique polymorphic base binds to the corresponding subobject. $>
+  DOC <$ A unique polymorphic base binds to the corresponding subobject. $>
+  ::polymorphic_base
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -428,7 +460,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::ambiguous_base DOC <$ Repeated base subobjects do not match a typed base handler. $>
+  DOC <$ Repeated base subobjects do not match a typed base handler. $>
+  ::ambiguous_base
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
@@ -438,7 +471,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
 
-  ::throwing_constructor DOC <$ Fails after constructing one field of a partial object. $>
+  DOC <$ Fails after constructing one field of a partial object. $>
+  ::throwing_constructor
     STRUCT
   {
     .member VAR recorded_exception;
@@ -449,7 +483,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::partial_object_cleanup DOC <$ A failed constructor destroys completed fields without destroying the complete object. $>
+  DOC <$ A failed constructor destroys completed fields without destroying the complete object. $>
+  ::partial_object_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR count I32 := 0;
@@ -458,7 +493,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(count == 1);
   }
 
-  ::sibling_catch_jump_rejected DOC <$ A catch cannot jump into a sibling handler. $>
+  DOC <$ A catch cannot jump into a sibling handler. $>
+  ::sibling_catch_jump_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     TRY { THROW UNWIND_OUT_OF_MEMORY; }
@@ -466,14 +502,16 @@ LANGUAGE QUXLANG EN 0.0;
     CATCH DEFAULT { LABEL :sibling; }
   }
 
-  ::const_catch_mutation_rejected DOC <$ A constant catch reference cannot modify the payload. $>
+  DOC <$ A constant catch reference cannot modify the payload. $>
+  ::const_catch_mutation_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     TRY { raise_integer(); }
     CATCH error CONST& I32 { error := 7; }
   }
 
-  ::handler_exit_cleanup DOC <$ Leaving a handler by GOTO destroys its exception payload. $>
+  DOC <$ Leaving a handler by GOTO destroys its exception payload. $>
+  ::handler_exit_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR count I32 := 0;
@@ -488,7 +526,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(count == 2);
   }
 
-  ::array_exception_element DOC <$ Counts completed copies and fails during the second copy. $>
+  DOC <$ Counts completed copies and fails during the second copy. $>
+  ::array_exception_element
     STRUCT
   {
     .attempts VAR MUT->I32;
@@ -509,7 +548,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::partial_array_cleanup DOC <$ A failed array copy destroys only its completed prefix. $>
+  DOC <$ A failed array copy destroys only its completed prefix. $>
+  ::partial_array_cleanup
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
@@ -531,10 +571,12 @@ LANGUAGE QUXLANG EN 0.0;
   }
 }
 
-PRIVATE(MODULE) ::exception_private_array_value DOC <$ Keeps private element types resolved across compiler-generated array operations. $>
+DOC <$ Keeps private element types resolved across compiler-generated array operations. $>
+PRIVATE(MODULE) ::exception_private_array_value
 STRUCT { .value VAR I32; }
 
-::exception_private_arrays DOC <$ Array indexing and assignment retain access to their already-resolved private element type. $>
+DOC <$ Array indexing and assignment retain access to their already-resolved private element type. $>
+::exception_private_arrays
 DUAL_TEST
 {
   VAR first [2]exception_private_array_value;
@@ -544,7 +586,8 @@ DUAL_TEST
   TEST_ASSERT(second[0].value == 7);
 }
 
-::exception_unwind_loop_conditions DOC <$ Repeated loop tests reevaluate both short-circuit operands, including after CONTINUE. $>
+DOC <$ Repeated loop tests reevaluate both short-circuit operands, including after CONTINUE. $>
+::exception_unwind_loop_conditions
 DUAL_TEST
 {
   VAR index SZ := 0;
@@ -564,14 +607,16 @@ DUAL_TEST
   TEST_ASSERT(index == 2);
 }
 
-::exception_propagate_is_runtime_only DOC <$ User code cannot invoke the runtime's frame propagation intrinsic. $>
+DOC <$ User code cannot invoke the runtime's frame propagation intrinsic. $>
+::exception_propagate_is_runtime_only
 STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR frame MUT->RUNTIME_MODULE::EXCEPTION_FRAME;
   EXCEPTION_PROPAGATE(@FRAME frame);
 }
 
-::exception_register_array_copy DOC <$ Array copies preserve distinct register words, including on 32-bit native targets. $>
+DOC <$ Array copies preserve distinct register words, including on 32-bit native targets. $>
+::exception_register_array_copy
 DUAL_TEST
 {
   VAR original [256]UINTPTR;

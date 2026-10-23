@@ -3,7 +3,8 @@ IMPORT std;
 
 ::atomic_thread_tests NAMESPACE
 {
-  ::release_acquire_publication INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ A release/acquire handshake publishes both payload fields and prevents the next write until the consumer finishes reading. $>
+  DOC <$ A release/acquire handshake publishes both payload fields and prevents the next write until the consumer finishes reading. $>
+  ::release_acquire_publication INCLUDE_IF(OS_MACOS || ARCH_IS_JVM)
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR ready ATOMIC#BOOL;
@@ -36,12 +37,14 @@ IMPORT std;
     TEST_ASSERT(ready.LOAD#ATOMIC_RELAXED() == FALSE);
   }
 
-  ::ticket_accumulator DOC <$ Accumulates atomic fetch-add results in a destination owned by one worker. $>
+  DOC <$ Accumulates atomic fetch-add results in a destination owned by one worker. $>
+  ::ticket_accumulator
     STRUCT
   {
     .counter VAR MUT->ATOMIC#U64;
     .sum VAR MUT->U64;
-    .OPERATOR() DOC <$ Adds one thousand uniquely allocated ticket values to this worker's sum. $>
+    DOC <$ Adds one thousand uniquely allocated ticket values to this worker's sum. $>
+    .OPERATOR()
       FUNCTION()
     {
       VAR count SZ := 0;
@@ -55,7 +58,8 @@ IMPORT std;
     }
   }
 
-  ::contended_fetch_add_results INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Concurrent fetch-add operations preserve the final counter and the sum of all returned ticket values. $>
+  DOC <$ Concurrent fetch-add operations preserve the final counter and the sum of all returned ticket values. $>
+  ::contended_fetch_add_results INCLUDE_IF(OS_MACOS || ARCH_IS_JVM)
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR counter ATOMIC#U64;
@@ -76,7 +80,8 @@ IMPORT std;
     TEST_ASSERT(first_sum + second_sum == 1999000);
   }
 
-  ::contended_compare_exchange INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Compare-exchange retries use the observed value written back to expected after a failed attempt. $>
+  DOC <$ Compare-exchange retries use the observed value written back to expected after a failed attempt. $>
+  ::contended_compare_exchange INCLUDE_IF(OS_MACOS || ARCH_IS_JVM)
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR counter ATOMIC#I32;
@@ -97,7 +102,8 @@ IMPORT std;
     second.join();
     TEST_ASSERT(counter.LOAD#ATOMIC_ACQUIRE() == 2000);
   }
-  ::contended_fetch_multiply INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ Compare-exchange multiplication preserves every update and returns each preceding power exactly once. $>
+  DOC <$ Compare-exchange multiplication preserves every update and returns each preceding power exactly once. $>
+  ::contended_fetch_multiply INCLUDE_IF(OS_MACOS || ARCH_IS_JVM)
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR counter ATOMIC#U64;

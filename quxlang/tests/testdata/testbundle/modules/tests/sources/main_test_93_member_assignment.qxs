@@ -2,19 +2,22 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::member_assignment_tests NAMESPACE
 {
-  ::number DOC <$ Observable user assignment and swap distinguish member dispatch from generated field operations. $>
+  DOC <$ Observable user assignment and swap distinguish member dispatch from generated field operations. $>
+  ::number
     STRUCT
   {
     .value VAR I32;
     .assignments VAR MUT->I32;
     .swaps VAR MUT->I32;
-    .OPERATOR:= DOC <$ Stores one more than the source value and records every invocation, including self-assignment. $>
+    DOC <$ Stores one more than the source value and records every invocation, including self-assignment. $>
+    .OPERATOR:=
       FUNCTION(@OTHER CONST& number)
     {
       .assignments-> ++;
       .value := OTHER.value + 1;
     }
-    .OPERATOR<-> DOC <$ Swaps payloads and records invocation even when both operands identify the same object. $>
+    DOC <$ Swaps payloads and records invocation even when both operands identify the same object. $>
+    .OPERATOR<->
       FUNCTION(@OTHER MUT& number)
     {
       .swaps-> ++;
@@ -22,14 +25,16 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::receiver DOC <$ Returns a mutable operand while recording its source position. $>
+  DOC <$ Returns a mutable operand while recording its source position. $>
+  ::receiver
     FUNCTION(@value MUT& number, @events MUT& I32, @digit I32): MUT& number
   {
     events := events * 10 + digit;
     RETURN value;
   }
 
-  ::assignment_dispatch DOC <$ Assignment evaluates both operands once, calls the custom member, and preserves self-assignment effects. $>
+  DOC <$ Assignment evaluates both operands once, calls the custom member, and preserves self-assignment effects. $>
+  ::assignment_dispatch
     DUAL_TEST
   {
     VAR calls I32 := 0;
@@ -50,7 +55,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(left.value == 9);
   }
 
-  ::swap_dispatch DOC <$ Swap evaluates both operands once and invokes custom behavior for distinct and identical receivers. $>
+  DOC <$ Swap evaluates both operands once and invokes custom behavior for distinct and identical receivers. $>
+  ::swap_dispatch
     DUAL_TEST
   {
     VAR calls I32 := 0;

@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::static_branch_lifetime_tests NAMESPACE
 {
-  ::selected_scope DOC <$ Owns only the selected static branch's runtime objects and skips invalid unselected code. $>
+  DOC <$ Owns only the selected static branch's runtime objects and skips invalid unselected code. $>
+  ::selected_scope
     TEMPLATE(@first VALUE BOOL)
     FUNCTION(@events MUT& I32, @fail BOOL)
   {
@@ -25,7 +26,8 @@ LANGUAGE QUXLANG EN 0.0;
     events := events * 10 + 7;
   }
 
-  ::normal_continuation DOC <$ Selected branch locals are destroyed in reverse order before the following statement and before the enclosing local. $>
+  DOC <$ Selected branch locals are destroyed in reverse order before the following statement and before the enclosing local. $>
+  ::normal_continuation
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -36,7 +38,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 4379);
   }
 
-  ::exceptional_exit DOC <$ Exceptions unwind only the selected branch's locals and skip the continuation in each instantiation. $>
+  DOC <$ Exceptions unwind only the selected branch's locals and skip the continuation in each instantiation. $>
+  ::exceptional_exit
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;

@@ -3,10 +3,11 @@ LANGUAGE QUXLANG EN 0.0;
 
 PRIVATE(MODULE)
 {
-  ::windows_overlapped INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Matches the Windows OVERLAPPED structure used by ReadFile, WriteFile, and
     I/O completion ports.
     $>
+  ::windows_overlapped INCLUDE_IF(OS_WINDOWS)
     IBC_STRUCT
   {
     .internal VAR UINTPTR;
@@ -16,9 +17,10 @@ PRIVATE(MODULE)
     .event VAR ADDRESS;
   }
 
-  ::windows_async_context_state INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Owns one Windows I/O completion port.
     $>
+  ::windows_async_context_state INCLUDE_IF(OS_WINDOWS)
     STRUCT MOVE_ONLY
   {
     .completion_port VAR ADDRESS;
@@ -81,9 +83,10 @@ PRIVATE(MODULE)
     EXTERN_PROCEDURE["kernel32":"GetLastError"]
     CALLABLE CALLCONV CCALL(; RETURN U32);
 
-  ::initialize_windows_async_context INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Creates an I/O completion port with the requested worker concurrency.
     $>
+  ::initialize_windows_async_context INCLUDE_IF(OS_WINDOWS)
     FUNCTION(
       @state MUT& windows_async_context_state,
       @concurrency U32
@@ -100,9 +103,10 @@ PRIVATE(MODULE)
     RETURN state.completion_port??;
   }
 
-  ::associate_windows_async_file INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Associates an overlapped file handle with an existing completion port.
     $>
+  ::associate_windows_async_file INCLUDE_IF(OS_WINDOWS)
     FUNCTION(
       @state MUT& windows_async_context_state,
       @native_ref file_ref
@@ -117,9 +121,10 @@ PRIVATE(MODULE)
     RETURN associated == state.completion_port;
   }
 
-  ::prepare_windows_overlapped INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Initializes a request's OVERLAPPED state for one positioned transfer.
     $>
+  ::prepare_windows_overlapped INCLUDE_IF(OS_WINDOWS)
     FUNCTION(
       @request MUT->async_request,
       @offset U64
@@ -137,9 +142,10 @@ PRIVATE(MODULE)
     request->.windows_overlapped.event := null_event;
   }
 
-  ::windows_async_submission_accepted INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Treats immediate success and ERROR_IO_PENDING as accepted overlapped I/O.
     $>
+  ::windows_async_submission_accepted INCLUDE_IF(OS_WINDOWS)
     FUNCTION(@immediate_success BOOL): BOOL
   {
     IF (immediate_success)
@@ -149,9 +155,10 @@ PRIVATE(MODULE)
     RETURN windows_get_last_error() == 997;
   }
 
-  ::submit_async_read INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Starts one positioned overlapped read whose result is delivered by IOCP.
     $>
+  ::submit_async_read INCLUDE_IF(OS_WINDOWS)
     FUNCTION(
       @request MUT->async_request,
       @native_ref file_ref,
@@ -173,9 +180,10 @@ PRIVATE(MODULE)
     );
   }
 
-  ::submit_async_write INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Starts one positioned overlapped write whose result is delivered by IOCP.
     $>
+  ::submit_async_write INCLUDE_IF(OS_WINDOWS)
     FUNCTION(
       @request MUT->async_request,
       @native_ref file_ref,
@@ -197,10 +205,11 @@ PRIVATE(MODULE)
     );
   }
 
-  ::wait_for_async_completion INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Removes one IOCP packet, executes its callback, and returns false only for
     an explicit thread-pool stop packet.
     $>
+  ::wait_for_async_completion INCLUDE_IF(OS_WINDOWS)
     FUNCTION(@control MUT->async_context_control): BOOL
   {
     VAR transferred U32 := 0;
@@ -239,9 +248,10 @@ PRIVATE(MODULE)
     RETURN TRUE;
   }
 
-  ::request_async_stop INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Posts one null-OVERLAPPED completion packet per worker that must stop.
     $>
+  ::request_async_stop INCLUDE_IF(OS_WINDOWS)
     FUNCTION(
       @control MUT->async_context_control,
       @worker_count SZ
@@ -259,9 +269,10 @@ PRIVATE(MODULE)
     };
   }
 
-  ::shutdown_async_context INCLUDE_IF(OS_WINDOWS) DOC <$
+  DOC <$
     Closes a drained Windows I/O completion port.
     $>
+  ::shutdown_async_context INCLUDE_IF(OS_WINDOWS)
     FUNCTION(@control MUT->async_context_control)
   {
     ASSERT(windows_close_handle(@handle control->.windows.completion_port),

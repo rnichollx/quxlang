@@ -3,17 +3,19 @@ LANGUAGE QUXLANG EN 0.0;
 
 PRIVATE(MODULE, RUNTIME_MODULE)
 {
-  ::strong_control_block DOC <$
+  DOC <$
     Stores one shared object and the atomic strong and weak ownership counts
     governing its lifetime.
     $>
+  ::strong_control_block
   TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
   {
     .strong_count VAR ATOMIC#SZ;
     .weak_count VAR ATOMIC#SZ;
     .value_storage VAR TYPED_STORAGE(T);
 
-    .CONSTRUCTOR DOC <$ Default-constructs the owned value with one strong and one implicit weak reference. $>
+    DOC <$ Default-constructs the owned value with one strong and one implicit weak reference. $>
+    .CONSTRUCTOR
       FUNCTION()
     {
       .strong_count.STORE#ATOMIC_RELEASE(1);
@@ -21,7 +23,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
       PLACE AT(.value_storage) T;
     }
 
-    .CONSTRUCTOR DOC <$ Constructs the owned value with one strong and one implicit weak reference. $>
+    DOC <$ Constructs the owned value with one strong and one implicit weak reference. $>
+    .CONSTRUCTOR
       FUNCTION(%value AUTO& T)
     {
       .strong_count.STORE#ATOMIC_RELEASE(1);
@@ -30,10 +33,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
   }
 
-  ::retain_strong_reference DOC <$
+  DOC <$
     Adds one strong reference while another strong reference keeps the object
     alive.
     $>
+  ::retain_strong_reference
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->strong_control_block#(T))
   {
     VAR observed SZ := control->.strong_count.LOAD#ATOMIC_ACQUIRE();
@@ -51,10 +55,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     };
   }
 
-  ::release_strong_reference DOC <$
+  DOC <$
     Releases one strong reference, destroying the object and its implicit weak
     reference when the final owner leaves.
     $>
+  ::release_strong_reference
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->strong_control_block#(T))
   {
     VAR previous_strong SZ :=
@@ -73,10 +78,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
   }
 
-  ::retain_weak_reference DOC <$
+  DOC <$
     Adds one weak reference while an existing strong or weak reference keeps
     the control block alive.
     $>
+  ::retain_weak_reference
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->strong_control_block#(T))
   {
     VAR observed SZ := control->.weak_count.LOAD#ATOMIC_ACQUIRE();
@@ -94,10 +100,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     };
   }
 
-  ::release_weak_reference DOC <$
+  DOC <$
     Releases one weak reference and frees the expired control block after the
     final observer leaves.
     $>
+  ::release_weak_reference
     TEMPLATE(@T TYPE AUTO) FUNCTION(@control MUT->strong_control_block#(T))
   {
     VAR previous SZ := control->.weak_count.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
@@ -112,30 +119,34 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::strong_ptr DOC <$
+DOC <$
   Shares ownership of one heap-allocated T through an atomic control block.
   Copies share ownership, moves transfer ownership, and the final strong owner
   destroys T.
   $>
+::strong_ptr
   TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
     .control VAR MUT->strong_control_block#(T);
 
-    .CONSTRUCTOR DOC <$ Adopts one strong reference already recorded by control. $>
+    DOC <$ Adopts one strong reference already recorded by control. $>
+    .CONSTRUCTOR
       FUNCTION(@control MUT->strong_control_block#(T))
     {
       .control := control;
     }
   }
 
-  .CONSTRUCTOR DOC <$ Creates an empty shared pointer. $>
+  DOC <$ Creates an empty shared pointer. $>
+  .CONSTRUCTOR
     FUNCTION()
   {
   }
 
-  .CONSTRUCTOR DOC <$ Shares ownership held by OTHER. $>
+  DOC <$ Shares ownership held by OTHER. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER CONST& strong_ptr#(T))
   {
     .control := OTHER.control;
@@ -145,7 +156,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers ownership from OTHER without changing the reference count. $>
+  DOC <$ Transfers ownership from OTHER without changing the reference count. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& strong_ptr#(T))
   {
     VAR empty MUT->strong_control_block#(T);
@@ -155,13 +167,15 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     .control <-> other_control;
   }
 
-  .DESTRUCTOR DOC <$ Releases this object's strong reference, if any. $>
+  DOC <$ Releases this object's strong reference, if any. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     .reset();
   }
 
-  .reset DOC <$ Releases ownership and leaves this pointer empty. $>
+  DOC <$ Releases ownership and leaves this pointer empty. $>
+  .reset
     FUNCTION()
   {
     IF (.control??)
@@ -173,13 +187,15 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
   }
 
-  .has_value DOC <$ Reports whether this pointer owns a live object. $>
+  DOC <$ Reports whether this pointer owns a live object. $>
+  .has_value
     FUNCTION(): BOOL
   {
     RETURN .control??;
   }
 
-  .get DOC <$ Returns the owned object pointer, or a null pointer when empty. $>
+  DOC <$ Returns the owned object pointer, or a null pointer when empty. $>
+  .get
     FUNCTION(): MUT->T
   {
     IF ((.control??) == FALSE)
@@ -190,7 +206,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     RETURN (PUN .control->.value_storage AS T)<-;
   }
 
-  .use_count DOC <$ Returns the current number of strong owners. $>
+  DOC <$ Returns the current number of strong owners. $>
+  .use_count
     FUNCTION(): SZ
   {
     IF ((.control??) == FALSE)
@@ -200,14 +217,16 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     RETURN .control->.strong_count.LOAD#ATOMIC_ACQUIRE();
   }
 
-  .OPERATOR-> DOC <$ Returns a mutable reference to the owned object. $>
+  DOC <$ Returns a mutable reference to the owned object. $>
+  .OPERATOR->
     FUNCTION(): MUT& T
   {
     ASSERT(.control??, "Cannot dereference an empty shared pointer.");
     RETURN (PUN .control->.value_storage AS T);
   }
 
-  .OPERATOR== DOC <$ Compares ownership identities. $>
+  DOC <$ Compares ownership identities. $>
+  .OPERATOR==
     FUNCTION(@OTHER CONST& strong_ptr#(T)): BOOL
   {
     RETURN .control == OTHER.control;
@@ -215,10 +234,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::weak_ptr DOC <$
+DOC <$
   Observes an object owned by strong_ptr#(T) without extending its lifetime.
   lock atomically creates a strong owner only while the object remains alive.
   $>
+::weak_ptr
   TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
@@ -226,12 +246,14 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     .control VAR MUT->strong_control_block#(T);
   }
 
-  .CONSTRUCTOR DOC <$ Creates an empty weak pointer. $>
+  DOC <$ Creates an empty weak pointer. $>
+  .CONSTRUCTOR
     FUNCTION()
   {
   }
 
-  .CONSTRUCTOR DOC <$ Observes the object owned by OTHER. $>
+  DOC <$ Observes the object owned by OTHER. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER CONST& strong_ptr#(T))
   {
     .control := OTHER.control;
@@ -241,7 +263,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Copies another weak observation. $>
+  DOC <$ Copies another weak observation. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER CONST& weak_ptr#(T))
   {
     .control := OTHER.control;
@@ -251,7 +274,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers another weak observation without changing the reference count. $>
+  DOC <$ Transfers another weak observation without changing the reference count. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& weak_ptr#(T))
   {
     VAR empty MUT->strong_control_block#(T);
@@ -261,13 +285,15 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     .control <-> other_control;
   }
 
-  .DESTRUCTOR DOC <$ Releases this object's weak reference, if any. $>
+  DOC <$ Releases this object's weak reference, if any. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     .reset();
   }
 
-  .reset DOC <$ Releases the observation and leaves this pointer empty. $>
+  DOC <$ Releases the observation and leaves this pointer empty. $>
+  .reset
     FUNCTION()
   {
     IF (.control??)
@@ -279,7 +305,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
   }
 
-  .use_count DOC <$ Returns the current number of strong owners. $>
+  DOC <$ Returns the current number of strong owners. $>
+  .use_count
     FUNCTION(): SZ
   {
     IF ((.control??) == FALSE)
@@ -289,13 +316,15 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     RETURN .control->.strong_count.LOAD#ATOMIC_ACQUIRE();
   }
 
-  .expired DOC <$ Reports whether no strong owners remain. $>
+  DOC <$ Reports whether no strong owners remain. $>
+  .expired
     FUNCTION(): BOOL
   {
     RETURN .use_count() == 0;
   }
 
-  .lock DOC <$ Atomically acquires shared ownership when the object is still alive. $>
+  DOC <$ Atomically acquires shared ownership when the object is still alive. $>
+  .lock
     FUNCTION(): strong_ptr#(T)
   {
     IF (.control??)
@@ -319,10 +348,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::make_strong DOC <$
+DOC <$
   Allocates one control block containing a default-constructed T and returns its
   first strong owner.
   $>
+::make_strong
   TEMPLATE(@T TYPE AUTO) FUNCTION(): strong_ptr#(T)
 {
   VAR control MUT->strong_control_block#(T) := NEW strong_control_block#(T);
@@ -330,10 +360,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::make_strong_value DOC <$
+DOC <$
   Allocates one control block containing a T constructed from value and returns
   its first strong owner.
   $>
+::make_strong_value
   TEMPLATE(@T TYPE AUTO)
     FUNCTION(@ARG:value AUTO& T): strong_ptr#(T)
 {
@@ -344,19 +375,22 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 
 PRIVATE(MODULE, RUNTIME_MODULE)
 {
-  ::shared_allocation DOC <$ Stores one object and its atomic ownership count in one allocation. $>
+  DOC <$ Stores one object and its atomic ownership count in one allocation. $>
+  ::shared_allocation
     TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
   {
     .count VAR ATOMIC#SZ;
     .value VAR T;
 
-    .CONSTRUCTOR DOC <$ Default-constructs the object with one owner. $>
+    DOC <$ Default-constructs the object with one owner. $>
+    .CONSTRUCTOR
       FUNCTION()
     {
       .count.STORE#ATOMIC_RELEASE(1);
     }
 
-    .CONSTRUCTOR DOC <$ Constructs the object from value with one owner. $>
+    DOC <$ Constructs the object from value with one owner. $>
+    .CONSTRUCTOR
       FUNCTION(%value AUTO& T)
     {
       .value := FORWARD(value);
@@ -366,29 +400,33 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::shared_ptr DOC <$
+DOC <$
   Shares ownership of one object allocated together with an atomic reference count.
   The final owner destroys the object and releases the allocation.
   $>
+::shared_ptr
   TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE)
   {
     .allocation VAR MUT->shared_allocation#(T);
 
-    .CONSTRUCTOR DOC <$ Adopts the initial reference in allocation. $>
+    DOC <$ Adopts the initial reference in allocation. $>
+    .CONSTRUCTOR
       FUNCTION(@allocation MUT->shared_allocation#(T))
     {
       .allocation := allocation;
     }
   }
 
-  .CONSTRUCTOR DOC <$ Creates an empty shared pointer. $>
+  DOC <$ Creates an empty shared pointer. $>
+  .CONSTRUCTOR
     FUNCTION()
   {
   }
 
-  .CONSTRUCTOR DOC <$ Shares ownership held by OTHER. $>
+  DOC <$ Shares ownership held by OTHER. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER CONST& shared_ptr#(T))
   {
     .allocation := OTHER.allocation;
@@ -411,7 +449,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
   }
 
-  .CONSTRUCTOR DOC <$ Transfers ownership from OTHER without changing the reference count. $>
+  DOC <$ Transfers ownership from OTHER without changing the reference count. $>
+  .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& shared_ptr#(T))
   {
     VAR other_allocation MUT& MUT->shared_allocation#(T) :=
@@ -419,13 +458,15 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     .allocation <-> other_allocation;
   }
 
-  .DESTRUCTOR DOC <$ Releases this object's reference, if any. $>
+  DOC <$ Releases this object's reference, if any. $>
+  .DESTRUCTOR
     FUNCTION()
   {
     .reset();
   }
 
-  .reset DOC <$ Releases ownership and leaves this pointer empty. $>
+  DOC <$ Releases ownership and leaves this pointer empty. $>
+  .reset
     FUNCTION()
   {
     IF (.allocation??)
@@ -442,13 +483,15 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
   }
 
-  .has_value DOC <$ Reports whether this pointer owns an object. $>
+  DOC <$ Reports whether this pointer owns an object. $>
+  .has_value
     FUNCTION(): BOOL
   {
     RETURN .allocation??;
   }
 
-  .get DOC <$ Returns the owned object pointer, or a null pointer when empty. $>
+  DOC <$ Returns the owned object pointer, or a null pointer when empty. $>
+  .get
     FUNCTION(): MUT->T
   {
     IF ((.allocation??) == FALSE)
@@ -459,7 +502,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     RETURN .allocation->.value<-;
   }
 
-  .use_count DOC <$ Returns the current number of owners. $>
+  DOC <$ Returns the current number of owners. $>
+  .use_count
     FUNCTION(): SZ
   {
     IF ((.allocation??) == FALSE)
@@ -469,14 +513,16 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     RETURN .allocation->.count.LOAD#ATOMIC_ACQUIRE();
   }
 
-  .OPERATOR-> DOC <$ Returns a mutable reference to the owned object. $>
+  DOC <$ Returns a mutable reference to the owned object. $>
+  .OPERATOR->
     FUNCTION(): MUT& T
   {
     ASSERT(.allocation??, "Cannot dereference an empty shared pointer.");
     RETURN .allocation->.value;
   }
 
-  .OPERATOR== DOC <$ Compares ownership identities. $>
+  DOC <$ Compares ownership identities. $>
+  .OPERATOR==
     FUNCTION(@OTHER CONST& shared_ptr#(T)): BOOL
   {
     RETURN .allocation == OTHER.allocation;
@@ -484,7 +530,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::make_shared DOC <$ Allocates an object and its reference count together and returns its first owner. $>
+DOC <$ Allocates an object and its reference count together and returns its first owner. $>
+::make_shared
   TEMPLATE(@T TYPE AUTO) FUNCTION(): shared_ptr#(T)
 {
   VAR allocation MUT->shared_allocation#(T) := NEW shared_allocation#(T);
@@ -492,7 +539,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
 }
 
 
-::make_shared_value DOC <$ Allocates an object constructed from value together with its reference count. $>
+DOC <$ Allocates an object constructed from value together with its reference count. $>
+::make_shared_value
   TEMPLATE(@T TYPE AUTO) FUNCTION(@ARG:value AUTO& T): shared_ptr#(T)
 {
   VAR allocation MUT->shared_allocation#(T) := NEW shared_allocation#(T):[FORWARD(value)];

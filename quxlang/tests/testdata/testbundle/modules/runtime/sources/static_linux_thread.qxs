@@ -1,15 +1,15 @@
 LANGUAGE QUXLANG EN 0.0;
 
+DOC <$ Owns one mmap-backed storage region until it is explicitly released. $>
 ::static_linux_mapping INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Owns one mmap-backed storage region until it is explicitly released. $>
   STRUCT MOVE_ONLY
 {
   .storage VAR MUT=>>TYPED_STORAGE(BYTE);
   .size VAR SZ;
 }
 
+DOC <$ Owns one static TLS mapping and identifies its architecture thread pointer. $>
 ::static_linux_tls_block INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Owns one static TLS mapping and identifies its architecture thread pointer. $>
   STRUCT MOVE_ONLY
 {
   .mapping VAR static_linux_mapping;
@@ -17,8 +17,8 @@ LANGUAGE QUXLANG EN 0.0;
   .thread_pointer VAR MUT=>>TYPED_STORAGE(BYTE);
 }
 
+DOC <$ Matches the Linux i386 user_desc layout consumed by set_thread_area and clone. $>
 ::static_linux_x86_user_desc INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
-  DOC <$ Matches the Linux i386 user_desc layout consumed by set_thread_area and clone. $>
   IBC_STRUCT
 {
   .entry_number VAR U32;
@@ -27,14 +27,14 @@ LANGUAGE QUXLANG EN 0.0;
   .flags VAR U32;
 }
 
+DOC <$ Identifies an ELF program-segment kind in the kernel-provided program-header table. $>
 ::static_linux_elf_program_header_type INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Identifies an ELF program-segment kind in the kernel-provided program-header table. $>
   IBC_ENUM BITS(32) [
     thread_local_storage = 7
   ] ALLOW_UNKNOWN;
 
+DOC <$ Matches one ELF32 program header. $>
 ::static_linux_elf32_program_header INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
-  DOC <$ Matches one ELF32 program header. $>
   IBC_STRUCT
 {
   .type VAR static_linux_elf_program_header_type;
@@ -47,8 +47,8 @@ LANGUAGE QUXLANG EN 0.0;
   .alignment VAR U32;
 }
 
+DOC <$ Matches one ELF64 program header. $>
 ::static_linux_elf64_program_header INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86 == FALSE)
-  DOC <$ Matches one ELF64 program header. $>
   IBC_STRUCT
 {
   .type VAR static_linux_elf_program_header_type;
@@ -307,8 +307,8 @@ LABEL static_linux_x86_set_thread_area_done;
   }
 }
 
+DOC <$ Allocates and initializes one independent PT_TLS image. $>
 ::static_linux_tls_allocate INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Allocates and initializes one independent PT_TLS image. $>
   FUNCTION(@result MUT& static_linux_tls_block)
 {
   ASSERT(static_linux_tls_file_size <= static_linux_tls_memory_size,
@@ -392,8 +392,8 @@ LABEL static_linux_x86_set_thread_area_done;
   };
 }
 
+DOC <$ Releases one PT_TLS backing mapping after its thread has exited. $>
 ::static_linux_tls_release INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Releases one PT_TLS backing mapping after its thread has exited. $>
   FUNCTION(@block MUT& static_linux_tls_block)
 {
   VAR address ADDRESS := IBC_GETADDR(@PTR block.mapping.storage);
@@ -408,8 +408,8 @@ LABEL static_linux_x86_set_thread_area_done;
   block.thread_pointer := empty_storage;
 }
 
+DOC <$ Allocates a 2 MiB downward-growing stack behind one inaccessible guard page. $>
 ::static_linux_stack_allocate INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Allocates a 2 MiB downward-growing stack behind one inaccessible guard page. $>
   FUNCTION(@result MUT& static_linux_mapping)
 {
   VAR page_size SZ := linux_auxiliary_page_size;
@@ -437,8 +437,8 @@ LABEL static_linux_x86_set_thread_area_done;
   result.size := mapping_size;
 }
 
+DOC <$ Unmaps one static-Linux backing mapping. $>
 ::static_linux_mapping_release INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Unmaps one static-Linux backing mapping. $>
   FUNCTION(@mapping MUT& static_linux_mapping)
 {
   VAR address ADDRESS := IBC_GETADDR(@PTR mapping.storage);
@@ -451,8 +451,8 @@ LABEL static_linux_x86_set_thread_area_done;
   mapping.size := 0;
 }
 
+DOC <$ Waits until the kernel clears a static thread's child-tid word. $>
 ::static_linux_thread_wait INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
-  DOC <$ Waits until the kernel clears a static thread's child-tid word. $>
   FUNCTION(@child_tid MUT& ATOMIC#I32)
 {
   VAR observed_tid I32 := child_tid.LOAD#ATOMIC_ACQUIRE();
@@ -466,8 +466,8 @@ LABEL static_linux_x86_set_thread_area_done;
   }
 }
 
+DOC <$ Initializes an i386 TLS descriptor for one allocated variant-II thread pointer. $>
 ::static_linux_x86_descriptor_initialize INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC && ARCH_IS_X86)
-  DOC <$ Initializes an i386 TLS descriptor for one allocated variant-II thread pointer. $>
   ASM_PROCEDURE X86
   CALLABLE CALLCONV CCALL(
     @descriptor MUT->static_linux_x86_user_desc,
@@ -487,8 +487,8 @@ LABEL static_linux_x86_set_thread_area_done;
   RET
 }
 
+DOC <$ Installs the initial thread's PT_TLS image when no hosted loader provides one. $>
 ::linux_initial_tls_start INCLUDE_IF(OS_LINUX)
-  DOC <$ Installs the initial thread's PT_TLS image when no hosted loader provides one. $>
   FUNCTION()
 {
   STATIC_IF(ENVIRONMENT_IS_STATIC)

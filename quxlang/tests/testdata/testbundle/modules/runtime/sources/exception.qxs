@@ -1,9 +1,11 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::TEST_FAILED DOC <$ Identifies a failed unconditional test expectation. $>
+DOC <$ Identifies a failed unconditional test expectation. $>
+::TEST_FAILED
 STRUCT {}
 
-::THROW_TEST_FAILED DOC <$ Reports a failed expectation and throws through ordinary exception ownership. $>
+DOC <$ Reports a failed expectation and throws through ordinary exception ownership. $>
+::THROW_TEST_FAILED
 FUNCTION(@EXPR:expr STRING_CONSTANT, @TAG:tag STRING_CONSTANT)
 {
   RUNTIME NATIVE
@@ -20,22 +22,26 @@ FUNCTION(@EXPR:expr STRING_CONSTANT, @TAG:tag STRING_CONSTANT)
   THROW TEST_FAILED();
 }
 
-::ARITHMETIC_OVERFLOW DOC <$ Reports an arithmetic result or shift count outside the permitted range. $>
+DOC <$ Reports an arithmetic result or shift count outside the permitted range. $>
+::ARITHMETIC_OVERFLOW
 STRUCT {}
 
-::THROW_ARITHMETIC_OVERFLOW DOC <$ Allocates and propagates an arithmetic range failure through ordinary exception ownership. $>
+DOC <$ Allocates and propagates an arithmetic range failure through ordinary exception ownership. $>
+::THROW_ARITHMETIC_OVERFLOW
 FUNCTION()
 {
   THROW ARITHMETIC_OVERFLOW();
 }
 
-::PANIC_ARITHMETIC_OVERFLOW DOC <$ Terminates execution after an arithmetic assumption fails with overflow checking enabled. $>
+DOC <$ Terminates execution after an arithmetic assumption fails with overflow checking enabled. $>
+::PANIC_ARITHMETIC_OVERFLOW
 FUNCTION() NOEXCEPT
 {
   PANIC "Arithmetic overflow";
 }
 
-::exception_object_interface DOC <$ Describes and destroys one complete exception allocation. $>
+DOC <$ Describes and destroys one complete exception allocation. $>
+::exception_object_interface
 INTERFACE DEFAULTABLE
 {
   .actual_type FUNCTION(): TYPE_INDEX;
@@ -43,7 +49,8 @@ INTERFACE DEFAULTABLE
   .destroy FUNCTION(@allocation MUT->VOID) NOEXCEPT;
 }
 
-::EXCEPTION_FRAME DOC <$ Shares ownership of a complete exception object and its allocation. $>
+DOC <$ Shares ownership of a complete exception object and its allocation. $>
+::EXCEPTION_FRAME
 STRUCT
 {
   .refcount VAR ATOMIC#SZ;
@@ -57,12 +64,15 @@ STRUCT
   }
 }
 
-PRIVATE(MODULE) ::out_of_memory_frame DOC <$ Holds the permanent global reference to the allocation-failure exception. $>
+DOC <$ Holds the permanent global reference to the allocation-failure exception. $>
+PRIVATE(MODULE) ::out_of_memory_frame
   VAR CONSTEXPR_OK EXCEPTION_FRAME;
-PRIVATE(MODULE) ::current_exception_frame DOC <$ Borrows the exception owned by this thread's innermost active handler. $>
+DOC <$ Borrows the exception owned by this thread's innermost active handler. $>
+PRIVATE(MODULE) ::current_exception_frame
   VAR PER_THREAD CONSTEXPR_OK MUT->EXCEPTION_FRAME;
 
-PRIVATE(MODULE) ::exception_retain DOC <$ Acquires ownership while an existing reference keeps the frame alive. $>
+DOC <$ Acquires ownership while an existing reference keeps the frame alive. $>
+PRIVATE(MODULE) ::exception_retain
   FUNCTION(@frame MUT->EXCEPTION_FRAME) NOEXCEPT
 {
   IF ((frame??) == FALSE) { RETURN; }
@@ -77,7 +87,8 @@ PRIVATE(MODULE) ::exception_retain DOC <$ Acquires ownership while an existing r
   };
 }
 
-PRIVATE(MODULE) ::exception_release DOC <$ Releases one reference and destroys the complete allocation on final release. $>
+DOC <$ Releases one reference and destroys the complete allocation on final release. $>
+PRIVATE(MODULE) ::exception_release
   FUNCTION(@frame MUT->EXCEPTION_FRAME) NOEXCEPT
 {
   IF ((frame??) == FALSE) { RETURN; }
@@ -91,7 +102,8 @@ PRIVATE(MODULE) ::exception_release DOC <$ Releases one reference and destroys t
   }
 }
 
-::EXCEPTION_PTR DOC <$ Retains one exception frame; an empty handle owns no reference. $>
+DOC <$ Retains one exception frame; an empty handle owns no reference. $>
+::EXCEPTION_PTR
 STRUCT
 {
   PRIVATE(MODULE) .frame VAR MUT->EXCEPTION_FRAME;
@@ -126,14 +138,16 @@ STRUCT
   }
 }
 
-::CURRENT_EXCEPTION DOC <$ Retains the dynamically active handler's exception, or returns an empty handle. $>
+DOC <$ Retains the dynamically active handler's exception, or returns an empty handle. $>
+::CURRENT_EXCEPTION
 FUNCTION() NOEXCEPT: EXCEPTION_PTR
 {
   exception_retain(@frame current_exception_frame);
   RETURN EXCEPTION_PTR(@frame current_exception_frame);
 }
 
-::THROW_EXCEPTION_PTR DOC <$ Propagates an additional reference to an existing exception frame. $>
+DOC <$ Propagates an additional reference to an existing exception frame. $>
+::THROW_EXCEPTION_PTR
 FUNCTION(@ARG:exception CONST& EXCEPTION_PTR)
 {
   ASSERT(exception.frame??, "Cannot throw an empty exception pointer.");
@@ -141,14 +155,16 @@ FUNCTION(@ARG:exception CONST& EXCEPTION_PTR)
   EXCEPTION_PROPAGATE(@FRAME exception.frame);
 }
 
-::EXCEPTION_OUT_OF_MEMORY DOC <$ Acquires a reference to the permanently owned allocation-failure frame. $>
+DOC <$ Acquires a reference to the permanently owned allocation-failure frame. $>
+::EXCEPTION_OUT_OF_MEMORY
 FUNCTION() NOEXCEPT: EXCEPTION_PTR
 {
   exception_retain(@frame out_of_memory_frame<-);
   RETURN EXCEPTION_PTR(@frame out_of_memory_frame<-);
 }
 
-::EXCEPTION_HANDLER DOC <$ Restores the previous dynamically active exception when a handler exits. $>
+DOC <$ Restores the previous dynamically active exception when a handler exits. $>
+::EXCEPTION_HANDLER
 STRUCT MOVE_ONLY
 {
   .previous VAR MUT->EXCEPTION_FRAME;
@@ -163,7 +179,8 @@ STRUCT MOVE_ONLY
   }
 }
 
-::EXCEPTION_MATCH DOC <$ Returns the matching exception subobject while the supplied handle owns its lifetime. $>
+DOC <$ Returns the matching exception subobject while the supplied handle owns its lifetime. $>
+::EXCEPTION_MATCH
 TEMPLATE(@T TYPE AUTO) FUNCTION(@EXCEPTION:exception CONST& EXCEPTION_PTR) NOEXCEPT: MUT->T
 {
   VAR empty MUT->T;
@@ -182,7 +199,8 @@ TEMPLATE(@T TYPE AUTO) FUNCTION(@EXCEPTION:exception CONST& EXCEPTION_PTR) NOEXC
   RETURN empty;
 }
 
-::exception_allocation DOC <$ Stores an exception frame and the separately managed lifetime of its payload. $>
+DOC <$ Stores an exception frame and the separately managed lifetime of its payload. $>
+::exception_allocation
 TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
 {
   .frame VAR EXCEPTION_FRAME;
@@ -190,7 +208,8 @@ TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
   .allocation_storage VAR MUT->TYPED_STORAGE(exception_allocation#T);
 }
 
-::exception_object_operations DOC <$ Supplies complete-type operations for a thrown value. $>
+DOC <$ Supplies complete-type operations for a thrown value. $>
+::exception_object_operations
 TEMPLATE(@T TYPE AUTO) IMPLEMENTATION(exception_object_interface)
 {
   ::actual_type FUNCTION(): TYPE_INDEX { RETURN TYPE_INDEX_OF(T); }
@@ -217,7 +236,8 @@ TEMPLATE(@T TYPE AUTO) IMPLEMENTATION(exception_object_interface)
   }
 }
 
-::EXCEPTION_CREATE DOC <$ Constructs a complete thrown value in frame-owned storage. $>
+DOC <$ Constructs a complete thrown value in frame-owned storage. $>
+::EXCEPTION_CREATE
 TEMPLATE(@T TYPE AUTO) FUNCTION(@VALUE:value AUTO& T): EXCEPTION_PTR
 {
   VAR storage MUT->TYPED_STORAGE(exception_allocation#T) := exception_allocate_storage#(exception_allocation#T)();

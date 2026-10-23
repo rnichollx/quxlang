@@ -2,13 +2,16 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::nonstatic_value_tests NAMESPACE
 {
-  ::item DOC <$ A scalar record excluded from static snapshot storage. $>
+  DOC <$ A scalar record excluded from static snapshot storage. $>
+  ::item
     STRUCT NONSTATIC { .value VAR I32; }
 
-  ::owner DOC <$ Contains a nonstatic member in an otherwise ordinary record. $>
+  DOC <$ Contains a nonstatic member in an otherwise ordinary record. $>
+  ::owner
     STRUCT { .member VAR item; }
 
-  ::local_operations DOC <$ NONSTATIC permits ordinary default initialization, copying, movement, assignment and mutable aliases. $>
+  DOC <$ NONSTATIC permits ordinary default initialization, copying, movement, assignment and mutable aliases. $>
+  ::local_operations
     DUAL_TEST
   {
     VAR original item;
@@ -27,7 +30,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(original.value == 17);
   }
 
-  ::containing_local_values DOC <$ Local containing records preserve independent storage for nonstatic fields through generated copying and assignment. $>
+  DOC <$ Local containing records preserve independent storage for nonstatic fields through generated copying and assignment. $>
+  ::containing_local_values
     DUAL_TEST
   {
     VAR original owner;
@@ -42,14 +46,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(original.member.value == 41);
   }
 
-  ::static_local_rejected DOC <$ A function-local STATIC declaration rejects a directly tagged NONSTATIC type. $>
+  DOC <$ A function-local STATIC declaration rejects a directly tagged NONSTATIC type. $>
+  ::static_local_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     STATIC object item;
     VAR value I32 := object.value;
   }
 
-  ::static_initializer_rejected DOC <$ An explicit initializer cannot make a NONSTATIC type eligible for STATIC storage. $>
+  DOC <$ An explicit initializer cannot make a NONSTATIC type eligible for STATIC storage. $>
+  ::static_initializer_rejected
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     STATIC object item := item();

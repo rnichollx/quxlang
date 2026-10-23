@@ -30,7 +30,8 @@ IMPORT syscall;
   TEST_ASSERT((pointer??) == FALSE);
 }
 
-::accept_null_address DOC <$ Checks conversion of an argument to a null address. $> FUNCTION(@value ADDRESS)
+DOC <$ Checks conversion of an argument to a null address. $>
+::accept_null_address FUNCTION(@value ADDRESS)
 {
   VAR zero ADDRESS;
   TEST_ASSERT(value == zero);
@@ -92,7 +93,8 @@ IMPORT syscall;
     }
 }
 
-::constructor_argument_only DOC <$ Accepts a value through direct construction. $> STRUCT
+DOC <$ Accepts a value through direct construction. $>
+::constructor_argument_only STRUCT
 {
     .value VAR I32;
 
@@ -102,7 +104,8 @@ IMPORT syscall;
     }
 }
 
-::constructor_argument_choice DOC <$ Distinguishes direct construction from conversion categories. $> STRUCT
+DOC <$ Distinguishes direct construction from conversion categories. $>
+::constructor_argument_choice STRUCT
 {
     .value VAR I32;
 
@@ -137,7 +140,8 @@ IMPORT syscall;
     }
 }
 
-::constructor_argument_defaults DOC <$ Uses a defaulted ARG parameter during explicit conversion fallback. $> STRUCT
+DOC <$ Uses a defaulted ARG parameter during explicit conversion fallback. $>
+::constructor_argument_defaults STRUCT
 {
     .value VAR I32;
 
@@ -147,7 +151,8 @@ IMPORT syscall;
     }
 }
 
-::constructor_argument_conversion DOC <$ Constructor calls prefer ARG, then EXPLICIT, then OTHER; casts select conversion categories. $> DUAL_TEST
+DOC <$ Constructor calls prefer ARG, then EXPLICIT, then OTHER; casts select conversion categories. $>
+::constructor_argument_conversion DUAL_TEST
 {
     VAR source I32 := 7;
     AUTO implicit_value := implicit_foo(source);
@@ -182,7 +187,8 @@ IMPORT syscall;
     TEST_ASSERT(implicit_cast.value == 7);
 }
 
-::allocated_constructor_argument_conversion DOC <$ Allocation forwards ARG to the selected conversion constructor. $> DUAL_TEST
+DOC <$ Allocation forwards ARG to the selected conversion constructor. $>
+::allocated_constructor_argument_conversion DUAL_TEST
 {
     VAR source I32 := 9;
     VAR value MUT->constructor_conversion_choice := NEW constructor_conversion_choice :(source);
@@ -190,7 +196,8 @@ IMPORT syscall;
     DELETE value;
 }
 
-::allocated_constructor_argument_priority DOC <$ Allocation and placement preserve ARG constructor priority. $> DUAL_TEST
+DOC <$ Allocation and placement preserve ARG constructor priority. $>
+::allocated_constructor_argument_priority DUAL_TEST
 {
     VAR source I32 := 9;
     VAR value MUT->constructor_argument_choice := NEW constructor_argument_choice :(source);

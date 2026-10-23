@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::assertion_temporary_tests NAMESPACE
 {
-  ::successful_cleanup DOC <$ Successful assertions destroy condition temporaries before the following statement, including both short-circuit operands. $>
+  DOC <$ Successful assertions destroy condition temporaries before the following statement, including both short-circuit operands. $>
+  ::successful_cleanup
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -17,7 +18,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 1265);
   }
 
-  ::throwing_condition DOC <$ Exceptions from assertion conditions destroy the operand before enclosing locals and reach the matching handler. $>
+  DOC <$ Exceptions from assertion conditions destroy the operand before enclosing locals and reach the matching handler. $>
+  ::throwing_condition
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;

@@ -29,7 +29,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(fmt#("{name}: {} {count} {name}")(% [FALSE], @count 7, @name "item") == "item: false 7 item");
   }
 
-  ::argument_event DOC <$ Records argument evaluation order and returns the supplied value. $>
+  DOC <$ Records argument evaluation order and returns the supplied value. $>
+  ::argument_event
     FUNCTION(@events MUT& I32, @value I32): I32
   {
     events := events * 10 + value;
@@ -85,7 +86,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(TYPEOF(record), name), I32));
   }
 
-  ::named_record DOC <$ Provides public fields for computed-selector regression coverage. $> STRUCT
+  DOC <$ Provides public fields for computed-selector regression coverage. $>
+  ::named_record STRUCT
   {
     .value VAR I32;
     .other VAR I64;

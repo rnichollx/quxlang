@@ -525,7 +525,8 @@ LANGUAGE QUXLANG EN 0.0;
   TEST_ASSERT(r == 2);
 }
 
-::half_precision_addition_test DOC <$ Half-precision addition produces an exact representable sum. $>
+DOC <$ Half-precision addition produces an exact representable sum. $>
+::half_precision_addition_test
 DUAL_TEST KNOWN_BROKEN_IF(BACKEND_LLVM == FALSE)
 {
   VAR value F16E5 := 1.5;

@@ -2,11 +2,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 PRIVATE(MODULE) ::addr_cache_tests NAMESPACE
 {
-  ::slot_reuse_and_transfer INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+  DOC <$
     Exercises address construction, destruction, and reconstruction through
     empty, partial, and half-cache transfers into a nonempty destination.
     Native execution also verifies transfer order using distinct addresses.
-    $> DUAL_TEST
+    $>
+  ::slot_reuse_and_transfer INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
   {
     VAR source addr_cache#(@count 4);
     VAR destination addr_cache#(@count 4);
@@ -69,11 +70,12 @@ PRIVATE(MODULE) ::default_allocator_dealloc_multiple_count_test_unit_test
   );
 }
 
-PRIVATE(MODULE) ::slab_allocator_thread_cache_reuse_unit_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Verifies that one slab specialization reuses a block through an address
     cache without accessing the freed allocation payload.
     $>
+PRIVATE(MODULE) ::slab_allocator_thread_cache_reuse_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
   UNIT_TEST
 {
   allocator_release_all_thread_caches();
@@ -93,12 +95,13 @@ PRIVATE(MODULE) ::slab_allocator_thread_cache_reuse_unit_test
   allocator_release_all_thread_caches();
 }
 
-PRIVATE(MODULE) ::slab_allocator_shutdown_cursor_reset_unit_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Verifies that shutdown clears both fast-path boundaries and releases a
     partial active cache and a full secondary cache. Allocations and frees
     during shutdown must leave the thread caches empty.
     $>
+PRIVATE(MODULE) ::slab_allocator_shutdown_cursor_reset_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
   UNIT_TEST
 {
   allocator_release_all_thread_caches();
@@ -139,12 +142,13 @@ PRIVATE(MODULE) ::slab_allocator_shutdown_cursor_reset_unit_test
   allocator_thread_caches_disabled := previous_disabled;
 }
 
-PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Exercises empty, half-full, and full secondary-cache transitions and the
     whole-cache handoff that occurs when both thread caches are full. Repeated
     drains verify address uniqueness and live counts across cursor transitions.
     $>
+PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
   UNIT_TEST
 {
   allocator_release_all_thread_caches();
@@ -192,12 +196,13 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
   slab_allocator#(@block_size 8, @block_align 8)::layer1_release_thread_cache();
 }
 
-PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Exercises the configured cache transitions used by the 12-byte slab class.
     Addresses occupy aligned typed storage in the cache object rather than
     the four-byte-aligned allocation payloads.
     $>
+PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
   UNIT_TEST
 {
   allocator_release_all_thread_caches();
@@ -245,11 +250,12 @@ PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
   slab_allocator#(@block_size 12, @block_align 4)::layer1_release_thread_cache();
 }
 
-PRIVATE(MODULE) ::zero_count_allocations_are_unique_unit_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Verifies that simultaneous zero-count allocations have unique addresses and
     that their alignment-compatible slab storage is reclaimed.
     $>
+PRIVATE(MODULE) ::zero_count_allocations_are_unique_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
   UNIT_TEST
 {
   allocator_release_all_thread_caches();
@@ -266,11 +272,12 @@ PRIVATE(MODULE) ::zero_count_allocations_are_unique_unit_test
   allocator_release_all_thread_caches();
 }
 
-PRIVATE(MODULE) ::multi_allocator_slab_and_large_boundary_unit_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Verifies that a multi allocation shares the final slab specialization with
     static allocation and that the next byte routes to the large allocator.
     $>
+PRIVATE(MODULE) ::multi_allocator_slab_and_large_boundary_unit_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
   UNIT_TEST
 {
   STATIC_VAR block_align SZ := allocator_slab_maximum_block_size;
@@ -318,11 +325,12 @@ PRIVATE(MODULE) ::multi_allocator_slab_and_large_boundary_unit_test
   allocator_release_all_thread_caches();
 }
 
-PRIVATE(MODULE) ::allocator_generated_layout_routing_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Checks matching static and dynamic routing across class boundaries and the
     direct-mapping boundary, including layouts requiring page alignment.
-    $> UNIT_TEST
+    $>
+PRIVATE(MODULE) ::allocator_generated_layout_routing_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   STATIC_VAR size SZ := 8;
   STATIC_VAR step SZ := 4;
@@ -341,11 +349,12 @@ PRIVATE(MODULE) ::allocator_generated_layout_routing_test
   allocator_release_all_thread_caches();
 }
 
-PRIVATE(MODULE) ::layer2_plate_slot_capacity_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Checks bounded ownership transfer, failed publication, cursor wraparound,
     and complete recovery of every published plate.
-    $> UNIT_TEST
+    $>
+PRIVATE(MODULE) ::layer2_plate_slot_capacity_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR null_address ADDRESS := NULL;
   VAR store layer2_plate_slots#(@count 2, @slot_count layer2_full_plate_slot_count);
@@ -374,11 +383,12 @@ PRIVATE(MODULE) ::layer2_plate_slot_capacity_test
   TEST_ASSERT(store.try_pop() == nodes[layer2_full_plate_slot_count]<-);
 }
 
-PRIVATE(MODULE) ::layer2_address_sort_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Checks address ordering and preservation for empty, singleton, odd, and
     even plate lengths with repeated values and mixed initial order.
-    $> UNIT_TEST
+    $>
+PRIVATE(MODULE) ::layer2_address_sort_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR null_address ADDRESS := NULL;
   VAR cache addr_cache#(@count 65);
@@ -406,11 +416,12 @@ PRIVATE(MODULE) ::layer2_address_sort_test
   }
 }
 
-PRIVATE(MODULE) ::layer2_partial_aggregation_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$
+DOC <$
     Combines two half plates without a region refill and returns the exact
     issued address set through the full-plate store.
-    $> UNIT_TEST
+    $>
+PRIVATE(MODULE) ::layer2_partial_aggregation_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   // This class is outside the generated size classes, isolating its shared stores.
   VAR first MUT->addr_cache_node#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count) :=
@@ -441,7 +452,8 @@ PRIVATE(MODULE) ::layer2_partial_aggregation_test
   layer2_release_empty_cache_node#(@count slab_allocator#(@block_size 40, @block_align 8)::address_cache_count)(@node combined);
 }
 
-::allocator_failure_contract INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DOC <$ Raw allocation reports unrepresentable requests with null, while public allocation throws the permanent allocation-failure exception. $>
+DOC <$ Raw allocation reports unrepresentable requests with null, while public allocation throws the permanent allocation-failure exception. $>
+::allocator_failure_contract INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)
   UNIT_TEST
 {
   VAR maximum SZ := (0 AS SZ) #!!;

@@ -2,19 +2,22 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::custom_move_assignment_tests NAMESPACE
 {
-  ::number DOC <$ Supplies observable move-assignment operators for left and right receiver dispatch. $>
+  DOC <$ Supplies observable move-assignment operators for left and right receiver dispatch. $>
+  ::number
     STRUCT
   {
     .value VAR I32;
     .events VAR MUT->I32;
-    .OPERATOR:< DOC <$ Transfers a same-type source value and explicitly clears that source. $>
+    DOC <$ Transfers a same-type source value and explicitly clears that source. $>
+    .OPERATOR:<
       FUNCTION(@OTHER MUT& number)
     {
       .events-> := .events-> * 10 + 3;
       .value := OTHER.value;
       OTHER.value := 0;
     }
-    .OPERATOR:<RHS DOC <$ Transfers this right operand into a scalar left operand. $>
+    DOC <$ Transfers this right operand into a scalar left operand. $>
+    .OPERATOR:<RHS
       FUNCTION(@OTHER MUT& I32)
     {
       .events-> := .events-> * 10 + 4;
@@ -23,20 +26,23 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::receiver DOC <$ Records evaluation while preserving the selected object's identity. $>
+  DOC <$ Records evaluation while preserving the selected object's identity. $>
+  ::receiver
     FUNCTION(@value MUT& number, @events MUT& I32, @digit I32): MUT& number
   {
     events := events * 10 + digit;
     RETURN value;
   }
-  ::scalar DOC <$ Records the left scalar expression while preserving its writable reference. $>
+  DOC <$ Records the left scalar expression while preserving its writable reference. $>
+  ::scalar
     FUNCTION(@value MUT& I32, @events MUT& I32): MUT& I32
   {
     events := events * 10 + 1;
     RETURN value;
   }
 
-  ::left_dispatch DOC <$ Custom move assignment evaluates both receivers once in source order and invokes the left member with mutable source access. $>
+  DOC <$ Custom move assignment evaluates both receivers once in source order and invokes the left member with mutable source access. $>
+  ::left_dispatch
     DUAL_TEST
   {
     VAR events I32 := 0;
@@ -53,7 +59,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(right.value == 0);
   }
 
-  ::right_dispatch DOC <$ A right-side move-assignment member receives the original scalar destination after left-to-right operand evaluation. $>
+  DOC <$ A right-side move-assignment member receives the original scalar destination after left-to-right operand evaluation. $>
+  ::right_dispatch
     DUAL_TEST
   {
     VAR events I32 := 0;

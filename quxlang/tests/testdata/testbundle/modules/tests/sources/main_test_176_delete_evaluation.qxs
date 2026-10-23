@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::delete_evaluation_tests NAMESPACE
 {
-  ::select_pointer DOC <$ Evaluates a deletion operand once and optionally throws before returning ownership for deletion. $>
+  DOC <$ Evaluates a deletion operand once and optionally throws before returning ownership for deletion. $>
+  ::select_pointer
     FUNCTION(@value MUT->placement_argument_tests::record, @events MUT& I32,
       @fail BOOL): MUT->placement_argument_tests::record
   {
@@ -11,7 +12,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN value;
   }
 
-  ::throwing_operand_and_retry DOC <$ DELETE does not destroy an object when its operand throws, and a later successful operand is evaluated once before destruction. $>
+  DOC <$ DELETE does not destroy an object when its operand throws, and a later successful operand is evaluated once before destruction. $>
+  ::throwing_operand_and_retry
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
@@ -38,7 +40,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 14);
   }
 
-  ::allocated_array_reverse_destruction DOC <$ Deleting a pointer to a fixed array destroys every live element in reverse index order exactly once. $>
+  DOC <$ Deleting a pointer to a fixed array destroys every live element in reverse index order exactly once. $>
+  ::allocated_array_reverse_destruction
     DUAL_TEST
   {
     VAR events I32 := 0;

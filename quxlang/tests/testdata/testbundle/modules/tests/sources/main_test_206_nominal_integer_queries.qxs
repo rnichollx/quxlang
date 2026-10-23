@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::nominal_integer_query_tests NAMESPACE
 {
-  ::check_nominal DOC <$ Integer representation does not erase a nominal type's identity or classify its references as integer types. $>
+  DOC <$ Integer representation does not erase a nominal type's identity or classify its references as integer types. $>
+  ::check_nominal
     TEMPLATE(@T TYPE AUTO, @representation TYPE AUTO)
     FUNCTION()
   {
@@ -13,7 +14,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(IS_INTEGRAL(representation));
   }
 
-  ::classification DOC <$ Ordinary enums, interoperation enums and flagsets retain nominal classification through associated aliases and explicit representation widths. $>
+  DOC <$ Ordinary enums, interoperation enums and flagsets retain nominal classification through associated aliases and explicit representation widths. $>
+  ::classification
     DUAL_TEST
   {
     check_nominal#(@T enum_ordering_tests::small, @representation U5)();
@@ -24,19 +26,22 @@ LANGUAGE QUXLANG EN 0.0;
     check_nominal#(@T nominal_associated_declaration_tests::permissions::self, @representation U3)();
   }
 
-  ::enum_bit_count DOC <$ An enum's representation width does not make the nominal enum an integer operand to BITS. $>
+  DOC <$ An enum's representation width does not make the nominal enum an integer operand to BITS. $>
+  ::enum_bit_count
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR width SZ := BITS(enum_ordering_tests::small);
   }
 
-  ::ibc_enum_bit_count DOC <$ Interoperation enums remain nominal types rather than integer BITS operands. $>
+  DOC <$ Interoperation enums remain nominal types rather than integer BITS operands. $>
+  ::ibc_enum_bit_count
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR width SZ := BITS(ibc_enum_value_tests::code);
   }
 
-  ::flagset_bit_count DOC <$ A flagset's declared bit width does not make its associated type alias an integer BITS operand. $>
+  DOC <$ A flagset's declared bit width does not make its associated type alias an integer BITS operand. $>
+  ::flagset_bit_count
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR width SZ := BITS(nominal_associated_declaration_tests::permissions::self);

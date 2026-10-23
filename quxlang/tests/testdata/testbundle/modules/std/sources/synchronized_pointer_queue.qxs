@@ -1,11 +1,12 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::synchronized_pointer_queue DOC <$
+DOC <$
   A bounded FIFO of borrowed mutable pointers. Capacity must be positive.
   Push blocks while full and pop blocks while empty. Null pointers are ordinary
   entries. All accessing threads must finish before destruction. Pointee
   ownership transfers according to the caller's protocol.
-  $> TEMPLATE(@T TYPE, @capacity VALUE SZ) STRUCT ROOTED
+  $>
+::synchronized_pointer_queue TEMPLATE(@T TYPE, @capacity VALUE SZ) STRUCT ROOTED
 {
   PRIVATE(CLASS)
   {
@@ -17,7 +18,8 @@ LANGUAGE QUXLANG EN 0.0;
     .writable VAR condition_variable;
   }
 
-  .push DOC <$ Publishes a pointer after waiting for an available slot. $>
+  DOC <$ Publishes a pointer after waiting for an available slot. $>
+  .push
     FUNCTION(@ARG:value MUT->T) MUT
   {
     .mutex.lock();
@@ -28,7 +30,8 @@ LANGUAGE QUXLANG EN 0.0;
     .mutex.unlock();
   }
 
-  .pop DOC <$ Removes the oldest pointer after waiting for an entry. $>
+  DOC <$ Removes the oldest pointer after waiting for an entry. $>
+  .pop
     FUNCTION() MUT: MUT->T
   {
     .mutex.lock();

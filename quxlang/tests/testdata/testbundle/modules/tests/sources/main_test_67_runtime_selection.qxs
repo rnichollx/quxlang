@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::runtime_selection_tests NAMESPACE
 {
-  ::nested_selection DOC <$ Records exactly the selected nested runtime branches before returning their phase-specific result. $>
+  DOC <$ Records exactly the selected nested runtime branches before returning their phase-specific result. $>
+  ::nested_selection
     FUNCTION(@events MUT& I32): I32
   {
     VAR result I32 := 0;
@@ -25,7 +26,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN result;
   }
 
-  ::constexpr_nested_selection DOC <$ Compile-time execution selects CONSTEXPR and the nested NATIVE alternative without evaluating inactive assertions. $>
+  DOC <$ Compile-time execution selects CONSTEXPR and the nested NATIVE alternative without evaluating inactive assertions. $>
+  ::constexpr_nested_selection
     STATIC_TEST
   {
     VAR events I32 := 0;
@@ -33,7 +35,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 12);
   }
 
-  ::native_nested_selection DOC <$ Native execution selects the outer alternative and nested CONSTEXPR alternative with the expected side effects. $>
+  DOC <$ Native execution selects the outer alternative and nested CONSTEXPR alternative with the expected side effects. $>
+  ::native_nested_selection
     UNIT_TEST
   {
     VAR events I32 := 0;
@@ -41,7 +44,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 34);
   }
 
-  ::return_from_phase DOC <$ Returning from a selected runtime branch destroys its local before the enclosing function local. $>
+  DOC <$ Returning from a selected runtime branch destroys its local before the enclosing function local. $>
+  ::return_from_phase
     FUNCTION(@events MUT& I32): I32
   {
     VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
@@ -57,7 +61,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::constexpr_return_cleanup DOC <$ Compile-time phase returns preserve the result and destroy only the active branch's locals. $>
+  DOC <$ Compile-time phase returns preserve the result and destroy only the active branch's locals. $>
+  ::constexpr_return_cleanup
     STATIC_TEST
   {
     VAR events I32 := 0;
@@ -65,7 +70,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 19);
   }
 
-  ::native_return_cleanup DOC <$ Native phase returns preserve the result and destroy only the active branch's locals. $>
+  DOC <$ Native phase returns preserve the result and destroy only the active branch's locals. $>
+  ::native_return_cleanup
     UNIT_TEST
   {
     VAR events I32 := 0;

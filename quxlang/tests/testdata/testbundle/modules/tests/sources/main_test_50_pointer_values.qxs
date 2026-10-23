@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::pointer_value_tests NAMESPACE
 {
-  ::array_offsets DOC <$ Pointer arithmetic counts elements, including one-past endpoints and signed differences within an array. $>
+  DOC <$ Pointer arithmetic counts elements, including one-past endpoints and signed differences within an array. $>
+  ::array_offsets
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR values [4]T;
@@ -30,7 +31,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[3] == 8);
   }
 
-  ::element_scaled_arithmetic DOC <$ Checks array offsets and differences for element sizes of one, four, and eight bytes. $>
+  DOC <$ Checks array offsets and differences for element sizes of one, four, and eight bytes. $>
+  ::element_scaled_arithmetic
     DUAL_TEST
   {
     array_offsets#(U8)();
@@ -38,7 +40,8 @@ LANGUAGE QUXLANG EN 0.0;
     array_offsets#(U64)();
   }
 
-  ::multibyte_offsets DOC <$ Pointer offsets preserve distinct magnitude bytes in both directions. $>
+  DOC <$ Pointer offsets preserve distinct magnitude bytes in both directions. $>
+  ::multibyte_offsets
     DUAL_TEST
   {
     VAR values [514]U8;
@@ -51,7 +54,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((last + (0 - 513)) == first);
   }
 
-  ::reverse_iteration_from_endpoint DOC <$ Decrementing a one-past pointer returns its previous position before visiting the last live element. $>
+  DOC <$ Decrementing a one-past pointer returns its previous position before visiting the last live element. $>
+  ::reverse_iteration_from_endpoint
     DUAL_TEST
   {
     VAR values [3]I32;
@@ -79,7 +83,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(cursor == first);
   }
 
-  ::reference_survives_pointer_reassignment DOC <$ Binding a reference through a pointer retains the original referent after the pointer is reassigned. $>
+  DOC <$ Binding a reference through a pointer retains the original referent after the pointer is reassigned. $>
+  ::reference_survives_pointer_reassignment
     DUAL_TEST
   {
     VAR first I32 := 3;
@@ -97,7 +102,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(pointer == second<-);
   }
 
-  ::pointer_slot_and_null_referent DOC <$ A pointer to a pointer slot remains non-null while the slot changes between null and a live object. $>
+  DOC <$ A pointer to a pointer slot remains non-null while the slot changes between null and a live object. $>
+  ::pointer_slot_and_null_referent
     DUAL_TEST
   {
     VAR value I32 := 5;

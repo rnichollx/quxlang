@@ -2,16 +2,21 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::literal_type_tests NAMESPACE
 {
-  ::numeric DOC <$ Matches the exact numeric literal type for seventeen. $>
+  DOC <$ Matches the exact numeric literal type for seventeen. $>
+  ::numeric
     FUNCTION(@value NUMERIC_LITERAL_TYPE("17")): I32 { RETURN 1; }
-  ::numeric DOC <$ Matches the exact numeric literal type for twenty-nine. $>
+  DOC <$ Matches the exact numeric literal type for twenty-nine. $>
+  ::numeric
     FUNCTION(@value NUMERIC_LITERAL_TYPE("29")): I32 { RETURN 2; }
-  ::text DOC <$ Matches a literal containing an embedded zero byte. $>
+  DOC <$ Matches a literal containing an embedded zero byte. $>
+  ::text
     FUNCTION(@value STRING_LITERAL_TYPE("a\0b")): I32 { RETURN 3; }
-  ::text DOC <$ Distinguishes a shorter string literal from the embedded-zero spelling. $>
+  DOC <$ Distinguishes a shorter string literal from the embedded-zero spelling. $>
+  ::text
     FUNCTION(@value STRING_LITERAL_TYPE("a")): I32 { RETURN 4; }
 
-  ::exact_literal_selection DOC <$ Literal types preserve exact values and bytes during overload selection. $>
+  DOC <$ Literal types preserve exact values and bytes during overload selection. $>
+  ::exact_literal_selection
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(TYPEOF(17), NUMERIC_LITERAL_TYPE("17")));
@@ -22,20 +27,23 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(text(@value "a") == 4);
   }
 
-  ::capture_number DOC <$ Captures a numeric literal type and converts its bound argument to an integer. $>
+  DOC <$ Captures a numeric literal type and converts its bound argument to an integer. $>
+  ::capture_number
     FUNCTION(@value NUMERIC_LITERAL_ANY(literal_type)): I32
   {
     TEST_ASSERT(SAME_TYPES(TYPEOF(value), literal_type));
     RETURN value AS I32;
   }
-  ::capture_text DOC <$ Captures a string literal type and retains its string-constant contents. $>
+  DOC <$ Captures a string literal type and retains its string-constant contents. $>
+  ::capture_text
     FUNCTION(@value STRING_LITERAL_ANY(literal_type)): STRING_CONSTANT
   {
     TEST_ASSERT(SAME_TYPES(TYPEOF(value), literal_type));
     RETURN value AS STRING_CONSTANT;
   }
 
-  ::numeric_capture_values DOC <$ Repeated numeric literal captures preserve independent values. $>
+  DOC <$ Repeated numeric literal captures preserve independent values. $>
+  ::numeric_capture_values
     DUAL_TEST
   {
     TEST_ASSERT(capture_number(@value 17) == 17);
@@ -43,7 +51,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(capture_number(@value 17) == 17);
   }
 
-  ::string_capture_values DOC <$ String literal captures preserve empty and embedded-zero contents. $>
+  DOC <$ String literal captures preserve empty and embedded-zero contents. $>
+  ::string_capture_values
     DUAL_TEST
   {
     VAR empty STRING_CONSTANT := capture_text(@value "");

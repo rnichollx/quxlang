@@ -3,7 +3,8 @@ IMPORT std;
 
 ::atomic_publication_tests NAMESPACE
 {
-  ::relaxed_rmw_release_sequence INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ An acquire reader observes payload published before a release store and relayed through a relaxed read-modify-write. $>
+  DOC <$ An acquire reader observes payload published before a release store and relayed through a relaxed read-modify-write. $>
+  ::relaxed_rmw_release_sequence INCLUDE_IF(OS_MACOS || ARCH_IS_JVM)
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR state ATOMIC#I32;
@@ -48,7 +49,8 @@ IMPORT std;
     TEST_ASSERT(state.LOAD#ATOMIC_RELAXED() == 0);
   }
 
-  ::failed_cas_acquires_payload INCLUDE_IF(OS_MACOS || ARCH_IS_JVM) DOC <$ A failed acquire compare-exchange publishes the observed state and synchronizes preceding payload writes. $>
+  DOC <$ A failed acquire compare-exchange publishes the observed state and synchronizes preceding payload writes. $>
+  ::failed_cas_acquires_payload INCLUDE_IF(OS_MACOS || ARCH_IS_JVM)
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR state ATOMIC#I32;

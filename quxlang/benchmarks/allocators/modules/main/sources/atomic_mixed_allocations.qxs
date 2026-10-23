@@ -2,15 +2,18 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::atomic_mixed_slots DOC <$ Owns the pointer slots for one allocation size. $>
+DOC <$ Owns the pointer slots for one allocation size. $>
+::atomic_mixed_slots
   TEMPLATE(@bytes VALUE SZ) STRUCT
 {
-  ::block DOC <$ Provides uninitialized storage aligned to eight bytes. $>
+  DOC <$ Provides uninitialized storage aligned to eight bytes. $>
+  ::block
     STRUCT { .words VAR [bytes / 8]U64; }
   .pointers VAR =>>TYPED_STORAGE(ATOMIC#(->TYPED_STORAGE(block)));
   .count VAR SZ;
 
-  .initialize DOC <$ Creates null atomic slots before any worker starts. $>
+  DOC <$ Creates null atomic slots before any worker starts. $>
+  .initialize
     FUNCTION(@count SZ) MUT
   {
     .count := count;
@@ -19,7 +22,8 @@ IMPORT std;
     { PLACE AT(.pointers[index]) ATOMIC#(->TYPED_STORAGE(block)); }
   }
 
-  .replace DOC <$ Publishes a new allocation and frees the pointer removed by an acquire-release swap. $>
+  DOC <$ Publishes a new allocation and frees the pointer removed by an acquire-release swap. $>
+  .replace
     FUNCTION(@index SZ) MUT
   {
     VAR replacement ->TYPED_STORAGE(block) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::ALLOC();
@@ -31,7 +35,8 @@ IMPORT std;
     { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::DEALLOC(@PTR previous); }
   }
 
-  .release DOC <$ Removes and releases every remaining allocation after all workers join. $>
+  DOC <$ Removes and releases every remaining allocation after all workers join. $>
+  .release
     FUNCTION() MUT: SZ
   {
     VAR live SZ := 0;
@@ -53,7 +58,8 @@ IMPORT std;
   }
 }
 
-::atomic_mixed_shared_state DOC <$ Owns the eight atomic slot arrays shared by every worker. $> STRUCT
+DOC <$ Owns the eight atomic slot arrays shared by every worker. $>
+::atomic_mixed_shared_state STRUCT
 {
   .slots VAR SZ;
   .size_8 VAR atomic_mixed_slots#(@bytes 8);
@@ -67,12 +73,14 @@ IMPORT std;
 
 }
 
-::atomic_mixed_worker_state DOC <$ Borrows shared arrays and owns one worker's pre-generated input. $> STRUCT
+DOC <$ Borrows shared arrays and owns one worker's pre-generated input. $>
+::atomic_mixed_worker_state STRUCT
 {
   .sequence VAR std::dynarr#U32;
   .shared VAR MUT->atomic_mixed_shared_state;
 
-  .run DOC <$ Applies the pre-generated operations to the shared slots. $> FUNCTION() MUT
+  DOC <$ Applies the pre-generated operations to the shared slots. $>
+  .run FUNCTION() MUT
   {
     LOOP ITEM(word) IN(.sequence) DO
     {
@@ -90,14 +98,17 @@ IMPORT std;
   }
 }
 
-::atomic_mixed_worker_entry DOC <$ Borrows stable worker state for the lifetime of a native thread. $> STRUCT
+DOC <$ Borrows stable worker state for the lifetime of a native thread. $>
+::atomic_mixed_worker_entry STRUCT
 {
   .state VAR MUT->atomic_mixed_worker_state;
-  .OPERATOR() DOC <$ Executes the worker's operation sequence. $> FUNCTION() MUT
+  DOC <$ Executes the worker's operation sequence. $>
+  .OPERATOR() FUNCTION() MUT
   { .state->.run(); }
 }
 
-::atomic_mixed_allocations DOC <$ Times creation and joining of workers with pre-generated operations. $>
+DOC <$ Times creation and joining of workers with pre-generated operations. $>
+::atomic_mixed_allocations
   BENCHMARK(@n SZ, @slots SZ, @threads SZ) ONESHOT
 {
   IF (n == 0 || slots == 0 || slots > 536870912 || threads == 0)

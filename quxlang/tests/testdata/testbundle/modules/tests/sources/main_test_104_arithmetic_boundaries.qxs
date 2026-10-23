@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::arithmetic_boundary_tests NAMESPACE
 {
-  ::signed_endpoints DOC <$ Signed extrema support representable neighboring operations and exact minimum division without overflow. $>
+  DOC <$ Signed extrema support representable neighboring operations and exact minimum division without overflow. $>
+  ::signed_endpoints
     TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR zero T := 0;
@@ -29,7 +30,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((maximum / two) * two == maximum - one);
   }
 
-  ::unsigned_endpoints DOC <$ Unsigned maximum division and reconstruction retain the high bit without intermediate overflow. $>
+  DOC <$ Unsigned maximum division and reconstruction retain the high bit without intermediate overflow. $>
+  ::unsigned_endpoints
     TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR one T := 1;
@@ -51,7 +53,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == maximum);
   }
 
-  ::signed_widths DOC <$ Standard and non-byte signed widths exercise both representable endpoints. $>
+  DOC <$ Standard and non-byte signed widths exercise both representable endpoints. $>
+  ::signed_widths
     DUAL_TEST
   {
     signed_endpoints#(I5)(@maximum 15);
@@ -62,7 +65,8 @@ LANGUAGE QUXLANG EN 0.0;
     signed_endpoints#(I64)(@maximum 9223372036854775807);
   }
 
-  ::unsigned_widths DOC <$ Standard and non-byte unsigned widths preserve their maximum through compound arithmetic. $>
+  DOC <$ Standard and non-byte unsigned widths preserve their maximum through compound arithmetic. $>
+  ::unsigned_widths
     DUAL_TEST
   {
     unsigned_endpoints#(U5)(@maximum 31);
@@ -72,14 +76,16 @@ LANGUAGE QUXLANG EN 0.0;
     unsigned_endpoints#(U32)(@maximum 4294967295);
     unsigned_endpoints#(U64)(@maximum 18446744073709551615);
   }
-  ::minimum_remainder DOC <$ An even signed minimum has zero remainder on division by two. $>
+  DOC <$ An even signed minimum has zero remainder on division by two. $>
+  ::minimum_remainder
     TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR minimum T := (0 AS T) - maximum - 1;
     TEST_ASSERT((minimum % 2) == 0);
   }
 
-  ::signed_minimum_remainder DOC <$ Signed minimum remainder is zero across standard and non-byte widths. $>
+  DOC <$ Signed minimum remainder is zero across standard and non-byte widths. $>
+  ::signed_minimum_remainder
     DUAL_TEST
   {
     minimum_remainder#(I5)(@maximum 15);

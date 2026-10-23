@@ -5,10 +5,11 @@ IMPORT syscall;
 
 PRIVATE(MODULE)
 {
-  ::macos_signal_event INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Matches the 64-bit Darwin sigevent layout used to route POSIX AIO
     completions into a kqueue.
     $>
+  ::macos_signal_event INCLUDE_IF(OS_MACOS)
     IBC_STRUCT
   {
     .notification VAR I32;
@@ -18,9 +19,10 @@ PRIVATE(MODULE)
     .notification_attributes VAR ADDRESS;
   }
 
-  ::macos_async_control_block INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Matches the 64-bit Darwin aiocb layout used by aio_read and aio_write.
     $>
+  ::macos_async_control_block INCLUDE_IF(OS_MACOS)
     IBC_STRUCT
   {
     .descriptor VAR I32;
@@ -32,10 +34,11 @@ PRIVATE(MODULE)
     .operation VAR I32;
   }
 
-  ::macos_kernel_event INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Matches Darwin kevent64_s so AIO completion status and byte counts are
     available through the extension fields.
     $>
+  ::macos_kernel_event INCLUDE_IF(OS_MACOS)
     IBC_STRUCT
   {
     .identifier VAR U64;
@@ -47,14 +50,16 @@ PRIVATE(MODULE)
     .extensions VAR [2]U64;
   }
 
-  ::macos_async_context_state INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Owns one kqueue receiving POSIX AIO completions and worker stop events.
     $>
+  ::macos_async_context_state INCLUDE_IF(OS_MACOS)
     STRUCT MOVE_ONLY
   {
     .queue_descriptor VAR I32;
 
-    .CONSTRUCTOR DOC <$ Creates empty state that owns no kqueue descriptor. $>
+    DOC <$ Creates empty state that owns no kqueue descriptor. $>
+    .CONSTRUCTOR
       FUNCTION()
     {
       .queue_descriptor := 0 - 1;
@@ -91,19 +96,21 @@ PRIVATE(MODULE)
   ::macos_errno_location INCLUDE_IF(OS_MACOS) EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"__error"]
     CALLABLE CALLCONV CCALL(; RETURN MUT->I32);
 
-  ::initialize_macos_async_context INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Creates the kqueue that receives asynchronous file completions.
     $>
+  ::initialize_macos_async_context INCLUDE_IF(OS_MACOS)
     FUNCTION(@state MUT& macos_async_context_state): BOOL
   {
     state.queue_descriptor := macos_kqueue();
     RETURN state.queue_descriptor >= 0;
   }
 
-  ::prepare_macos_async_control INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Initializes one Darwin aiocb and directs its completion to the context's
     kqueue with the enclosing request as user data.
     $>
+  ::prepare_macos_async_control INCLUDE_IF(OS_MACOS)
     FUNCTION(
       @request MUT->async_request,
       @native_ref file_ref,
@@ -132,9 +139,10 @@ PRIVATE(MODULE)
     RETURN TRUE;
   }
 
-  ::submit_async_read INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Starts one positioned POSIX AIO read delivered through kqueue.
     $>
+  ::submit_async_read INCLUDE_IF(OS_MACOS)
     FUNCTION(
       @request MUT->async_request,
       @native_ref file_ref,
@@ -154,9 +162,10 @@ PRIVATE(MODULE)
     RETURN macos_aio_read(@control request->.macos_control<-) == 0;
   }
 
-  ::submit_async_write INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Starts one positioned POSIX AIO write delivered through kqueue.
     $>
+  ::submit_async_write INCLUDE_IF(OS_MACOS)
     FUNCTION(
       @request MUT->async_request,
       @native_ref file_ref,
@@ -176,9 +185,10 @@ PRIVATE(MODULE)
     RETURN macos_aio_write(@control request->.macos_control<-) == 0;
   }
 
-  ::wait_for_macos_kernel_event INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Waits through signal interruption and returns one kqueue event.
     $>
+  ::wait_for_macos_kernel_event INCLUDE_IF(OS_MACOS)
     FUNCTION(
       @state MUT& macos_async_context_state,
       @event MUT& macos_kernel_event
@@ -210,10 +220,11 @@ PRIVATE(MODULE)
     };
   }
 
-  ::wait_for_async_completion INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Removes one AIO or user event, executes its callback, and returns false only
     for an explicit thread-pool stop event.
     $>
+  ::wait_for_async_completion INCLUDE_IF(OS_MACOS)
     FUNCTION(@control MUT->async_context_control): BOOL
   {
     VAR event macos_kernel_event;
@@ -246,9 +257,10 @@ PRIVATE(MODULE)
     RETURN TRUE;
   }
 
-  ::post_macos_worker_stop INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Adds and triggers one one-shot EVFILT_USER event with null user data.
     $>
+  ::post_macos_worker_stop INCLUDE_IF(OS_MACOS)
     FUNCTION(
       @state MUT& macos_async_context_state,
       @identifier UINTPTR
@@ -288,9 +300,10 @@ PRIVATE(MODULE)
     };
   }
 
-  ::request_async_stop INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Posts one distinct kqueue user event for every worker that must stop.
     $>
+  ::request_async_stop INCLUDE_IF(OS_MACOS)
     FUNCTION(
       @control MUT->async_context_control,
       @worker_count SZ
@@ -305,9 +318,10 @@ PRIVATE(MODULE)
     };
   }
 
-  ::shutdown_async_context INCLUDE_IF(OS_MACOS) DOC <$
+  DOC <$
     Closes a drained macOS async kqueue.
     $>
+  ::shutdown_async_context INCLUDE_IF(OS_MACOS)
     FUNCTION(@control MUT->async_context_control)
   {
     ASSERT(syscall::macos::close(@fd control->.macos.queue_descriptor) == 0,

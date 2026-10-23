@@ -2,13 +2,17 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::integer_type_query_tests NAMESPACE
 {
-  ::record DOC <$ Supplies a non-numeric nominal type for classification. $>
+  DOC <$ Supplies a non-numeric nominal type for classification. $>
+  ::record
     STRUCT { .value VAR I32; }
-  ::signed_alias DOC <$ Preserves signed classification through an alias. $>
+  DOC <$ Preserves signed classification through an alias. $>
+  ::signed_alias
     ALIAS I12;
-  ::unsigned_alias DOC <$ Preserves unsigned classification through an alias. $>
+  DOC <$ Preserves unsigned classification through an alias. $>
+  ::unsigned_alias
     ALIAS U12;
-  ::classify DOC <$ Both integer signs are integral while only the signed type reports signedness. $>
+  DOC <$ Both integer signs are integral while only the signed type reports signedness. $>
+  ::classify
     TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO) FUNCTION()
   {
     TEST_ASSERT(IS_INTEGRAL(signed_type));
@@ -17,7 +21,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(IS_SIGNED(unsigned_type) == FALSE);
   }
 
-  ::integer_widths_and_aliases DOC <$ Integer queries preserve non-byte widths, wide integers and canonical aliases. $>
+  DOC <$ Integer queries preserve non-byte widths, wide integers and canonical aliases. $>
+  ::integer_widths_and_aliases
     DUAL_TEST
   {
     classify#(@signed_type I5, @unsigned_type U5)();
@@ -30,7 +35,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(IS_SIGNED(BYTE) == FALSE);
   }
 
-  ::nonintegral_types DOC <$ Boolean, floating, record, pointer and reference types do not classify as integer types. $>
+  DOC <$ Boolean, floating, record, pointer and reference types do not classify as integer types. $>
+  ::nonintegral_types
     DUAL_TEST
   {
     TEST_ASSERT(IS_INTEGRAL(BOOL) == FALSE);

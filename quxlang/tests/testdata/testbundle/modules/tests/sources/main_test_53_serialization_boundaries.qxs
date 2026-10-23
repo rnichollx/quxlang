@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::serialization_boundary_tests NAMESPACE
 {
-  ::leb_case DOC <$ Checks a known LEB128 byte sequence, iterator endpoints, roundtrip value, and surrounding guards. $>
+  DOC <$ Checks a known LEB128 byte sequence, iterator endpoints, roundtrip value, and surrounding guards. $>
+  ::leb_case
     FUNCTION(@value U64, @size SZ, @first BYTE, @second BYTE, @third BYTE)
   {
     VAR bytes [5]BYTE;
@@ -21,7 +22,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(decoded == value);
   }
 
-  ::leb128_size_boundaries DOC <$ LEB128 expands exactly at powers of 128 and writes no bytes past its returned endpoint. $>
+  DOC <$ LEB128 expands exactly at powers of 128 and writes no bytes past its returned endpoint. $>
+  ::leb128_size_boundaries
     DUAL_TEST
   {
     leb_case(@value 0, @size 1, @first 0, @second 170, @third 170);
@@ -31,7 +33,8 @@ LANGUAGE QUXLANG EN 0.0;
     leb_case(@value 16384, @size 3, @first 128, @second 128, @third 1);
   }
 
-  ::uintany_case DOC <$ Checks known UINTANY bytes and exact iterator advancement without relying only on a roundtrip. $>
+  DOC <$ Checks known UINTANY bytes and exact iterator advancement without relying only on a roundtrip. $>
+  ::uintany_case
     FUNCTION(@value U64, @size SZ, @first BYTE, @second BYTE, @third BYTE)
   {
     VAR bytes [5]BYTE;
@@ -50,7 +53,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(decoded == value);
   }
 
-  ::uintany_size_boundaries DOC <$ UINTANY's biased continuation encoding is checked at its one-, two-, and three-byte boundaries. $>
+  DOC <$ UINTANY's biased continuation encoding is checked at its one-, two-, and three-byte boundaries. $>
+  ::uintany_size_boundaries
     DUAL_TEST
   {
     uintany_case(@value 0, @size 1, @first 0, @second 170, @third 170);
@@ -61,7 +65,8 @@ LANGUAGE QUXLANG EN 0.0;
     uintany_case(@value 16512, @size 3, @first 128, @second 128, @third 0);
   }
 
-  ::leb128_maximum_u64 DOC <$ The largest U64 uses ten LEB128 bytes with a final payload of one and preserves surrounding bytes. $>
+  DOC <$ The largest U64 uses ten LEB128 bytes with a final payload of one and preserves surrounding bytes. $>
+  ::leb128_maximum_u64
     DUAL_TEST
   {
     VAR bytes [12]BYTE;
@@ -81,7 +86,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(decoded == value);
   }
 
-  ::nonbyte_signed_and_unsigned_storage DOC <$ Twelve-bit integer serialization uses two little-endian bytes with signed extension and exact iterator advancement. $>
+  DOC <$ Twelve-bit integer serialization uses two little-endian bytes with signed extension and exact iterator advancement. $>
+  ::nonbyte_signed_and_unsigned_storage
     DUAL_TEST
   {
     VAR bytes [6]BYTE;

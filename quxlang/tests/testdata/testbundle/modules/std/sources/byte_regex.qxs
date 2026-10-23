@@ -1,19 +1,22 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::byte_regex DOC <$
+DOC <$
   Compiles byte-oriented regular expressions containing concatenation,
   alternation, literals, dot, character classes, ranges, and the quantifiers
   *, + and ?. Backslash quotes a character; n, r and t denote control bytes.
   Dot excludes linefeed. Grouping, anchors and counted repetitions are rejected.
   Matching selects the leftmost longest match. A sparse nondeterministic
   automaton uses storage proportional to the pattern size and no recursion.
-  $> STRUCT
+  $>
+::byte_regex STRUCT
 {
-  ::error DOC <$ Identifies an invalid or unsupported regular-expression pattern. $> ENUM [invalid_pattern];
+  DOC <$ Identifies an invalid or unsupported regular-expression pattern. $>
+  ::error ENUM [invalid_pattern];
 
   PRIVATE(CLASS)
   {
-    ::token DOC <$ Describes one byte transition or an accepting state. $> STRUCT
+    DOC <$ Describes one byte transition or an accepting state. $>
+    ::token STRUCT
     {
       .bytes VAR [4]U64;
       .optional VAR BOOL;
@@ -32,7 +35,8 @@ LANGUAGE QUXLANG EN 0.0;
       }
     }
 
-    ::state DOC <$ Stores the earliest input position reaching each active automaton state. $> STRUCT
+    DOC <$ Stores the earliest input position reaching each active automaton state. $>
+    ::state STRUCT
     {
       .starts VAR dynarr#SZ;
       .active VAR dynarr#SZ;
@@ -47,7 +51,8 @@ LANGUAGE QUXLANG EN 0.0;
         LOOP ITEM(index) IN(.active) DO { .starts[index] := (0 AS SZ) #!!; }
         .active.clear();
       }
-      .activate DOC <$ Follows forward epsilon transitions while recording the earliest start. $>
+      DOC <$ Follows forward epsilon transitions while recording the earliest start. $>
+      .activate
         FUNCTION(@program CONST& dynarr#token, @index SZ, @start SZ) MUT
       {
         LOOP INIT { VAR position SZ := index; } STEP { position++; } DO
@@ -59,7 +64,8 @@ LANGUAGE QUXLANG EN 0.0;
       }
     }
 
-    ::match DOC <$ Stores the half-open byte interval of one match. $> STRUCT
+    DOC <$ Stores the half-open byte interval of one match. $>
+    ::match STRUCT
     {
       .begin VAR SZ;
       .end VAR SZ;
@@ -68,7 +74,8 @@ LANGUAGE QUXLANG EN 0.0;
     .program VAR dynarr#token;
     .alternatives VAR dynarr#SZ;
 
-    ::decode DOC <$ Consumes one literal or escaped byte from the pattern. $>
+    DOC <$ Consumes one literal or escaped byte from the pattern. $>
+    ::decode
       FUNCTION(@pattern CONST& string, @index MUT& SZ): BYTE
     {
       IF UNLIKELY (index == pattern.size()) { THROW error::invalid_pattern; }
@@ -86,7 +93,8 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN value;
     }
 
-    .find DOC <$ Searches from offset, retaining earlier starts and extending the winning match greedily. $>
+    DOC <$ Searches from offset, retaining earlier starts and extending the winning match greedily. $>
+    .find
       FUNCTION(@input CONST& dynarr#BYTE, @offset SZ, @current MUT& state,
                @next MUT& state, @result MUT& match) CONST: BOOL
     {
@@ -128,7 +136,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  .CONSTRUCTOR DOC <$ Compiles pattern, throwing byte_regex::error for invalid syntax. $>
+  DOC <$ Compiles pattern, throwing byte_regex::error for invalid syntax. $>
+  .CONSTRUCTOR
     FUNCTION(@EXPLICIT:pattern CONST& string)
   {
     .alternatives.push_back(0);
@@ -191,7 +200,8 @@ LANGUAGE QUXLANG EN 0.0;
     .program.push_back(end);
   }
 
-  .count DOC <$ Counts nonoverlapping matches. An empty match advances by one byte, including one possible match at the input end. $>
+  DOC <$ Counts nonoverlapping matches. An empty match advances by one byte, including one possible match at the input end. $>
+  .count
     FUNCTION(@ARG:input CONST& dynarr#BYTE) CONST: SZ
   {
     VAR current state :(@EXPLICIT .program.size());
@@ -209,7 +219,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN count;
   }
 
-  .replace DOC <$ Replaces nonoverlapping matches with literal replacement bytes. Empty matches advance by one byte. $>
+  DOC <$ Replaces nonoverlapping matches with literal replacement bytes. Empty matches advance by one byte. $>
+  .replace
     FUNCTION(@input CONST& dynarr#BYTE, @replacement STRING_CONSTANT) CONST: dynarr#BYTE
   {
     VAR output dynarr#BYTE;

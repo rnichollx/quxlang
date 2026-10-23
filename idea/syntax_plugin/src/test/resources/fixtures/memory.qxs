@@ -9,10 +9,11 @@ PRIVATE(MODULE) ::virtual_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel3
 PRIVATE(MODULE) ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualFree"]
   CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @free_type U32; RETURN BOOL);
 
-::memory_bucket_size DOC <$
+DOC <$
   Returns the historical public bucket size used by runtime clients that need
   the 8, 16, 24, 32, 48, ... progression.
   $>
+::memory_bucket_size
   FUNCTION(@size SZ): SZ
 {
   VAR bucket SZ := 8;
@@ -39,9 +40,10 @@ PRIVATE(MODULE) ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32
   RETURN bucket;
 }
 
-PRIVATE(MODULE) ::layer5_mapping_size DOC <$
+DOC <$
   Rounds an OS mapping request up to a nonzero whole number of 4096-byte pages.
   $>
+PRIVATE(MODULE) ::layer5_mapping_size
   FUNCTION(@size SZ): SZ
 {
   IF (size <= 4096)

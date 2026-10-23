@@ -51,9 +51,10 @@ LANGUAGE QUXLANG EN 0.0;
   RET
 }
 
-::x64_cpuid_leaf1_ecx INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Returns the CPUID leaf 1 ECX register.
   $>
+::x64_cpuid_leaf1_ecx INCLUDE_IF(ARCH_IS_X64)
   ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(; RETURN U32)
 {
@@ -65,17 +66,19 @@ LANGUAGE QUXLANG EN 0.0;
   RET
 }
 
-::x64_cpuid_leaf1_ecx_bit INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Tests one bit of the CPUID register using the target calling convention.
   $>
+::x64_cpuid_leaf1_ecx_bit INCLUDE_IF(ARCH_IS_X64)
   FUNCTION(@bit I32): BOOL
 {
   RETURN ((x64_cpuid_leaf1_ecx() #-- (bit AS CHECKED U32)) #&& (1 AS U32)) != 0;
 }
 
-::x64_cpuid_leaf1_edx INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Returns the CPUID leaf 1 EDX register.
   $>
+::x64_cpuid_leaf1_edx INCLUDE_IF(ARCH_IS_X64)
   ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(; RETURN U32)
 {
@@ -87,17 +90,19 @@ LANGUAGE QUXLANG EN 0.0;
   RET
 }
 
-::x64_cpuid_leaf1_edx_bit INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Tests one bit of the CPUID register using the target calling convention.
   $>
+::x64_cpuid_leaf1_edx_bit INCLUDE_IF(ARCH_IS_X64)
   FUNCTION(@bit I32): BOOL
 {
   RETURN ((x64_cpuid_leaf1_edx() #-- (bit AS CHECKED U32)) #&& (1 AS U32)) != 0;
 }
 
-::x64_cpuid_leaf7_ebx INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Returns the CPUID leaf 7 EBX register, or zero when the leaf is unavailable.
   $>
+::x64_cpuid_leaf7_ebx INCLUDE_IF(ARCH_IS_X64)
   ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(; RETURN U32)
 {
@@ -117,17 +122,19 @@ LANGUAGE QUXLANG EN 0.0;
   RET
 }
 
-::x64_cpuid_leaf7_ebx_bit INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Tests one bit of the CPUID register using the target calling convention.
   $>
+::x64_cpuid_leaf7_ebx_bit INCLUDE_IF(ARCH_IS_X64)
   FUNCTION(@bit I32): BOOL
 {
   RETURN ((x64_cpuid_leaf7_ebx() #-- (bit AS CHECKED U32)) #&& (1 AS U32)) != 0;
 }
 
-::x64_cpuid_extended_leaf1_ecx INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Returns CPUID leaf 0x80000001 ECX, or zero when the leaf is unavailable.
   $>
+::x64_cpuid_extended_leaf1_ecx INCLUDE_IF(ARCH_IS_X64)
   ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(; RETURN U32)
 {
@@ -146,17 +153,19 @@ LANGUAGE QUXLANG EN 0.0;
   RET
 }
 
-::x64_cpuid_extended_leaf1_ecx_bit INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Tests one bit of the CPUID register using the target calling convention.
   $>
+::x64_cpuid_extended_leaf1_ecx_bit INCLUDE_IF(ARCH_IS_X64)
   FUNCTION(@bit I32): BOOL
 {
   RETURN ((x64_cpuid_extended_leaf1_ecx() #-- (bit AS CHECKED U32)) #&& (1 AS U32)) != 0;
 }
 
-::x64_cpuid_extended_leaf8_ebx INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Returns CPUID leaf 0x80000008 EBX, or zero when the leaf is unavailable.
   $>
+::x64_cpuid_extended_leaf8_ebx INCLUDE_IF(ARCH_IS_X64)
   ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(; RETURN U32)
 {
@@ -175,17 +184,19 @@ LANGUAGE QUXLANG EN 0.0;
   RET
 }
 
-::x64_cpuid_extended_leaf8_ebx_bit INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Tests one bit of the CPUID register using the target calling convention.
   $>
+::x64_cpuid_extended_leaf8_ebx_bit INCLUDE_IF(ARCH_IS_X64)
   FUNCTION(@bit I32): BOOL
 {
   RETURN ((x64_cpuid_extended_leaf8_ebx() #-- (bit AS CHECKED U32)) #&& (1 AS U32)) != 0;
 }
 
-::x64_cpuid_extended_state_leaf1_eax INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Returns the CPUID leaf 0xD subleaf 1 EAX register, or zero when the leaf is unavailable.
   $>
+::x64_cpuid_extended_state_leaf1_eax INCLUDE_IF(ARCH_IS_X64)
   ASM_PROCEDURE X64
   CALLABLE CALLCONV CCALL(; RETURN U32)
 {
@@ -204,9 +215,10 @@ LANGUAGE QUXLANG EN 0.0;
   RET
 }
 
-::x64_cpuid_extended_state_leaf1_eax_bit INCLUDE_IF(ARCH_IS_X64) DOC <$
+DOC <$
   Tests one bit of the CPUID register using the target calling convention.
   $>
+::x64_cpuid_extended_state_leaf1_eax_bit INCLUDE_IF(ARCH_IS_X64)
   FUNCTION(@bit I32): BOOL
 {
   RETURN ((x64_cpuid_extended_state_leaf1_eax() #-- (bit AS CHECKED U32)) #&& (1 AS U32)) != 0;

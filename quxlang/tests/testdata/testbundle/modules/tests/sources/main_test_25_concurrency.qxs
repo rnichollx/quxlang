@@ -161,7 +161,8 @@ PRIVATE(MODULE)
 }
 
 
-::pointer_copy_entry DOC <$ Copies ownership repeatedly on a worker thread. $>
+DOC <$ Copies ownership repeatedly on a worker thread. $>
+::pointer_copy_entry
   TEMPLATE(@T TYPE AUTO) STRUCT
 {
   .owner VAR T;

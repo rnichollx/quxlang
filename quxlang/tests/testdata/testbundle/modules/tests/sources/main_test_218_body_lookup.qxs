@@ -8,7 +8,8 @@ LANGUAGE QUXLANG EN 0.0;
     second += 2;
   }
 
-  ::batched_mutations DOC <$ A single static evaluation publishes both changed array extents. $>
+  DOC <$ A single static evaluation publishes both changed array extents. $>
+  ::batched_mutations
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     STATIC_VAR first SZ := 1;
@@ -23,7 +24,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SIZEOF(DECLTYPE(later)) == 9 * SIZEOF(I32));
   }
 
-  ::scope_restoration DOC <$ Nested publications preserve shadowing and surviving outer mutations. $>
+  DOC <$ Nested publications preserve shadowing and surviving outer mutations. $>
+  ::scope_restoration
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     STATIC_VAR extent SZ := 1;
@@ -50,7 +52,8 @@ LANGUAGE QUXLANG EN 0.0;
     value++;
   }
 
-  ::complete_expression_types DOC <$ Inferred complete types preserve reference qualifiers without invoking operands. $>
+  DOC <$ Inferred complete types preserve reference qualifiers without invoking operands. $>
+  ::complete_expression_types
     DUAL_TEST
   {
     VAR value I32 := 3;
@@ -69,7 +72,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == 3);
   }
 
-  ::creation_context DOC <$ Lambdas retain the static values visible at creation across mutations and iterations. $>
+  DOC <$ Lambdas retain the static values visible at creation across mutations and iterations. $>
+  ::creation_context
     DUAL_TEST
   {
     STATIC_VAR count I32 := 1;
@@ -89,7 +93,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SAME_TYPES(TYPEOF((-< = (-< = 3)())()), TYPEOF(3)));
   }
 
-  ::pointer_aliases DOC <$ Aliases retain storage identity while snapshots freeze their reachable objects. $>
+  DOC <$ Aliases retain storage identity while snapshots freeze their reachable objects. $>
+  ::pointer_aliases
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     STATIC_VAR extent SZ := 1;
@@ -102,7 +107,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(SNAPSHOT(pointer)-> == 3);
   }
 
-  ::nested_type_operands DOC <$ Nested unevaluated operands and local type bindings use the same lexical publications. $>
+  DOC <$ Nested unevaluated operands and local type bindings use the same lexical publications. $>
+  ::nested_type_operands
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value I32 := 4;
@@ -115,14 +121,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == 4);
   }
 
-  ::missing_name DOC <$ Missing-name lookup completes while the generating procedure is still active. $>
+  DOC <$ Missing-name lookup completes while the generating procedure is still active. $>
+  ::missing_name
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     STATIC_VAR value SZ := 1;
     VAR values [missing_body_name]I32;
   }
 
-  ::runtime_extent DOC <$ A runtime value cannot provide a constexpr array extent. $>
+  DOC <$ A runtime value cannot provide a constexpr array extent. $>
+  ::runtime_extent
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR extent SZ := 2;
@@ -144,13 +152,15 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN sum;
   }
 
-  ::pack_iteration DOC <$ Pack indices and captured elements follow each expansion's body context. $>
+  DOC <$ Pack indices and captured elements follow each expansion's body context. $>
+  ::pack_iteration
     DUAL_TEST
   {
     TEST_ASSERT(pack_types(% [2, 3, 4]) == 9);
   }
 
-  ::lambda_static_loop DOC <$ Capture analysis and lambda generation both resolve statics declared inside a lambda. $>
+  DOC <$ Capture analysis and lambda generation both resolve statics declared inside a lambda. $>
+  ::lambda_static_loop
     DUAL_TEST
   {
     AUTO callable := -<
@@ -165,7 +175,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(callable() == 2);
   }
 
-  ::shadowed_pointer_target DOC <$ Mutation through an alias updates a hidden outer object without changing the visible declaration. $>
+  DOC <$ Mutation through an alias updates a hidden outer object without changing the visible declaration. $>
+  ::shadowed_pointer_target
     DUAL_TEST
   {
     STATIC_VAR value SZ := 1;
@@ -212,7 +223,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::declared_receiver_type DOC <$ Member declared types retain their declaration qualifiers independently of receiver constness. $>
+  DOC <$ Member declared types retain their declaration qualifiers independently of receiver constness. $>
+  ::declared_receiver_type
     DUAL_TEST
   {
     VAR value I32 := 9;
@@ -220,14 +232,16 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(object.check() == 3);
   }
 
-  ::receiver_type DOC <$ Unevaluated field lookup preserves the enclosing receiver. $>
+  DOC <$ Unevaluated field lookup preserves the enclosing receiver. $>
+  ::receiver_type
     DUAL_TEST
   {
     VAR object receiver;
     TEST_ASSERT(object.check());
   }
 
-  ::parameter_shadowing DOC <$ A lambda parameter's declared type takes precedence over its creation-time statics. $>
+  DOC <$ A lambda parameter's declared type takes precedence over its creation-time statics. $>
+  ::parameter_shadowing
     DUAL_TEST
   {
     STATIC_VAR value I32 := 1;

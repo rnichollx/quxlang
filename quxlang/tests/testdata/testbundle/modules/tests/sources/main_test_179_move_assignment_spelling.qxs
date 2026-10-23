@@ -3,7 +3,8 @@ LANGUAGE QUXLANG EN 0.0;
 ::move_assignment_spelling_tests NAMESPACE
 {
   // This operator is not implemented yet
-  ::scalar_value DOC <$ Move-assignment spelling replaces an initialized scalar with the source value. $>
+  DOC <$ Move-assignment spelling replaces an initialized scalar with the source value. $>
+  ::scalar_value
     DUAL_TEST KNOWN_BROKEN
   {
     VAR source I32 := 17;
@@ -14,7 +15,8 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   // This operator is not implemented yet
-  ::owned_value DOC <$ Move-assignment spelling replaces owned text and permits subsequent assignment to the moved-from object. $>
+  DOC <$ Move-assignment spelling replaces owned text and permits subsequent assignment to the moved-from object. $>
+  ::owned_value
     DUAL_TEST KNOWN_BROKEN
   {
     VAR source std::string := "transferred";

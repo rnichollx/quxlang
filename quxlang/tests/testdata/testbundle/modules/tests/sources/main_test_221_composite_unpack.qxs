@@ -28,7 +28,8 @@ IMPORT std;
     RETURN result;
   }
 
-  ::literal_and_call DOC <$ Positional spellings share a schema and unpack combines positional and named arguments. $> DUAL_TEST
+  DOC <$ Positional spellings share a schema and unpack combines positional and named arguments. $>
+  ::literal_and_call DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(TYPEOF(:[1, 3, 5]), TYPEOF(:{ [0]: 1, [1]: 3, [2]: 5 })));
     TEST_ASSERT(digits(COMPOSITE_UNPACK(:[1, 3, 5]), @offset 2) == 2135);
@@ -43,7 +44,8 @@ IMPORT std;
     TEST_ASSERT((COMPOSITE_FIELD_GET(many, 10) AS I32) == 10);
   }
 
-  ::construction DOC <$ Constructors and NEW share unpacking with ordinary calls. $> DUAL_TEST
+  DOC <$ Constructors and NEW share unpacking with ordinary calls. $>
+  ::construction DUAL_TEST
   {
     VAR value record :(COMPOSITE_UNPACK(:[3, 5]), @limit 7);
     TEST_ASSERT(value.first == 3);
@@ -73,7 +75,8 @@ IMPORT std;
     increment(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
   }
 
-  ::reference_forwarding DOC <$ Pack and named forwarding preserve mutable references to their original objects. $> DUAL_TEST
+  DOC <$ Pack and named forwarding preserve mutable references to their original objects. $>
+  ::reference_forwarding DUAL_TEST
   {
     VAR value I32 := 5;
     forward_increment(% [value], @amount 7);
@@ -89,7 +92,8 @@ IMPORT std;
     }
   }
 
-  ::positional_move DOC <$ A forwarded temporary pack element transfers ownership into the allocated object. $> DUAL_TEST
+  DOC <$ A forwarded temporary pack element transfers ownership into the allocated object. $>
+  ::positional_move DUAL_TEST
   {
     AUTO inner := std::make_unique#I32(@OTHER 43);
     AUTO outer := std::make_unique#owner_record(% [MOVE(inner)]);
@@ -105,7 +109,8 @@ IMPORT std;
     RETURN digit;
   }
 
-  ::evaluation_order DOC <$ Expanded operands and explicit arguments evaluate once in source order. $> DUAL_TEST
+  DOC <$ Expanded operands and explicit arguments evaluate once in source order. $>
+  ::evaluation_order DUAL_TEST
   {
     VAR events I32 := 0;
     VAR result I32 := digits(
@@ -117,22 +122,26 @@ IMPORT std;
     TEST_ASSERT(result == 3124);
   }
 
-  ::duplicate_position DOC <$ An explicit positional member cannot be declared twice. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  DOC <$ An explicit positional member cannot be declared twice. $>
+  ::duplicate_position STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     AUTO invalid := :{ [0]: 1, [0]: 3 };
   }
 
-  ::duplicate_named DOC <$ Unpacking cannot overwrite an explicit argument. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  DOC <$ Unpacking cannot overwrite an explicit argument. $>
+  ::duplicate_named STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     digits(@offset 1, COMPOSITE_UNPACK(:{ .offset: 2 }));
   }
 
-  ::missing_position DOC <$ Positional composite indices form a contiguous sequence. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  DOC <$ Positional composite indices form a contiguous sequence. $>
+  ::missing_position STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     AUTO invalid := :{ [1]: 3 };
   }
 
-  ::invalid_unpack DOC <$ Argument expansion requires a composite. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  DOC <$ Argument expansion requires a composite. $>
+  ::invalid_unpack STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     digits(COMPOSITE_UNPACK(3));
   }

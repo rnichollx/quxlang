@@ -5,10 +5,12 @@ IMPORT foolib AS second_library;
 
 ::import_lookup_tests NAMESPACE
 {
-  ::read_imported DOC <$ Resolves an imported module alias from within a namespace. $>
+  DOC <$ Resolves an imported module alias from within a namespace. $>
+  ::read_imported
     FUNCTION(): I32 { RETURN first_library::imported_function(); }
 
-  ::renamed_module_identity DOC <$ Two imports of one module retain declaration and global storage identity through aliases. $>
+  DOC <$ Two imports of one module retain declaration and global storage identity through aliases. $>
+  ::renamed_module_identity
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(first_library::alias_exports::public_type, second_library::alias_exports::public_type));
@@ -27,22 +29,28 @@ IMPORT foolib AS second_library;
     TEST_ASSERT(text == "renamed");
   }
 
-  ::value DOC <$ Supplies the enclosing namespace value for lexical lookup. $>
+  DOC <$ Supplies the enclosing namespace value for lexical lookup. $>
+  ::value
     STATIC I32 := 7;
-  ::read_outer DOC <$ Resolves its name at the function declaration instead of at the caller. $>
+  DOC <$ Resolves its name at the function declaration instead of at the caller. $>
+  ::read_outer
     FUNCTION(): I32 { RETURN value; }
 
   ::nested NAMESPACE
   {
-    ::value DOC <$ Shadows the enclosing value inside the nested namespace. $>
+    DOC <$ Shadows the enclosing value inside the nested namespace. $>
+    ::value
       STATIC I32 := 13;
-    ::read_inner DOC <$ Combines nearest-scope lookup with a call to an enclosing declaration. $>
+    DOC <$ Combines nearest-scope lookup with a call to an enclosing declaration. $>
+    ::read_inner
       FUNCTION(): I32 { RETURN value * 10 + read_outer(); }
-    ::outer_function DOC <$ Retains the original function declaration through a local alias. $>
+    DOC <$ Retains the original function declaration through a local alias. $>
+    ::outer_function
       ALIAS read_outer;
   }
 
-  ::declaration_scope_lookup DOC <$ Caller locals and nested namespace names do not alter a function's lexical lookup. $>
+  DOC <$ Caller locals and nested namespace names do not alter a function's lexical lookup. $>
+  ::declaration_scope_lookup
     DUAL_TEST
   {
     VAR value I32 := 99;
@@ -72,7 +80,8 @@ IMPORT foolib AS second_library;
   IMPORT_IF(FALSE) std AS selected;
   IMPORT_IF(TRUE) foolib AS selected;
 
-  ::spellings DOC <$ Explicit, implicit, renamed, repeated and conditional imports share module identity. $>
+  DOC <$ Explicit, implicit, renamed, repeated and conditional imports share module identity. $>
+  ::spellings
     DUAL_TEST
   {
     TEST_ASSERT(named::imported_function() == 42);
@@ -85,15 +94,18 @@ IMPORT foolib AS second_library;
     TEST_ASSERT(SAME_TYPES(named::alias_exports::public_type, renamed::alias_exports::public_type));
   }
 
-  ::disabled_lookup DOC <$ A false import condition excludes its declared name. $>
+  DOC <$ A false import condition excludes its declared name. $>
+  ::disabled_lookup
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   { disabled::imported_function(); }
 
-  ::named_disabled_lookup DOC <$ A false condition also excludes an explicitly named import. $>
+  DOC <$ A false condition also excludes an explicitly named import. $>
+  ::named_disabled_lookup
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   { named_disabled::imported_function(); }
 
-  ::excluded_lookup DOC <$ INCLUDE_IF uses the same import inclusion field. $>
+  DOC <$ INCLUDE_IF uses the same import inclusion field. $>
+  ::excluded_lookup
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   { excluded::imported_function(); }
 
@@ -103,18 +115,21 @@ IMPORT foolib AS second_library;
     ::library IMPORT std;
   }
 
-  ::conflicting_lookup DOC <$ Different modules cannot occupy the same active import name. $>
+  DOC <$ Different modules cannot occupy the same active import name. $>
+  ::conflicting_lookup
     STATIC_TEST EXPECT_COMPILATION_FAILURE
   { conflicting::library::imported_function(); }
 
   PRIVATE(MODULE) ::private_library IMPORT foolib;
 
-  ::private_access DOC <$ A module import follows ordinary alias privacy rules. $>
+  DOC <$ A module import follows ordinary alias privacy rules. $>
+  ::private_access
     DUAL_TEST
   { TEST_ASSERT(private_library::imported_function() == 42); }
 }
 
-::private_import_lookup DOC <$ Imports remain accessible from other namespaces in the declaring module. $>
+DOC <$ Imports remain accessible from other namespaces in the declaring module. $>
+::private_import_lookup
   DUAL_TEST
 { TEST_ASSERT(import_declaration_tests::private_library::imported_function() == 42); }
 
@@ -132,7 +147,8 @@ IMPORT foolib AS second_library;
   ::conditional_private STATIC_TEST EXPECT_COMPILATION_FAILURE
   { VAR text first_library::import_identity::conditional_std::string; }
 
-  ::public_alias DOC <$ Public aliases re-expose imported modules and their types across module boundaries. $>
+  DOC <$ Public aliases re-expose imported modules and their types across module boundaries. $>
+  ::public_alias
     DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(first_library::import_identity::exported_std::string, containers::string));

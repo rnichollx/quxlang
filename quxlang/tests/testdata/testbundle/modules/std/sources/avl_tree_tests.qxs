@@ -2,12 +2,14 @@ LANGUAGE QUXLANG EN 0.0;
 
 PRIVATE(MODULE, RUNTIME_MODULE)
 {
-  ::avl_audit_result DOC <$ Holds independently recomputed subtree measurements for structural tests. $> STRUCT
+  DOC <$ Holds independently recomputed subtree measurements for structural tests. $>
+  ::avl_audit_result STRUCT
   {
     .height VAR SZ;
     .count VAR SZ;
 
-    ::check DOC <$ Checks every parent link and independently verifies cached metadata and the AVL height-difference invariant. $>
+    DOC <$ Checks every parent link and independently verifies cached metadata and the AVL height-difference invariant. $>
+    ::check
       FUNCTION(@node MUT->avl_node#(@T SZ, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE), @parent MUT->avl_node#(@T SZ, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)): avl_audit_result
     {
       VAR result avl_audit_result;

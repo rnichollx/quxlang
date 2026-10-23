@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::union_assignment_tests NAMESPACE
 {
-  ::failed_copy_then_retry DOC <$ Failure constructing the by-value assignment argument preserves both unions and a later successful retry replaces only the target payload. $>
+  DOC <$ Failure constructing the by-value assignment argument preserves both unions and a later successful retry replaces only the target payload. $>
+  ::failed_copy_then_retry
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR attempts I32 := 0;
@@ -58,13 +59,15 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(attempts == 4);
   }
 
-  ::boxed_retry DOC <$ Boxed union assignment retains its previous alternative on argument-copy failure. $>
+  DOC <$ Boxed union assignment retains its previous alternative on argument-copy failure. $>
+  ::boxed_retry
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     failed_copy_then_retry#(union_lifetime_tests::boxed)();
   }
 
-  ::inline_retry DOC <$ Inline union assignment retains its previous alternative on argument-copy failure. $>
+  DOC <$ Inline union assignment retains its previous alternative on argument-copy failure. $>
+  ::inline_retry
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     failed_copy_then_retry#(union_lifetime_tests::inlined)();

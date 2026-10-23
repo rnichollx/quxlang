@@ -65,6 +65,7 @@ namespace quxlang::parsers
         while (true)
         {
             skip_whitespace_and_comments(pos, end);
+            ctx.pending_doc = try_parse_single_doc(ctx);
             std::optional< privacy_scope > declaration_privacy = try_parse_privacy_scope(ctx);
             if (declaration_privacy.has_value())
             {
@@ -76,6 +77,10 @@ namespace quxlang::parsers
                 skip_whitespace_and_comments(pos, end);
                 if (skip_symbol_if_is(pos, end, "{"))
                 {
+                    if (ctx.pending_doc.has_value())
+                    {
+                        throw syntax_compilation_error("DOC must precede a declaration rather than a PRIVATE block");
+                    }
                     std::vector< subdeclaration > nested = parse_subdeclarations(ctx, declaration_privacy);
                     skip_whitespace_and_comments(pos, end);
                     if (!skip_symbol_if_is(pos, end, "}"))
@@ -90,6 +95,10 @@ namespace quxlang::parsers
             std::optional< subdeclaration > decl = try_parse_subdeclaration(ctx, declaration_privacy.has_value() ? std::move(declaration_privacy) : inherited_privacy);
             if (!decl)
             {
+                if (ctx.pending_doc.has_value())
+                {
+                    throw syntax_compilation_error("expected declaration after DOC block");
+                }
                 if (declaration_privacy.has_value())
                 {
                     throw syntax_compilation_error("expected declaration after PRIVATE scope");
@@ -119,11 +128,9 @@ namespace quxlang::parsers
         auto name_opt = try_parse_name(pos, end);
         skip_whitespace_and_comments(pos, end);
         std::optional< expression > ifl;
-        std::optional< std::string > doc;
         if (name_opt.has_value())
         {
             ifl = try_parse_include_if(ctx);
-            doc = try_parse_single_doc(ctx);
         }
         std::optional< global_subdeclaration > import = try_parse_import_declaration(
             ctx, name_opt.has_value() ? std::optional< std::string >(name_opt->second) : std::nullopt);
@@ -143,6 +150,7 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Runtime declaration ::" + name + " is only allowed in the runtime module");
         }
 
+        std::optional< std::string > doc = std::exchange(ctx.pending_doc, std::nullopt);
         declaration decl;
         if (import.has_value())
         {
@@ -202,7 +210,14 @@ namespace quxlang::parsers
     /** Tries to parse one declaration without an explicit privacy scope. */
     inline std::optional< subdeclaration > try_parse_subdeclaration(parsing_context& ctx)
     {
-        return try_parse_subdeclaration(ctx, std::nullopt);
+        skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
+        ctx.pending_doc = try_parse_single_doc(ctx);
+        std::optional< subdeclaration > result = try_parse_subdeclaration(ctx, std::nullopt);
+        if (ctx.pending_doc.has_value())
+        {
+            throw syntax_compilation_error("expected declaration after DOC block");
+        }
+        return result;
     }
 
     /** Parses an ALIAS target and its required terminating semicolon. */

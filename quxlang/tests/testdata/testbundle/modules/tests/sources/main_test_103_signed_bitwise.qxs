@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::signed_bitwise_tests NAMESPACE
 {
-  ::negative_operand DOC <$ Every bitwise truth function treats a signed negative operand as its fixed-width two's-complement bit pattern. $>
+  DOC <$ Every bitwise truth function treats a signed negative operand as its fixed-width two's-complement bit pattern. $>
+  ::negative_operand
     TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR left T := (0 AS T) - 6;
@@ -43,7 +44,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value == ((0 AS T) - 5));
   }
 
-  ::signed_widths DOC <$ Standard and non-byte signed widths preserve high sign bits in ordinary and compound bitwise operations. $>
+  DOC <$ Standard and non-byte signed widths preserve high sign bits in ordinary and compound bitwise operations. $>
+  ::signed_widths
     DUAL_TEST
   {
     negative_operand#(I5)();

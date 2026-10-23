@@ -2,7 +2,8 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::atomic_pointer_tests NAMESPACE
 {
-  ::compare_exchange_identity DOC <$ Pointer compare-exchange compares addresses and writes back the observed pointer after failure. $>
+  DOC <$ Pointer compare-exchange compares addresses and writes back the observed pointer after failure. $>
+  ::compare_exchange_identity
     TEMPLATE(@success TYPE AUTO, @failure TYPE AUTO) FUNCTION()
   {
     VAR first I32 := 17;
@@ -33,7 +34,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value.LOAD#ATOMIC_RELAXED() == first<-);
   }
 
-  ::comparison_modes DOC <$ Null and live pointer transitions obey the expected-value contract for all supported ordering pairs. $>
+  DOC <$ Null and live pointer transitions obey the expected-value contract for all supported ordering pairs. $>
+  ::comparison_modes
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     compare_exchange_identity#(@success ATOMIC_RELAXED, @failure ATOMIC_RELAXED)();
@@ -47,10 +49,12 @@ LANGUAGE QUXLANG EN 0.0;
     compare_exchange_identity#(@success ATOMIC_SEQCST, @failure ATOMIC_SEQCST)();
   }
 
-  ::pair DOC <$ Keeps two independent atomic counters in one record. $>
+  DOC <$ Keeps two independent atomic counters in one record. $>
+  ::pair
     STRUCT { .left VAR ATOMIC#I32; .right VAR ATOMIC#I32; }
 
-  ::nested_atomic_storage DOC <$ Operations on atomic fields in adjacent array elements affect only the selected storage. $>
+  DOC <$ Operations on atomic fields in adjacent array elements affect only the selected storage. $>
+  ::nested_atomic_storage
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR values [2]pair;
@@ -73,7 +77,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[0].right.LOAD#ATOMIC_ACQUIRE() == 20);
     TEST_ASSERT(selected.LOAD#ATOMIC_ACQUIRE() == 49);
   }
-  ::exchange_identity DOC <$ Exchange returns the previous pointer and supports transitions to and from null. $>
+  DOC <$ Exchange returns the previous pointer and supports transitions to and from null. $>
+  ::exchange_identity
     UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR first I32 := 17;

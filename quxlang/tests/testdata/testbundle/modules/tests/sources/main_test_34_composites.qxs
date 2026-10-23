@@ -1,6 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::composite_tests DOC <$ Structural records support reflected fields and named argument forwarding. $>
+DOC <$ Structural records support reflected fields and named argument forwarding. $>
+::composite_tests
 NAMESPACE
 {
   ::identity_and_metadata DUAL_TEST
@@ -74,7 +75,8 @@ NAMESPACE
     TEST_ASSERT(COMPOSITE_FIELD_COUNT(DECLTYPE(empty)) == 0);
   }
 
-  ::clamp DOC <$ Same-typed bounds remain distinct named arguments when forwarded. $>
+  DOC <$ Same-typed bounds remain distinct named arguments when forwarded. $>
+  ::clamp
   FUNCTION(@value I32, @minimum I32 DEFAULT(0), @maximum I32 DEFAULT(100)): I32
   {
     IF (value < minimum) { RETURN minimum; }
@@ -233,7 +235,8 @@ NAMESPACE
     TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(TYPEOF(COMPOSITE_FORWARD(record)), "number"), TEMP& TYPEOF(42)));
   }
 
-  ::tracked DOC <$ Tracks ordinary record field copies, moves, and destruction. $>
+  DOC <$ Tracks ordinary record field copies, moves, and destruction. $>
+  ::tracked
   STRUCT
   {
     .alive VAR MUT->I32;
@@ -323,7 +326,8 @@ NAMESPACE
     RETURN argument_order_target<-;
   }
 
-  ::evaluation_order DOC <$ APPLY evaluates its composite before its target, with field expressions evaluated in source order. $>
+  DOC <$ APPLY evaluates its composite before its target, with field expressions evaluated in source order. $>
+  ::evaluation_order
   DUAL_TEST
   {
     VAR events I32 := 0;
@@ -410,7 +414,8 @@ NAMESPACE
     TEST_ASSERT(code == 47);
   }
 
-  ::mixed_copy_storage DOC <$ Copying a composite duplicates owned fields while preserving the identity of borrowed fields. $>
+  DOC <$ Copying a composite duplicates owned fields while preserving the identity of borrowed fields. $>
+  ::mixed_copy_storage
     DUAL_TEST
   {
     VAR external I32 := 3;
@@ -428,7 +433,8 @@ NAMESPACE
     TEST_ASSERT(copied.owned == 11);
   }
 
-  ::empty_partition_boundaries DOC <$ Splitting no fields or all fields produces empty complementary records, and joining an empty record preserves projections. $>
+  DOC <$ Splitting no fields or all fields produces empty complementary records, and joining an empty record preserves projections. $>
+  ::empty_partition_boundaries
     DUAL_TEST
   {
     AUTO original := :{ .a = 2 AS I32; .b = 4 AS I32; };

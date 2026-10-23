@@ -1,30 +1,39 @@
 LANGUAGE QUXLANG EN 0.0;
 IMPORT std;
 
-::audit_option_enabled DOC <$ Selects one of two declarations and can be overridden by the target configuration. $>
+DOC <$ Selects one of two declarations and can be overridden by the target configuration. $>
+::audit_option_enabled
   OPTION BOOL DEFAULT_VALUE(FALSE);
 
-::audit_option_text DOC <$ Supplies a string value from a default or target override. $>
+DOC <$ Supplies a string value from a default or target override. $>
+::audit_option_text
   OPTION STRING DEFAULT_VALUE("default text");
 
 ::option_selection_tests NAMESPACE
 {
-  ::derived DOC <$ Computes a numeric constant from the configured module option. $>
+  DOC <$ Computes a numeric constant from the configured module option. $>
+  ::derived
     STATIC SZ := option_num + 2;
-  ::configured DOC <$ Computes a Boolean constant from the configured numeric value. $>
+  DOC <$ Computes a Boolean constant from the configured numeric value. $>
+  ::configured
     STATIC BOOL := option_num == 5;
 
-  ::element INCLUDE_IF(configured) DOC <$ Selects the type associated with the configured value. $>
+  DOC <$ Selects the type associated with the configured value. $>
+  ::element INCLUDE_IF(configured)
     ALIAS I32;
-  ::element INCLUDE_IF(configured == FALSE) DOC <$ Selects a different type when the default is not overridden. $>
+  DOC <$ Selects a different type when the default is not overridden. $>
+  ::element INCLUDE_IF(configured == FALSE)
     ALIAS I64;
 
-  ::selected INCLUDE_IF(audit_option_enabled) DOC <$ Supplies the enabled declaration. $>
+  DOC <$ Supplies the enabled declaration. $>
+  ::selected INCLUDE_IF(audit_option_enabled)
     FUNCTION(): I32 { RETURN 31; }
-  ::selected INCLUDE_IF(audit_option_enabled == FALSE) DOC <$ Supplies the disabled declaration. $>
+  DOC <$ Supplies the disabled declaration. $>
+  ::selected INCLUDE_IF(audit_option_enabled == FALSE)
     FUNCTION(): I32 { RETURN 47; }
 
-  ::configured_numeric_dependencies DOC <$ Configured numeric options propagate into dependent constants, aliases and array extents. $>
+  DOC <$ Configured numeric options propagate into dependent constants, aliases and array extents. $>
+  ::configured_numeric_dependencies
     DUAL_TEST
   {
     TEST_ASSERT(option_num == 5);
@@ -37,23 +46,27 @@ IMPORT std;
     TEST_ASSERT(values[6] == 19);
   }
 
-  ::dependent_default DOC <$ Uses the configured numeric value to form a Boolean option default. $>
+  DOC <$ Uses the configured numeric value to form a Boolean option default. $>
+  ::dependent_default
     OPTION BOOL DEFAULT_VALUE(option_num == 5);
 
-  ::expression_option_default DOC <$ An option default can be a constant expression with the declared result kind. $>
+  DOC <$ An option default can be a constant expression with the declared result kind. $>
+  ::expression_option_default
     DUAL_TEST
   {
     TEST_ASSERT(dependent_default);
   }
 
-  ::string_option_value DOC <$ A string option initializes owned text without changing its contents. $>
+  DOC <$ A string option initializes owned text without changing its contents. $>
+  ::string_option_value
     DUAL_TEST
   {
     VAR text std::string := audit_option_text;
     TEST_ASSERT(text == audit_option_text);
   }
 
-  ::boolean_declaration_selection DOC <$ Boolean configuration selects one same-signature declaration consistently with static branching. $>
+  DOC <$ Boolean configuration selects one same-signature declaration consistently with static branching. $>
+  ::boolean_declaration_selection
     DUAL_TEST
   {
     STATIC_IF (audit_option_enabled) { TEST_ASSERT(selected() == 31); }

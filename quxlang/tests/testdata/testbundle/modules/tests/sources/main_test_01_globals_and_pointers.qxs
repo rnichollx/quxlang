@@ -327,9 +327,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::loop_test_clause_test DOC <$
+DOC <$
    A TEST-only LOOP checks its condition before each DO body execution.
-   $> DUAL_TEST
+   $>
+::loop_test_clause_test DUAL_TEST
 {
    VAR count I32 := 0;
    LOOP WHILE(count < 3) DO {
@@ -341,9 +342,10 @@ LANGUAGE QUXLANG EN 0.0;
    TEST_ASSERT(count == 3);
 }
 
-::loop_unconditional_test DOC <$
+DOC <$
    A LOOP with no clauses repeats its DO body until BREAK exits it.
-   $> DUAL_TEST
+   $>
+::loop_unconditional_test DUAL_TEST
 {
    VAR count I32 := 0;
    LOOP DO {

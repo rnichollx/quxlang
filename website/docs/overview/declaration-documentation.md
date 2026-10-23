@@ -4,10 +4,10 @@ A `DOC <$ ... $>` block attaches reader-facing documentation to the declaration
 that follows it:
 
 ```quxlang
-::double INCLUDE_IF(TRUE) DOC <$
+DOC <$
   Returns twice the supplied value.
   $>
-  FUNCTION(@ARG:value I32): I32
+::double INCLUDE_IF(TRUE) FUNCTION(@ARG:value I32): I32
 {
   RETURN value * 2;
 }
@@ -15,18 +15,19 @@ that follows it:
 
 For an ordinary named declaration, modifiers occur in this order:
 
-1. the declaration name;
-2. optional `INCLUDE_IF(...)`;
-3. optional `DOC <$ ... $>`;
-4. the declaration kind and definition.
+1. optional `DOC <$ ... $>`;
+2. optional `PRIVATE(...)`;
+3. the declaration name;
+4. optional `INCLUDE_IF(...)`;
+5. the declaration kind and definition.
 
 Member documentation follows the same placement:
 
 ```quxlang
 ::counter STRUCT
 {
-  .read DOC <$ Returns the current counter value. $>
-    FUNCTION() CONST: I32
+  DOC <$ Returns the current counter value. $>
+  .read FUNCTION() CONST: I32
   {
     RETURN .value;
   }

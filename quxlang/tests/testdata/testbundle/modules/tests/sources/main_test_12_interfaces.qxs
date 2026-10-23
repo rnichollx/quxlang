@@ -263,7 +263,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((first <=> other) != ORDER::EQUAL);
 }
 
-::generic_reference_copy_and_rebind DOC <$ Copies of a generic reference retain their referent when another handle is rebound. $>
+DOC <$ Copies of a generic reference retain their referent when another handle is rebound. $>
+::generic_reference_copy_and_rebind
   DUAL_TEST
 {
     VAR left generic_counter := 3;
@@ -279,7 +280,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(copied.read() == 4);
 }
 
-::interface_copy_and_null_swap DOC <$ Copying and swapping interface handles preserves implementation dispatch and null-handle default methods. $>
+DOC <$ Copying and swapping interface handles preserves implementation dispatch and null-handle default methods. $>
+::interface_copy_and_null_swap
   DUAL_TEST
 {
     VAR first interface_integer := interface_integer_impl;

@@ -3,7 +3,8 @@ IMPORT std;
 
 ::optional_tests NAMESPACE
 {
-  ::basic_access DOC <$ Empty optionals construct values on demand and preserve mutable and constant access. $> DUAL_TEST
+  DOC <$ Empty optionals construct values on demand and preserve mutable and constant access. $>
+  ::basic_access DUAL_TEST
   {
     VAR option std::optional#I32;
     TEST_ASSERT(option.has_value() == FALSE);
@@ -30,7 +31,8 @@ IMPORT std;
     RETURN value.value();
   }
 
-  ::forwarded_record DOC <$ Records positional and named constructor arguments and updates the caller's counter. $> STRUCT
+  DOC <$ Records positional and named constructor arguments and updates the caller's counter. $>
+  ::forwarded_record STRUCT
   {
     .value VAR I32;
     .CONSTRUCTOR FUNCTION(%left I32, %right I32, @offset I32, @calls MUT& I32)
@@ -40,7 +42,8 @@ IMPORT std;
     }
   }
 
-  ::forwarded_arguments DOC <$ Emplacement forwards mixed constructor arguments, preserves references, and returns the contained object. $> DUAL_TEST
+  DOC <$ Emplacement forwards mixed constructor arguments, preserves references, and returns the contained object. $>
+  ::forwarded_arguments DUAL_TEST
   {
     VAR calls I32 := 0;
     VAR option std::optional#forwarded_record;
@@ -54,7 +57,8 @@ IMPORT std;
     TEST_ASSERT(option->.value == 456);
   }
 
-  ::forwarded_move DOC <$ Positional constructor forwarding moves an owned value into the contained object. $> DUAL_TEST
+  DOC <$ Positional constructor forwarding moves an owned value into the contained object. $>
+  ::forwarded_move DUAL_TEST
   {
     AUTO pointer := std::make_unique#I32(@OTHER 43);
     VAR option std::optional#composite_unpack_tests::owner_record;
@@ -63,13 +67,15 @@ IMPORT std;
     TEST_ASSERT(option->.owned-> == 43);
   }
 
-  ::from_null DOC <$ Forwards a null argument into an empty optional return value. $>
+  DOC <$ Forwards a null argument into an empty optional return value. $>
+  ::from_null
     FUNCTION(@ARG NULL_TYPE): std::optional#I32
   {
     RETURN ARG;
   }
 
-  ::null_construction DOC <$ NULL constructs an empty optional while an explicitly supplied null pointer remains an engaged value. $> DUAL_TEST
+  DOC <$ NULL constructs an empty optional while an explicitly supplied null pointer remains an engaged value. $>
+  ::null_construction DUAL_TEST
   {
     VAR empty std::optional#I32 := NULL;
     TEST_ASSERT(empty.has_value() == FALSE);
@@ -92,7 +98,8 @@ IMPORT std;
     RETURN value;
   }
 
-  ::implicit_value_construction DOC <$ Values implicitly construct engaged optionals in initialization, arguments, and returns. $> DUAL_TEST
+  DOC <$ Values implicitly construct engaged optionals in initialization, arguments, and returns. $>
+  ::implicit_value_construction DUAL_TEST
   {
     VAR value I32 := 23;
     VAR copied std::optional#I32 := value;
@@ -114,7 +121,8 @@ IMPORT std;
     TEST_ASSERT((temporary.value())-> == 41);
   }
 
-  ::copy_states DOC <$ Copy construction and assignment preserve empty and engaged states without aliasing values. $> DUAL_TEST
+  DOC <$ Copy construction and assignment preserve empty and engaged states without aliasing values. $>
+  ::copy_states DUAL_TEST
   {
     VAR empty std::optional#I32;
     VAR copied_empty std::optional#I32 := empty;
@@ -142,7 +150,8 @@ IMPORT std;
     .DESTRUCTOR FUNCTION() { .destroyed-> += 1; }
   }
 
-  ::lifetime DOC <$ Only engaged optionals destroy T, including replacement, explicit reset, and scope exit. $> DUAL_TEST
+  DOC <$ Only engaged optionals destroy T, including replacement, explicit reset, and scope exit. $>
+  ::lifetime DUAL_TEST
   {
     VAR destroyed I32 := 0;
     {
@@ -162,7 +171,8 @@ IMPORT std;
     TEST_ASSERT(destroyed == 4);
   }
 
-  ::null_assignment DOC <$ Assigning NULL destroys the value once, permits reuse, and leaves no value to destroy at scope exit. $> DUAL_TEST
+  DOC <$ Assigning NULL destroys the value once, permits reuse, and leaves no value to destroy at scope exit. $>
+  ::null_assignment DUAL_TEST
   {
     VAR destroyed I32 := 0;
     {
@@ -183,7 +193,8 @@ IMPORT std;
     TEST_ASSERT(destroyed == 3);
   }
 
-  ::move_only DOC <$ Moving an optional transfers its move-only payload and leaves the source engaged with its moved-from value. $> DUAL_TEST
+  DOC <$ Moving an optional transfers its move-only payload and leaves the source engaged with its moved-from value. $>
+  ::move_only DUAL_TEST
   {
     AUTO pointer := std::make_unique#I32(@OTHER 31);
     VAR source std::optional#(std::unique_ptr#I32) :(@value MOVE(pointer));
@@ -208,7 +219,8 @@ IMPORT std;
     TEST_ASSERT(empty.has_value() == FALSE);
   }
 
-  ::swap_states DOC <$ Swapping handles empty and engaged combinations while preserving move-only ownership. $> DUAL_TEST
+  DOC <$ Swapping handles empty and engaged combinations while preserving move-only ownership. $>
+  ::swap_states DUAL_TEST
   {
     VAR first std::optional#(std::unique_ptr#I32);
     VAR second std::optional#(std::unique_ptr#I32);
@@ -240,7 +252,8 @@ IMPORT std;
     }
   }
 
-  ::failed_emplacement DOC <$ Failed replacement leaves no active value and permits a later successful emplacement. $> DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  DOC <$ Failed replacement leaves no active value and permits a later successful emplacement. $>
+  ::failed_emplacement DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR option std::optional#fallible :(@value 5);
     VAR caught BOOL := FALSE;
@@ -259,7 +272,8 @@ IMPORT std;
     TEST_ASSERT(option->.number == 11);
   }
 
-  ::fixed_array DOC <$ Typed storage supports optional fixed-array values and repeated lifetimes. $> DUAL_TEST
+  DOC <$ Typed storage supports optional fixed-array values and repeated lifetimes. $>
+  ::fixed_array DUAL_TEST
   {
     VAR option std::optional#([2]I32);
     option.emplace();
@@ -270,14 +284,16 @@ IMPORT std;
     TEST_ASSERT((option->)[1] == 0);
   }
 
-  ::constant_mutation_rejected DOC <$ Constant optionals expose constant references to their values. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  DOC <$ Constant optionals expose constant references to their values. $>
+  ::constant_mutation_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR option std::optional#I32 :(@value 5);
     VAR constant CONST& std::optional#I32 := option;
     constant.value() := 7;
   }
 
-  ::copy_move_only_rejected DOC <$ Copying an optional requires a copyable contained value. $> STATIC_TEST EXPECT_COMPILATION_FAILURE
+  DOC <$ Copying an optional requires a copyable contained value. $>
+  ::copy_move_only_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR source std::optional#(std::unique_ptr#I32);
     VAR copy std::optional#(std::unique_ptr#I32) := source;

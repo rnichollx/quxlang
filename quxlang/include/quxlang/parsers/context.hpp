@@ -7,6 +7,9 @@
 
 #include "quxlang/parsers/lexer.hpp"
 
+#include <optional>
+#include <string>
+
 namespace quxlang::parsers
 {
     struct lexer;
@@ -19,6 +22,9 @@ namespace quxlang::parsers
         bool allow_internal_module_symbols = false;
         /// Enables parsing implementation-only subtag symbols in internal symbol-string tests.
         bool allow_internal_subtag_symbols = false;
+
+        /// Stores the prefix documentation until the following declaration consumes it.
+        std::optional< std::string > pending_doc;
 
         parse_iterator iter_begin;
         parse_iterator iter_pos;

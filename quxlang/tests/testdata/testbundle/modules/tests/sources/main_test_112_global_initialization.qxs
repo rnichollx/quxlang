@@ -2,17 +2,20 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::global_initialization_tests NAMESPACE
 {
-  ::events DOC <$ Records the dependency order of three global initializers. $>
+  DOC <$ Records the dependency order of three global initializers. $>
+  ::events
     VAR CONSTEXPR_OK I32;
 
-  ::initialize_base DOC <$ Supplies the first dependency exactly once. $>
+  DOC <$ Supplies the first dependency exactly once. $>
+  ::initialize_base
     FUNCTION(): I32
   {
     events := events * 10 + 1;
     RETURN 7;
   }
 
-  ::initialize_middle DOC <$ Reads the base before completing its own initialization. $>
+  DOC <$ Reads the base before completing its own initialization. $>
+  ::initialize_middle
     FUNCTION(): I32
   {
     VAR value I32 := base * 3;
@@ -20,7 +23,8 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN value;
   }
 
-  ::initialize_final DOC <$ Reuses the initialized base through a second dependency path. $>
+  DOC <$ Reuses the initialized base through a second dependency path. $>
+  ::initialize_final
     FUNCTION(): I32
   {
     VAR value I32 := middle + base;
@@ -28,17 +32,22 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN value;
   }
 
-  ::final_value DOC <$ Depends on both the middle and base globals. $>
+  DOC <$ Depends on both the middle and base globals. $>
+  ::final_value
     VAR CONSTEXPR_OK I32 := initialize_final();
-  ::middle DOC <$ Depends on the later-declared base global. $>
+  DOC <$ Depends on the later-declared base global. $>
+  ::middle
     VAR CONSTEXPR_OK I32 := initialize_middle();
-  ::base DOC <$ Initializes through a function with an observable side effect. $>
+  DOC <$ Initializes through a function with an observable side effect. $>
+  ::base
     VAR CONSTEXPR_OK I32 := initialize_base();
 
-  ::read_final DOC <$ Returns the same final global through repeated function calls. $>
+  DOC <$ Returns the same final global through repeated function calls. $>
+  ::read_final
     FUNCTION(): MUT& I32 { RETURN final_value; }
 
-  ::dependent_initialization_once DOC <$ Dependencies initialize before their consumers, and repeated reads and mutation never rerun initializers. $>
+  DOC <$ Dependencies initialize before their consumers, and repeated reads and mutation never rerun initializers. $>
+  ::dependent_initialization_once
     DUAL_TEST
   {
     TEST_ASSERT(read_final() == 28);
@@ -63,12 +72,15 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::global_retry_tests NAMESPACE
 {
-  ::attempts DOC <$ Counts attempts to initialize a global whose first attempt throws. $>
+  DOC <$ Counts attempts to initialize a global whose first attempt throws. $>
+  ::attempts
     VAR CONSTEXPR_OK I32;
-  ::events DOC <$ Records temporary cleanup during each initialization attempt. $>
+  DOC <$ Records temporary cleanup during each initialization attempt. $>
+  ::events
     VAR CONSTEXPR_OK I32;
 
-  ::initialize DOC <$ Fails once after constructing a local and succeeds on the next attempt. $>
+  DOC <$ Fails once after constructing a local and succeeds on the next attempt. $>
+  ::initialize
     FUNCTION(): I32
   {
     attempts++;
@@ -77,10 +89,12 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN 40;
   }
 
-  ::value DOC <$ Publishes its value only after successful initialization. $>
+  DOC <$ Publishes its value only after successful initialization. $>
+  ::value
     VAR CONSTEXPR_OK I32 := initialize();
 
-  ::retry_after_exception DOC <$ Failed initialization cleans up and releases its guard, while success suppresses later retries. $>
+  DOC <$ Failed initialization cleans up and releases its guard, while success suppresses later retries. $>
+  ::retry_after_exception
     DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;

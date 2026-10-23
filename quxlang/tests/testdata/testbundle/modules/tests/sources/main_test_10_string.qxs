@@ -2,9 +2,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
-::empty_string_literal_lifetime DOC <$
+DOC <$
   Exercises destruction, copying, moving, and growth of empty string literals.
   $>
+::empty_string_literal_lifetime
   DUAL_TEST
 {
   {
@@ -50,10 +51,11 @@ IMPORT std;
 ::static_string_object STATIC std::string := get_static_string();
 ::static_string STATIC STRING_CONSTANT := static_string_object;
 
-::string_logical_and_temporaries DOC <$
+DOC <$
   Preserves the short-circuit branch result while destroying temporary
   strings constructed for comparisons on both sides of logical AND.
   $>
+::string_logical_and_temporaries
   DUAL_TEST
 {
   VAR first std::string := "first";
@@ -61,9 +63,10 @@ IMPORT std;
   TEST_ASSERT(first == "first" && second == "first");
 }
 
-::string_self_assignment_and_swap DOC <$
+DOC <$
   Preserves owned bytes when assignment or swapping aliases the same string.
   $>
+::string_self_assignment_and_swap
   DUAL_TEST
 {
   VAR value std::string := "overlapping ownership";
@@ -77,10 +80,11 @@ IMPORT std;
   TEST_ASSERT(value == "overlapping ownership!");
 }
 
-::string_copy_move_and_reuse DOC <$
+DOC <$
   Keeps copies independent and permits growth of both a moved value and its
   emptied source, including assignment over an existing allocation.
   $>
+::string_copy_move_and_reuse
   DUAL_TEST
 {
   VAR source std::string := "abc";
@@ -100,10 +104,11 @@ IMPORT std;
   TEST_ASSERT(copy == "abc");
 }
 
-::string_embedded_zero_and_empty_concatenation DOC <$
+DOC <$
   Treats zero bytes as content and preserves either operand when concatenating
   with an empty string.
   $>
+::string_embedded_zero_and_empty_concatenation
   DUAL_TEST
 {
   VAR value std::string := "A";

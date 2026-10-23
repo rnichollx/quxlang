@@ -2,18 +2,21 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::index_parameter_binding_tests NAMESPACE
 {
-  ::defaulted DOC <$ Index operators accept a required coordinate and a trailing defaulted coordinate. $>
+  DOC <$ Index operators accept a required coordinate and a trailing defaulted coordinate. $>
+  ::defaulted
     STRUCT
   {
     .calls VAR I32;
     .value VAR I32;
-    .OPERATOR[] DOC <$ Combines explicit and defaulted coordinates without changing their order. $>
+    DOC <$ Combines explicit and defaulted coordinates without changing their order. $>
+    .OPERATOR[]
       FUNCTION(%first I32, %second I32 DEFAULT(7)) MUT: I32
     {
       .calls++;
       RETURN first * 10 + second;
     }
-    .OPERATOR[&] DOC <$ Stores the combined coordinates and returns the original result field. $>
+    DOC <$ Stores the combined coordinates and returns the original result field. $>
+    .OPERATOR[&]
       FUNCTION(%first I32, %second I32 DEFAULT(7)) MUT: MUT->I32
     {
       .calls++;
@@ -22,12 +25,14 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::packed DOC <$ Index operators combine a required leading value and a variable-length positional tail. $>
+  DOC <$ Index operators combine a required leading value and a variable-length positional tail. $>
+  ::packed
     STRUCT
   {
     .calls VAR I32;
     .value VAR I32;
-    .OPERATOR[] DOC <$ Encodes all supplied coordinates in order, including an empty trailing pack. $>
+    DOC <$ Encodes all supplied coordinates in order, including an empty trailing pack. $>
+    .OPERATOR[]
       FUNCTION(%first I32, %...tail I32) MUT: I32
     {
       .calls++;
@@ -40,7 +45,8 @@ LANGUAGE QUXLANG EN 0.0;
       }
       RETURN result;
     }
-    .OPERATOR[&] DOC <$ Stores the encoded coordinates and returns a stable pointer to the result. $>
+    DOC <$ Stores the encoded coordinates and returns a stable pointer to the result. $>
+    .OPERATOR[&]
       FUNCTION(%first I32, %...tail I32) MUT: MUT->I32
     {
       .calls++;
@@ -55,7 +61,8 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  ::trailing_defaults DOC <$ Both bracket spellings supply omitted defaults and preserve explicit replacements on repeated calls. $>
+  DOC <$ Both bracket spellings supply omitted defaults and preserve explicit replacements on repeated calls. $>
+  ::trailing_defaults
     DUAL_TEST
   {
     VAR object defaulted;
@@ -72,7 +79,8 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(object.calls == 5);
   }
 
-  ::positional_packs DOC <$ Brackets forward ordered coordinates into empty and nonempty packs and preserve address-result identity. $>
+  DOC <$ Brackets forward ordered coordinates into empty and nonempty packs and preserve address-result identity. $>
+  ::positional_packs
     DUAL_TEST
   {
     VAR object packed;
