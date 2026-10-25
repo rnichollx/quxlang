@@ -1,9 +1,11 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT syscall;
+
 PRIVATE(MODULE)
 {
   ::windows_overlapped_abi_layout_test INCLUDE_IF(OS_WINDOWS) STATIC_TEST
   {
-    TEST_ASSERT(SIZEOF(windows_overlapped) == SIZEOF(UINTPTR) * 3 + 8);
+    TEST_ASSERT(SIZEOF(syscall::windows::overlapped) == SIZEOF(UINTPTR) * 3 + 8);
   }
 }

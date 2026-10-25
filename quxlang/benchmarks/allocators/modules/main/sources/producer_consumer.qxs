@@ -2,6 +2,9 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT std;
 
+DOC <$ The process uses one pass count for all producer-consumer pairs. $>
+::producer_consumer_passes VAR SZ;
+
 DOC <$ Contains two integers consumed by the checksum recurrence. $>
 ::producer_consumer_object STRUCT
 {
@@ -39,39 +42,50 @@ DOC <$ Holds a stable queue and parameters shared by one thread pair. $>
   DOC <$ Allocates batches and publishes a null pointer after the final batch. $>
   .produce FUNCTION() MUT
   {
-    VAR random producer_consumer_random;
-    random.state := 20261011 + (.identity AS U64);
-    LOOP VALUE(batch_index) FROM(0 AS SZ) UNTIL(.batches) DO
+    LOOP VALUE(pass_index) FROM(0 AS SZ) UNTIL(producer_consumer_passes) DO
     {
-      VAR block MUT->producer_consumer_block := NEW producer_consumer_block;
-      LOOP ITEM(slot) IN(block->.objects) DO
+      VAR random producer_consumer_random;
+      random.state := 20261011 + (.identity AS U64);
+      LOOP VALUE(batch_index) FROM(0 AS SZ) UNTIL(.batches) DO
       {
-        slot := NEW producer_consumer_object;
-        slot->.first := random.next();
-        slot->.second := random.next() #|| 1;
+        VAR block MUT->producer_consumer_block := NEW producer_consumer_block;
+        LOOP ITEM(slot) IN(block->.objects) DO
+        {
+          slot := NEW producer_consumer_object;
+          slot->.first := random.next();
+          slot->.second := random.next() #|| 1;
+        }
+        .queue.push(block);
       }
-      .queue.push(block);
     }
     .queue.push(NULL);
   }
 
-  DOC <$ Computes two checksums, releases each batch and prints under the shared I/O mutex. $>
+  DOC <$ The consumer combines per-pass checksums with XOR and releases every transferred block. $>
   .consume FUNCTION() MUT
   {
-    VAR first U64 := 14695981039346656037;
-    VAR second U64 := 1099511628211;
-    LOOP DO
+    VAR first U64 := 0;
+    VAR second U64 := 0;
+    LOOP VALUE(pass_index) FROM(0 AS SZ) UNTIL(producer_consumer_passes) DO
     {
-      VAR block MUT->producer_consumer_block := .queue.pop();
-      IF (block == NULL) { BREAK; }
-      LOOP ITEM(object) IN(block->.objects) DO
+      VAR pass_first U64 := 14695981039346656037;
+      VAR pass_second U64 := 1099511628211;
+      LOOP VALUE(batch_index) FROM(0 AS SZ) UNTIL(.batches) DO
       {
-        first := (first #^^ object->.first) * object->.second;
-        second := (second #^^ object->.first) * object->.second;
-        DELETE object;
+        VAR block MUT->producer_consumer_block := .queue.pop();
+        IF (block == NULL) { PANIC "Producer ended before the declared batch count."; }
+        LOOP ITEM(object) IN(block->.objects) DO
+        {
+          pass_first := (pass_first #^^ object->.first) * object->.second;
+          pass_second := (pass_second #^^ object->.first) * object->.second;
+          DELETE object;
+        }
+        DELETE block;
       }
-      DELETE block;
+      first := first #^^ pass_first;
+      second := second #^^ pass_second;
     }
+    IF (.queue.pop() != NULL) { PANIC "Producer exceeded the declared batch count."; }
     .io_mutex->.lock();
     VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
     output.write_unsigned(.identity); output.write_byte(32);
@@ -83,9 +97,10 @@ DOC <$ Holds a stable queue and parameters shared by one thread pair. $>
 
 DOC <$ Times producer and consumer creation through all joins, including remote frees and TLS teardown. $>
 ::producer_consumer
-  BENCHMARK(@batches SZ, @pairs SZ) ONESHOT
+  BENCHMARK(@batches SZ, @pairs SZ, @passes SZ) ONESHOT
 {
-  IF (batches == 0 || pairs == 0) { THROW (1 AS I32); }
+  IF (batches == 0 || pairs == 0 || passes == 0) { THROW (1 AS I32); }
+  producer_consumer_passes := passes;
   VAR io_mutex std::unfair_mutex;
   VAR states =>>TYPED_STORAGE(producer_consumer_pair) :=
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(producer_consumer_pair)::MULTI_ALLOC(@COUNT pairs);

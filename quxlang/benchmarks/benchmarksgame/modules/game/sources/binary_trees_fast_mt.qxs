@@ -81,7 +81,7 @@ IMPORT std;
     VAR state jobs;
     state.remaining.STORE#ATOMIC_SEQCST(iterations);
     state.depth := depth;
-    VAR workers [32]TYPED_STORAGE(std::thread);
+    VAR workers [128]TYPED_STORAGE(std::thread);
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
     {
       VAR entry worker;
@@ -99,7 +99,7 @@ IMPORT std;
 
 ::binary_trees_fast_mt BENCHMARK(@n SZ, @threads SZ) ONESHOT
 {
-  IF (n > 24 || threads == 0 || threads > 32) { THROW (1 AS I32); }
+  IF (n > 24 || threads == 0 || threads > 128) { THROW (1 AS I32); }
   VAR maximum SZ := n;
   IF (maximum < 6) { maximum := 6; }
   VAR output std::buffered_writer :(@EXPLICIT std::standard_output());

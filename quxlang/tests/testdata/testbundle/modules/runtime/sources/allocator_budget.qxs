@@ -1,0 +1,158 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+DOC <$
+  The default quota limits payload represented by shared Layer 2 plates to one
+  sixty-fourth of physical memory. Thread-local caches, queue metadata, and
+  partially occupied allocation regions remain outside this quota.
+  $>
+::allocator_transfer_cache_memory_divisor OPTION NUMBER DEFAULT_VALUE(64);
+
+PRIVATE(MODULE) ::allocator_host_memory_bytes VAR U64;
+PRIVATE(MODULE) ::allocator_payload_budget_per_shard VAR SZ;
+
+PRIVATE(MODULE) ::allocator_payload_credit STRUCT
+{ .used VAR ATOMIC#SZ ALIGN(64); }
+PRIVATE(MODULE) ::allocator_payload_credits VAR MUT=>>allocator_payload_credit;
+
+DOC <$ The parser converts the MemTotal field to bytes without allocating temporary storage. $>
+PRIVATE(MODULE) ::allocator_memtotal_bytes
+  FUNCTION(@text CONST=>>BYTE, @size SZ): U64
+{
+  VAR prefix STRING_CONSTANT := "MemTotal:";
+  VAR cursor SZ := (prefix.END() - prefix.BEGIN()) AS ASSUME SZ;
+  IF (size < cursor) { RETURN 0; }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(cursor) DO
+  { IF (text[index] != prefix.BEGIN()[index]) { RETURN 0; } }
+  LOOP WHILE (cursor < size && (text[cursor] == 32 || text[cursor] == 9)) DO { cursor++; }
+  VAR start SZ := cursor;
+  VAR value U64 := 0;
+  VAR maximum U64 := (0 AS U64) #!!;
+  LOOP WHILE (cursor < size && text[cursor] >= 48 && text[cursor] <= 57) DO
+  {
+    VAR digit U64 := ((text[cursor] AS U8) AS U64) - 48;
+    IF (value > maximum / 10 || (value == maximum / 10 && digit > maximum % 10)) { RETURN 0; }
+    value := value * 10 + digit;
+    cursor++;
+  }
+  IF (cursor == start) { RETURN 0; }
+  LOOP WHILE (cursor < size && (text[cursor] == 32 || text[cursor] == 9)) DO { cursor++; }
+  IF (cursor + 2 > size || text[cursor] != 107 || text[cursor + 1] != 66 || value > maximum / 1024)
+  { RETURN 0; }
+  RETURN value * 1024;
+}
+
+DOC <$ The detector queries physical memory once during allocator initialization. $>
+PRIVATE(MODULE) ::allocator_detect_memory_bytes INCLUDE_IF(OS_LINUX) FUNCTION(): U64
+{
+  VAR path [32]BYTE;
+  VAR name STRING_CONSTANT := "/proc/meminfo";
+  VAR length SZ := (name.END() - name.BEGIN()) AS ASSUME SZ;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO { path[index] := name.BEGIN()[index]; }
+  VAR buffer [4096]BYTE;
+  VAR size SZ := allocator_read_system_file(@path path[& 0], @buffer buffer[& 0], @capacity 4096);
+  RETURN allocator_memtotal_bytes(@text buffer[& 0], @size size);
+}
+
+PRIVATE(MODULE) ::allocator_detect_memory_bytes INCLUDE_IF(OS_MACOS) FUNCTION(): U64
+{
+  VAR name [32]BYTE;
+  VAR text STRING_CONSTANT := "hw.memsize";
+  VAR length SZ := (text.END() - text.BEGIN()) AS ASSUME SZ;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO { name[index] := text.BEGIN()[index]; }
+  VAR value [8]BYTE ALIGN(8);
+  VAR size SZ := 8;
+  VAR null_pointer CONST->VOID;
+  IF (syscall::macos::sysctlbyname(@name name[& 0], @old_value value[& 0], @old_size size<-,
+    @new_value null_pointer, @new_size 0) == 0 && size == 8)
+  { RETURN IBC_LOAD#U64(@ADDR IBC_GETADDR(@PTR value[0]<-)); }
+  RETURN 0;
+}
+
+PRIVATE(MODULE) ::allocator_detect_memory_bytes INCLUDE_IF(OS_WINDOWS) FUNCTION(): U64
+{
+  VAR status syscall::windows::memory_status_ex;
+  status.length := CELLSIZEOF(syscall::windows::memory_status_ex) AS PARTIAL U32;
+  IF (syscall::windows::global_memory_status_ex(@status status<-) != 0) { RETURN status.total_physical; }
+  RETURN 0;
+}
+
+PRIVATE(MODULE) ::allocator_detect_memory_bytes
+  INCLUDE_IF(OS_LINUX == FALSE && OS_MACOS == FALSE && OS_WINDOWS == FALSE) FUNCTION(): U64
+{
+  RETURN 0;
+}
+
+DOC <$ The sizing function computes each shard's payload budget with a bounded fallback when memory detection fails. $>
+PRIVATE(MODULE) ::allocator_payload_budget
+  FUNCTION(@memory_bytes U64, @shards SZ): SZ
+{
+  VAR budget U64 := 16777216;
+  IF (memory_bytes > 0)
+  { budget := (memory_bytes / allocator_transfer_cache_memory_divisor) / (shards AS U64); }
+  VAR limit SZ := ((0 AS SZ) #!!) / 2;
+  IF (budget > (limit AS U64)) { RETURN limit; }
+  STATIC_IF(CELLSIZEOF(SZ) == CELLSIZEOF(U64)) { RETURN budget AS SZ; }
+  STATIC_ELSE { RETURN budget AS PARTIAL SZ; }
+}
+
+DOC <$ The initializer constructs independent accounting cache lines before publishing the topology. $>
+PRIVATE(MODULE) ::allocator_budget_process_start FUNCTION()
+{
+  allocator_host_memory_bytes := allocator_detect_memory_bytes();
+  allocator_payload_budget_per_shard := allocator_payload_budget(
+    @memory_bytes allocator_host_memory_bytes, @shards allocator_transfer_shard_count);
+  VAR bytes SZ := allocator_checked_bytes(@size CELLSIZEOF(allocator_payload_credit), @count allocator_transfer_shard_count);
+  VAR mapping ADDRESS := layer5_map_region(@bytes bytes);
+  IF (mapping!?) { RETURN; }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(allocator_transfer_shard_count) DO
+  {
+    VAR storage MUT->TYPED_STORAGE(allocator_payload_credit) := ADDRESS_LAUNDER_DISCOVER_EXISTING
+      (mapping + index * CELLSIZEOF(allocator_payload_credit)) TO MUT->TYPED_STORAGE(allocator_payload_credit);
+    PLACE AT(storage->) allocator_payload_credit;
+  }
+  allocator_payload_credits := ADDRESS_LAUNDER_DISCOVER_EXISTING mapping TO MUT=>>allocator_payload_credit;
+}
+
+DOC <$ The reservation function prevents shared payload from exceeding the selected shard's quota across all size classes. $>
+PRIVATE(MODULE) ::allocator_payload_try_reserve FUNCTION(@home SZ, @bytes SZ): BOOL
+{
+  IF (allocator_payload_credits!? || bytes > allocator_payload_budget_per_shard) { RETURN FALSE; }
+  VAR credit MUT& allocator_payload_credit := allocator_payload_credits[home];
+  VAR observed SZ := credit.used.LOAD#ATOMIC_RELAXED();
+  LOOP WHILE (observed <= allocator_payload_budget_per_shard - bytes) DO
+  {
+    IF (credit.used.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELAXED, @FAILURE ATOMIC_RELAXED)(@EXPECTED observed, @DESIRED observed + bytes))
+    { RETURN TRUE; }
+  }
+  RETURN FALSE;
+}
+
+DOC <$ The release function returns a reservation after dequeue or unsuccessful publication. $>
+PRIVATE(MODULE) ::allocator_payload_release FUNCTION(@home SZ, @bytes SZ)
+{ allocator_payload_credits[home].used.FETCH_SUBTRACT#ATOMIC_RELAXED(bytes); }
+
+PRIVATE(MODULE) ::allocator_memory_budget_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
+{
+  VAR text STRING_CONSTANT := "MemTotal: 1048576 kB\n";
+  VAR size SZ := (text.END() - text.BEGIN()) AS ASSUME SZ;
+  TEST_ASSERT(allocator_memtotal_bytes(@text text.BEGIN(), @size size) == 1073741824);
+  TEST_ASSERT(allocator_payload_budget(@memory_bytes 8589934592, @shards 2) == 67108864);
+  TEST_ASSERT(allocator_payload_budget(@memory_bytes 0, @shards 2) == 16777216);
+  VAR invalid STRING_CONSTANT := "MemTotal: 18446744073709551615 kB\n";
+  size := (invalid.END() - invalid.BEGIN()) AS ASSUME SZ;
+  TEST_ASSERT(allocator_memtotal_bytes(@text invalid.BEGIN(), @size size) == 0);
+}
+
+PRIVATE(MODULE) ::allocator_payload_credit_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  allocator_process_start();
+  IF (allocator_payload_credits!?) { RETURN; }
+  VAR before SZ := allocator_payload_credits[0].used.LOAD#ATOMIC_RELAXED();
+  VAR remaining SZ := allocator_payload_budget_per_shard - before;
+  TEST_ASSERT(allocator_payload_try_reserve(@home 0, @bytes remaining));
+  TEST_ASSERT(allocator_payload_try_reserve(@home 0, @bytes 1) == FALSE);
+  allocator_payload_release(@home 0, @bytes remaining);
+  TEST_ASSERT(allocator_payload_credits[0].used.LOAD#ATOMIC_RELAXED() == before);
+}

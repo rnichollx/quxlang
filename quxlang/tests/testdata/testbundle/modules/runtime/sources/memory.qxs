@@ -3,12 +3,6 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT syscall;
 IMPORT posix;
 
-PRIVATE(MODULE) ::virtual_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualAlloc"]
-  CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @allocation_type U32, @protect U32; RETURN ADDRESS);
-
-PRIVATE(MODULE) ::virtual_free INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"VirtualFree"]
-  CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @free_type U32; RETURN BOOL);
-
 DOC <$
   Returns the historical public bucket size used by runtime clients that need
   the 8, 16, 24, 32, 48, ... progression.
@@ -190,22 +184,26 @@ DOC <$
   $>
 PRIVATE(MODULE) ::allocator_slab_maximum_block_size STATIC SZ := allocator_slab_region_size / 8;
 
+DOC <$ The slot count specifies the initial capacity of each empty-plate transfer queue. $>
 PRIVATE(MODULE) ::layer2_plate_slot_count STATIC SZ := 32;
+PRIVATE(MODULE) ::layer2_partial_plate_slot_count STATIC SZ := 4;
 DOC <$
-  Bounds retained full plates independently from partial plates and metadata.
-  The larger full store absorbs bursts of cross-thread deallocation.
+  The slot count specifies the initial capacity of each full-plate transfer queue.
+  Each plate returns toward its first allocation region's home.
   $>
-PRIVATE(MODULE) ::layer2_full_plate_slot_count STATIC SZ := 128;
+PRIVATE(MODULE) ::layer2_full_plate_slot_count STATIC SZ := 16;
 
 DOC <$
   Configures the target payload bytes represented by one thread-local address
   cache. Each slab specialization rounds its entry count down to an even value
   and retains at least two entries so half-cache transfers remain well-defined.
+  The byte ceiling permits the target entry count for allocations through
+  8 KiB; the default target retains at most 512 KiB of payload per cache.
   $>
 ::allocator_thread_cache_refill_maximum_bytes
-  OPTION NUMBER DEFAULT_VALUE(16384);
+  OPTION NUMBER DEFAULT_VALUE(524288);
 
-::allocator_thread_cache_refill_minimum_bytes OPTION NUMBER DEFAULT_VALUE(4096);
+::allocator_thread_cache_refill_minimum_bytes OPTION NUMBER DEFAULT_VALUE(32768);
 
 ::allocator_thread_cache_refill_target_count OPTION NUMBER DEFAULT_VALUE(64);
 
@@ -267,7 +265,7 @@ PRIVATE(MODULE) ::layer5_map_region
   STATIC_IF(OS_WINDOWS)
   {
     VAR requested_address ADDRESS := NULL;
-    mapping_address := virtual_alloc(
+    mapping_address := syscall::windows::virtual_alloc(
       @address requested_address,
       @size mapping_size,
       @allocation_type 12288,
@@ -293,7 +291,7 @@ PRIVATE(MODULE) ::layer5_unmap_region
   }
   STATIC_IF(OS_WINDOWS)
   {
-    succeeded := virtual_free(@address address, @size 0, @free_type 32768);
+    succeeded := syscall::windows::virtual_free(@address address, @size 0, @free_type 32768) != 0;
   }
   IF (succeeded == FALSE)
   {
@@ -434,6 +432,7 @@ PRIVATE(MODULE) ::layer2_metadata_region STRUCT
 {
   .remaining VAR ATOMIC#SZ;
   .mapping_bytes VAR SZ;
+  .transfer_home VAR SZ;
 }
 
 DOC <$
@@ -446,63 +445,12 @@ PRIVATE(MODULE) ::addr_cache_node
   .metadata VAR MUT->layer2_metadata_region;
 }
 
-DOC <$
-  Transfers exclusive plate ownership through bounded atomic pointer slots.
-  A successful release publication transfers ownership to the store; a
-  successful acquire removal transfers ownership to the caller. Slots contain
-  no reserved state, and a paused thread cannot obstruct other slots. Plate
-  contents are accessed only after removal, so pointer reuse requires no tag.
-  A scan may miss concurrent publications and reports only a failed attempt.
-  $>
-PRIVATE(MODULE) ::layer2_plate_slots
-  TEMPLATE(@count VALUE SZ, @slot_count VALUE SZ) STRUCT
-{
-  .slots VAR [slot_count]ATOMIC#(MUT->addr_cache_node#(@count count)) ALIGN(64);
-  .publish_cursor VAR ATOMIC#U32 ALIGN(64);
-  .acquire_cursor VAR ATOMIC#U32 ALIGN(64);
-
-  DOC <$ Publishes a privately owned plate, retaining caller ownership on failure. $>
-  .try_push
-    FUNCTION(@node MUT->addr_cache_node#(@count count)): BOOL
-  {
-    ASSERT(node??, "A null plate cannot be published.");
-    VAR start SZ := (.publish_cursor.FETCH_ADD#ATOMIC_RELAXED(1) AS SZ) % slot_count;
-    LOOP VALUE(offset) FROM(0 AS SZ) UNTIL(slot_count) DO
-    {
-      VAR index SZ := (start + offset) % slot_count;
-      VAR empty MUT->addr_cache_node#(@count count);
-      IF ((.slots[index].LOAD#ATOMIC_RELAXED()??) == FALSE
-        && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(@EXPECTED empty, @DESIRED node))
-      { RETURN TRUE; }
-    }
-    RETURN FALSE;
-  }
-
-  DOC <$ Claims one plate without waiting for another thread to complete an operation. $>
-  .try_pop
-    FUNCTION(): MUT->addr_cache_node#(@count count)
-  {
-    VAR start SZ := (.acquire_cursor.FETCH_ADD#ATOMIC_RELAXED(1) AS SZ) % slot_count;
-    VAR empty MUT->addr_cache_node#(@count count);
-    LOOP VALUE(offset) FROM(0 AS SZ) UNTIL(slot_count) DO
-    {
-      VAR index SZ := (start + offset) % slot_count;
-      VAR observed MUT->addr_cache_node#(@count count) := .slots[index].LOAD#ATOMIC_RELAXED();
-      IF (observed?? && .slots[index].COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQUIRE, @FAILURE ATOMIC_RELAXED)(@EXPECTED observed, @DESIRED empty))
-      { RETURN observed; }
-    }
-    RETURN empty;
-  }
-}
-
-DOC <$
-  Owns independent bounded full and partial plate stores for one slab class.
-  $>
+DOC <$ The slab root owns independent full and partial transfer stores for one plate capacity. $>
 PRIVATE(MODULE) ::layer2_slab_root
   TEMPLATE(@count VALUE SZ) STRUCT
 {
-  .full VAR layer2_plate_slots#(@count count, @slot_count layer2_full_plate_slot_count);
-  .partial VAR layer2_plate_slots#(@count count, @slot_count layer2_plate_slot_count);
+  .full VAR layer2_home_plate_store#(@count count, @slot_count layer2_full_plate_slot_count, @empty_metadata FALSE);
+  .partial VAR layer2_home_plate_store#(@count count, @slot_count layer2_partial_plate_slot_count, @empty_metadata FALSE);
 }
 
 DOC <$
@@ -520,7 +468,7 @@ STRUCT
 
 PRIVATE(MODULE) ::layer2_empty_cache_root_for
   TEMPLATE(@count VALUE SZ)
-  VAR layer2_plate_slots#(@count count, @slot_count layer2_plate_slot_count);
+  VAR layer2_home_plate_store#(@count count, @slot_count layer2_plate_slot_count, @empty_metadata TRUE);
 
 PRIVATE(MODULE) ::layer2_slab_root_for
   TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
@@ -568,6 +516,7 @@ PRIVATE(MODULE) ::layer2_refill_empty_cache_nodes
   VAR node_count SZ := (region_size - offset) / node_size;
   metadata->.remaining.STORE#ATOMIC_RELAXED(node_count);
   metadata->.mapping_bytes := region_size;
+  metadata->.transfer_home := layer2_random_home();
   VAR result MUT->addr_cache_node#(@count count);
   LOOP VALUE(node_index) FROM(0 AS SZ) UNTIL(node_count) DO
   {
@@ -671,6 +620,8 @@ PRIVATE(MODULE) ::slab_allocator
     DOC <$ Owns the secondary cache, accessed during slow-path transfers. $>
     .secondary_node
       VAR MUT->addr_cache_node#(@count address_cache_count);
+    .home VAR SZ;
+    .home_assigned VAR BOOL;
   }
 
   DOC <$
@@ -680,7 +631,20 @@ PRIVATE(MODULE) ::slab_allocator
 
   DOC <$ Owns the stable control lists for this slab class. $>
   PRIVATE(MODULE) ::layer3_regions
-    VAR layer3_region_class;
+    VAR layer2_region_bank;
+
+  PRIVATE(MODULE) ::layer2_next_home VAR ATOMIC#SZ ALIGN(64);
+
+  PRIVATE(MODULE) ::layer2_allocation_home FUNCTION(): SZ
+  {
+    IF (layer1_cache_control.home_assigned == FALSE)
+    {
+      allocator_process_start();
+      layer1_cache_control.home := layer2_next_home.FETCH_ADD#ATOMIC_RELAXED(1) #&& (allocator_transfer_shard_count - 1);
+      layer1_cache_control.home_assigned := TRUE;
+    }
+    RETURN layer1_cache_control.home;
+  }
 
   DOC <$
     Claims a full plate or aggregates privately claimed partial plates before
@@ -692,15 +656,15 @@ PRIVATE(MODULE) ::slab_allocator
     VAR root MUT& layer2_slab_root#(@count address_cache_count) := layer2_slab_root_for#(
       @block_size block_size, @block_align block_align, @cache_count address_cache_count
     );
-    VAR result MUT->addr_cache_node#(@count address_cache_count) := root.full.try_pop();
+    VAR result MUT->addr_cache_node#(@count address_cache_count) := root.full.pop_at(@home layer2_allocation_home());
     IF (result??) { RETURN result; }
-    result := root.partial.try_pop();
+    result := root.partial.pop_at(@home layer2_allocation_home());
     IF ((result??) == FALSE)
     { result := layer2_acquire_empty_cache_node#(@count address_cache_count)(); }
     IF (result!?) { RETURN result; }
     LOOP WHILE (result->.cache.used < address_cache_count) DO
     {
-      VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.try_pop();
+      VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.pop_at(@home layer2_allocation_home());
       IF ((partial??) == FALSE) { BREAK; }
       VAR transferred SZ := partial->.cache.used;
       IF (transferred > address_cache_count - result->.cache.used)
@@ -719,10 +683,17 @@ PRIVATE(MODULE) ::slab_allocator
     }
     IF (result->.cache.used < address_cache_count)
     {
-      layer3_regions.mtx.lock();
-      layer3_regions.initialize(@size block_size, @align block_align);
-      layer3_regions.mtx.unlock();
-      IF (layer3_region_refill#(@count address_cache_count)(@root layer3_regions, @cache result->.cache) == FALSE)
+      VAR regions MUT->layer3_region_class := layer3_regions.get(@home layer2_allocation_home());
+      IF (regions!?)
+      {
+        layer2_drain_cache#(@count address_cache_count)(@cache result->.cache);
+        layer2_release_empty_cache_node#(@count address_cache_count)(@node result);
+        RETURN NULL;
+      }
+      regions->.mtx.lock();
+      regions->.initialize(@size block_size, @align block_align);
+      regions->.mtx.unlock();
+      IF (layer3_region_refill#(@count address_cache_count)(@root regions->, @cache result->.cache) == FALSE)
       {
         layer2_drain_cache#(@count address_cache_count)(@cache result->.cache);
         layer2_release_empty_cache_node#(@count address_cache_count)(@node result);
@@ -750,7 +721,7 @@ PRIVATE(MODULE) ::slab_allocator
     );
     IF (node->.cache.used < address_cache_count)
     {
-      VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.try_pop();
+      VAR partial MUT->addr_cache_node#(@count address_cache_count) := root.partial.pop_at(@home layer2_random_home());
       IF (partial??)
       {
         VAR transferred SZ := partial->.cache.used;
@@ -835,11 +806,14 @@ PRIVATE(MODULE) ::slab_allocator
   PRIVATE(MODULE) ::layer0_allocate
     FUNCTION(): ADDRESS
   {
-    IF LIKELY (layer1_cache_control.entry != layer1_cache_control.bottom)
+    VAR entry =>>TYPED_STORAGE(ADDRESS) := layer1_cache_control.entry;
+    IF LIKELY (entry != layer1_cache_control.bottom)
     {
-      layer1_cache_control.entry--;
-      VAR result ADDRESS := PUN layer1_cache_control.entry-> AS ADDRESS;
-      DESTROY AT(layer1_cache_control.entry->) ADDRESS;
+      entry--;
+      VAR result ADDRESS := PUN entry-> AS ADDRESS;
+      INVARIANT(result??, "A slab address cache contains a null address.");
+      DESTROY AT(entry->) ADDRESS;
+      layer1_cache_control.entry := entry;
       RETURN result;
     }
 
@@ -908,10 +882,12 @@ PRIVATE(MODULE) ::slab_allocator
   PRIVATE(MODULE) ::layer0_deallocate
     FUNCTION(@ptr ADDRESS)
   {
-    IF LIKELY (layer1_cache_control.entry != layer1_cache_control.top)
+    VAR entry =>>TYPED_STORAGE(ADDRESS) := layer1_cache_control.entry;
+    IF LIKELY (entry != layer1_cache_control.top)
     {
-      PLACE AT(layer1_cache_control.entry->) ADDRESS := ptr;
-      layer1_cache_control.entry++;
+      PLACE AT(entry->) ADDRESS := ptr;
+      entry++;
+      layer1_cache_control.entry := entry;
       RETURN;
     }
 

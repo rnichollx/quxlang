@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT syscall;
+
 ::THREAD_DESTRUCTOR_NODE STRUCT
 {
   .next VAR MUT->THREAD_DESTRUCTOR_NODE;
@@ -51,20 +53,21 @@ PRIVATE(MODULE)
   ::glibc_pthread_setspecific INCLUDE_IF(ENVIRONMENT_IS_GLIBC) EXTERN_PROCEDURE["glibc":"pthread_setspecific" VERSION "GLIBC_2.34"]
     CALLABLE CALLCONV CCALL(@key U32, @state MUT->thread_runtime_state; RETURN I32);
 
-  ::fls_alloc INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"FlsAlloc"]
-    CALLABLE CALLCONV CCALL(@callback CONST->PROCEDURE(@state MUT->thread_runtime_state); RETURN U32);
-  ::fls_set_value INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"FlsSetValue"]
-    CALLABLE CALLCONV CCALL(@index U32, @state MUT->thread_runtime_state; RETURN BOOL);
-
   ::null_thread_exit_hook_value FUNCTION(): MUT->thread_runtime_state
   {
     VAR result MUT->thread_runtime_state;
     RETURN result;
   }
 
-  ::thread_exit_callback FUNCTION(@state MUT->thread_runtime_state)
+  ::thread_exit_callback INCLUDE_IF(OS_WINDOWS == FALSE) FUNCTION(@state MUT->thread_runtime_state)
   {
     thread_finish_state(@state state->);
+  }
+
+  ::thread_exit_callback INCLUDE_IF(OS_WINDOWS) FUNCTION(@state ADDRESS)
+  {
+    VAR value MUT->thread_runtime_state := ADDRESS_LAUNDER_DISCOVER_EXISTING state TO MUT->thread_runtime_state;
+    thread_finish_state(@state value->);
   }
 
   ::thread_exit_hook_arm FUNCTION(@state MUT& thread_runtime_state)
@@ -96,10 +99,10 @@ PRIVATE(MODULE)
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
       ASSERT(thread_exit_slot_initialized, "Thread exit slot is not initialized.");
-      IF (fls_set_value(
+      IF (syscall::windows::fls_set_value(
         @index thread_exit_slot,
-        @state state<-
-      ) == FALSE)
+        @state IBC_GETADDR(@PTR state<-)
+      ) == 0)
       {
         PANIC "FlsSetValue failed while arming Quxlang TLS teardown.";
       }
@@ -123,7 +126,7 @@ PRIVATE(MODULE)
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      IF (fls_set_value(@index thread_exit_slot, @state null_thread_exit_hook_value()) == FALSE)
+      IF (syscall::windows::fls_set_value(@index thread_exit_slot, @state NULL) == 0)
       {
         PANIC "FlsSetValue failed while disarming Quxlang TLS teardown.";
       }
@@ -148,7 +151,7 @@ PRIVATE(MODULE)
   }
   STATIC_ELSE STATIC_IF(OS_WINDOWS)
   {
-    thread_exit_slot := fls_alloc(@callback thread_exit_callback<-);
+    thread_exit_slot := syscall::windows::fls_alloc(@callback thread_exit_callback<-);
     IF (thread_exit_slot == 4294967295)
     {
       PANIC "FlsAlloc failed for Quxlang TLS teardown.";

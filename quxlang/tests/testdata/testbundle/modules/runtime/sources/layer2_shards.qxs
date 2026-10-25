@@ -1,0 +1,183 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ The selector returns the first address's region control for a nonempty plate. $>
+PRIVATE(MODULE) ::layer2_plate_owner TEMPLATE(@count VALUE SZ)
+  FUNCTION(@node MUT->addr_cache_node#(@count count)): MUT->layer3_region_class
+{
+  VAR address ADDRESS := PUN node->.cache.entries[0] AS ADDRESS;
+  VAR base ADDRESS := address - (address % allocator_slab_region_size);
+  VAR region MUT->layer3_region := ADDRESS_LAUNDER_DISCOVER_EXISTING base TO MUT->layer3_region;
+  RETURN region->.class_control;
+}
+
+PRIVATE(MODULE) ::layer2_seeded_random
+  FUNCTION(@seed U32): U32
+{
+  VAR word U32 := seed;
+  VAR second U32;
+  LOOP VALUE(index) FROM(1 AS U32) UNTIL(398) DO
+  {
+    word := 1812433253 * (word #^^ (word #-- 30)) + index;
+    IF (index == 1) { second := word; }
+  }
+  VAR joined U32 := (seed #&& 2147483648) #|| (second #&& 2147483647);
+  word := word #^^ (joined #-- 1);
+  IF ((joined #&& 1) != 0) { word := word #^^ 2567483615; }
+  word := word #^^ (word #-- 11);
+  word := word #^^ ((word #++ 7) #&& 2636928640);
+  word := word #^^ ((word #++ 15) #&& 4022730752);
+  RETURN word #^^ (word #-- 18);
+}
+
+
+PRIVATE(MODULE) ::layer2_random_home_state STRUCT
+{
+  .home VAR SZ;
+  .assigned VAR BOOL;
+}
+PRIVATE(MODULE) ::layer2_random_home_for_thread VAR PER_THREAD layer2_random_home_state;
+
+DOC <$ The selector initializes a stable metadata home on first demand. $>
+PRIVATE(MODULE) ::layer2_random_home FUNCTION(): SZ
+{
+  IF (layer2_random_home_for_thread.assigned == FALSE)
+  {
+    allocator_process_start();
+    VAR address U64 := (IBC_GETADDR(@PTR layer2_random_home_for_thread<-) - NULL) AS U64;
+    VAR seed U32 := (address #^^ (address #-- 32)) AS PARTIAL U32;
+    VAR random U32 := layer2_seeded_random(@seed seed #^^ 2654435769);
+    layer2_random_home_for_thread.home := (random AS SZ) #&& (allocator_transfer_shard_count - 1);
+    layer2_random_home_for_thread.assigned := TRUE;
+  }
+  RETURN layer2_random_home_for_thread.home;
+}
+
+PRIVATE(MODULE) ::layer2_seeded_random_test DUAL_TEST
+{
+  TEST_ASSERT(layer2_seeded_random(@seed 5489) == 3499211612);
+  TEST_ASSERT(layer2_seeded_random(@seed 0) == 2357136044);
+  TEST_ASSERT(layer2_seeded_random(@seed 1) == 1791095845);
+}
+
+DOC <$ The store retains independent growing queues in storage sized for the running host. $>
+PRIVATE(MODULE) ::layer2_home_plate_store
+  TEMPLATE(@count VALUE SZ, @slot_count VALUE SZ, @empty_metadata VALUE BOOL) STRUCT
+{
+  .ready VAR ATOMIC#BOOL;
+  .mtx VAR mutex;
+  .homes VAR MUT=>>layer2_growing_queue#(@count count, @slot_count slot_count);
+
+  .initialize FUNCTION() MUT: BOOL
+  {
+    IF (.ready.LOAD#ATOMIC_ACQUIRE()) { RETURN TRUE; }
+    .mtx.lock();
+    IF (.ready.LOAD#ATOMIC_RELAXED() == FALSE)
+    {
+      allocator_process_start();
+      VAR bytes SZ := allocator_checked_bytes(@size CELLSIZEOF(layer2_growing_queue#(@count count, @slot_count slot_count)),
+        @count allocator_transfer_shard_count);
+      VAR mapping ADDRESS := layer5_map_region(@bytes bytes);
+      IF (mapping!?) { .mtx.unlock(); RETURN FALSE; }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(allocator_transfer_shard_count) DO
+      {
+        VAR storage MUT->TYPED_STORAGE(layer2_growing_queue#(@count count, @slot_count slot_count)) := ADDRESS_LAUNDER_DISCOVER_EXISTING
+          (mapping + index * CELLSIZEOF(layer2_growing_queue#(@count count, @slot_count slot_count)))
+          TO MUT->TYPED_STORAGE(layer2_growing_queue#(@count count, @slot_count slot_count));
+        VAR queue MUT->layer2_growing_queue#(@count count, @slot_count slot_count) := PLACE AT(storage->) layer2_growing_queue#(@count count, @slot_count slot_count);
+        queue->.initialize_sequence();
+      }
+      .homes := ADDRESS_LAUNDER_DISCOVER_EXISTING mapping TO MUT=>>layer2_growing_queue#(@count count, @slot_count slot_count);
+      .ready.STORE#ATOMIC_RELEASE(TRUE);
+    }
+    .mtx.unlock();
+    RETURN TRUE;
+  }
+
+  .try_push FUNCTION(@node MUT->addr_cache_node#(@count count)) MUT: BOOL
+  {
+    IF (.initialize() == FALSE) { RETURN FALSE; }
+    VAR home SZ;
+    VAR bytes SZ := 0;
+    STATIC_IF(empty_metadata) { home := node->.metadata->.transfer_home; }
+    STATIC_ELSE
+    {
+      VAR owner MUT->layer3_region_class := layer2_plate_owner#(@count count)(@node node);
+      home := owner->.transfer_home;
+      bytes := node->.cache.used * owner->.block_size;
+    }
+    STATIC_IF(empty_metadata) { RETURN .homes[home].try_push(@node node); }
+    STATIC_ELSE
+    {
+      IF (allocator_payload_try_reserve(@home home, @bytes bytes) == FALSE) { RETURN FALSE; }
+      IF (.homes[home].try_push(@node node)) { RETURN TRUE; }
+      allocator_payload_release(@home home, @bytes bytes);
+      RETURN FALSE;
+    }
+  }
+
+  .pop_at FUNCTION(@home SZ) MUT: MUT->addr_cache_node#(@count count)
+  {
+    VAR empty MUT->addr_cache_node#(@count count);
+    IF (.initialize() == FALSE) { RETURN empty; }
+    VAR result MUT->addr_cache_node#(@count count) := .homes[home].try_pop();
+    STATIC_IF(empty_metadata)
+    {
+      IF (result!?)
+      {
+        LOOP VALUE(offset) FROM(1 AS SZ) UNTIL(allocator_transfer_shard_count) DO
+        {
+          result := .homes[(home + offset) #&& (allocator_transfer_shard_count - 1)].try_pop();
+          IF (result??) { BREAK; }
+        }
+      }
+    }
+    STATIC_IF(empty_metadata == FALSE)
+    {
+      IF (result??)
+      {
+        VAR address ADDRESS := PUN result->.cache.entries[0] AS ADDRESS;
+        VAR base ADDRESS := address - (address % allocator_slab_region_size);
+        VAR region MUT->layer3_region := ADDRESS_LAUNDER_DISCOVER_EXISTING base TO MUT->layer3_region;
+        allocator_payload_release(@home home, @bytes result->.cache.used * region->.class_control->.block_size);
+      }
+    }
+    RETURN result;
+  }
+  .try_pop INCLUDE_IF(empty_metadata)
+    FUNCTION() MUT: MUT->addr_cache_node#(@count count)
+  { RETURN .pop_at(@home layer2_random_home()); }
+}
+
+DOC <$ The region bank publishes one control set per transfer home for the process lifetime. $>
+PRIVATE(MODULE) ::layer2_region_bank STRUCT
+{
+  .ready VAR ATOMIC#BOOL;
+  .mtx VAR mutex;
+  .regions VAR MUT=>>layer3_region_class;
+
+  .get FUNCTION(@home SZ) MUT: MUT->layer3_region_class
+  {
+    IF (.ready.LOAD#ATOMIC_ACQUIRE() == FALSE)
+    {
+      .mtx.lock();
+      IF (.ready.LOAD#ATOMIC_RELAXED() == FALSE)
+      {
+        allocator_process_start();
+        VAR bytes SZ := allocator_checked_bytes(@size CELLSIZEOF(layer3_region_class), @count allocator_transfer_shard_count);
+        VAR mapping ADDRESS := layer5_map_region(@bytes bytes);
+        IF (mapping!?) { .mtx.unlock(); VAR empty MUT->layer3_region_class; RETURN empty; }
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(allocator_transfer_shard_count) DO
+        {
+          VAR storage MUT->TYPED_STORAGE(layer3_region_class) := ADDRESS_LAUNDER_DISCOVER_EXISTING
+            (mapping + index * CELLSIZEOF(layer3_region_class)) TO MUT->TYPED_STORAGE(layer3_region_class);
+          VAR region MUT->layer3_region_class := PLACE AT(storage->) layer3_region_class;
+          region->.transfer_home := index;
+        }
+        .regions := ADDRESS_LAUNDER_DISCOVER_EXISTING mapping TO MUT=>>layer3_region_class;
+        .ready.STORE#ATOMIC_RELEASE(TRUE);
+      }
+      .mtx.unlock();
+    }
+    RETURN .regions[home]<-;
+  }
+}

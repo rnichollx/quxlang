@@ -84,7 +84,7 @@ IMPORT std;
     .work := .length / threads;
     IF (.work < 5124) { .work := 5124; }
     IF (.work > 62464) { .work := 62464; }
-    VAR workers [8]TYPED_STORAGE(std::thread);
+    VAR workers [128]TYPED_STORAGE(std::thread);
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
     {
       VAR entry worker;
@@ -101,7 +101,7 @@ IMPORT std;
 
 ::fasta_fast_mt BENCHMARK(@n SZ, @threads SZ) ONESHOT
 {
-  IF (n < 1000 || threads == 0 || threads > 8) { THROW (1 AS I32); }
+  IF (n < 1000 || threads == 0 || threads > 128) { THROW (1 AS I32); }
   VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
   output.write(">ONE Homo sapiens alu\n");
   fasta_lookup::repeat_sequence(@length n *? 2, @output output);

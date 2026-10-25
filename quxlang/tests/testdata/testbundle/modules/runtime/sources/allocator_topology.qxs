@@ -1,0 +1,249 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+DOC <$ The allocator records the runtime topology used by transfer stores. $>
+PRIVATE(MODULE) ::allocator_host_core_count VAR SZ := 1;
+PRIVATE(MODULE) ::allocator_transfer_shard_count VAR SZ := 1;
+PRIVATE(MODULE) ::allocator_topology_ready VAR ATOMIC#BOOL;
+PRIVATE(MODULE) ::allocator_topology_mutex VAR mutex;
+
+DOC <$ The sizing function selects a power-of-two shard count with at least two shards per physical core. $>
+PRIVATE(MODULE) ::allocator_shards_for_cores FUNCTION(@cores SZ): SZ
+{
+  VAR shards SZ := 1;
+  VAR required SZ := cores * 2;
+  LOOP WHILE (shards < required) DO { shards *= 2; }
+  RETURN shards;
+}
+
+DOC <$ The parser reads one decimal CPU identifier or inclusive range from a Linux CPU list. $>
+PRIVATE(MODULE) ::allocator_cpu_list_next
+  FUNCTION(@text CONST=>>BYTE, @size SZ, @cursor MUT& SZ, @first MUT& SZ, @last MUT& SZ): BOOL
+{
+  LOOP WHILE (cursor < size && (text[cursor] == 44 || text[cursor] == 32
+    || text[cursor] == 9 || text[cursor] == 10 || text[cursor] == 13)) DO { cursor++; }
+  IF (cursor == size || text[cursor] < 48 || text[cursor] > 57) { RETURN FALSE; }
+  first := 0;
+  LOOP WHILE (cursor < size && text[cursor] >= 48 && text[cursor] <= 57) DO
+  {
+    first := first * 10 + ((text[cursor] AS U8) AS SZ) - 48;
+    IF (first > 1048576) { RETURN FALSE; }
+    cursor++;
+  }
+  last := first;
+  IF (cursor < size && text[cursor] == 45)
+  {
+    cursor++;
+    IF (cursor == size || text[cursor] < 48 || text[cursor] > 57) { RETURN FALSE; }
+    last := 0;
+    LOOP WHILE (cursor < size && text[cursor] >= 48 && text[cursor] <= 57) DO
+    {
+      last := last * 10 + ((text[cursor] AS U8) AS SZ) - 48;
+      IF (last > 1048576) { RETURN FALSE; }
+      cursor++;
+    }
+  }
+  RETURN last >= first;
+}
+
+DOC <$ The membership function searches a comma-separated Linux CPU list. $>
+PRIVATE(MODULE) ::allocator_cpu_list_contains
+  FUNCTION(@text CONST=>>BYTE, @size SZ, @cpu SZ): BOOL
+{
+  VAR cursor SZ := 0;
+  VAR first SZ;
+  VAR last SZ;
+  LOOP WHILE (allocator_cpu_list_next(@text text, @size size, @cursor cursor, @first first, @last last)) DO
+  { IF (cpu >= first && cpu <= last) { RETURN TRUE; } }
+  RETURN FALSE;
+}
+
+DOC <$ The topology reader reads one Linux attribute without allocating temporary storage. $>
+PRIVATE(MODULE) ::allocator_read_system_file INCLUDE_IF(OS_LINUX)
+  FUNCTION(@path CONST=>>BYTE, @buffer MUT=>>BYTE, @capacity SZ): SZ
+{
+  VAR descriptor I32 := syscall::linux::open(@path path, @flags syscall::linux::rdonly,
+    @mode syscall::linux::file_mode::rusr);
+  IF (descriptor < 0) { RETURN 0; }
+  VAR size SZ := syscall::linux::read(@fd descriptor, @buffer buffer, @count capacity);
+  syscall::linux::close(@fd descriptor);
+  IF (size > capacity) { RETURN 0; }
+  RETURN size;
+}
+
+DOC <$ The path builder writes a zero-terminated core-topology path into a buffer of at least 64 bytes. $>
+PRIVATE(MODULE) ::allocator_core_path INCLUDE_IF(OS_LINUX)
+  FUNCTION(@cpu SZ, @path MUT=>>BYTE): SZ
+{
+  VAR prefix STRING_CONSTANT := "/sys/devices/system/cpu/cpu";
+  VAR suffix STRING_CONSTANT := "/topology/core_cpus_list";
+  VAR position SZ := (prefix.END() - prefix.BEGIN()) AS ASSUME SZ;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(position) DO { path[index] := prefix.BEGIN()[index]; }
+  VAR digits [20]BYTE;
+  VAR digit_count SZ := 0;
+  VAR number SZ := cpu;
+  LOOP DO
+  {
+    digits[digit_count] := (48 + (number % 10)) AS PARTIAL U8 AS BYTE;
+    digit_count++;
+    number /= 10;
+    IF (number == 0) { BREAK; }
+  }
+  LOOP WHILE (digit_count > 0) DO
+  { digit_count--; path[position] := digits[digit_count]; position++; }
+  VAR suffix_size SZ := (suffix.END() - suffix.BEGIN()) AS ASSUME SZ;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(suffix_size) DO
+  { path[position] := suffix.BEGIN()[index]; position++; }
+  path[position] := 0;
+  RETURN position;
+}
+
+DOC <$
+  The detector counts each online Linux core once, including partially online SMT sibling
+  groups. A CPU without readable sibling topology counts as one core.
+  $>
+PRIVATE(MODULE) ::allocator_detect_core_count INCLUDE_IF(OS_LINUX) FUNCTION(): SZ
+{
+  VAR online_path [64]BYTE;
+  VAR online_name STRING_CONSTANT := "/sys/devices/system/cpu/online";
+  VAR length SZ := (online_name.END() - online_name.BEGIN()) AS ASSUME SZ;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO { online_path[index] := online_name.BEGIN()[index]; }
+  VAR online [4096]BYTE;
+  VAR online_size SZ := allocator_read_system_file(@path online_path[& 0], @buffer online[& 0], @capacity 4096);
+  IF (online_size == 0) { RETURN 1; }
+  VAR cursor SZ := 0;
+  VAR first SZ;
+  VAR last SZ;
+  VAR cores SZ := 0;
+  LOOP WHILE (allocator_cpu_list_next(@text online[& 0], @size online_size, @cursor cursor, @first first, @last last)) DO
+  {
+    LOOP VALUE(cpu) FROM(first) UNTIL(last + 1) DO
+    {
+      VAR path [128]BYTE;
+      allocator_core_path(@cpu cpu, @path path[& 0]);
+      VAR siblings [4096]BYTE;
+      VAR sibling_size SZ := allocator_read_system_file(@path path[& 0], @buffer siblings[& 0], @capacity 4096);
+      VAR sibling_cursor SZ := 0;
+      VAR sibling_first SZ;
+      VAR sibling_last SZ;
+      VAR preceding_online BOOL := FALSE;
+      LOOP WHILE (allocator_cpu_list_next(@text siblings[& 0], @size sibling_size,
+        @cursor sibling_cursor, @first sibling_first, @last sibling_last)) DO
+      {
+        LOOP VALUE(sibling) FROM(sibling_first) UNTIL(sibling_last + 1) DO
+        {
+          IF (sibling < cpu && allocator_cpu_list_contains(@text online[& 0], @size online_size, @cpu sibling))
+          { preceding_online := TRUE; BREAK; }
+        }
+        IF (preceding_online) { BREAK; }
+      }
+      IF (preceding_online == FALSE) { cores++; }
+    }
+  }
+  IF (cores == 0) { RETURN 1; }
+  RETURN cores;
+}
+
+DOC <$ The detector queries physical cores from the running operating system and returns one when detection fails. $>
+PRIVATE(MODULE) ::allocator_detect_core_count INCLUDE_IF(OS_MACOS) FUNCTION(): SZ
+{
+  VAR name [32]BYTE;
+  VAR text STRING_CONSTANT := "hw.physicalcpu";
+  VAR length SZ := (text.END() - text.BEGIN()) AS ASSUME SZ;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO { name[index] := text.BEGIN()[index]; }
+  VAR value [4]BYTE ALIGN(4);
+  VAR size SZ := 4;
+  VAR null_pointer CONST->VOID;
+  IF (syscall::macos::sysctlbyname(@name name[& 0], @old_value value[& 0], @old_size size<-,
+    @new_value null_pointer, @new_size 0) == 0 && size == 4)
+  {
+    VAR cores U32 := IBC_LOAD#U32(@ADDR IBC_GETADDR(@PTR value[0]<-));
+    IF (cores > 0) { RETURN cores AS SZ; }
+  }
+  RETURN 1;
+}
+
+PRIVATE(MODULE) ::allocator_detect_core_count INCLUDE_IF(OS_WINDOWS) FUNCTION(): SZ
+{
+  VAR size U32 := 0;
+  syscall::windows::get_logical_processor_information_ex(@relationship 0, @buffer NULL, @length size<-);
+  IF (size >= 8)
+  {
+    VAR bytes SZ := size AS SZ;
+    VAR mapping ADDRESS := layer5_map_region(@bytes bytes);
+    IF (mapping??)
+    {
+      VAR cores SZ := 0;
+      IF (syscall::windows::get_logical_processor_information_ex(@relationship 0, @buffer mapping, @length size<-) != 0
+        && size <= bytes)
+      {
+        VAR offset SZ := 0;
+        LOOP WHILE (offset + 8 <= (size AS SZ)) DO
+        {
+          VAR record_size SZ := IBC_LOAD#U32(@ADDR mapping + offset + 4) AS SZ;
+          IF (record_size < 8 || record_size > (size AS SZ) - offset) { BREAK; }
+          IF (IBC_LOAD#U32(@ADDR mapping + offset) == 0) { cores++; }
+          offset += record_size;
+        }
+      }
+      layer5_unmap_region(@address mapping, @bytes bytes);
+      IF (cores > 0) { RETURN cores; }
+    }
+  }
+  RETURN 1;
+}
+
+PRIVATE(MODULE) ::allocator_detect_core_count
+  INCLUDE_IF(OS_LINUX == FALSE && OS_MACOS == FALSE && OS_WINDOWS == FALSE) FUNCTION(): SZ
+{
+  RETURN 1;
+}
+
+DOC <$ The initializer establishes immutable allocator topology on first allocator use. $>
+PRIVATE(MODULE) ::allocator_process_start FUNCTION()
+{
+  IF (allocator_topology_ready.LOAD#ATOMIC_ACQUIRE()) { RETURN; }
+  allocator_topology_mutex.lock();
+  IF (allocator_topology_ready.LOAD#ATOMIC_RELAXED() == FALSE)
+  {
+    allocator_host_core_count := allocator_detect_core_count();
+    allocator_transfer_shard_count := allocator_shards_for_cores(@cores allocator_host_core_count);
+    allocator_budget_process_start();
+    allocator_topology_ready.STORE#ATOMIC_RELEASE(TRUE);
+  }
+  allocator_topology_mutex.unlock();
+}
+
+PRIVATE(MODULE) ::allocator_shard_sizing_test DUAL_TEST
+{
+  TEST_ASSERT(allocator_shards_for_cores(@cores 1) == 2);
+  TEST_ASSERT(allocator_shards_for_cores(@cores 4) == 8);
+  TEST_ASSERT(allocator_shards_for_cores(@cores 5) == 16);
+  TEST_ASSERT(allocator_shards_for_cores(@cores 16) == 32);
+  TEST_ASSERT(allocator_shards_for_cores(@cores 64) == 128);
+  TEST_ASSERT(allocator_shards_for_cores(@cores 128) == 256);
+}
+
+PRIVATE(MODULE) ::allocator_cpu_list_test DUAL_TEST
+{
+  VAR text STRING_CONSTANT := "0-3,8,12-14\n";
+  VAR size SZ := (text.END() - text.BEGIN()) AS ASSUME SZ;
+  TEST_ASSERT(allocator_cpu_list_contains(@text text.BEGIN(), @size size, @cpu 0));
+  TEST_ASSERT(allocator_cpu_list_contains(@text text.BEGIN(), @size size, @cpu 3));
+  TEST_ASSERT(allocator_cpu_list_contains(@text text.BEGIN(), @size size, @cpu 8));
+  TEST_ASSERT(allocator_cpu_list_contains(@text text.BEGIN(), @size size, @cpu 13));
+  TEST_ASSERT(allocator_cpu_list_contains(@text text.BEGIN(), @size size, @cpu 4) == FALSE);
+  TEST_ASSERT(allocator_cpu_list_contains(@text text.BEGIN(), @size size, @cpu 15) == FALSE);
+}
+
+DOC <$ The test verifies decimal CPU path construction without filesystem access. $>
+PRIVATE(MODULE) ::allocator_cpu_path_test INCLUDE_IF(OS_LINUX) DUAL_TEST
+{
+  VAR path [128]BYTE;
+  VAR expected STRING_CONSTANT := "/sys/devices/system/cpu/cpu64/topology/core_cpus_list";
+  VAR size SZ := allocator_core_path(@cpu 64, @path path[& 0]);
+  TEST_ASSERT(size == ((expected.END() - expected.BEGIN()) AS ASSUME SZ));
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO { TEST_ASSERT(path[index] == expected.BEGIN()[index]); }
+  TEST_ASSERT(path[size] == 0);
+}

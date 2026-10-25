@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure shared MT19937 allocation toggles in Quxlang and C++ Mimalloc."""
+"""The runner compares repeated MT19937 allocation workloads with bounded input storage."""
 
 import argparse
 import array
@@ -13,23 +13,25 @@ import shutil
 import statistics
 import subprocess
 
-from run import ROOT, REPOSITORY, digest
+from run import add_cpp_build_arguments, cpp_build_flags, ROOT, REPOSITORY, digest, host_configuration, prepare_executables, counter_description, measure_case, minimum_seconds
 
 
 def main():
     """Build Release binaries and measure repeated runs after one discarded warmup."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--work-dir', type=Path, default=REPOSITORY / 'allocator-comparison-out/mixed')
+    parser.add_argument('--work-dir', type=Path, default=REPOSITORY / 'tmp/allocator-comparison-out/mixed')
     parser.add_argument('--mimalloc-source', type=Path, required=True)
-    parser.add_argument('--operations', type=int, default=8000000, help='Operations executed by each worker.')
+    parser.add_argument('--operations', type=int, default=8000000, help='Pre-generated operations per worker in one sequence pass.')
     parser.add_argument('--slots', type=int, nargs='+', default=[4096, 65536])
     parser.add_argument('--threads', type=int, nargs='+', default=[1])
     parser.add_argument('--repetitions', type=int, default=3)
     parser.add_argument('--workload', choices=['private', 'atomic-shared'], default='private',
                         help='Private allocation toggles or shared atomic replacements.')
+    parser.add_argument('--qxc', type=Path, default=REPOSITORY / 'misc/build/buildspaces/system-clang/quxlang/Release/qxc')
+    parser.add_argument("--min-seconds", type=minimum_seconds, default=3.0, help="Minimum seconds per recorded sample (at least 3); calibration trials may be shorter.")
+    add_cpp_build_arguments(parser)
     args = parser.parse_args()
-    if platform.system() != 'Darwin' or platform.machine() != 'arm64':
-        parser.error('this runner currently measures native macOS ARM64')
+    cpp_flags, cpp_linker_flags = cpp_build_flags(args)
     if args.operations < 1:
         parser.error('--operations must be positive')
     if args.repetitions < 1:
@@ -50,8 +52,8 @@ def main():
     benchmark = 'atomic_mixed_allocations' if args.workload == 'atomic-shared' else 'mixed_allocations'
     cpp_source = ROOT / (benchmark + '.cpp')
     config = (ROOT / 'qxcbuild.yml').read_text().replace('benchmark: "::allocations"', f'benchmark: "::{benchmark}"')
-    (bundle / 'qxcbuild.yml').write_text(config)
-    qxc = REPOSITORY / 'misc/build/buildspaces/system-clang/quxlang/Release/qxc'
+    (bundle / 'qxcbuild.yml').write_text(host_configuration(config))
+    qxc = args.qxc.resolve()
     commands = []
 
     def execute(command, **kwargs):
@@ -62,18 +64,17 @@ def main():
     with (work / 'qxc-build.log').open('w') as log:
         execute([qxc, bundle, work / 'quxlang', 'native'], stdout=log, stderr=subprocess.STDOUT)
     mimalloc = args.mimalloc_source.resolve()
-    execute(['clang', '-std=c17', '-O3', '-DNDEBUG', '-DMI_STATIC_LIB', '-I' + str(mimalloc / 'include'),
+    execute(['clang', '-std=c17', '-O3', *cpp_flags, '-DNDEBUG', '-DMI_STATIC_LIB', '-I' + str(mimalloc / 'include'),
              '-c', mimalloc / 'src/static.c', '-o', work / 'mimalloc.o'])
-    execute(['clang++', '-std=c++17', '-O3', '-DNDEBUG', '-DMI_STATIC_LIB', '-pthread',
+    execute(['clang++', '-std=c++17', '-O3', *cpp_flags, *cpp_linker_flags, '-fsized-deallocation', '-DNDEBUG', '-DMI_STATIC_LIB', '-pthread',
              '-fno-builtin-malloc', '-fno-builtin-free', '-I' + str(mimalloc / 'include'),
              cpp_source, ROOT / 'barriers.S', work / 'mimalloc.o', '-o', work / 'cpp_mimalloc'])
     executables = {'quxlang_alloc': work / 'quxlang/output/allocations', 'cpp_mimalloc': work / 'cpp_mimalloc'}
-    sdk = subprocess.check_output(['xcrun', '--show-sdk-version'], text=True).strip()
-    for executable in executables.values():
-        execute(['xcrun', 'vtool', '-set-build-version', 'macos', '11.0', sdk, '-replace', '-output', executable, executable])
-        execute(['codesign', '--force', '--sign', '-', executable])
+    sdk = prepare_executables(executables, execute)
     environment = {key: value for key, value in os.environ.items() if not key.startswith(('Malloc', '_Malloc', 'MIMALLOC_'))}
-    report = {'platform': platform.platform(), 'commands': commands, 'operations_per_thread': args.operations,
+    report = {'platform': platform.platform(), 'cpp_target': args.cpp_target, 'cpp_lto': args.cpp_lto, 'commands': commands, 'sequence_operations_per_thread': args.operations, 'minimum_sample_seconds': args.min_seconds,
+              'measurement_sha256': digest(ROOT.parent / 'measurement.py'),
+              'pass_protocol': 'Workers replay the bounded input without reinitializing slots or recreating threads. Odd pass counts preserve private-slot reference results.',
               'sizes': [8, 16, 24, 32, 48, 64, 128, 256], 'seed': 20261009, 'generator': 'std::mt19937',
               'sequences': {}, 'selection': 'size = word % 8; slot = (word / 8) % worker_slots',
               'partition': 'Only slots are divided: floor(K / T), with one extra for the first K % T workers; every worker executes N operations',
@@ -81,7 +82,7 @@ def main():
               'unit': 'ns per allocation or deallocation operation', 'repetitions': args.repetitions, 'discarded_warmup_runs': 1,
               'payload_write': 'Store byte value 1 at offset zero immediately after every allocation using matching opaque assembly calls.',
               'timing': 'Thread creation through all joins, including worker TLS teardown; input loading, null initialization and final cleanup excluded.',
-              'counter': 'ISB; MRS X0, CNTVCT_EL0; ISB; RET', 'sdk_version': sdk,
+              'counter': counter_description(), 'sdk_version': sdk,
               'qxc_sha256': digest(qxc), 'build_config_sha256': digest(bundle / 'qxcbuild.yml'),
               'binary_sha256': {name: digest(path) for name, path in executables.items()},
               'source_sha256': {str(path.relative_to(bundle)): digest(path) for path in sorted(bundle.rglob('*.qxs'))},
@@ -98,8 +99,8 @@ def main():
         sequence = work / f'mt19937-t{threads}.bin'
         with sequence.open('wb') as output:
             execute([executables['cpp_mimalloc'], str(args.operations), '0', str(threads)], stdout=output)
-        total_operations = args.operations * threads
-        assert sequence.stat().st_size == total_operations * 4
+        sequence_operations = args.operations * threads
+        assert sequence.stat().st_size == sequence_operations * 4
         sequence_hash = hashlib.sha256()
         with sequence.open('rb') as source:
             for chunk in iter(lambda: source.read(8 * 1024 * 1024), b''):
@@ -124,29 +125,42 @@ def main():
                             occupied[word % 8][(word // 8) % slots] = 1
                 counts = [sum(cells) for cells in occupied]
                 reference = (checksum, sum(counts), sum(count * size for count, size in zip(counts, report['sizes'])))
-            samples = {name: [] for name in executables}
             validation = None
-            for repeat in range(args.repetitions + 1):
-                order = list(executables)
-                if repeat % 2:
-                    order.reverse()
-                for name in order:
-                    options = [f'--n={args.operations}', f'--slots={slots}', f'--threads={threads}'] if name == 'quxlang_alloc' else [str(args.operations), str(slots), str(threads)]
-                    with sequence.open('rb') as source:
-                        output = subprocess.check_output([executables[name], *options], stdin=source, env=environment, timeout=1200)
-                    ticks, frequency, checksum, live, live_bytes = map(int, output.split())
-                    assert ticks > 0 and frequency > 0
-                    if reference is not None:
-                        assert reference == (checksum, live, live_bytes), (name, reference, checksum, live, live_bytes)
-                    if validation is None:
-                        validation = (checksum, live, live_bytes)
-                    assert validation == (checksum, live, live_bytes), (name, validation, checksum, live)
-                    print(f"T={threads} K={slots} run={repeat} allocator={name} ns/op={ticks * 1e9 / frequency / total_operations:.3f} live_GiB={live_bytes / 2**30:.6f}", flush=True)
-                    if repeat:
-                        samples[name].append(ticks * 1e9 / frequency / total_operations)
+            frequencies = set()
+
+            def execute_sample(name, passes):
+                nonlocal validation
+                options = [f'--n={args.operations}', f'--slots={slots}', f'--threads={threads}', f'--passes={passes}'] if name == 'quxlang_alloc' else [str(args.operations), str(slots), str(threads), str(passes)]
+                with sequence.open('rb') as source:
+                    output = subprocess.check_output([executables[name], *options], stdin=source, env=environment, timeout=1200)
+                ticks, frequency, checksum, live, live_bytes = map(int, output.split())
+                if ticks <= 0 or frequency <= 0:
+                    raise RuntimeError(f'{name}: invalid timer: {output!r}')
+                frequencies.add(frequency)
+                if len(frequencies) != 1:
+                    raise RuntimeError('benchmark timer frequencies differ or changed')
+                actual = (checksum, live, live_bytes)
+                if reference is not None and actual != reference:
+                    raise RuntimeError(f'{name}: independent reference mismatch: {actual} != {reference}')
+                if validation is None:
+                    validation = actual
+                if actual != validation:
+                    raise RuntimeError(f'{name}: implementation output differs: {actual} != {validation}')
+                duration = ticks / frequency
+                print(f'T={threads} K={slots} allocator={name} passes={passes} seconds={duration:.6f}', flush=True)
+                return {'seconds': duration, 'frequency_hz': frequency}
+
+            measurement = measure_case(executables, execute_sample, 1, args.repetitions, args.min_seconds, odd_work=True)
+            passes = measurement['work']
+            total_operations = sequence_operations * passes
+            elapsed_samples = {name: [sample['seconds'] for sample in values] for name, values in measurement['samples'].items()}
+            samples = {name: [duration * 1e9 / total_operations for duration in values] for name, values in elapsed_samples.items()}
+            frequency = next(iter(frequencies))
             medians = {name: statistics.median(values) for name, values in samples.items()}
             elapsed_seconds = {name: value * total_operations / 1e9 for name, value in medians.items()}
-            row = {'threads': threads, 'total_operations': total_operations, 'slots_per_size': slots, 'samples_ns_per_operation': samples, 'median_ns_per_operation': medians,
+            row = {'threads': threads, 'total_operations': total_operations,
+                   'passes': passes, 'operations_per_thread': args.operations * passes,
+                   'sample_seconds': elapsed_samples, 'calibration': measurement['calibration'], 'slots_per_size': slots, 'samples_ns_per_operation': samples, 'median_ns_per_operation': medians,
                    'median_elapsed_seconds': elapsed_seconds, 'counter_frequency_hz': frequency, 'sequence_checksum': validation[0], 'remaining_live_allocations': validation[1],
                    'remaining_live_bytes': validation[2], 'independent_reference': reference,
                    'percentage': 100 * medians['quxlang_alloc'] / medians['cpp_mimalloc']}

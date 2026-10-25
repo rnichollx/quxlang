@@ -74,23 +74,27 @@ struct atomic_mixed_shared_state
 struct atomic_mixed_worker_state
 {
     std::vector< std::uint32_t > sequence;
+    std::size_t passes = 1;
     atomic_mixed_shared_state* shared = nullptr;
 
-    /** Applies the worker's operation sequence and writes one byte per allocation. */
+    /** The worker replays its input while retaining slot state between passes. */
     void run()
     {
-        for (std::uint32_t word : sequence)
+        for (std::size_t pass = 0; pass < passes; ++pass)
         {
-            std::size_t size_index = word % 8;
-            std::size_t index = (word / 8) % shared->slots;
-            if (size_index == 0) { shared->size_8.replace(index); }
-            else if (size_index == 1) { shared->size_16.replace(index); }
-            else if (size_index == 2) { shared->size_24.replace(index); }
-            else if (size_index == 3) { shared->size_32.replace(index); }
-            else if (size_index == 4) { shared->size_48.replace(index); }
-            else if (size_index == 5) { shared->size_64.replace(index); }
-            else if (size_index == 6) { shared->size_128.replace(index); }
-            else if (size_index == 7) { shared->size_256.replace(index); }
+            for (std::uint32_t word : sequence)
+            {
+                std::size_t size_index = word % 8;
+                std::size_t index = (word / 8) % shared->slots;
+                if (size_index == 0) { shared->size_8.replace(index); }
+                else if (size_index == 1) { shared->size_16.replace(index); }
+                else if (size_index == 2) { shared->size_24.replace(index); }
+                else if (size_index == 3) { shared->size_32.replace(index); }
+                else if (size_index == 4) { shared->size_48.replace(index); }
+                else if (size_index == 5) { shared->size_64.replace(index); }
+                else if (size_index == 6) { shared->size_128.replace(index); }
+                else if (size_index == 7) { shared->size_256.replace(index); }
+            }
         }
     }
 };
@@ -98,11 +102,12 @@ struct atomic_mixed_worker_state
 /** Generates worker inputs or times thread creation through the final join. */
 int main(int argc, char** argv)
 {
-    if (argc != 4) { return 2; }
+    if (argc != 4 && argc != 5) { return 2; }
     std::size_t n = std::strtoull(argv[1], nullptr, 10);
     std::size_t slots = std::strtoull(argv[2], nullptr, 10);
     std::size_t threads = std::strtoull(argv[3], nullptr, 10);
-    if (n == 0 || threads == 0) { return 2; }
+    std::size_t passes = argc == 5 ? std::strtoull(argv[4], nullptr, 10) : 1;
+    if (n == 0 || threads == 0 || passes == 0) { return 2; }
     if (slots == 0)
     {
         for (std::size_t worker = 0; worker < threads; ++worker)
@@ -137,6 +142,7 @@ int main(int argc, char** argv)
     {
         atomic_mixed_worker_state& state = states[worker];
         state.shared = &shared;
+        state.passes = passes;
         state.sequence.resize(n);
         for (std::uint32_t& word : state.sequence)
         {

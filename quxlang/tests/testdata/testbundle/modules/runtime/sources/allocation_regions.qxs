@@ -125,6 +125,7 @@ PRIVATE(MODULE) ::layer3_region_class STRUCT
   .available VAR layer3_region_control;
   .issued VAR layer3_region_control;
   .detached VAR layer3_region_control;
+  .transfer_home VAR SZ;
   .block_size VAR SZ;
   .payload_offset VAR SZ;
   .slot_count VAR SZ;

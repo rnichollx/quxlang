@@ -77,12 +77,12 @@ IMPORT std;
 
 ::fannkuch_redux_fast_mt BENCHMARK(@n SZ, @threads SZ) ONESHOT
 {
-  IF (n < 3 || n > 12 || threads == 0 || threads > 32) { THROW (1 AS I32); }
+  IF (n < 3 || n > 12 || threads == 0 || threads > 128) { THROW (1 AS I32); }
   VAR total U32 := 1;
   LOOP VALUE(index) FROM(1 AS SZ) TO(n) DO { total *= index AS ASSUME U32; }
   VAR step U32 := total / (threads AS ASSUME U32);
-  VAR tasks [32]fannkuch_partition;
-  VAR workers [32]TYPED_STORAGE(std::thread);
+  VAR tasks [128]fannkuch_partition;
+  VAR workers [128]TYPED_STORAGE(std::thread);
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
   {
     tasks[index].length := n;

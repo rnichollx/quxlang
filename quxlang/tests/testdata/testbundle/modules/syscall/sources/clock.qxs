@@ -1,0 +1,53 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ The structure stores a native timestamp with 64-bit seconds and nanoseconds. $>
+::timespec64 INCLUDE_IF(OS_LINUX || OS_MACOS) IBC_STRUCT
+{
+  .seconds VAR I64;
+  .nanoseconds VAR I64;
+}
+
+::linux INCLUDE_IF(OS_LINUX) NAMESPACE
+{
+  ::clock_gettime ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@clock I32, @output MUT->timespec64; RETURN I32)
+  {
+    MOV RAX, 228
+    SYSCALL
+    RET
+  }
+
+  ::clock_gettime ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@clock I32, @output MUT->timespec64; RETURN I32)
+  {
+    MOV X8, 113
+    SVC 0
+    RET
+  }
+
+  ::clock_gettime ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@clock I32, @output MUT->timespec64; RETURN I32)
+  {
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
+    MOV EAX, 403
+    INT 0x80
+    POP EBX
+    RET
+  }
+
+  ::clock_gettime ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@clock I32, @output MUT->timespec64; RETURN I32)
+  {
+    LGHI %r1, 260
+    SVC 0
+    BR %r14
+  }
+}
+
+::macos INCLUDE_IF(OS_MACOS) NAMESPACE
+{
+  ::clock_gettime EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"clock_gettime"]
+    CALLABLE CALLCONV CCALL(@clock I32, @output MUT->timespec64; RETURN I32);
+}

@@ -193,6 +193,9 @@ struct producer_consumer_random
     }
 };
 
+/** The process uses one pass count for all producer-consumer pairs. */
+static std::size_t producer_consumer_passes = 1;
+
 /** Holds a stable queue and parameters shared by one thread pair. */
 struct producer_consumer_pair
 {
@@ -204,36 +207,49 @@ struct producer_consumer_pair
     /** Allocates batches and publishes a null pointer after the final batch. */
     void produce()
     {
-        producer_consumer_random random{20261011 + identity};
-        for (std::size_t index = 0; index < batches; ++index)
+        for (std::size_t pass = 0; pass < producer_consumer_passes; ++pass)
         {
-            producer_consumer_block* block = new producer_consumer_block;
-            for (producer_consumer_object*& object : block->objects)
+            producer_consumer_random random{20261011 + identity};
+            for (std::size_t index = 0; index < batches; ++index)
             {
-                object = new producer_consumer_object;
-                object->first = random.next();
-                object->second = random.next() | 1;
+                producer_consumer_block* block = new producer_consumer_block;
+                for (producer_consumer_object*& object : block->objects)
+                {
+                    object = new producer_consumer_object;
+                    object->first = random.next();
+                    object->second = random.next() | 1;
+                }
+                queue.push(block);
             }
-            queue.push(block);
         }
         queue.push(nullptr);
     }
 
-    /** Computes two checksums, releases each batch and prints under the shared I/O mutex. */
+    /** The consumer combines per-pass checksums with XOR and releases every transferred block. */
     void consume()
     {
-        std::uint64_t first = UINT64_C(14695981039346656037);
-        std::uint64_t second = UINT64_C(1099511628211);
-        while (producer_consumer_block* block = queue.pop())
+        std::uint64_t first = 0;
+        std::uint64_t second = 0;
+        for (std::size_t pass = 0; pass < producer_consumer_passes; ++pass)
         {
-            for (producer_consumer_object* object : block->objects)
+            std::uint64_t pass_first = UINT64_C(14695981039346656037);
+            std::uint64_t pass_second = UINT64_C(1099511628211);
+            for (std::size_t batch = 0; batch < batches; ++batch)
             {
-                first = (first ^ object->first) * object->second;
-                second = (second ^ object->first) * object->second;
-                delete object;
+                producer_consumer_block* block = queue.pop();
+                if (block == nullptr) { std::abort(); }
+                for (producer_consumer_object* object : block->objects)
+                {
+                    pass_first = (pass_first ^ object->first) * object->second;
+                    pass_second = (pass_second ^ object->first) * object->second;
+                    delete object;
+                }
+                delete block;
             }
-            delete block;
+            first ^= pass_first;
+            second ^= pass_second;
         }
+        if (queue.pop() != nullptr) { std::abort(); }
         std::lock_guard< unfair_mutex > lock(*io_mutex);
         std::printf("%zu %llu %llu\n", identity,
                     static_cast< unsigned long long >(first), static_cast< unsigned long long >(second));
@@ -244,10 +260,11 @@ struct producer_consumer_pair
 /** Times producer and consumer creation through all joins, including remote frees and TLS teardown. */
 int main(int argc, char** argv)
 {
-    if (argc != 3) { return 1; }
+    if (argc != 3 && argc != 4) { return 1; }
     std::size_t batches = std::strtoull(argv[1], nullptr, 10);
     std::size_t pairs = std::strtoull(argv[2], nullptr, 10);
-    if (batches == 0 || pairs == 0) { return 1; }
+    producer_consumer_passes = argc == 4 ? std::strtoull(argv[3], nullptr, 10) : 1;
+    if (batches == 0 || pairs == 0 || producer_consumer_passes == 0) { return 1; }
     unfair_mutex io_mutex;
     std::unique_ptr< producer_consumer_pair[] > states(new producer_consumer_pair[pairs]);
     for (std::size_t identity = 0; identity < pairs; ++identity)

@@ -2,15 +2,6 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
-::windows_get_std_handle INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"GetStdHandle"]
-  CALLABLE CALLCONV CCALL(@kind I32; RETURN ADDRESS);
-
-::windows_write_file INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"WriteFile"]
-  CALLABLE CALLCONV CCALL(@handle ADDRESS, @buffer CONST=>>BYTE, @count SZ, @written MUT->U32, @overlapped =>>BYTE; RETURN BOOL);
-
-::windows_exit_process INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"ExitProcess"]
-  CALLABLE CALLCONV CCALL(@code I32);
-
 ::write_bytes FUNCTION(@fd I32, @begin CONST =>> BYTE, @end CONST =>> BYTE)
 {
   STATIC_IF(OS_LINUX)
@@ -25,14 +16,14 @@ IMPORT syscall;
   {
     VAR kind I32 := 0 - 11;
     IF (fd == 2) { kind := 0 - 12; }
-    VAR handle ADDRESS := windows_get_std_handle(@kind kind);
+    VAR handle ADDRESS := syscall::windows::get_std_handle(@kind kind);
     VAR written U32 := 0;
-    VAR overlapped =>>BYTE;
-    windows_write_file(
+    VAR overlapped MUT->syscall::windows::overlapped;
+    syscall::windows::write_file(
       @handle handle,
       @buffer begin,
-      @count end - begin AS ASSUME SZ,
-      @written written<-,
+      @count (end - begin AS ASSUME SZ) AS PARTIAL U32,
+      @transferred written<-,
       @overlapped overlapped
     );
   }
@@ -95,7 +86,7 @@ IMPORT syscall;
   }
   STATIC_IF(OS_WINDOWS)
   {
-    windows_exit_process(@code code);
+    syscall::windows::exit_process(@code code);
   }
   STATIC_IF(ARCH_IS_JVM)
   {

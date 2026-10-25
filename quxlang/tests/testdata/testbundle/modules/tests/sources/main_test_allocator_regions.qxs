@@ -166,12 +166,15 @@ DOC <$
 }
 
 DOC <$
-  Exchanges allocation bursts between four threads, exceeding the shared plate
-  capacity and checking payload ownership while overflow returns race refills.
+  The test exchanges 4,096-object allocation bursts between four threads.
+  The bursts exercise transfer-queue growth when the host memory quota permits
+  retention, while return batches race refills.
+  Distinct payload identities verify ownership across generation boundaries.
   $>
 ::allocator_plate_burst_exchange INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
-  VAR slots [4][256]->ALIGNED_STORAGE(8192, 4096);
+  VAR slots [4]std::dynarr#(->ALIGNED_STORAGE(8192, 4096));
+  LOOP ITEM(window) IN(slots) DO { window.resize(4096); }
   VAR ready [4]ATOMIC#U32;
   VAR returned [4]ATOMIC#U32;
   VAR workers std::dynarr#std::thread;
@@ -185,16 +188,16 @@ DOC <$
       VAR previous SZ := (identity + 3) % 4;
       LOOP VALUE(round) FROM(1 AS U32) UNTIL(5 AS U32) DO
       {
-        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(256 AS SZ) DO
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4096 AS SZ) DO
         {
           slots[identity][index] := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::ALLOC#(@SIZE 8192, @ALIGN 4096)();
-          PLACE AT(slots[identity][index]->) SZ := (round AS SZ) * 1024 + identity * 256 + index;
+          PLACE AT(slots[identity][index]->) SZ := (round AS SZ) * 16384 + identity * 4096 + index;
         }
         ready[identity].STORE#ATOMIC_RELEASE(round);
         LOOP WHILE (ready[next].LOAD#ATOMIC_ACQUIRE() < round) DO { }
-        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(256 AS SZ) DO
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4096 AS SZ) DO
         {
-          TEST_ASSERT((PUN slots[next][index]-> AS SZ) == (round AS SZ) * 1024 + next * 256 + index);
+          TEST_ASSERT((PUN slots[next][index]-> AS SZ) == (round AS SZ) * 16384 + next * 4096 + index);
           DESTROY AT(slots[next][index]->) SZ;
           RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::DEALLOC#(@SIZE 8192, @ALIGN 4096)(@PTR slots[next][index]);
         }

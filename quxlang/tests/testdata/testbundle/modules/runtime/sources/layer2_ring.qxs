@@ -1,0 +1,9 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Each cell retains one plate pointer behind a sequence-number ownership transition. $>
+PRIVATE(MODULE) ::layer2_ring_cell TEMPLATE(@count VALUE SZ) STRUCT
+{
+  .sequence VAR ATOMIC#SZ ALIGN(64);
+  .node VAR MUT->addr_cache_node#(@count count);
+}
+

@@ -52,6 +52,7 @@ struct mixed_slots
 struct mixed_worker_state
 {
     std::vector< std::uint32_t > sequence;
+    std::size_t passes = 1;
     std::size_t slots = 0;
     mixed_slots< 8 > size_8;
     mixed_slots< 16 > size_16;
@@ -62,21 +63,24 @@ struct mixed_worker_state
     mixed_slots< 128 > size_128;
     mixed_slots< 256 > size_256;
 
-    /** Applies the worker's operation sequence and writes one byte per allocation. */
+    /** The worker replays its input while retaining slot state between passes. */
     void run()
     {
-        for (std::uint32_t word : sequence)
+        for (std::size_t pass = 0; pass < passes; ++pass)
         {
-            std::size_t size_index = word % 8;
-            std::size_t index = (word / 8) % slots;
-            if (size_index == 0) { size_8.toggle(index); }
-            else if (size_index == 1) { size_16.toggle(index); }
-            else if (size_index == 2) { size_24.toggle(index); }
-            else if (size_index == 3) { size_32.toggle(index); }
-            else if (size_index == 4) { size_48.toggle(index); }
-            else if (size_index == 5) { size_64.toggle(index); }
-            else if (size_index == 6) { size_128.toggle(index); }
-            else if (size_index == 7) { size_256.toggle(index); }
+            for (std::uint32_t word : sequence)
+            {
+                std::size_t size_index = word % 8;
+                std::size_t index = (word / 8) % slots;
+                if (size_index == 0) { size_8.toggle(index); }
+                else if (size_index == 1) { size_16.toggle(index); }
+                else if (size_index == 2) { size_24.toggle(index); }
+                else if (size_index == 3) { size_32.toggle(index); }
+                else if (size_index == 4) { size_48.toggle(index); }
+                else if (size_index == 5) { size_64.toggle(index); }
+                else if (size_index == 6) { size_128.toggle(index); }
+                else if (size_index == 7) { size_256.toggle(index); }
+            }
         }
     }
 };
@@ -84,11 +88,12 @@ struct mixed_worker_state
 /** Generates worker inputs or times thread creation through the final join. */
 int main(int argc, char** argv)
 {
-    if (argc != 4) { return 2; }
+    if (argc != 4 && argc != 5) { return 2; }
     std::size_t n = std::strtoull(argv[1], nullptr, 10);
     std::size_t slots = std::strtoull(argv[2], nullptr, 10);
     std::size_t threads = std::strtoull(argv[3], nullptr, 10);
-    if (n == 0 || threads == 0) { return 2; }
+    std::size_t passes = argc == 5 ? std::strtoull(argv[4], nullptr, 10) : 1;
+    if (n == 0 || threads == 0 || passes == 0) { return 2; }
     if (slots == 0)
     {
         for (std::size_t worker = 0; worker < threads; ++worker)
@@ -113,6 +118,7 @@ int main(int argc, char** argv)
     {
         mixed_worker_state& state = states[worker];
         state.slots = slots / threads + (worker < slots % threads);
+        state.passes = passes;
         state.sequence.resize(n);
         for (std::uint32_t& word : state.sequence)
         {

@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT syscall;
+
 IMPORT std;
 
 ::thread_store_entry STRUCT
@@ -330,9 +332,10 @@ PRIVATE(MODULE)
   }
 
   ::thread_hosted_windows_entry INCLUDE_IF(OS_WINDOWS)
-    FUNCTION(@context MUT->thread_hosted_context): U32
+    FUNCTION(@argument:context ADDRESS): U32
   {
-    thread_hosted_use_tls(@context context);
+    VAR value MUT->thread_hosted_context := ADDRESS_LAUNDER_DISCOVER_EXISTING context TO MUT->thread_hosted_context;
+    thread_hosted_use_tls(@context value);
     RETURN 0;
   }
 
@@ -365,26 +368,6 @@ PRIVATE(MODULE)
   ::thread_test_glibc_pthread_join INCLUDE_IF(ENVIRONMENT_IS_GLIBC)
     EXTERN_PROCEDURE["glibc":"pthread_join" VERSION "GLIBC_2.34"]
     CALLABLE CALLCONV CCALL(@thread UINTPTR, @result MUT->VOID; RETURN I32);
-
-  ::thread_test_create_thread INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"CreateThread"]
-    CALLABLE CALLCONV CCALL(
-      @attributes MUT->VOID,
-      @stack_size SZ,
-      @start CONST->PROCEDURE(
-        @context MUT->thread_hosted_context: U32
-      ),
-      @context MUT->thread_hosted_context,
-      @creation_flags U32,
-      @thread_id MUT->U32;
-      RETURN MUT->VOID
-    );
-  ::thread_test_wait_for_single_object INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"WaitForSingleObject"]
-    CALLABLE CALLCONV CCALL(@handle MUT->VOID, @milliseconds U32; RETURN U32);
-  ::thread_test_close_handle INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"CloseHandle"]
-    CALLABLE CALLCONV CCALL(@handle MUT->VOID; RETURN BOOL);
 }
 
 ::thread_lvalue_entry_is_independent UNIT_TEST KNOWN_BROKEN_IF((OS_WINDOWS || OS_MACOS || OS_LINUX) == FALSE)
@@ -519,17 +502,17 @@ PRIVATE(MODULE)
   STATIC_ELSE STATIC_IF(OS_WINDOWS)
   {
     VAR thread_id U32;
-    VAR handle MUT->VOID := thread_test_create_thread(
-      @attributes thread_test_null_void_pointer(),
+    VAR handle ADDRESS := syscall::windows::create_thread(
+      @attributes NULL,
       @stack_size 0,
       @start thread_hosted_windows_entry<-,
-      @context context<-,
+      @argument IBC_GETADDR(@PTR context<-),
       @creation_flags 0,
       @thread_id thread_id<-
     );
     TEST_ASSERT(handle??);
-    TEST_ASSERT(thread_test_wait_for_single_object(@handle handle, @milliseconds 4294967295) == 0);
-    TEST_ASSERT(thread_test_close_handle(@handle handle));
+    TEST_ASSERT(syscall::windows::wait_for_single_object(@handle handle, @milliseconds 4294967295) == 0);
+    TEST_ASSERT(syscall::windows::close_handle(@handle handle) != 0);
   }
   TEST_ASSERT(result == 97);
 }

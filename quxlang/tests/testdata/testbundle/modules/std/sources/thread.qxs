@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT syscall;
+
 PRIVATE(MODULE)
 {
   ::thread_entry GENERIC MOVE_ONLY INCOMPARABLE
@@ -11,7 +13,7 @@ PRIVATE(MODULE)
   {
     .identity VAR RUNTIME_MODULE::thread_identity;
     .published VAR ATOMIC#BOOL;
-    .native_handle VAR MUT->VOID;
+    .native_handle VAR ADDRESS;
     .native_thread VAR UINTPTR;
     .native_thread_id VAR U32;
     .child_tid VAR ATOMIC#I32;
@@ -49,23 +51,6 @@ PRIVATE(MODULE)
     );
   ::glibc_pthread_join INCLUDE_IF(ENVIRONMENT_IS_GLIBC) EXTERN_PROCEDURE["glibc":"pthread_join" VERSION "GLIBC_2.34"]
     CALLABLE CALLCONV CCALL(@thread UINTPTR, @result MUT->VOID; RETURN I32);
-
-  ::create_thread INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"CreateThread"]
-    CALLABLE CALLCONV CCALL(
-      @attributes MUT->VOID,
-      @stack_size SZ,
-      @start CONST->PROCEDURE(
-        @argument MUT->thread_control: U32
-      ),
-      @argument MUT->thread_control,
-      @creation_flags U32,
-      @thread_id MUT->U32;
-      RETURN MUT->VOID
-    );
-  ::wait_for_single_object INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"WaitForSingleObject"]
-    CALLABLE CALLCONV CCALL(@handle MUT->VOID, @milliseconds U32; RETURN U32);
-  ::close_handle INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"CloseHandle"]
-    CALLABLE CALLCONV CCALL(@handle MUT->VOID; RETURN BOOL);
 
   ::static_linux_clone_flags INCLUDE_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
     STATIC UINTPTR := 4001536;
@@ -218,15 +203,16 @@ LABEL static_linux_clone_arm64_parent;
     RUNTIME_MODULE::thread_finish();
   }
 
-  ::pthread_entry FUNCTION(@argument MUT->thread_control): MUT->VOID
+  ::native_thread_entry INCLUDE_IF(OS_MACOS || ENVIRONMENT_IS_GLIBC) FUNCTION(@argument MUT->thread_control): MUT->VOID
   {
     run_thread_entry(@control argument);
     RETURN null_void_pointer();
   }
 
-  ::windows_thread_entry FUNCTION(@argument MUT->thread_control): U32
+  ::native_thread_entry INCLUDE_IF(OS_WINDOWS) FUNCTION(@argument ADDRESS): U32
   {
-    run_thread_entry(@control argument);
+    VAR control MUT->thread_control := ADDRESS_LAUNDER_DISCOVER_EXISTING argument TO MUT->thread_control;
+    run_thread_entry(@control control);
     RETURN 0;
   }
 
@@ -273,7 +259,7 @@ DOC <$ Owns one native thread and joins it before releasing its control block. $
       IF (macos_pthread_create(
         @thread control_ref.native_thread<-,
         @attributes null_void_pointer(),
-        @start pthread_entry<-,
+        @start native_thread_entry<-,
         @argument .control
       ) != 0)
       {
@@ -290,7 +276,7 @@ DOC <$ Owns one native thread and joins it before releasing its control block. $
       IF (glibc_pthread_create(
         @thread control_ref.native_thread<-,
         @attributes null_void_pointer(),
-        @start pthread_entry<-,
+        @start native_thread_entry<-,
         @argument .control
       ) != 0)
       {
@@ -304,11 +290,11 @@ DOC <$ Owns one native thread and joins it before releasing its control block. $
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
       control_ref.published.STORE#ATOMIC_RELEASE(TRUE);
-      control_ref.native_handle := create_thread(
-        @attributes null_void_pointer(),
+      control_ref.native_handle := syscall::windows::create_thread(
+        @attributes NULL,
         @stack_size 0,
-        @start windows_thread_entry<-,
-        @argument .control,
+        @start native_thread_entry<-,
+        @argument IBC_GETADDR(@PTR .control),
         @creation_flags 0,
         @thread_id control_ref.native_thread_id<-
       );
@@ -441,11 +427,11 @@ DOC <$ Owns one native thread and joins it before releasing its control block. $
     }
     STATIC_ELSE STATIC_IF(OS_WINDOWS)
     {
-      IF (wait_for_single_object(@handle control_ref.native_handle, @milliseconds 4294967295) != 0)
+      IF (syscall::windows::wait_for_single_object(@handle control_ref.native_handle, @milliseconds 4294967295) != 0)
       {
         PANIC "WaitForSingleObject failed while joining a thread.";
       }
-      IF (close_handle(@handle control_ref.native_handle) == FALSE)
+      IF (syscall::windows::close_handle(@handle control_ref.native_handle) == 0)
       {
         PANIC "CloseHandle failed after joining a thread.";
       }

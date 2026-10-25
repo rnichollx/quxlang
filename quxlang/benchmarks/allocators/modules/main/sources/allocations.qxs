@@ -4,6 +4,19 @@ IMPORT std;
 
 ::benchmark_barrier NAMESPACE
 {
+  DOC <$ Writes one payload word without exposing the implementation to optimization. $>
+  ::write_word
+    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@address ADDRESS, @value U64)
+  {
+    STR X1, [X0]
+    RET
+  }
+  ::write_word INCLUDE_IF(OS_LINUX)
+    ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL(@address ADDRESS, @value U64)
+  {
+    MOV QWORD PTR [RDI], RSI
+    RET
+  }
   DOC <$ Writes one byte at the allocation address and makes it observable. $>
   ::write_byte
     ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
@@ -39,6 +52,26 @@ IMPORT std;
   {
     MRS X0, CNTFRQ_EL0
     RET
+  }
+
+  DOC <$ The Linux x64 procedure writes one byte at the allocation address. $>
+  ::write_byte INCLUDE_IF(OS_LINUX)
+    ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
+  {
+    MOV BYTE PTR [RDI], 1
+    RET
+  }
+
+  DOC <$ The Linux x64 timer returns a monotonic timestamp in nanoseconds. $>
+  ::ticks INCLUDE_IF(ARCH_IS_X64 && OS_LINUX) FUNCTION(): U64
+  {
+    RETURN RUNTIME_MODULE::BENCHMARK_CLOCK();
+  }
+
+  DOC <$ The Linux x64 timer frequency is one billion ticks per second. $>
+  ::frequency INCLUDE_IF(ARCH_IS_X64 && OS_LINUX) FUNCTION(): U64
+  {
+    RETURN 1000000000;
   }
 
 }
@@ -113,36 +146,36 @@ IMPORT std;
     }
   }
 
-  DOC <$ Measures 32 warmed workers through the final allocation batch. $>
+  DOC <$ The parallel workload measures the requested warmed workers through the final allocation batch. $>
   ::run_parallel
-    FUNCTION(@n SZ, @batch SZ): U64
+    FUNCTION(@n SZ, @batch SZ, @threads SZ): U64
   {
     VAR state parallel_state;
     state.n := n;
     state.batch := batch;
-    VAR workers [32]TYPED_STORAGE(std::thread);
-    LOOP ITEM(slot) IN(workers) DO
+    VAR workers [128]TYPED_STORAGE(std::thread);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
     {
       VAR entry worker;
       entry.state := state<-;
-      PLACE AT(slot) std::thread :(entry);
+      PLACE AT(workers[index]) std::thread :(entry);
     }
     state.mutex.lock();
-    LOOP WHILE (state.ready != 32) DO
+    LOOP WHILE (state.ready != threads) DO
     { state.progress.wait(@locked_mutex state.mutex); }
     VAR start U64 := benchmark_barrier::ticks();
     state.start := TRUE;
     state.condition.notify_all();
-    LOOP WHILE (state.finished != 32) DO
+    LOOP WHILE (state.finished != threads) DO
     { state.progress.wait(@locked_mutex state.mutex); }
     VAR elapsed U64 := state.last_finish - start;
     state.release := TRUE;
     state.condition.notify_all();
     state.mutex.unlock();
-    LOOP ITEM(slot) IN(workers) DO
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
     {
-      (PUN slot AS std::thread).join();
-      DESTROY AT(slot) std::thread;
+      (PUN workers[index] AS std::thread).join();
+      DESTROY AT(workers[index]) std::thread;
     }
     RETURN elapsed;
   }
@@ -150,8 +183,8 @@ IMPORT std;
   ::run FUNCTION(@n SZ, @batch SZ, @threads SZ)
   {
     VAR elapsed U64;
-    IF (threads == 32)
-    { elapsed := run_parallel(@n n, @batch batch); }
+    IF (threads > 1)
+    { elapsed := run_parallel(@n n, @batch batch, @threads threads); }
     ELSE
     {
       VAR start U64 := benchmark_barrier::ticks();
@@ -167,7 +200,7 @@ IMPORT std;
 
 ::allocations BENCHMARK(@n SZ, @size SZ, @batch SZ, @threads SZ) ONESHOT
 {
-  IF (n == 0 || batch == 0 || batch > 20 || (threads != 1 && threads != 32)) { THROW (1 AS I32); }
+  IF (n == 0 || batch == 0 || batch > 20 || (threads == 0 || threads > 128)) { THROW (1 AS I32); }
   IF (size == 8) { allocation_workload#(@bytes 8)::run(@n n, @batch batch, @threads threads); }
   ELSE IF (size == 16) { allocation_workload#(@bytes 16)::run(@n n, @batch batch, @threads threads); }
   ELSE IF (size == 24) { allocation_workload#(@bytes 24)::run(@n n, @batch batch, @threads threads); }

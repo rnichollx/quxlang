@@ -77,23 +77,27 @@ DOC <$ Borrows shared arrays and owns one worker's pre-generated input. $>
 ::atomic_mixed_worker_state STRUCT
 {
   .sequence VAR std::dynarr#U32;
+  .passes VAR SZ;
   .shared VAR MUT->atomic_mixed_shared_state;
 
-  DOC <$ Applies the pre-generated operations to the shared slots. $>
+  DOC <$ The worker replays its input while retaining shared slot state between passes. $>
   .run FUNCTION() MUT
   {
-    LOOP ITEM(word) IN(.sequence) DO
+    LOOP VALUE(pass_index) FROM(0 AS SZ) UNTIL(.passes) DO
     {
-      VAR size_index SZ := (word % 8) AS SZ;
-      VAR index SZ := ((word / 8) AS SZ) % .shared->.slots;
-      IF (size_index == 0) { .shared->.size_8.replace(@index index); }
-      ELSE IF (size_index == 1) { .shared->.size_16.replace(@index index); }
-      ELSE IF (size_index == 2) { .shared->.size_24.replace(@index index); }
-      ELSE IF (size_index == 3) { .shared->.size_32.replace(@index index); }
-      ELSE IF (size_index == 4) { .shared->.size_48.replace(@index index); }
-      ELSE IF (size_index == 5) { .shared->.size_64.replace(@index index); }
-      ELSE IF (size_index == 6) { .shared->.size_128.replace(@index index); }
-      ELSE IF (size_index == 7) { .shared->.size_256.replace(@index index); }
+      LOOP ITEM(word) IN(.sequence) DO
+      {
+        VAR size_index SZ := (word % 8) AS SZ;
+        VAR index SZ := ((word / 8) AS SZ) % .shared->.slots;
+        IF (size_index == 0) { .shared->.size_8.replace(@index index); }
+        ELSE IF (size_index == 1) { .shared->.size_16.replace(@index index); }
+        ELSE IF (size_index == 2) { .shared->.size_24.replace(@index index); }
+        ELSE IF (size_index == 3) { .shared->.size_32.replace(@index index); }
+        ELSE IF (size_index == 4) { .shared->.size_48.replace(@index index); }
+        ELSE IF (size_index == 5) { .shared->.size_64.replace(@index index); }
+        ELSE IF (size_index == 6) { .shared->.size_128.replace(@index index); }
+        ELSE IF (size_index == 7) { .shared->.size_256.replace(@index index); }
+      }
     }
   }
 }
@@ -109,9 +113,9 @@ DOC <$ Borrows stable worker state for the lifetime of a native thread. $>
 
 DOC <$ Times creation and joining of workers with pre-generated operations. $>
 ::atomic_mixed_allocations
-  BENCHMARK(@n SZ, @slots SZ, @threads SZ) ONESHOT
+  BENCHMARK(@n SZ, @slots SZ, @threads SZ, @passes SZ) ONESHOT
 {
-  IF (n == 0 || slots == 0 || slots > 536870912 || threads == 0)
+  IF (n == 0 || passes == 0 || slots == 0 || slots > 536870912 || threads == 0)
   { THROW (1 AS I32); }
   VAR shared atomic_mixed_shared_state;
   shared.slots := slots;
@@ -130,6 +134,7 @@ DOC <$ Times creation and joining of workers with pre-generated operations. $>
   LOOP VALUE(worker_index) FROM(0 AS SZ) UNTIL(threads) DO
   {
     VAR state MUT& atomic_mixed_worker_state := states[worker_index];
+    state.passes := passes;
     state.shared := shared<-;
     VAR count SZ := n;
     state.sequence.reserve(count);

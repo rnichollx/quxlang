@@ -6,19 +6,6 @@ IMPORT syscall;
 
 PRIVATE(MODULE)
 {
-  ::async_test_windows_create_file INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"CreateFileA"]
-    CALLABLE CALLCONV CCALL(
-      @path CONST=>>BYTE,
-      @desired_access U32,
-      @share_mode U32,
-      @security_attributes ADDRESS,
-      @creation_disposition U32,
-      @flags U32,
-      @template_file ADDRESS;
-      RETURN ADDRESS
-    );
-
   ::async_test_macos_mkstemp INCLUDE_IF(OS_MACOS)
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"mkstemp"]
     CALLABLE CALLCONV CCALL(@path MUT=>>BYTE; RETURN I32);
@@ -582,7 +569,7 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
   path[2] := 76;
   path[3] := 0;
   VAR null_address ADDRESS;
-  VAR handle ADDRESS := async_test_windows_create_file(
+  VAR handle ADDRESS := syscall::windows::create_file_a(
     @path path[& 0],
     @desired_access 1073741824,
     @share_mode 0,

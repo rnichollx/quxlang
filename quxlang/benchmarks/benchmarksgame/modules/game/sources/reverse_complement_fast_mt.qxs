@@ -112,7 +112,7 @@ IMPORT std;
     state.remaining := size - 1 - header;
     state.assigned := size - 1; state.written := size - 1;
     state.output := output<-;
-    VAR workers [32]TYPED_STORAGE(std::thread);
+    VAR workers [128]TYPED_STORAGE(std::thread);
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
     {
       VAR entry worker; entry.state := state<-;
@@ -128,7 +128,7 @@ IMPORT std;
 
 ::reverse_complement_fast_mt BENCHMARK(@threads SZ) ONESHOT
 {
-  IF (threads == 0 || threads > 32) { THROW (1 AS I32); }
+  IF (threads == 0 || threads > 128) { THROW (1 AS I32); }
   VAR complement [256]U8;
   VAR pairs STRING_CONSTANT := "ATCGGCTAUAMKRYWWSSYRKMVBHDDHBVNN\n\n";
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(34) BY(2) DO

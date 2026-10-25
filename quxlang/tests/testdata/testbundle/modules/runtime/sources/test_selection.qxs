@@ -1,20 +1,13 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT syscall;
+
 DOC <$ Reads the length of a process argument in UTF-16 code units. $>
 ::test_java_string_length INCLUDE_IF(ARCH_IS_JVM)
   EXTERN_PROCEDURE["java/lang/String":"length"] CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_string; RETURN I32);
 DOC <$ Reads a Unicode code point at a UTF-16 argument offset. $>
 ::test_java_string_character INCLUDE_IF(ARCH_IS_JVM)
   EXTERN_PROCEDURE["java/lang/String":"codePointAt"] CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> java_string, @index I32; RETURN I32);
-DOC <$ Obtains the process command line in UTF-16. $>
-::test_windows_command_line INCLUDE_IF(OS_WINDOWS)
-  EXTERN_PROCEDURE["kernel32":"GetCommandLineW"] CALLABLE CALLCONV CCALL(; RETURN CONST=>>U16);
-DOC <$ Uses the Windows command-line quoting rules to obtain argument boundaries. $>
-::test_windows_split_arguments INCLUDE_IF(OS_WINDOWS)
-  EXTERN_PROCEDURE["shell32":"CommandLineToArgvW"] CALLABLE CALLCONV CCALL(@command CONST=>>U16, @count MUT->I32; RETURN CONST=>> CONST=>>U16);
-DOC <$ Releases the argument vector allocated by CommandLineToArgvW. $>
-::test_windows_free_arguments INCLUDE_IF(OS_WINDOWS)
-  EXTERN_PROCEDURE["kernel32":"LocalFree"] CALLABLE CALLCONV CCALL(@memory CONST=>> CONST=>>U16);
 ::test_windows_count INCLUDE_IF(OS_WINDOWS) VAR I32;
 ::test_windows_arguments INCLUDE_IF(OS_WINDOWS) VAR CONST=>> CONST=>>U16;
 
@@ -28,7 +21,7 @@ DOC <$ Owns any platform argument storage for the duration of the test runner. $
   {
     STATIC_IF(OS_WINDOWS)
     {
-      test_windows_arguments := test_windows_split_arguments(@command test_windows_command_line(), @count test_windows_count<-);
+      test_windows_arguments := syscall::windows::command_line_to_argv_w(@command syscall::windows::get_command_line_w(), @count test_windows_count<-);
       ASSERT(test_windows_arguments??);
     }
   }
@@ -36,7 +29,7 @@ DOC <$ Owns any platform argument storage for the duration of the test runner. $
   .DESTRUCTOR
     FUNCTION()
   {
-    STATIC_IF(OS_WINDOWS) { test_windows_free_arguments(@memory test_windows_arguments); }
+    STATIC_IF(OS_WINDOWS) { syscall::windows::local_free(@memory IBC_GETADDR(@PTR test_windows_arguments)); }
   }
 }
 

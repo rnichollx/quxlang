@@ -1,0 +1,157 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE) ::allocator_transfer_queue_maximum_capacity OPTION NUMBER DEFAULT_VALUE(256);
+
+DOC <$ Each generation owns permanent sequence-number queue cells until process exit. $>
+PRIVATE(MODULE) ::layer2_ring_generation TEMPLATE(@count VALUE SZ) STRUCT
+{
+  .previous VAR MUT->layer2_ring_generation#(@count count);
+  .capacity VAR SZ;
+  .mapping_bytes VAR SZ;
+  .cells VAR MUT=>>layer2_ring_cell#(@count count);
+  .enqueue VAR ATOMIC#SZ ALIGN(64);
+  .dequeue VAR ATOMIC#SZ ALIGN(64);
+
+  ::create FUNCTION(@capacity SZ, @previous MUT->layer2_ring_generation#(@count count)): MUT->layer2_ring_generation#(@count count)
+  {
+    VAR offset SZ := CELLSIZEOF(layer2_ring_generation#(@count count));
+    VAR cell_bytes SZ := allocator_checked_bytes(@size CELLSIZEOF(layer2_ring_cell#(@count count)), @count capacity);
+    IF (cell_bytes > ((0 AS SZ) #!!) - offset) { RETURN NULL; }
+    VAR bytes SZ := offset + cell_bytes;
+    VAR mapping ADDRESS := layer5_map_region(@bytes bytes);
+    IF (mapping!?) { RETURN NULL; }
+    VAR storage MUT->TYPED_STORAGE(layer2_ring_generation#(@count count)) := ADDRESS_LAUNDER_DISCOVER_EXISTING mapping TO MUT->TYPED_STORAGE(layer2_ring_generation#(@count count));
+    VAR result MUT->layer2_ring_generation#(@count count) := PLACE AT(storage->) layer2_ring_generation#(@count count);
+    result->.previous := previous;
+    result->.capacity := capacity;
+    result->.mapping_bytes := bytes;
+    result->.cells := ADDRESS_LAUNDER_DISCOVER_EXISTING (mapping + offset) TO MUT=>>layer2_ring_cell#(@count count);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(capacity) DO
+    {
+      VAR cell_storage MUT->TYPED_STORAGE(layer2_ring_cell#(@count count)) := ADDRESS_LAUNDER_DISCOVER_EXISTING
+        (mapping + offset + index * CELLSIZEOF(layer2_ring_cell#(@count count))) TO MUT->TYPED_STORAGE(layer2_ring_cell#(@count count));
+      VAR cell MUT->layer2_ring_cell#(@count count) := PLACE AT(cell_storage->) layer2_ring_cell#(@count count);
+      cell->.sequence.STORE#ATOMIC_RELAXED(index);
+    }
+    RETURN result;
+  }
+
+  .try_push FUNCTION(@node MUT->addr_cache_node#(@count count)) MUT: BOOL
+  {
+    VAR position SZ := .enqueue.LOAD#ATOMIC_RELAXED();
+    LOOP DO
+    {
+      VAR cell MUT& layer2_ring_cell#(@count count) := .cells[position #&& (.capacity - 1)];
+      VAR sequence SZ := cell.sequence.LOAD#ATOMIC_ACQUIRE();
+      VAR difference SZ := sequence - position;
+      IF (difference == 0)
+      {
+        IF (.enqueue.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELAXED, @FAILURE ATOMIC_RELAXED)(@EXPECTED position, @DESIRED position + 1))
+        { cell.node := node; cell.sequence.STORE#ATOMIC_RELEASE(position + 1); RETURN TRUE; }
+      }
+      ELSE IF (difference > (((0 AS SZ) #!!) / 2)) { RETURN FALSE; }
+      ELSE { position := .enqueue.LOAD#ATOMIC_RELAXED(); }
+    }
+  }
+
+  .try_pop FUNCTION() MUT: MUT->addr_cache_node#(@count count)
+  {
+    VAR position SZ := .dequeue.LOAD#ATOMIC_RELAXED();
+    LOOP DO
+    {
+      VAR cell MUT& layer2_ring_cell#(@count count) := .cells[position #&& (.capacity - 1)];
+      VAR sequence SZ := cell.sequence.LOAD#ATOMIC_ACQUIRE();
+      VAR difference SZ := sequence - (position + 1);
+      IF (difference == 0)
+      {
+        IF (.dequeue.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELAXED, @FAILURE ATOMIC_RELAXED)(@EXPECTED position, @DESIRED position + 1))
+        { VAR result MUT->addr_cache_node#(@count count) := cell.node; cell.sequence.STORE#ATOMIC_RELEASE(position + .capacity); RETURN result; }
+      }
+      ELSE IF (difference > (((0 AS SZ) #!!) / 2)) { RETURN NULL; }
+      ELSE { position := .dequeue.LOAD#ATOMIC_RELAXED(); }
+    }
+  }
+}
+
+DOC <$
+  The transfer store publishes larger generations on demand and retains published
+  generations until process exit. Plate ownership is FIFO within each generation;
+  the store searches newer generations first and does not preserve a global FIFO
+  order. A claimed but unpublished cell can cause temporary unavailability.
+  Published generations are never reclaimed while application threads can access
+  them. A failed publication releases only the unpublished private generation.
+  $>
+PRIVATE(MODULE) ::layer2_growing_queue TEMPLATE(@count VALUE SZ, @slot_count VALUE SZ) STRUCT
+{
+  .head VAR ATOMIC#(MUT->layer2_ring_generation#(@count count)) ALIGN(64);
+
+  .initialize_sequence FUNCTION() MUT
+  {
+    INVARIANT(slot_count >= 2 && (slot_count #&& (slot_count - 1)) == 0,
+      "A transfer queue requires a power-of-two initial capacity of at least two.");
+    VAR maximum SZ := allocator_transfer_queue_maximum_capacity;
+    INVARIANT(maximum >= slot_count && (maximum #&& (maximum - 1)) == 0,
+      "The maximum transfer queue capacity is a power of two and covers the initial capacity.");
+  }
+
+  .try_push FUNCTION(@node MUT->addr_cache_node#(@count count)) MUT: BOOL
+  {
+    LOOP DO
+    {
+      VAR head MUT->layer2_ring_generation#(@count count) := .head.LOAD#ATOMIC_ACQUIRE();
+      VAR capacity SZ := slot_count;
+      IF (head??)
+      {
+        IF (head->.try_push(@node node)) { RETURN TRUE; }
+        IF (head->.capacity >= allocator_transfer_queue_maximum_capacity)
+        {
+          VAR previous MUT->layer2_ring_generation#(@count count) := head->.previous;
+          LOOP WHILE (previous??) DO
+          { IF (previous->.try_push(@node node)) { RETURN TRUE; } previous := previous->.previous; }
+          RETURN FALSE;
+        }
+        capacity := head->.capacity * 2;
+      }
+      VAR next MUT->layer2_ring_generation#(@count count) := layer2_ring_generation#(@count count)::create(@capacity capacity, @previous head);
+      IF (next!?) { RETURN FALSE; }
+      IF (.head.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(@EXPECTED head, @DESIRED next)) { CONTINUE; }
+      layer5_unmap_region(@address IBC_GETADDR(@PTR next), @bytes next->.mapping_bytes);
+    }
+  }
+
+  .try_pop FUNCTION() MUT: MUT->addr_cache_node#(@count count)
+  {
+    VAR generation MUT->layer2_ring_generation#(@count count) := .head.LOAD#ATOMIC_ACQUIRE();
+    LOOP WHILE (generation??) DO
+    {
+      VAR result MUT->addr_cache_node#(@count count) := generation->.try_pop();
+      IF (result??) { RETURN result; }
+      generation := generation->.previous;
+    }
+    RETURN NULL;
+  }
+}
+
+PRIVATE(MODULE) ::layer2_growing_recovery_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  VAR queue layer2_growing_queue#(@count 2, @slot_count 4);
+  VAR nodes [100]addr_cache_node#(@count 2);
+  LOOP VALUE(round) FROM(0 AS SZ) UNTIL(4) DO
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(100) DO { TEST_ASSERT(queue.try_push(@node nodes[index]<-)); }
+    VAR seen [100]BOOL;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(100) DO
+    {
+      VAR node MUT->addr_cache_node#(@count 2) := queue.try_pop();
+      TEST_ASSERT(node??);
+      VAR found BOOL := FALSE;
+      LOOP VALUE(identity) FROM(0 AS SZ) UNTIL(100) DO
+      {
+        IF (node == nodes[identity]<-)
+        { TEST_ASSERT(seen[identity] == FALSE); seen[identity] := TRUE; found := TRUE; BREAK; }
+      }
+      TEST_ASSERT(found);
+    }
+    TEST_ASSERT((queue.try_pop()??) == FALSE);
+  }
+}

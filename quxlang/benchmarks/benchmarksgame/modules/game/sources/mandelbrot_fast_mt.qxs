@@ -93,13 +93,13 @@ IMPORT std;
 
 ::mandelbrot_fast_mt BENCHMARK(@n SZ, @threads SZ) ONESHOT
 {
-  IF (n == 0 || threads == 0 || threads > 32) { THROW (1 AS I32); }
+  IF (n == 0 || threads == 0 || threads > 128) { THROW (1 AS I32); }
   VAR width SZ := n + ((8 - (n % 8)) % 8);
-  VAR height SZ := n + ((threads - (n % threads)) % threads);
+  VAR height SZ := n;
   VAR data std::dynarr#BYTE;
   data.resize(width *? height / 8);
   VAR pixels MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR data[0]<-));
-  VAR workers [32]TYPED_STORAGE(std::thread);
+  VAR workers [128]TYPED_STORAGE(std::thread);
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
   {
     VAR entry mandelbrot_interlaced;

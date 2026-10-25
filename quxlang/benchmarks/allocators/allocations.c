@@ -95,27 +95,27 @@ static void* allocation_worker(void* argument)
     return NULL;
 }
 
-/** Measures 32 workers from start release through the last allocation batch. */
-static uint64_t run_parallel(size_t n, size_t size, size_t batch)
+/** Measures the requested workers from start release through the last allocation batch. */
+static uint64_t run_parallel(size_t n, size_t size, size_t batch, size_t threads)
 {
     struct allocation_run run = {.n = n, .size = size, .batch = batch};
     check_pthread(pthread_mutex_init(&run.mutex, NULL));
     check_pthread(pthread_cond_init(&run.condition, NULL));
     check_pthread(pthread_cond_init(&run.progress, NULL));
-    pthread_t workers[32];
-    for (size_t index = 0; index < 32; ++index)
+    pthread_t workers[128];
+    for (size_t index = 0; index < threads; ++index)
     {
         check_pthread(pthread_create(&workers[index], NULL, allocation_worker, &run));
     }
     check_pthread(pthread_mutex_lock(&run.mutex));
-    while (run.ready != 32)
+    while (run.ready != threads)
     {
         check_pthread(pthread_cond_wait(&run.progress, &run.mutex));
     }
     uint64_t start = ALLOCATION_TICKS();
     run.start = true;
     check_pthread(pthread_cond_broadcast(&run.condition));
-    while (run.finished != 32)
+    while (run.finished != threads)
     {
         check_pthread(pthread_cond_wait(&run.progress, &run.mutex));
     }
@@ -123,7 +123,7 @@ static uint64_t run_parallel(size_t n, size_t size, size_t batch)
     run.release = true;
     check_pthread(pthread_cond_broadcast(&run.condition));
     check_pthread(pthread_mutex_unlock(&run.mutex));
-    for (size_t index = 0; index < 32; ++index)
+    for (size_t index = 0; index < threads; ++index)
     {
         check_pthread(pthread_join(workers[index], NULL));
     }
@@ -144,14 +144,14 @@ int main(int argc, char** argv)
     size_t size = strtoull(argv[2], NULL, 10);
     size_t batch = strtoull(argv[3], NULL, 10);
     size_t threads = strtoull(argv[4], NULL, 10);
-    if (n == 0 || batch == 0 || batch > 20 || (threads != 1 && threads != 32) || (size != 8 && size != 16 && size != 24 && size != 32 && size != 64))
+    if (n == 0 || batch == 0 || batch > 20 || (threads == 0 || threads > 128) || (size != 8 && size != 16 && size != 24 && size != 32 && size != 64))
     {
         return 2;
     }
     uint64_t elapsed;
-    if (threads == 32)
+    if (threads > 1)
     {
-        elapsed = run_parallel(n, size, batch);
+        elapsed = run_parallel(n, size, batch, threads);
     }
     else
     {

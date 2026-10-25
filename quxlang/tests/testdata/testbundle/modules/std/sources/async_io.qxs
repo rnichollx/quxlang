@@ -47,7 +47,7 @@ PRIVATE(MODULE)
   {
     // OVERLAPPED must remain first so an IOCP completion pointer identifies
     // the enclosing request without storing a non-event value in hEvent.
-    .windows_overlapped INCLUDE_IF(OS_WINDOWS) VAR windows_overlapped;
+    .windows_overlapped INCLUDE_IF(OS_WINDOWS) VAR syscall::windows::overlapped;
     .callback_storage VAR TYPED_STORAGE(async_completion);
     .callback VAR MUT->async_completion;
     .file_control VAR MUT->async_file_control;

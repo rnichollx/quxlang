@@ -1,5 +1,35 @@
 LANGUAGE QUXLANG EN 0.0;
 
+DOC <$ The test buffer constructs address storage in a mapping without affecting slab-cache counts. $>
+PRIVATE(MODULE) ::allocator_test_addresses INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) STRUCT
+{
+  .entries VAR MUT=>>TYPED_STORAGE(ADDRESS);
+  .count VAR SZ;
+  .bytes VAR SZ;
+
+  .initialize FUNCTION(@count SZ) MUT
+  {
+    .count := count;
+    .bytes := allocator_checked_bytes(@size CELLSIZEOF(ADDRESS), @count count);
+    VAR mapping ADDRESS := layer5_map_region(@bytes .bytes);
+    TEST_ASSERT(mapping??);
+    .entries := ADDRESS_LAUNDER_DISCOVER_EXISTING mapping TO MUT=>>TYPED_STORAGE(ADDRESS);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO { PLACE AT(.entries[index]) ADDRESS := NULL; }
+  }
+
+  .at FUNCTION(@index SZ) MUT: MUT& ADDRESS
+  { RETURN PUN .entries[index] AS ADDRESS; }
+
+  .release FUNCTION() MUT
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.count) DO { DESTROY AT(.entries[index]) ADDRESS; }
+    layer5_unmap_region(@address IBC_GETADDR(@PTR .entries[0]<-), @bytes .bytes);
+    .entries := NULL;
+    .count := 0;
+    .bytes := 0;
+  }
+}
+
 PRIVATE(MODULE) ::addr_cache_tests NAMESPACE
 {
   DOC <$
@@ -106,14 +136,17 @@ PRIVATE(MODULE) ::slab_allocator_shutdown_cursor_reset_unit_test
 {
   allocator_release_all_thread_caches();
   VAR previous_disabled BOOL := allocator_thread_caches_disabled;
-  VAR blocks [slab_allocator#(@block_size 8, @block_align 8)::address_cache_count * 2 + 1]ADDRESS;
-  LOOP ITEM(block) IN(blocks) DO
+  VAR blocks allocator_test_addresses;
+  blocks.initialize(@count slab_allocator#(@block_size 8, @block_align 8)::address_cache_count * 2 + 1);
+  LOOP VALUE(buffer_index) FROM(0 AS SZ) UNTIL(blocks.count) DO
   {
+    VAR block MUT& ADDRESS := blocks.at(@index buffer_index);
     block := slab_allocator#(@block_size 8, @block_align 8)::layer0_allocate();
   }
   slab_allocator#(@block_size 8, @block_align 8)::layer1_release_thread_cache();
-  LOOP VALUE(block) IN(blocks) DO
+  LOOP VALUE(buffer_index) FROM(0 AS SZ) UNTIL(blocks.count) DO
   {
+    VAR block MUT& ADDRESS := blocks.at(@index buffer_index);
     slab_allocator#(@block_size 8, @block_align 8)::layer0_deallocate(@ptr block);
   }
   TEST_ASSERT(
@@ -126,12 +159,14 @@ PRIVATE(MODULE) ::slab_allocator_shutdown_cursor_reset_unit_test
   TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::layer1_cache_control.entry!?);
   TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::layer1_cache_control.top!?);
   TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::layer1_cache_control.bottom!?);
-  LOOP ITEM(block) IN(blocks) DO
+  LOOP VALUE(buffer_index) FROM(0 AS SZ) UNTIL(blocks.count) DO
   {
+    VAR block MUT& ADDRESS := blocks.at(@index buffer_index);
     block := slab_allocator#(@block_size 8, @block_align 8)::layer0_allocate();
   }
-  LOOP VALUE(block) IN(blocks) DO
+  LOOP VALUE(buffer_index) FROM(0 AS SZ) UNTIL(blocks.count) DO
   {
+    VAR block MUT& ADDRESS := blocks.at(@index buffer_index);
     slab_allocator#(@block_size 8, @block_align 8)::layer0_deallocate(@ptr block);
   }
   TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::layer1_cache_control.entry!?);
@@ -140,6 +175,7 @@ PRIVATE(MODULE) ::slab_allocator_shutdown_cursor_reset_unit_test
   TEST_ASSERT(slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count() == 0);
   allocator_thread_cache_shutdown_finish();
   allocator_thread_caches_disabled := previous_disabled;
+  blocks.release();
 }
 
 DOC <$
@@ -152,15 +188,18 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
   UNIT_TEST
 {
   allocator_release_all_thread_caches();
-  VAR blocks [slab_allocator#(@block_size 8, @block_align 8)::address_cache_count * 2 + 1]ADDRESS;
-  LOOP ITEM(block) IN(blocks) DO
+  VAR blocks allocator_test_addresses;
+  blocks.initialize(@count slab_allocator#(@block_size 8, @block_align 8)::address_cache_count * 2 + 1);
+  LOOP VALUE(buffer_index) FROM(0 AS SZ) UNTIL(blocks.count) DO
   {
+    VAR block MUT& ADDRESS := blocks.at(@index buffer_index);
     block := slab_allocator#(@block_size 8, @block_align 8)::layer0_allocate();
   }
   slab_allocator#(@block_size 8, @block_align 8)::layer1_release_thread_cache();
 
-  LOOP VALUE(block) IN(blocks) DO
+  LOOP VALUE(buffer_index) FROM(0 AS SZ) UNTIL(blocks.count) DO
   {
+    VAR block MUT& ADDRESS := blocks.at(@index buffer_index);
     slab_allocator#(@block_size 8, @block_align 8)::layer0_deallocate(@ptr block);
   }
 
@@ -169,23 +208,25 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
       == slab_allocator#(@block_size 8, @block_align 8)::address_cache_count + 1
   );
   VAR cache_capacity SZ := slab_allocator#(@block_size 8, @block_align 8)::address_cache_count;
-  VAR reused [slab_allocator#(@block_size 8, @block_align 8)::address_cache_count + 1]ADDRESS;
+  VAR reused allocator_test_addresses;
+  reused.initialize(@count slab_allocator#(@block_size 8, @block_align 8)::address_cache_count + 1);
   LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
   {
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(cache_capacity + 1) DO
     {
-      reused[index] := slab_allocator#(@block_size 8, @block_align 8)::layer0_allocate();
+      reused.at(@index index) := slab_allocator#(@block_size 8, @block_align 8)::layer0_allocate();
       TEST_ASSERT(
         slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count()
           == cache_capacity - index
       );
       LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
       {
-        TEST_ASSERT(reused[previous] != reused[index]);
+        TEST_ASSERT(reused.at(@index previous) != reused.at(@index index));
       };
     };
-    LOOP VALUE(block) IN(reused) DO
+    LOOP VALUE(buffer_index) FROM(0 AS SZ) UNTIL(reused.count) DO
     {
+      VAR block MUT& ADDRESS := reused.at(@index buffer_index);
       slab_allocator#(@block_size 8, @block_align 8)::layer0_deallocate(@ptr block);
     }
   };
@@ -194,6 +235,8 @@ PRIVATE(MODULE) ::slab_allocator_two_cache_transitions_unit_test
     slab_allocator#(@block_size 8, @block_align 8)::thread_cached_block_count() == 0
   );
   slab_allocator#(@block_size 8, @block_align 8)::layer1_release_thread_cache();
+  reused.release();
+  blocks.release();
 }
 
 DOC <$
@@ -207,39 +250,42 @@ PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
 {
   allocator_release_all_thread_caches();
   VAR capacity SZ := slab_allocator#(@block_size 12, @block_align 4)::address_cache_count;
-  VAR blocks [slab_allocator#(@block_size 12, @block_align 4)::address_cache_count * 2 + 1]ADDRESS;
+  VAR blocks allocator_test_addresses;
+  blocks.initialize(@count slab_allocator#(@block_size 12, @block_align 4)::address_cache_count * 2 + 1);
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(capacity * 2 + 1) DO
   {
-    blocks[index] := slab_allocator#(@block_size 12, @block_align 4)::layer0_allocate();
+    blocks.at(@index index) := slab_allocator#(@block_size 12, @block_align 4)::layer0_allocate();
   };
   slab_allocator#(@block_size 12, @block_align 4)::layer1_release_thread_cache();
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(capacity * 2 + 1) DO
   {
     slab_allocator#(@block_size 12, @block_align 4)::layer0_deallocate(
-      @ptr blocks[index]
+      @ptr blocks.at(@index index)
     );
   };
   TEST_ASSERT(
     slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count()
       == capacity + 1
   );
-  VAR reused [slab_allocator#(@block_size 12, @block_align 4)::address_cache_count + 1]ADDRESS;
+  VAR reused allocator_test_addresses;
+  reused.initialize(@count slab_allocator#(@block_size 12, @block_align 4)::address_cache_count + 1);
   LOOP VALUE(round) FROM(0 AS SZ) UNTIL(3) DO
   {
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(capacity + 1) DO
     {
-      reused[index] := slab_allocator#(@block_size 12, @block_align 4)::layer0_allocate();
+      reused.at(@index index) := slab_allocator#(@block_size 12, @block_align 4)::layer0_allocate();
       TEST_ASSERT(
         slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count()
           == capacity - index
       );
       LOOP VALUE(previous) FROM(0 AS SZ) UNTIL(index) DO
       {
-        TEST_ASSERT(reused[previous] != reused[index]);
+        TEST_ASSERT(reused.at(@index previous) != reused.at(@index index));
       };
     };
-    LOOP VALUE(block) IN(reused) DO
+    LOOP VALUE(buffer_index) FROM(0 AS SZ) UNTIL(reused.count) DO
     {
+      VAR block MUT& ADDRESS := reused.at(@index buffer_index);
       slab_allocator#(@block_size 12, @block_align 4)::layer0_deallocate(@ptr block);
     }
   };
@@ -248,6 +294,8 @@ PRIVATE(MODULE) ::slab_allocator_twelve_byte_cache_transitions_unit_test
     slab_allocator#(@block_size 12, @block_align 4)::thread_cached_block_count() == 0
   );
   slab_allocator#(@block_size 12, @block_align 4)::layer1_release_thread_cache();
+  reused.release();
+  blocks.release();
 }
 
 DOC <$
@@ -350,43 +398,9 @@ PRIVATE(MODULE) ::allocator_generated_layout_routing_test
 }
 
 DOC <$
-    Checks bounded ownership transfer, failed publication, cursor wraparound,
-    and complete recovery of every published plate.
-    $>
-PRIVATE(MODULE) ::layer2_plate_slot_capacity_test
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
-{
-  VAR null_address ADDRESS := NULL;
-  VAR store layer2_plate_slots#(@count 2, @slot_count layer2_full_plate_slot_count);
-  VAR nodes [layer2_full_plate_slot_count + 1]addr_cache_node#(@count 2);
-  VAR seen [layer2_full_plate_slot_count]BOOL;
-  store.publish_cursor.STORE#ATOMIC_RELAXED(4294967280);
-  store.acquire_cursor.STORE#ATOMIC_RELAXED(4294967280);
-  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(layer2_full_plate_slot_count) DO
-  {
-    nodes[index].cache.push(null_address + index);
-    TEST_ASSERT(store.try_push(@node nodes[index]<-));
-  }
-  TEST_ASSERT(store.try_push(@node nodes[layer2_full_plate_slot_count]<-) == FALSE);
-  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(layer2_full_plate_slot_count) DO
-  {
-    VAR node MUT->addr_cache_node#(@count 2) := store.try_pop();
-    TEST_ASSERT(node??);
-    VAR identity SZ := (node->.cache.pop() - NULL) AS SZ;
-    TEST_ASSERT(identity < layer2_full_plate_slot_count);
-    TEST_ASSERT(seen[identity] == FALSE);
-    seen[identity] := TRUE;
-  }
-  TEST_ASSERT((store.try_pop()??) == FALSE);
-  LOOP VALUE(found) IN(seen) DO { TEST_ASSERT(found); }
-  TEST_ASSERT(store.try_push(@node nodes[layer2_full_plate_slot_count]<-));
-  TEST_ASSERT(store.try_pop() == nodes[layer2_full_plate_slot_count]<-);
-}
-
-DOC <$
-    Checks address ordering and preservation for empty, singleton, odd, and
-    even plate lengths with repeated values and mixed initial order.
-    $>
+  The test verifies address ordering and preservation for empty, singleton, odd,
+  and even plates with repeated values and mixed initial order.
+  $>
 PRIVATE(MODULE) ::layer2_address_sort_test
   INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {

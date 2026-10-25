@@ -1,0 +1,148 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::windows INCLUDE_IF(OS_WINDOWS) NAMESPACE
+{
+  DOC <$ The structure matches the Windows MEMORYSTATUSEX ABI. $>
+  ::memory_status_ex IBC_STRUCT
+  {
+    .length VAR U32;
+    .load VAR U32;
+    .total_physical VAR U64;
+    .available_physical VAR U64;
+    .total_page_file VAR U64;
+    .available_page_file VAR U64;
+    .total_virtual VAR U64;
+    .available_virtual VAR U64;
+    .available_extended_virtual VAR U64;
+  }
+
+  DOC <$ The structure matches the Windows OVERLAPPED ABI used by file transfers and completion ports. $>
+  ::overlapped IBC_STRUCT
+  {
+    .internal VAR UINTPTR;
+    .internal_high VAR UINTPTR;
+    .offset VAR U32;
+    .offset_high VAR U32;
+    .event VAR ADDRESS;
+  }
+
+  ::get_logical_processor_information_ex
+    EXTERN_PROCEDURE["kernel32":"GetLogicalProcessorInformationEx"]
+    CALLABLE CALLCONV CCALL(@relationship U32, @buffer ADDRESS, @length MUT->U32; RETURN I32);
+
+  ::global_memory_status_ex EXTERN_PROCEDURE["kernel32":"GlobalMemoryStatusEx"]
+    CALLABLE CALLCONV CCALL(@status MUT->memory_status_ex; RETURN I32);
+
+  ::virtual_alloc EXTERN_PROCEDURE["kernel32":"VirtualAlloc"]
+    CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @allocation_type U32, @protect U32; RETURN ADDRESS);
+
+  ::virtual_free EXTERN_PROCEDURE["kernel32":"VirtualFree"]
+    CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @free_type U32; RETURN I32);
+
+  ::get_std_handle EXTERN_PROCEDURE["kernel32":"GetStdHandle"]
+    CALLABLE CALLCONV CCALL(@kind I32; RETURN ADDRESS);
+
+  ::read_file EXTERN_PROCEDURE["kernel32":"ReadFile"]
+    CALLABLE CALLCONV CCALL(
+      @handle ADDRESS,
+      @buffer MUT=>>BYTE,
+      @count U32,
+      @transferred MUT->U32,
+      @overlapped MUT->overlapped;
+      RETURN I32
+    );
+
+  ::write_file EXTERN_PROCEDURE["kernel32":"WriteFile"]
+    CALLABLE CALLCONV CCALL(
+      @handle ADDRESS,
+      @buffer CONST=>>BYTE,
+      @count U32,
+      @transferred MUT->U32,
+      @overlapped MUT->overlapped;
+      RETURN I32
+    );
+
+  ::close_handle EXTERN_PROCEDURE["kernel32":"CloseHandle"]
+    CALLABLE CALLCONV CCALL(@handle ADDRESS; RETURN I32);
+
+  ::exit_process EXTERN_PROCEDURE["kernel32":"ExitProcess"]
+    CALLABLE CALLCONV CCALL(@code I32);
+
+  ::create_thread EXTERN_PROCEDURE["kernel32":"CreateThread"]
+    CALLABLE CALLCONV CCALL(
+      @attributes ADDRESS,
+      @stack_size SZ,
+      @start CONST->PROCEDURE(@argument ADDRESS: U32),
+      @argument ADDRESS,
+      @creation_flags U32,
+      @thread_id MUT->U32;
+      RETURN ADDRESS
+    );
+
+  ::wait_for_single_object EXTERN_PROCEDURE["kernel32":"WaitForSingleObject"]
+    CALLABLE CALLCONV CCALL(@handle ADDRESS, @milliseconds U32; RETURN U32);
+
+  ::fls_alloc EXTERN_PROCEDURE["kernel32":"FlsAlloc"]
+    CALLABLE CALLCONV CCALL(@callback CONST->PROCEDURE(@state ADDRESS); RETURN U32);
+
+  ::fls_set_value EXTERN_PROCEDURE["kernel32":"FlsSetValue"]
+    CALLABLE CALLCONV CCALL(@index U32, @state ADDRESS; RETURN I32);
+
+  ::create_io_completion_port EXTERN_PROCEDURE["kernel32":"CreateIoCompletionPort"]
+    CALLABLE CALLCONV CCALL(
+      @file_handle ADDRESS,
+      @existing_completion_port ADDRESS,
+      @completion_key UINTPTR,
+      @concurrent_threads U32;
+      RETURN ADDRESS
+    );
+
+  ::get_queued_completion_status EXTERN_PROCEDURE["kernel32":"GetQueuedCompletionStatus"]
+    CALLABLE CALLCONV CCALL(
+      @completion_port ADDRESS,
+      @transferred MUT->U32,
+      @completion_key MUT->UINTPTR,
+      @overlapped MUT->MUT->overlapped,
+      @milliseconds U32;
+      RETURN I32
+    );
+
+  ::post_queued_completion_status EXTERN_PROCEDURE["kernel32":"PostQueuedCompletionStatus"]
+    CALLABLE CALLCONV CCALL(
+      @completion_port ADDRESS,
+      @transferred U32,
+      @completion_key UINTPTR,
+      @overlapped MUT->overlapped;
+      RETURN I32
+    );
+
+  ::get_last_error EXTERN_PROCEDURE["kernel32":"GetLastError"]
+    CALLABLE CALLCONV CCALL(; RETURN U32);
+
+  ::create_file_a EXTERN_PROCEDURE["kernel32":"CreateFileA"]
+    CALLABLE CALLCONV CCALL(
+      @path CONST=>>BYTE,
+      @desired_access U32,
+      @share_mode U32,
+      @security_attributes ADDRESS,
+      @creation_disposition U32,
+      @flags U32,
+      @template_file ADDRESS;
+      RETURN ADDRESS
+    );
+
+  ::get_command_line_w EXTERN_PROCEDURE["kernel32":"GetCommandLineW"]
+    CALLABLE CALLCONV CCALL(; RETURN CONST=>>U16);
+
+  ::command_line_to_argv_w EXTERN_PROCEDURE["shell32":"CommandLineToArgvW"]
+    CALLABLE CALLCONV CCALL(@command CONST=>>U16, @count MUT->I32; RETURN CONST=>>CONST=>>U16);
+
+  ::local_free EXTERN_PROCEDURE["kernel32":"LocalFree"]
+    CALLABLE CALLCONV CCALL(@memory ADDRESS; RETURN ADDRESS);
+
+  ::query_performance_counter EXTERN_PROCEDURE["kernel32":"QueryPerformanceCounter"]
+    CALLABLE CALLCONV CCALL(@output MUT->I64; RETURN I32);
+
+  ::query_performance_frequency EXTERN_PROCEDURE["kernel32":"QueryPerformanceFrequency"]
+    CALLABLE CALLCONV CCALL(@output MUT->I64; RETURN I32);
+}

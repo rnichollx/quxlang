@@ -8,6 +8,7 @@
 #include <mutex>
 #include <new>
 #include <thread>
+#include <vector>
 
 #if defined(USE_MIMALLOC)
 #include <mimalloc-new-delete.h>
@@ -81,7 +82,7 @@ struct allocation_workload
             bool start = false;
             bool release = false;
             std::uint64_t last_finish = 0;
-            std::thread workers[32];
+            std::vector< std::thread > workers(threads);
             for (std::thread& worker : workers)
             {
                 worker = std::thread([&]() {
@@ -101,11 +102,11 @@ struct allocation_workload
                 });
             }
             std::unique_lock< std::mutex > lock(mutex);
-            progress.wait(lock, [&]() { return ready == 32; });
+            progress.wait(lock, [&]() { return ready == threads; });
             std::uint64_t begin = ALLOCATION_TICKS();
             start = true;
             condition.notify_all();
-            progress.wait(lock, [&]() { return finished == 32; });
+            progress.wait(lock, [&]() { return finished == threads; });
             elapsed = last_finish - begin;
             release = true;
             condition.notify_all();
@@ -128,7 +129,7 @@ int main(int argc, char** argv)
     std::size_t size = std::strtoull(argv[2], nullptr, 10);
     std::size_t batch = std::strtoull(argv[3], nullptr, 10);
     std::size_t threads = std::strtoull(argv[4], nullptr, 10);
-    if (n == 0 || batch == 0 || batch > 20 || (threads != 1 && threads != 32))
+    if (n == 0 || batch == 0 || batch > 20 || (threads == 0 || threads > 128))
     {
         return 2;
     }

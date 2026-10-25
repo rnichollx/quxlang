@@ -1,0 +1,103 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ The test verifies native generation sequence counters across unsigned wraparound. $>
+PRIVATE(MODULE) ::layer2_generation_wrap_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  VAR previous MUT->layer2_ring_generation#(@count 2);
+  VAR generation MUT->layer2_ring_generation#(@count 2) :=
+    layer2_ring_generation#(@count 2)::create(@capacity 4, @previous previous);
+  TEST_ASSERT(generation??);
+  VAR nodes [5]addr_cache_node#(@count 2);
+  VAR start SZ := ((0 AS SZ) #!!) - 3;
+  generation->.enqueue.STORE#ATOMIC_RELAXED(start);
+  generation->.dequeue.STORE#ATOMIC_RELAXED(start);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4) DO
+  { generation->.cells[index].sequence.STORE#ATOMIC_RELAXED(start + index); }
+  LOOP VALUE(round) FROM(0 AS SZ) UNTIL(4) DO
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4) DO
+    { TEST_ASSERT(generation->.try_push(@node nodes[index]<-)); }
+    TEST_ASSERT(generation->.try_push(@node nodes[4]<-) == FALSE);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(4) DO
+    { TEST_ASSERT(generation->.try_pop() == nodes[index]<-); }
+    TEST_ASSERT((generation->.try_pop()??) == FALSE);
+  }
+  VAR bytes SZ := generation->.mapping_bytes;
+  layer5_unmap_region(@address IBC_GETADDR(@PTR generation), @bytes bytes);
+}
+
+DOC <$ The helper verifies that a returned node identifies one constructed test slot. $>
+PRIVATE(MODULE) ::layer2_generation_test_identity
+  FUNCTION(@node MUT->addr_cache_node#(@count 2), @base ADDRESS, @limit SZ): SZ
+{
+  VAR address ADDRESS := IBC_GETADDR(@PTR node);
+  VAR stride SZ := CELLSIZEOF(addr_cache_node#(@count 2));
+  TEST_ASSERT(address >= base && address < base + (limit * stride));
+  VAR offset SZ := address - base;
+  TEST_ASSERT(offset % stride == 0);
+  RETURN offset / stride;
+}
+
+DOC <$ The test fills every generation and verifies reuse of older cells at the growth limit. $>
+PRIVATE(MODULE) ::layer2_generation_limit_recovery_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  VAR queue layer2_growing_queue#(@count 2, @slot_count 4);
+  queue.initialize_sequence();
+  VAR maximum SZ := allocator_transfer_queue_maximum_capacity;
+  VAR capacity SZ := 4;
+  VAR limit SZ := 0;
+  LOOP DO
+  {
+    limit += capacity;
+    IF (capacity == maximum) { BREAK; }
+    capacity *= 2;
+  }
+  VAR node_count SZ := limit + 1;
+  VAR node_bytes SZ := allocator_checked_bytes(
+    @size CELLSIZEOF(addr_cache_node#(@count 2)), @count node_count);
+  VAR bytes SZ := node_bytes + (node_count * CELLSIZEOF(BOOL));
+  VAR mapping ADDRESS := layer5_map_region(@bytes bytes);
+  TEST_ASSERT(mapping??);
+  VAR nodes MUT=>>TYPED_STORAGE(addr_cache_node#(@count 2)) :=
+    ADDRESS_LAUNDER_DISCOVER_EXISTING mapping TO MUT=>>TYPED_STORAGE(addr_cache_node#(@count 2));
+  VAR seen MUT=>>TYPED_STORAGE(BOOL) :=
+    ADDRESS_LAUNDER_DISCOVER_EXISTING (mapping + node_bytes) TO MUT=>>TYPED_STORAGE(BOOL);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(node_count) DO
+  {
+    PLACE AT(nodes[index]) addr_cache_node#(@count 2);
+    PLACE AT(seen[index]) BOOL := FALSE;
+  }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(limit) DO
+  { TEST_ASSERT(queue.try_push(@node (PUN nodes[index] AS addr_cache_node#(@count 2))<-)); }
+  TEST_ASSERT(queue.try_push(@node (PUN nodes[limit] AS addr_cache_node#(@count 2))<-) == FALSE);
+  VAR removed SZ := maximum;
+  IF (limit > maximum) { removed++; }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(removed) DO
+  {
+    VAR identity SZ := layer2_generation_test_identity(@node queue.try_pop(), @base mapping, @limit limit);
+    TEST_ASSERT((PUN seen[identity] AS BOOL) == FALSE);
+    (PUN seen[identity] AS BOOL) := TRUE;
+  }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(limit) DO
+  {
+    IF (PUN seen[index] AS BOOL)
+    {
+      TEST_ASSERT(queue.try_push(@node (PUN nodes[index] AS addr_cache_node#(@count 2))<-));
+      (PUN seen[index] AS BOOL) := FALSE;
+    }
+  }
+  TEST_ASSERT(queue.try_push(@node (PUN nodes[limit] AS addr_cache_node#(@count 2))<-) == FALSE);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(limit) DO
+  {
+    VAR identity SZ := layer2_generation_test_identity(@node queue.try_pop(), @base mapping, @limit limit);
+    TEST_ASSERT((PUN seen[identity] AS BOOL) == FALSE);
+    (PUN seen[identity] AS BOOL) := TRUE;
+  }
+  TEST_ASSERT((queue.try_pop()??) == FALSE);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(node_count) DO
+  {
+    DESTROY AT(seen[index]) BOOL;
+    DESTROY AT(nodes[index]) addr_cache_node#(@count 2);
+  }
+  layer5_unmap_region(@address mapping, @bytes bytes);
+}

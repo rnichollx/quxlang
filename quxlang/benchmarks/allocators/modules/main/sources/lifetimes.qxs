@@ -1,0 +1,231 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+DOC <$ The benchmark measures bulk FIFO, bulk LIFO, and rolling retained-set allocation lifetimes. $>
+::lifetime_workload TEMPLATE(@bytes VALUE SZ, @pattern VALUE SZ) STRUCT
+{
+  ::block STRUCT { .words VAR [bytes / 8]U64; }
+  ::block_pointer ALIAS ->TYPED_STORAGE(block);
+
+  DOC <$ The pointer window owns slots whose valid indices are established by the workload. $>
+  ::pointer_window STRUCT
+  {
+    .storage VAR =>>TYPED_STORAGE(block_pointer);
+    .count VAR SZ;
+
+    .CONSTRUCTOR FUNCTION(@count SZ)
+    {
+      .count := count;
+      .storage := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block_pointer)::MULTI_ALLOC(@COUNT count);
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO { PLACE AT(.storage[index]) block_pointer; }
+    }
+
+    .DESTRUCTOR FUNCTION()
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.count) DO { DESTROY AT(.storage[index]) block_pointer; }
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block_pointer)::MULTI_DEALLOC(@PTR .storage, @COUNT .count);
+    }
+
+    DOC <$ The indexing operator returns one slot when index is less than count. $>
+    .OPERATOR[] FUNCTION(%index SZ) MUT: MUT& block_pointer
+    { RETURN PUN .storage[index] AS block_pointer; }
+  }
+
+  DOC <$ The allocation loop returns the sum of payload words after exactly n allocation/free pairs. $>
+  ::allocate_batches FUNCTION(@n SZ, @batch SZ, @pointers MUT& pointer_window): U64
+  {
+    VAR checksum U64 := 0;
+    STATIC_IF(pattern == 2)
+    {
+      VAR count SZ := batch;
+      IF (count > n) { count := n; }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+      {
+        pointers[index] := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::ALLOC();
+        benchmark_barrier::write_word(@address IBC_GETADDR(@PTR pointers[index]), @value (index + 1) AS U64);
+      }
+      VAR position SZ := 0;
+      LOOP VALUE(completed) FROM(count) UNTIL(n) DO
+      {
+        checksum += IBC_LOAD#U64(@ADDR IBC_GETADDR(@PTR pointers[position])) AS U64;
+        RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::DEALLOC(@PTR pointers[position]);
+        pointers[position] := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::ALLOC();
+        benchmark_barrier::write_word(@address IBC_GETADDR(@PTR pointers[position]), @value (completed + 1) AS U64);
+        position++;
+        IF (position == count) { position := 0; }
+      }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+      {
+        checksum += IBC_LOAD#U64(@ADDR IBC_GETADDR(@PTR pointers[index])) AS U64;
+        RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::DEALLOC(@PTR pointers[index]);
+      }
+    }
+    STATIC_ELSE
+    {
+      LOOP INIT { VAR completed SZ := 0; } WHILE (completed < n) DO
+      {
+        VAR count SZ := batch;
+        IF (count > n - completed) { count := n - completed; }
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+        {
+          pointers[index] := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::ALLOC();
+          benchmark_barrier::write_word(@address IBC_GETADDR(@PTR pointers[index]), @value (completed + index + 1) AS U64);
+        }
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
+        {
+          VAR slot SZ := index;
+          STATIC_IF(pattern == 1) { slot := count - 1 - index; }
+          checksum += IBC_LOAD#U64(@ADDR IBC_GETADDR(@PTR pointers[slot])) AS U64;
+          RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::DEALLOC(@PTR pointers[slot]);
+        }
+        completed += count;
+      }
+    }
+    RETURN checksum;
+  }
+
+  DOC <$ The shared state coordinates warmed workers and delays thread teardown until timing ends. $>
+  ::parallel_state STRUCT ROOTED
+  {
+    .mutex VAR std::ordering_mutex;
+    .condition VAR std::condition_variable;
+    .progress VAR std::condition_variable;
+    .n VAR SZ;
+    .batch VAR SZ;
+    .ready VAR SZ;
+    .finished VAR SZ;
+    .start VAR BOOL;
+    .release VAR BOOL;
+    .last_finish VAR U64;
+    .checksum VAR U64;
+  }
+
+  DOC <$ Each worker executes allocation batches with private pointers on one native thread. $>
+  ::worker STRUCT
+  {
+    .state VAR MUT->parallel_state;
+
+    .OPERATOR() FUNCTION()
+    {
+      VAR state MUT& parallel_state := .state->;
+      VAR pointers pointer_window :(@count state.batch);
+      allocate_batches(@n 10000, @batch state.batch, @pointers pointers);
+      state.mutex.lock();
+      state.ready++;
+      state.progress.notify_one();
+      LOOP WHILE (state.start == FALSE) DO
+      { state.condition.wait(@locked_mutex state.mutex); }
+      state.mutex.unlock();
+      VAR checksum U64 := allocate_batches(@n state.n, @batch state.batch, @pointers pointers);
+      VAR finish U64 := benchmark_barrier::ticks();
+      state.mutex.lock();
+      IF (finish > state.last_finish) { state.last_finish := finish; }
+      state.checksum += checksum;
+      state.finished++;
+      state.progress.notify_one();
+      LOOP WHILE (state.release == FALSE) DO
+      { state.condition.wait(@locked_mutex state.mutex); }
+      state.mutex.unlock();
+    }
+  }
+
+  DOC <$ The parallel workload measures the requested warmed workers through the final allocation batch. $>
+  ::run_parallel
+    FUNCTION(@n SZ, @batch SZ, @threads SZ, @checksum MUT& U64): U64
+  {
+    VAR state parallel_state;
+    state.n := n;
+    state.batch := batch;
+    VAR workers [128]TYPED_STORAGE(std::thread);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+    {
+      VAR entry worker;
+      entry.state := state<-;
+      PLACE AT(workers[index]) std::thread :(entry);
+    }
+    state.mutex.lock();
+    LOOP WHILE (state.ready != threads) DO
+    { state.progress.wait(@locked_mutex state.mutex); }
+    VAR start U64 := benchmark_barrier::ticks();
+    state.start := TRUE;
+    state.condition.notify_all();
+    LOOP WHILE (state.finished != threads) DO
+    { state.progress.wait(@locked_mutex state.mutex); }
+    VAR elapsed U64 := state.last_finish - start;
+    state.release := TRUE;
+    state.condition.notify_all();
+    state.mutex.unlock();
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(threads) DO
+    {
+      (PUN workers[index] AS std::thread).join();
+      DESTROY AT(workers[index]) std::thread;
+    }
+    checksum := state.checksum;
+    RETURN elapsed;
+  }
+
+  ::run FUNCTION(@n SZ, @batch SZ, @threads SZ)
+  {
+    VAR elapsed U64;
+    VAR checksum U64;
+    IF (threads > 1)
+    { elapsed := run_parallel(@n n, @batch batch, @threads threads, @checksum checksum); }
+    ELSE
+    {
+      VAR pointers pointer_window :(@count batch);
+      VAR start U64 := benchmark_barrier::ticks();
+      checksum := allocate_batches(@n n, @batch batch, @pointers pointers);
+      elapsed := benchmark_barrier::ticks() - start;
+    }
+    VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+    output.write_unsigned(elapsed); output.write_byte(32);
+    output.write_unsigned(benchmark_barrier::frequency());
+    output.write_byte(32); output.write_unsigned(checksum);
+    output.write_byte(10); output.flush();
+  }
+}
+
+DOC <$ The entry point selects a lifetime pattern and a small-path allocation size up to 8 KiB. $>
+::lifetimes BENCHMARK(@n SZ, @size SZ, @batch SZ, @threads SZ, @pattern SZ) ONESHOT
+{
+  IF (n == 0 || batch == 0 || batch > 4096 || threads == 0 || threads > 128 || pattern > 2)
+  { THROW (1 AS I32); }
+  IF (size == 16)
+  {
+    IF (pattern == 0) { lifetime_workload#(@bytes 16, @pattern 0)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 1) { lifetime_workload#(@bytes 16, @pattern 1)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 2) { lifetime_workload#(@bytes 16, @pattern 2)::run(@n n, @batch batch, @threads threads); RETURN; }
+  }
+  IF (size == 64)
+  {
+    IF (pattern == 0) { lifetime_workload#(@bytes 64, @pattern 0)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 1) { lifetime_workload#(@bytes 64, @pattern 1)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 2) { lifetime_workload#(@bytes 64, @pattern 2)::run(@n n, @batch batch, @threads threads); RETURN; }
+  }
+  IF (size == 256)
+  {
+    IF (pattern == 0) { lifetime_workload#(@bytes 256, @pattern 0)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 1) { lifetime_workload#(@bytes 256, @pattern 1)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 2) { lifetime_workload#(@bytes 256, @pattern 2)::run(@n n, @batch batch, @threads threads); RETURN; }
+  }
+  IF (size == 1024)
+  {
+    IF (pattern == 0) { lifetime_workload#(@bytes 1024, @pattern 0)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 1) { lifetime_workload#(@bytes 1024, @pattern 1)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 2) { lifetime_workload#(@bytes 1024, @pattern 2)::run(@n n, @batch batch, @threads threads); RETURN; }
+  }
+  IF (size == 4096)
+  {
+    IF (pattern == 0) { lifetime_workload#(@bytes 4096, @pattern 0)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 1) { lifetime_workload#(@bytes 4096, @pattern 1)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 2) { lifetime_workload#(@bytes 4096, @pattern 2)::run(@n n, @batch batch, @threads threads); RETURN; }
+  }
+  IF (size == 8192)
+  {
+    IF (pattern == 0) { lifetime_workload#(@bytes 8192, @pattern 0)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 1) { lifetime_workload#(@bytes 8192, @pattern 1)::run(@n n, @batch batch, @threads threads); RETURN; }
+    IF (pattern == 2) { lifetime_workload#(@bytes 8192, @pattern 2)::run(@n n, @batch batch, @threads threads); RETURN; }
+  }
+  THROW (1 AS I32);
+}

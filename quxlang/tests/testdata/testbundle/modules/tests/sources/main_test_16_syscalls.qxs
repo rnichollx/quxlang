@@ -138,3 +138,9 @@ IMPORT syscall;
     VAR res I32 := syscall::linux::close(@fd fd);
     TEST_ASSERT(res == 0);
 }
+
+DOC <$ The test verifies the native storage size required by the Windows memory-status API. $>
+::windows_memory_status_abi_layout_test INCLUDE_IF(OS_WINDOWS) DUAL_TEST
+{
+  TEST_ASSERT(CELLSIZEOF(syscall::windows::memory_status_ex) == 64);
+}

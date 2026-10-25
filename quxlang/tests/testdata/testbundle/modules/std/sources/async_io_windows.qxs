@@ -1,22 +1,10 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT syscall;
+
 
 PRIVATE(MODULE)
 {
-  DOC <$
-    Matches the Windows OVERLAPPED structure used by ReadFile, WriteFile, and
-    I/O completion ports.
-    $>
-  ::windows_overlapped INCLUDE_IF(OS_WINDOWS)
-    IBC_STRUCT
-  {
-    .internal VAR UINTPTR;
-    .internal_high VAR UINTPTR;
-    .offset VAR U32;
-    .offset_high VAR U32;
-    .event VAR ADDRESS;
-  }
-
   DOC <$
     Owns one Windows I/O completion port.
     $>
@@ -25,63 +13,6 @@ PRIVATE(MODULE)
   {
     .completion_port VAR ADDRESS;
   }
-
-  ::windows_create_io_completion_port INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"CreateIoCompletionPort"]
-    CALLABLE CALLCONV CCALL(
-      @file_handle ADDRESS,
-      @existing_completion_port ADDRESS,
-      @completion_key UINTPTR,
-      @concurrent_threads U32;
-      RETURN ADDRESS
-    );
-
-  ::windows_get_queued_completion_status INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"GetQueuedCompletionStatus"]
-    CALLABLE CALLCONV CCALL(
-      @completion_port ADDRESS,
-      @transferred MUT->U32,
-      @completion_key MUT->UINTPTR,
-      @overlapped MUT->MUT->windows_overlapped,
-      @milliseconds U32;
-      RETURN BOOL
-    );
-
-  ::windows_post_queued_completion_status INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"PostQueuedCompletionStatus"]
-    CALLABLE CALLCONV CCALL(
-      @completion_port ADDRESS,
-      @transferred U32,
-      @completion_key UINTPTR,
-      @overlapped MUT->windows_overlapped;
-      RETURN BOOL
-    );
-
-  ::windows_async_read_file INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"ReadFile"]
-    CALLABLE CALLCONV CCALL(
-      @handle ADDRESS,
-      @buffer MUT=>>BYTE,
-      @count U32,
-      @transferred MUT->U32,
-      @overlapped MUT->windows_overlapped;
-      RETURN BOOL
-    );
-
-  ::windows_async_write_file INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"WriteFile"]
-    CALLABLE CALLCONV CCALL(
-      @handle ADDRESS,
-      @buffer CONST=>>BYTE,
-      @count U32,
-      @transferred MUT->U32,
-      @overlapped MUT->windows_overlapped;
-      RETURN BOOL
-    );
-
-  ::windows_get_last_error INCLUDE_IF(OS_WINDOWS)
-    EXTERN_PROCEDURE["kernel32":"GetLastError"]
-    CALLABLE CALLCONV CCALL(; RETURN U32);
 
   DOC <$
     Creates an I/O completion port with the requested worker concurrency.
@@ -94,7 +25,7 @@ PRIVATE(MODULE)
   {
     VAR null_address ADDRESS;
     VAR invalid_file_handle ADDRESS := null_address - (1 AS SZ);
-    state.completion_port := windows_create_io_completion_port(
+    state.completion_port := syscall::windows::create_io_completion_port(
       @file_handle invalid_file_handle,
       @existing_completion_port null_address,
       @completion_key 0,
@@ -112,7 +43,7 @@ PRIVATE(MODULE)
       @native_ref file_ref
     ): BOOL
   {
-    VAR associated ADDRESS := windows_create_io_completion_port(
+    VAR associated ADDRESS := syscall::windows::create_io_completion_port(
       @file_handle native_ref.handle,
       @existing_completion_port state.completion_port,
       @completion_key 0,
@@ -152,7 +83,7 @@ PRIVATE(MODULE)
     {
       RETURN TRUE;
     }
-    RETURN windows_get_last_error() == 997;
+    RETURN syscall::windows::get_last_error() == 997;
   }
 
   DOC <$
@@ -168,13 +99,13 @@ PRIVATE(MODULE)
   {
     prepare_windows_overlapped(@request request, @offset offset);
     VAR immediate_bytes U32 := 0;
-    VAR immediate_success BOOL := windows_async_read_file(
+    VAR immediate_success BOOL := syscall::windows::read_file(
       @handle native_ref.handle,
       @buffer buffer.data,
       @count async_transfer_size(@size buffer.size),
       @transferred immediate_bytes<-,
       @overlapped request->.windows_overlapped<-
-    );
+    ) != 0;
     RETURN windows_async_submission_accepted(
       @immediate_success immediate_success
     );
@@ -193,13 +124,13 @@ PRIVATE(MODULE)
   {
     prepare_windows_overlapped(@request request, @offset offset);
     VAR immediate_bytes U32 := 0;
-    VAR immediate_success BOOL := windows_async_write_file(
+    VAR immediate_success BOOL := syscall::windows::write_file(
       @handle native_ref.handle,
       @buffer buffer.data,
       @count async_transfer_size(@size buffer.size),
       @transferred immediate_bytes<-,
       @overlapped request->.windows_overlapped<-
-    );
+    ) != 0;
     RETURN windows_async_submission_accepted(
       @immediate_success immediate_success
     );
@@ -214,14 +145,14 @@ PRIVATE(MODULE)
   {
     VAR transferred U32 := 0;
     VAR completion_key UINTPTR := 0;
-    VAR overlapped MUT->windows_overlapped;
-    VAR succeeded BOOL := windows_get_queued_completion_status(
+    VAR overlapped MUT->syscall::windows::overlapped;
+    VAR succeeded BOOL := syscall::windows::get_queued_completion_status(
       @completion_port control->.windows.completion_port,
       @transferred transferred<-,
       @completion_key completion_key<-,
       @overlapped overlapped<-,
       @milliseconds (0 AS U32) #!!
-    );
+    ) != 0;
     IF ((overlapped??) == FALSE)
     {
       IF (succeeded)
@@ -257,15 +188,15 @@ PRIVATE(MODULE)
       @worker_count SZ
     )
   {
-    VAR null_overlapped MUT->windows_overlapped;
+    VAR null_overlapped MUT->syscall::windows::overlapped;
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
     {
-      ASSERT(windows_post_queued_completion_status(
+      ASSERT(syscall::windows::post_queued_completion_status(
         @completion_port control->.windows.completion_port,
         @transferred 0,
         @completion_key 0,
         @overlapped null_overlapped
-      ), "PostQueuedCompletionStatus failed for a worker stop packet.");
+      ) != 0, "PostQueuedCompletionStatus failed for a worker stop packet.");
     };
   }
 
@@ -275,7 +206,7 @@ PRIVATE(MODULE)
   ::shutdown_async_context INCLUDE_IF(OS_WINDOWS)
     FUNCTION(@control MUT->async_context_control)
   {
-    ASSERT(windows_close_handle(@handle control->.windows.completion_port),
+    ASSERT(syscall::windows::close_handle(@handle control->.windows.completion_port) != 0,
       "CloseHandle failed for an I/O completion port.");
     VAR null_port ADDRESS;
     control->.windows.completion_port := null_port;

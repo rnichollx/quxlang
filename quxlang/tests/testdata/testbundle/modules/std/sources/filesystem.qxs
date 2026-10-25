@@ -330,29 +330,6 @@ DOC <$
   }
 }
 
-::windows_read_file INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"ReadFile"]
-  CALLABLE CALLCONV CCALL(
-    @handle ADDRESS,
-    @buffer MUT=>>BYTE,
-    @count U32,
-    @transferred MUT->U32,
-    @overlapped =>>BYTE;
-    RETURN BOOL
-  );
-
-::windows_write_file INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"WriteFile"]
-  CALLABLE CALLCONV CCALL(
-    @handle ADDRESS,
-    @buffer CONST=>>BYTE,
-    @count U32,
-    @transferred MUT->U32,
-    @overlapped =>>BYTE;
-    RETURN BOOL
-  );
-
-::windows_close_handle INCLUDE_IF(OS_WINDOWS) EXTERN_PROCEDURE["kernel32":"CloseHandle"]
-  CALLABLE CALLCONV CCALL(@handle ADDRESS; RETURN BOOL);
-
 DOC <$
   Limits one Windows transfer to the DWORD count accepted by ReadFile and
   WriteFile. Callers can continue with the untransferred suffix.
@@ -375,11 +352,6 @@ DOC <$
 ::file_ref INCLUDE_IF(OS_WINDOWS)
   STRUCT
 {
-  DOC <$ Borrows a Windows process standard handle selected by ARG. $>
-  ::get_standard_handle
-    EXTERN_PROCEDURE["kernel32":"GetStdHandle"]
-    CALLABLE CALLCONV CCALL(@ARG I32; RETURN ADDRESS);
-
   .handle VAR ADDRESS;
 
   DOC <$ Creates an empty file reference. $>
@@ -407,14 +379,14 @@ DOC <$
   {
     VAR outcome transfer_result;
     VAR transferred U32 := 0;
-    VAR overlapped =>>BYTE;
-    outcome.succeeded := windows_read_file(
+    VAR overlapped MUT->syscall::windows::overlapped;
+    outcome.succeeded := syscall::windows::read_file(
       @handle .handle,
       @buffer buffer.data,
       @count windows_transfer_size(@size buffer.size),
       @transferred transferred<-,
       @overlapped overlapped
-    );
+    ) != 0;
     outcome.size := transferred AS SZ;
     result := outcome;
   }
@@ -425,14 +397,14 @@ DOC <$
   {
     VAR outcome transfer_result;
     VAR transferred U32 := 0;
-    VAR overlapped =>>BYTE;
-    outcome.succeeded := windows_write_file(
+    VAR overlapped MUT->syscall::windows::overlapped;
+    outcome.succeeded := syscall::windows::write_file(
       @handle .handle,
       @buffer buffer.data,
       @count windows_transfer_size(@size buffer.size),
       @transferred transferred<-,
       @overlapped overlapped
-    );
+    ) != 0;
     outcome.size := transferred AS SZ;
     result := outcome;
   }
@@ -444,7 +416,7 @@ DOC <$
   .close
     FUNCTION(): BOOL
   {
-    RETURN windows_close_handle(@handle .handle);
+    RETURN syscall::windows::close_handle(@handle .handle) != 0;
   }
 }
 
