@@ -430,6 +430,40 @@ PRIVATE(MODULE) ::layer2_address_sort_test
   }
 }
 
+DOC <$ Region grouping preserves every address and orders region groups across all native address bytes. $>
+PRIVATE(MODULE) ::layer2_region_group_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  VAR cache addr_cache#(@count 65);
+  VAR maximum SZ := (0 AS SZ) #!!;
+  VAR null_address ADDRESS := NULL;
+  VAR stride SZ := ((maximum / 17) / allocator_slab_region_size) * allocator_slab_region_size;
+  LOOP VALUE(length) FROM(0 AS SZ) UNTIL(66 AS SZ) DO
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO
+    {
+      VAR group SZ := ((index * 11) + length) % 17;
+      cache.push(null_address + ((group * stride) + index));
+    }
+    cache.group_regions();
+    VAR seen [65]BOOL;
+    VAR previous SZ := maximum;
+    LOOP WHILE (cache.used > 0) DO
+    {
+      VAR offset SZ := (cache.pop() - NULL) AS SZ;
+      VAR index SZ := offset % allocator_slab_region_size;
+      TEST_ASSERT(index < length);
+      TEST_ASSERT(seen[index] == FALSE);
+      seen[index] := TRUE;
+      VAR group SZ := offset - index;
+      TEST_ASSERT(group <= previous);
+      TEST_ASSERT(group == ((((index * 11) + length) % 17) * stride));
+      previous := group;
+    }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length) DO { TEST_ASSERT(seen[index]); }
+  }
+}
+
 DOC <$
     Combines two half plates without a region refill and returns the exact
     issued address set through the full-plate store.

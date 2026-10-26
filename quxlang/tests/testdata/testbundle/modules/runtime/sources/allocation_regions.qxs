@@ -111,7 +111,7 @@ PRIVATE(MODULE) ::layer3_region STRUCT
   .class_control VAR MUT->layer3_region_class;
   .available VAR ATOMIC#U32;
   .bitmap VAR [allocator_region_bitmap_word_count]ATOMIC#layer3_bitmap_word;
-  .mapping VAR ADDRESS;
+  .backing VAR MUT->layer4_backing_extent;
   .next_free VAR MUT->layer3_region;
 }
 
@@ -157,46 +157,147 @@ PRIVATE(MODULE) ::layer3_region_insert
   before->.prev := node;
 }
 
-DOC <$ Retains a bounded cross-class stack of unassigned regions. $>
+DOC <$ The extent retains backing and metadata mappings until its inventory and all issued regions have been released. $>
+PRIVATE(MODULE) ::layer4_backing_extent STRUCT
+{
+  .mapping VAR ADDRESS;
+  .mapping_bytes VAR SZ;
+  .references VAR ATOMIC#SZ;
+  .next VAR ADDRESS;
+  .unissued VAR SZ;
+}
+
+DOC <$ The pool retains a bounded cross-class stack and one partially issued backing extent. $>
 PRIVATE(MODULE) ::layer4_region_pool STRUCT
 {
   .mtx VAR mutex;
   .head VAR MUT->layer3_region;
   .count VAR SZ;
+  .active VAR MUT->layer4_backing_extent;
+  .issued_count VAR SZ;
 }
 PRIVATE(MODULE) ::layer4_region_backing VAR layer4_region_pool;
 
-DOC <$
-  Acquires reusable backing or maps an aligned region. The original mapping is
-  retained for whole-mapping release on platforms that cannot unmap subranges.
-  $>
-PRIVATE(MODULE) ::layer4_region_acquire FUNCTION(): MUT->layer3_region
+DOC <$ The promotion count scales large-span use to one two-hundred-and-fifty-sixth of physical memory, with a sixteen-MiB fallback. $>
+PRIVATE(MODULE) ::layer4_extent_promotion_count FUNCTION(@memory_bytes U64): SZ
 {
-  layer4_region_backing.mtx.lock();
-  VAR result MUT->layer3_region := layer4_region_backing.head;
-  IF (result??)
-  {
-    layer4_region_backing.head := result->.next_free;
-    layer4_region_backing.count--;
-  }
-  layer4_region_backing.mtx.unlock();
-  IF (result??) { RETURN result; }
-  VAR mapping ADDRESS := layer5_map_region(@bytes allocator_slab_region_size * 2);
-  IF (mapping!?) { RETURN result; }
-  VAR aligned ADDRESS := mapping;
-  IF (aligned % allocator_slab_region_size != 0)
-  { aligned := aligned + (allocator_slab_region_size - (aligned % allocator_slab_region_size)); }
-  VAR storage MUT->TYPED_STORAGE(layer3_region) := ADDRESS_LAUNDER_DISCOVER_EXISTING aligned TO MUT->TYPED_STORAGE(layer3_region);
-  result := PLACE AT(storage->) layer3_region;
-  result->.mapping := mapping;
-  RETURN result;
+  VAR bytes U64 := memory_bytes / 256;
+  IF (memory_bytes == 0) { bytes := 16777216; }
+  VAR count U64 := bytes / (allocator_slab_region_size AS U64);
+  IF (count == 0) { RETURN 1; }
+  VAR limit SZ := ((0 AS SZ) #!!) / 2;
+  IF (count > (limit AS U64)) { RETURN limit; }
+  STATIC_IF(CELLSIZEOF(SZ) == CELLSIZEOF(U64)) { RETURN count AS SZ; }
+  STATIC_ELSE { RETURN count AS PARTIAL SZ; }
 }
 
-DOC <$ Caches up to sixteen empty regions and unmaps excess backing outside the pool lock. $>
-PRIVATE(MODULE) ::layer4_region_release
-  FUNCTION(@region MUT->layer3_region)
+DOC <$ The span function promotes growing heaps to larger mappings while small heaps retain fine-grained backing. $>
+PRIVATE(MODULE) ::layer4_extent_span FUNCTION(@issued_count SZ, @memory_bytes U64): SZ
+{
+  VAR span SZ := allocator_slab_region_size;
+  IF (issued_count >= layer4_extent_promotion_count(@memory_bytes memory_bytes)
+    && span < 2097152) { span := 2097152; }
+  RETURN span;
+}
+
+DOC <$ The creator maps an aligned region inventory with the selected backing span. Separate metadata avoids faulting an otherwise unused huge page in the alignment padding. $>
+PRIVATE(MODULE) ::layer4_extent_create FUNCTION(@span SZ): MUT->layer4_backing_extent
+{
+  VAR bytes SZ := span * 2;
+  VAR mapping ADDRESS := layer5_map_region(@bytes bytes);
+  IF (mapping!?) { RETURN NULL; }
+  VAR metadata ADDRESS := layer5_map_region(@bytes allocator_page_size);
+  IF (metadata!?) { layer5_unmap_region(@address mapping, @bytes bytes); RETURN NULL; }
+  VAR storage MUT->TYPED_STORAGE(layer4_backing_extent) := ADDRESS_LAUNDER_DISCOVER_EXISTING metadata
+    TO MUT->TYPED_STORAGE(layer4_backing_extent);
+  VAR extent MUT->layer4_backing_extent := PLACE AT(storage->) layer4_backing_extent;
+  extent->.mapping := mapping;
+  extent->.mapping_bytes := bytes;
+  extent->.references.STORE#ATOMIC_RELAXED(1);
+  VAR start ADDRESS := mapping;
+  IF (start % span != 0) { start := start + (span - (start % span)); }
+  extent->.next := start;
+  extent->.unissued := span / allocator_slab_region_size;
+  RETURN extent;
+}
+
+DOC <$ The final inventory or region reference releases the complete original mapping. $>
+PRIVATE(MODULE) ::layer4_extent_release FUNCTION(@extent MUT->layer4_backing_extent)
+{
+  IF (extent->.references.FETCH_SUBTRACT#ATOMIC_ACQREL(1) == 1)
+  {
+    VAR bytes SZ := extent->.mapping_bytes;
+    VAR mapping ADDRESS := extent->.mapping;
+    layer5_unmap_region(@address mapping, @bytes bytes);
+    layer5_unmap_region(@address IBC_GETADDR(@PTR extent), @bytes allocator_page_size);
+  }
+}
+
+DOC <$ The acquisition function claims cached backing or one region from a shared extent without mapping under the pool lock. $>
+PRIVATE(MODULE) ::layer4_region_acquire FUNCTION(): MUT->layer3_region
+{
+  LOOP DO
+  {
+    layer4_region_backing.mtx.lock();
+    VAR result MUT->layer3_region := layer4_region_backing.head;
+    IF (result??)
+    {
+      layer4_region_backing.head := result->.next_free;
+      layer4_region_backing.count--;
+      layer4_region_backing.issued_count++;
+      layer4_region_backing.mtx.unlock();
+      RETURN result;
+    }
+    VAR extent MUT->layer4_backing_extent := layer4_region_backing.active;
+    IF (extent??)
+    {
+      VAR address ADDRESS := extent->.next;
+      extent->.next := extent->.next + allocator_slab_region_size;
+      extent->.unissued--;
+      extent->.references.FETCH_ADD#ATOMIC_RELAXED(1);
+      layer4_region_backing.issued_count++;
+      VAR exhausted BOOL := extent->.unissued == 0;
+      IF (exhausted) { layer4_region_backing.active := NULL; }
+      layer4_region_backing.mtx.unlock();
+      VAR storage MUT->TYPED_STORAGE(layer3_region) := ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT->TYPED_STORAGE(layer3_region);
+      result := PLACE AT(storage->) layer3_region;
+      result->.backing := extent;
+      IF (exhausted) { layer4_extent_release(@extent extent); }
+      RETURN result;
+    }
+    VAR span SZ := layer4_extent_span(@issued_count layer4_region_backing.issued_count,
+      @memory_bytes allocator_host_memory_bytes);
+    layer4_region_backing.mtx.unlock();
+    VAR created MUT->layer4_backing_extent := layer4_extent_create(@span span);
+    IF (created!? && span > allocator_slab_region_size)
+    { created := layer4_extent_create(@span allocator_slab_region_size); }
+    IF (created!?) { RETURN NULL; }
+    IF (created->.unissued == 1)
+    {
+      // A single-region extent transfers its inventory reference to its sole region.
+      created->.unissued := 0;
+      VAR storage MUT->TYPED_STORAGE(layer3_region) := ADDRESS_LAUNDER_DISCOVER_EXISTING
+        created->.next TO MUT->TYPED_STORAGE(layer3_region);
+      result := PLACE AT(storage->) layer3_region;
+      result->.backing := created;
+      layer4_region_backing.mtx.lock();
+      layer4_region_backing.issued_count++;
+      layer4_region_backing.mtx.unlock();
+      RETURN result;
+    }
+    layer4_region_backing.mtx.lock();
+    IF (layer4_region_backing.active!?)
+    { layer4_region_backing.active := created; created := NULL; }
+    layer4_region_backing.mtx.unlock();
+    IF (created??) { layer4_extent_release(@extent created); }
+  }
+}
+
+DOC <$ The release function caches up to sixteen empty regions and releases excess backing references outside the pool lock. $>
+PRIVATE(MODULE) ::layer4_region_release FUNCTION(@region MUT->layer3_region)
 {
   layer4_region_backing.mtx.lock();
+  layer4_region_backing.issued_count--;
   IF (layer4_region_backing.count < layer4_region_backing_limit)
   {
     region->.next_free := layer4_region_backing.head;
@@ -206,8 +307,7 @@ PRIVATE(MODULE) ::layer4_region_release
     RETURN;
   }
   layer4_region_backing.mtx.unlock();
-  VAR mapping ADDRESS := region->.mapping;
-  layer5_unmap_region(@address mapping, @bytes allocator_slab_region_size * 2);
+  layer4_extent_release(@extent region->.backing);
 }
 
 DOC <$ Allocates a stable chunk of controls and publishes them on the detached list, returning false on allocation failure. $>
@@ -281,8 +381,8 @@ PRIVATE(MODULE) ::layer3_region_retire
 }
 
 DOC <$
-  Returns the final region group from an address-sorted plate. One shared
-  region access protects all returns, with one atomic update per bitmap word.
+  The return function consumes the final region group without requiring slot order within the group.
+  One shared region access protects mask aggregation and all bitmap updates.
   Availability publication and retirement checks occur once for the group.
   $>
 PRIVATE(MODULE) ::layer3_region_return_batch TEMPLATE(@count VALUE SZ)
@@ -295,26 +395,30 @@ PRIVATE(MODULE) ::layer3_region_return_batch TEMPLATE(@count VALUE SZ)
   VAR control MUT->layer3_region_control := region->.control;
   control->.shared();
   VAR root MUT->layer3_region_class := region->.class_control;
+  VAR masks [allocator_region_bitmap_word_count]layer3_bitmap_word;
+  VAR first_word SZ := allocator_region_bitmap_word_count;
+  VAR last_word SZ := 0;
   LOOP WHILE (cache.used > 0) DO
   {
     address := PUN cache.entries[cache.used - 1] AS ADDRESS;
     IF (address - (address % allocator_slab_region_size) != base) { BREAK; }
     VAR index SZ := ((address - base) - root->.payload_offset) / root->.block_size;
     VAR word SZ := index / layer3_bitmap_word_bits;
-    VAR mask layer3_bitmap_word := 0;
-    LOOP WHILE (cache.used > 0) DO
+    VAR bit layer3_bitmap_word := (1 AS layer3_bitmap_word) #++ (index % layer3_bitmap_word_bits);
+    ASSERT((masks[word] #&& bit) == 0, "A region return batch contains a duplicate slot.");
+    masks[word] := masks[word] #|| bit;
+    IF (word < first_word) { first_word := word; }
+    IF (word > last_word) { last_word := word; }
+    cache.pop();
+  }
+  LOOP VALUE(word) FROM(first_word) UNTIL(last_word + 1) DO
+  {
+    VAR mask layer3_bitmap_word := masks[word];
+    IF (mask != 0)
     {
-      address := PUN cache.entries[cache.used - 1] AS ADDRESS;
-      IF (address - (address % allocator_slab_region_size) != base) { BREAK; }
-      index := ((address - base) - root->.payload_offset) / root->.block_size;
-      IF (index / layer3_bitmap_word_bits != word) { BREAK; }
-      VAR bit layer3_bitmap_word := (1 AS layer3_bitmap_word) #++ (index % layer3_bitmap_word_bits);
-      ASSERT((mask #&& bit) == 0, "A region return batch contains a duplicate slot.");
-      mask := mask #|| bit;
-      cache.pop();
+      VAR previous layer3_bitmap_word := region->.bitmap[word].FETCH_BIT_AND#ATOMIC_RELEASE(mask #!!);
+      ASSERT((previous #&& mask) == mask, "A region slot was returned twice.");
     }
-    VAR previous layer3_bitmap_word := region->.bitmap[word].FETCH_BIT_AND#ATOMIC_RELEASE(mask #!!);
-    ASSERT((previous #&& mask) == mask, "A region slot was returned twice.");
   }
   IF (region->.available.LOAD#ATOMIC_ACQUIRE() == 0)
   {

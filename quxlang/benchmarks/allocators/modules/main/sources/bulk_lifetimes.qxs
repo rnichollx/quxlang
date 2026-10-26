@@ -1,0 +1,84 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+DOC <$ The workload retains a complete balanced tree before recursively releasing its nodes. $>
+::bulk_lifetime_workload TEMPLATE(@bytes VALUE SZ) STRUCT
+{
+  ::node STRUCT
+  {
+    .left VAR MUT->node;
+    .right VAR MUT->node;
+    .payload VAR [(bytes / 8) - 2]U64;
+  }
+
+  DOC <$ The builder creates exactly count nodes with consecutive identities in preorder. $>
+  ::build FUNCTION(@count SZ, @first U64): MUT->node
+  {
+    IF (count == 0) { RETURN NULL; }
+    VAR result MUT->node := NEW node;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL((bytes / 8) - 2) BY(512 AS SZ) DO
+    { benchmark_barrier::write_word(@address IBC_GETADDR(@PTR result->.payload[index]<-), @value first); }
+    benchmark_barrier::write_word(@address IBC_GETADDR(@PTR result->.payload[(bytes / 8) - 3]<-), @value first);
+    VAR left_count SZ := count / 2;
+    result->.left := build(@count left_count, @first first + 1);
+    result->.right := build(@count count - left_count - 1, @first first + (left_count AS U64) + 1);
+    RETURN result;
+  }
+
+  DOC <$ The postorder traversal checks initialized payload words and deletes every node once. $>
+  ::dispose FUNCTION(@tree MUT->node, @freed MUT& U64): U64
+  {
+    IF (tree!?) { RETURN 0; }
+    VAR checksum U64 := dispose(@tree tree->.left, @freed freed);
+    checksum += dispose(@tree tree->.right, @freed freed);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL((bytes / 8) - 2) BY(512 AS SZ) DO
+    { checksum += tree->.payload[index]; }
+    checksum += tree->.payload[(bytes / 8) - 3];
+    freed++;
+    DELETE tree;
+    RETURN checksum;
+  }
+
+  DOC <$ Each cycle measures allocation and recursive deallocation separately at a fixed live-node budget. $>
+  ::run FUNCTION(@cycles SZ, @memory SZ)
+  {
+    IF (CELLSIZEOF(node) != bytes) { THROW (1 AS I32); }
+    VAR count SZ := memory / bytes;
+    VAR allocated_ticks U64 := 0;
+    VAR deallocated_ticks U64 := 0;
+    VAR checksum U64 := 0;
+    VAR freed U64 := 0;
+    LOOP VALUE(cycle) FROM(0 AS SZ) UNTIL(cycles) DO
+    {
+      VAR start U64 := benchmark_barrier::ticks();
+      VAR root MUT->node := build(@count count, @first 1);
+      benchmark_barrier::do_not_optimize(IBC_GETADDR(@PTR root));
+      VAR allocated U64 := benchmark_barrier::ticks();
+      checksum += dispose(@tree root, @freed freed);
+      VAR finished U64 := benchmark_barrier::ticks();
+      allocated_ticks += allocated - start;
+      deallocated_ticks += finished - allocated;
+    }
+    VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
+    output.write_unsigned(allocated_ticks); output.write_byte(32);
+    output.write_unsigned(deallocated_ticks); output.write_byte(32);
+    output.write_unsigned(benchmark_barrier::frequency()); output.write_byte(32);
+    output.write_unsigned(checksum); output.write_byte(32);
+    output.write_unsigned(freed); output.write_byte(10);
+    output.flush();
+  }
+}
+
+DOC <$ The entry point selects a node size and a live-node object-byte budget on a 64-bit native host. $>
+::bulk_lifetimes BENCHMARK(@n SZ, @size SZ, @memory SZ) ONESHOT
+{
+  IF (n == 0 || memory < size || CELLSIZEOF(SZ) != 8) { THROW (1 AS I32); }
+  IF (size == 32) { bulk_lifetime_workload#(@bytes 32)::run(@cycles n, @memory memory); RETURN; }
+  IF (size == 64) { bulk_lifetime_workload#(@bytes 64)::run(@cycles n, @memory memory); RETURN; }
+  IF (size == 256) { bulk_lifetime_workload#(@bytes 256)::run(@cycles n, @memory memory); RETURN; }
+  IF (size == 1024) { bulk_lifetime_workload#(@bytes 1024)::run(@cycles n, @memory memory); RETURN; }
+  IF (size == 4096) { bulk_lifetime_workload#(@bytes 4096)::run(@cycles n, @memory memory); RETURN; }
+  IF (size == 8192) { bulk_lifetime_workload#(@bytes 8192)::run(@cycles n, @memory memory); RETURN; }
+  THROW (1 AS I32);
+}

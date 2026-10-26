@@ -379,6 +379,56 @@ PRIVATE(MODULE) ::addr_cache
     destination.used := destination_start + entry_count;
   }
 
+  DOC <$ The grouping function partitions an address prefix by region using only varying region-address bytes. $>
+  .group_regions
+    FUNCTION()
+  {
+    IF (.used > 32)
+    {
+      VAR first SZ := ((PUN .entries[0] AS ADDRESS) - NULL) AS SZ;
+      VAR varying SZ := 0;
+      LOOP VALUE(index) FROM(1 AS SZ) UNTIL(.used) DO
+      { varying := varying #|| ((((PUN .entries[index] AS ADDRESS) - NULL) AS SZ) #^^ first); }
+      varying := varying #-- allocator_allocation_region_bits;
+      IF (varying == 0) { RETURN; }
+      VAR temporary [count]TYPED_STORAGE(ADDRESS);
+      VAR offsets [256]SZ;
+      VAR shift SZ := allocator_allocation_region_bits;
+      LOOP WHILE (varying != 0) DO
+      {
+        IF ((varying #&& 255) != 0)
+        {
+          LOOP ITEM(offset) IN(offsets) DO { offset := 0; }
+          LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.used) DO
+          {
+            VAR bits SZ := ((PUN .entries[index] AS ADDRESS) - NULL) AS SZ;
+            offsets[(bits #-- shift) #&& 255]++;
+          }
+          VAR total SZ := 0;
+          LOOP ITEM(offset) IN(offsets) DO
+          { VAR length SZ := offset; offset := total; total += length; }
+          LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.used) DO
+          {
+            VAR address ADDRESS := PUN .entries[index] AS ADDRESS;
+            VAR bucket SZ := ((((address - NULL) AS SZ) #-- shift) #&& 255);
+            PLACE AT(temporary[offsets[bucket]]) ADDRESS := address;
+            offsets[bucket]++;
+          }
+          LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.used) DO
+          {
+            VAR destination MUT& ADDRESS := PUN .entries[index] AS ADDRESS;
+            destination := PUN temporary[index] AS ADDRESS;
+            DESTROY AT(temporary[index]) ADDRESS;
+          }
+        }
+        varying := varying #-- 8;
+        shift += 8;
+      }
+      RETURN;
+    }
+    .sort();
+  }
+
   DOC <$ Restores a maximum heap after replacing its root within the supplied prefix. $>
   .sift_down
     FUNCTION(@root SZ, @length SZ)
@@ -546,13 +596,13 @@ PRIVATE(MODULE) ::layer2_acquire_empty_cache_node
 }
 
 DOC <$
-  Sorts a privately owned plate by address and returns each region's slots in
-  one batch. The empty plate remains owned by the caller.
+  The drain function groups a privately owned plate by allocation region and returns each group
+  with one atomic update per occupied bitmap word. The empty plate remains owned by the caller.
   $>
 PRIVATE(MODULE) ::layer2_drain_cache TEMPLATE(@count VALUE SZ)
   FUNCTION(@cache MUT& addr_cache#(@count count))
 {
-  cache.sort();
+  cache.group_regions();
   LOOP WHILE (cache.used > 0) DO { layer3_region_return_batch#(@count count)(@cache cache); }
 }
 

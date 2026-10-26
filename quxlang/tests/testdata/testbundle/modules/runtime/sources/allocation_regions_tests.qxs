@@ -84,6 +84,62 @@ PRIVATE(MODULE) ::allocation_region_backing_limit_test
   layer4_region_backing.mtx.unlock();
 }
 
+DOC <$ Backing remains valid until the final inventory or region reference is released. $>
+PRIVATE(MODULE) ::allocation_region_extent_lifetime_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  LOOP VALUE(kind) FROM(0 AS SZ) UNTIL(2 AS SZ) DO
+  {
+    VAR requested_span SZ := allocator_slab_region_size;
+    IF (kind == 1 && requested_span < 2097152) { requested_span := 2097152; }
+    VAR extent MUT->layer4_backing_extent := layer4_extent_create(@span requested_span);
+    TEST_ASSERT(extent??);
+    TEST_ASSERT(extent->.unissued > 0);
+    TEST_ASSERT(extent->.next % allocator_slab_region_size == 0);
+    VAR span SZ := extent->.mapping_bytes / 2;
+    TEST_ASSERT(extent->.next % span == 0);
+    TEST_ASSERT(extent->.unissued * allocator_slab_region_size == span);
+    TEST_ASSERT(extent->.references.LOAD#ATOMIC_ACQUIRE() == 1);
+    VAR address ADDRESS := extent->.next;
+    VAR storage MUT->TYPED_STORAGE(U64) := ADDRESS_LAUNDER_DISCOVER_EXISTING address TO MUT->TYPED_STORAGE(U64);
+    PLACE AT(storage->) U64 := 123;
+    extent->.references.FETCH_ADD#ATOMIC_RELAXED(2);
+    layer4_extent_release(@extent extent);
+    TEST_ASSERT(extent->.references.LOAD#ATOMIC_ACQUIRE() == 2);
+    TEST_ASSERT(IBC_LOAD#U64(@ADDR address) == 123);
+    layer4_extent_release(@extent extent);
+    TEST_ASSERT(extent->.references.LOAD#ATOMIC_ACQUIRE() == 1);
+    TEST_ASSERT(IBC_LOAD#U64(@ADDR address) == 123);
+    DESTROY AT(storage->) U64;
+    layer4_extent_release(@extent extent);
+  }
+}
+
+DOC <$ An unordered region group returns every bitmap slot except a held allocation. $>
+PRIVATE(MODULE) ::allocation_region_unordered_return_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  VAR root layer3_region_class;
+  root.initialize(@size 12, @align 4);
+  VAR cache addr_cache#(@count ((layer3_bitmap_word_bits * 2) + 7));
+  TEST_ASSERT(layer3_region_refill#(@count ((layer3_bitmap_word_bits * 2) + 7))(@root root, @cache cache));
+  VAR held ADDRESS := cache.pop();
+  VAR base ADDRESS := held - (held % allocator_slab_region_size);
+  VAR region MUT->layer3_region := ADDRESS_LAUNDER_DISCOVER_EXISTING base TO MUT->layer3_region;
+  VAR control MUT->layer3_region_control := region->.control;
+  VAR addresses [(layer3_bitmap_word_bits * 2) + 6]ADDRESS;
+  LOOP ITEM(address) IN(addresses) DO { address := cache.pop(); }
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL((layer3_bitmap_word_bits * 2) + 6) DO
+  { cache.push(addresses[(index * 11) % ((layer3_bitmap_word_bits * 2) + 6)]); }
+  layer3_region_return_batch#(@count ((layer3_bitmap_word_bits * 2) + 7))(@cache cache);
+  TEST_ASSERT(cache.used == 0);
+  TEST_ASSERT(control->.region == region);
+  TEST_ASSERT(layer3_region_empty(@region region) == FALSE);
+  cache.push(held);
+  layer3_region_return_batch#(@count ((layer3_bitmap_word_bits * 2) + 7))(@cache cache);
+  TEST_ASSERT((control->.region??) == FALSE);
+}
+
 DOC <$
     Checks bitmap coverage and the reserved metadata budget for every generated
     class, including at least seven slots in the largest allocation class.
@@ -181,4 +237,52 @@ PRIVATE(MODULE) ::layer3_refill_across_full_regions_test
   TEST_ASSERT(cache.used == 0);
   TEST_ASSERT(root.available.next == root.available<-);
   TEST_ASSERT(root.issued.next == root.issued<-);
+}
+
+DOC <$ The promotion policy scales with physical memory, clamps native counts, and switches spans at the selected threshold. $>
+PRIVATE(MODULE) ::allocation_region_promotion_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) DUAL_TEST
+{
+  TEST_ASSERT(layer4_extent_promotion_count(@memory_bytes 1) == 1);
+  TEST_ASSERT(layer4_extent_promotion_count(@memory_bytes allocator_slab_region_size AS U64) == 1);
+  VAR fallback SZ := 16777216 / allocator_slab_region_size;
+  IF (fallback == 0) { fallback := 1; }
+  TEST_ASSERT(layer4_extent_promotion_count(@memory_bytes 0) == fallback);
+  VAR memory U64 := 1073741824;
+  VAR threshold SZ := layer4_extent_promotion_count(@memory_bytes memory);
+  VAR large_span SZ := allocator_slab_region_size;
+  IF (large_span < 2097152) { large_span := 2097152; }
+  TEST_ASSERT(layer4_extent_span(@issued_count 0, @memory_bytes memory) == allocator_slab_region_size);
+  TEST_ASSERT(layer4_extent_span(@issued_count threshold - 1, @memory_bytes memory) == allocator_slab_region_size);
+  TEST_ASSERT(layer4_extent_span(@issued_count threshold, @memory_bytes memory) == large_span);
+  STATIC_IF((allocator_slab_region_size AS U64) <= (((0 AS U64) #!!) / 512))
+  { TEST_ASSERT(layer4_extent_promotion_count(@memory_bytes (allocator_slab_region_size AS U64) * 512) == 2); }
+  STATIC_IF(CELLSIZEOF(SZ) < CELLSIZEOF(U64))
+  { TEST_ASSERT(layer4_extent_promotion_count(@memory_bytes (0 AS U64) #!!) == (((0 AS SZ) #!!) / 2)); }
+}
+
+DOC <$ The pool counts each issued region once across acquisition, caching, and release. $>
+PRIVATE(MODULE) ::allocation_region_pool_accounting_test
+  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+{
+  layer4_region_backing.mtx.lock();
+  VAR initial SZ := layer4_region_backing.issued_count;
+  layer4_region_backing.mtx.unlock();
+  VAR first MUT->layer3_region := layer4_region_acquire();
+  VAR second MUT->layer3_region := layer4_region_acquire();
+  TEST_ASSERT(first?? && second??);
+  layer4_region_backing.mtx.lock();
+  VAR issued SZ := layer4_region_backing.issued_count;
+  layer4_region_backing.mtx.unlock();
+  TEST_ASSERT(issued == initial + 2);
+  layer4_region_release(@region first);
+  layer4_region_backing.mtx.lock();
+  issued := layer4_region_backing.issued_count;
+  layer4_region_backing.mtx.unlock();
+  TEST_ASSERT(issued == initial + 1);
+  layer4_region_release(@region second);
+  layer4_region_backing.mtx.lock();
+  issued := layer4_region_backing.issued_count;
+  layer4_region_backing.mtx.unlock();
+  TEST_ASSERT(issued == initial);
 }
