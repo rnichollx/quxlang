@@ -62,6 +62,31 @@ DOC <$
       RETURN THIS;
     }
 
+    DOC <$ Retreats one position and returns the previous iterator. $>
+    .OPERATOR-- FUNCTION() MUT: dynarr#(T)::iterator
+    { VAR previous dynarr#(T)::iterator := THIS; .index--; RETURN previous; }
+
+    DOC <$ Retreats by the supplied unsigned element count. $>
+    .OPERATOR-= FUNCTION(@OTHER SZ) MUT: MUT& dynarr#(T)::iterator
+    { .index -= OTHER; RETURN THIS; }
+
+    DOC <$ Returns the position count elements after this iterator. $>
+    .OPERATOR+ FUNCTION(@OTHER SZ) CONST: dynarr#(T)::iterator
+    { RETURN dynarr#(T)::iterator(@storage .storage, @index .index + OTHER); }
+
+    DOC <$ Returns the position count elements before this iterator. $>
+    .OPERATOR- FUNCTION(@OTHER SZ) CONST: dynarr#(T)::iterator
+    { RETURN dynarr#(T)::iterator(@storage .storage, @index .index - OTHER); }
+
+    DOC <$ Returns the signed element distance between positions in one allocation. $>
+    .OPERATOR- FUNCTION(@OTHER CONST& dynarr#(T)::iterator) CONST: iterator_difference
+    {
+      ASSERT(.storage == OTHER.storage, "Cannot subtract iterators from different dynamic arrays.");
+      IF (.index >= OTHER.index) { RETURN (.index - OTHER.index) AS ASSUME iterator_difference; }
+      VAR magnitude SZ := OTHER.index - .index;
+      RETURN (0 AS iterator_difference) - ((magnitude - 1) AS ASSUME iterator_difference) - 1;
+    }
+
     DOC <$ Returns a mutable reference to the current element. $>
     .OPERATOR->
       FUNCTION() CONST: MUT& T
@@ -131,6 +156,31 @@ DOC <$
     {
       .index += OTHER;
       RETURN THIS;
+    }
+
+    DOC <$ Retreats one position and returns the previous iterator. $>
+    .OPERATOR-- FUNCTION() MUT: dynarr#(T)::const_iterator
+    { VAR previous dynarr#(T)::const_iterator := THIS; .index--; RETURN previous; }
+
+    DOC <$ Retreats by the supplied unsigned element count. $>
+    .OPERATOR-= FUNCTION(@OTHER SZ) MUT: MUT& dynarr#(T)::const_iterator
+    { .index -= OTHER; RETURN THIS; }
+
+    DOC <$ Returns the position count elements after this iterator. $>
+    .OPERATOR+ FUNCTION(@OTHER SZ) CONST: dynarr#(T)::const_iterator
+    { RETURN dynarr#(T)::const_iterator(@storage .storage, @index .index + OTHER); }
+
+    DOC <$ Returns the position count elements before this iterator. $>
+    .OPERATOR- FUNCTION(@OTHER SZ) CONST: dynarr#(T)::const_iterator
+    { RETURN dynarr#(T)::const_iterator(@storage .storage, @index .index - OTHER); }
+
+    DOC <$ Returns the signed element distance between positions in one allocation. $>
+    .OPERATOR- FUNCTION(@OTHER CONST& dynarr#(T)::const_iterator) CONST: iterator_difference
+    {
+      ASSERT(.storage == OTHER.storage, "Cannot subtract iterators from different dynamic arrays.");
+      IF (.index >= OTHER.index) { RETURN (.index - OTHER.index) AS ASSUME iterator_difference; }
+      VAR magnitude SZ := OTHER.index - .index;
+      RETURN (0 AS iterator_difference) - ((magnitude - 1) AS ASSUME iterator_difference) - 1;
     }
 
     DOC <$ Returns a constant reference to the current element. $>

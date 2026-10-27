@@ -205,6 +205,104 @@ IMPORT std;
     TEST_ASSERT(caught);
   }
 
+  DOC <$ Geometric iterators preserve logical positions across segment boundaries and container growth. $>
+  ::geometric_iterator_arithmetic DUAL_TEST
+  {
+    VAR values std::geometric_array#I32;
+    values.push_back(0 AS I32);
+    AUTO first := values.BEGIN();
+    VAR retained MUT->I32 := (first->)<-;
+    LOOP VALUE(index) FROM(1 AS SZ) UNTIL(33) DO { values.push_back(index AS ASSUME I32); }
+    values.reserve(80);
+    AUTO last := values.END();
+    TEST_ASSERT(first == values.BEGIN() && (first->)<- == retained);
+    TEST_ASSERT(last - first == 33 && first - last == -33 && first - first == 0);
+    TEST_ASSERT((first <=> first) == ORDER::EQUAL && first < last && last > first);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(33) DO
+    {
+      AUTO position := first + index;
+      TEST_ASSERT(position-> == index AS ASSUME I32);
+      TEST_ASSERT(position[0]<- == values[index]<-);
+      TEST_ASSERT(position - first == index AS ASSUME std::iterator_difference);
+      TEST_ASSERT(first - position == (0 AS std::iterator_difference) - (index AS ASSUME std::iterator_difference));
+      TEST_ASSERT(last - (33 - index) == position && position < last);
+    }
+    AUTO cursor := first;
+    cursor += 31;
+    AUTO previous := cursor--;
+    TEST_ASSERT(previous-> == 31 && cursor-> == 30);
+    cursor -= 23;
+    previous := cursor++;
+    TEST_ASSERT(previous-> == 7 && cursor-> == 8);
+    cursor[7] := 115;
+    TEST_ASSERT(values[15] == 115);
+    values[15] := 15;
+    VAR constant CONST& std::geometric_array#I32 := values;
+    AUTO constant_first := constant.BEGIN();
+    AUTO constant_last := constant.END();
+    VAR converted std::geometric_array#(I32)::const_iterator :(@OTHER first);
+    TEST_ASSERT(converted == constant_first);
+    TEST_ASSERT(constant_last - constant_first == 33 && constant_first - constant_last == -33);
+    TEST_ASSERT(constant_first < constant_last && (constant_last <=> constant_first) == ORDER::GREATER);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(33) DO
+    {
+      AUTO position := constant_first + index;
+      TEST_ASSERT(position[0] == index AS ASSUME I32);
+      TEST_ASSERT(position - constant_first == index AS ASSUME std::iterator_difference);
+      TEST_ASSERT(constant_first - position == (0 AS std::iterator_difference) - (index AS ASSUME std::iterator_difference));
+      TEST_ASSERT(constant_last - (33 - index) == position);
+    }
+    converted += 31;
+    AUTO constant_previous := converted--;
+    TEST_ASSERT(constant_previous-> == 31 && converted-> == 30);
+    converted -= 23;
+    constant_previous := converted++;
+    TEST_ASSERT(constant_previous-> == 7 && converted[7] == 15);
+    VAR empty std::geometric_array#I32;
+    TEST_ASSERT(empty.END() - empty.BEGIN() == 0 && empty.BEGIN() + (0 AS SZ) == empty.END());
+    TEST_ASSERT(empty.END() - (0 AS SZ) == empty.BEGIN());
+    VAR empty_constant CONST& std::geometric_array#I32 := empty;
+    TEST_ASSERT(empty_constant.END() - empty_constant.BEGIN() == 0);
+    TEST_ASSERT(empty_constant.BEGIN() + (0 AS SZ) == empty_constant.END());
+  }
+
+  DOC <$ Generic ordering and binary-search algorithms operate across geometric-array segments. $>
+  ::geometric_random_access_algorithms DUAL_TEST
+  {
+    VAR values std::geometric_array#I32;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(33) DO { values.push_back((32 - index) AS ASSUME I32); }
+    std::sort(@range values);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(33) DO { TEST_ASSERT(values[index] == index AS ASSUME I32); }
+    VAR constant CONST& std::geometric_array#I32 := values;
+    TEST_ASSERT(std::lower_bound(@range constant, @value 15) == constant.BEGIN() + (15 AS SZ));
+    TEST_ASSERT(std::upper_bound(@range constant, @value 15) == constant.BEGIN() + (16 AS SZ));
+    AUTO equal := std::equal_range(@range constant, @value 15);
+    TEST_ASSERT(equal.BEGIN() == constant.BEGIN() + (15 AS SZ) && equal.END() == constant.BEGIN() + (16 AS SZ));
+    TEST_ASSERT(std::binary_search(@range constant, @value 31));
+    TEST_ASSERT(std::binary_search(@range constant, @value 33) == FALSE);
+    VAR output [33]I32;
+    AUTO copied := std::copy_backward(@range constant, @output_last output.END());
+    TEST_ASSERT(copied.in == constant.BEGIN() && copied.out == output.BEGIN());
+    TEST_ASSERT(std::equal(@range1 constant, @range2 output));
+    std::reverse(@range values);
+    std::nth_element(@range values, @nth values.BEGIN() + (16 AS SZ));
+    TEST_ASSERT(values[16] == 16);
+    std::make_heap(@range values);
+    TEST_ASSERT(std::is_heap(@range values));
+    std::sort_heap(@range values);
+    TEST_ASSERT(std::is_sorted(@range values));
+  }
+
+  DOC <$ A constant geometric iterator exposes immutable indexed elements. $>
+  ::geometric_iterator_const_access STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values std::geometric_array#I32;
+    values.push_back(1 AS I32);
+    VAR constant CONST& std::geometric_array#I32 := values;
+    AUTO cursor := constant.BEGIN();
+    cursor[0] := 2;
+  }
+
   ::geometric_growth UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR values std::geometric_array#U64;

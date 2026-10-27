@@ -3502,15 +3502,33 @@ namespace quxlang
             for (std::pair< std::string const, type_symbol > const& field : type.fields)
             {
                 declarations.push_back(struct_field{field.first, field.second});
-                fields.named.emplace(field.first, create_local_value(field.second));
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(field.second);
+                if (field_storage_type.has_value())
+                {
+                    fields.named.emplace(field.first, create_local_value(*field_storage_type));
+                }
             }
             emit(block, vmir2::struct_init_start{.on_value = get_local_index(result), .delegates = struct_field_init_delegates(declarations, fields)});
             for (struct_field const& field : declarations)
             {
-                type_symbol constructor = co_await co_select_constructor_entry(field.type, false);
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(field.type);
+                value_index source = sources.named.at(field.name);
+                if (!field_storage_type.has_value())
+                {
+                    if (current_type(block, source) != field.type)
+                    {
+                        throw semantic_compilation_error("Composite field expected " + to_string(field.type) + ", got " + to_string(current_type(block, source)));
+                    }
+                    continue;
+                }
+                if (field.type.type_is< attached_type_reference >())
+                {
+                    source = attached_binding_carrier_value(block, source, field.type);
+                }
+                type_symbol constructor = co_await co_select_constructor_entry(*field_storage_type, false);
                 codegen_invocation_args arguments;
                 arguments.named.emplace("THIS", fields.named.at(field.name));
-                arguments.named.emplace("OTHER", sources.named.at(field.name));
+                arguments.named.emplace("OTHER", source);
                 co_await co_gen_call_functum(block, std::move(constructor), std::move(arguments), allowed_adaptations::source_rebinding);
             }
             emit(block, vmir2::struct_init_finish{.on_value = get_local_index(result)});
@@ -3807,14 +3825,11 @@ namespace quxlang
                 {
                     source = create_reference(block, source, ptrref_type{.target = source_type, .ptr_class = pointer_class::ref, .qual = access});
                 }
+                codegen_invocation_args fields = co_await co_project_composite_fields(block, source, type);
                 for (std::pair< std::string const, type_symbol >& field : type.fields)
                 {
-                    if (!is_ref(field.second))
-                    {
-                        field.second = ptrref_type{.target = field.second, .ptr_class = pointer_class::ref, .qual = access};
-                    }
+                    field.second = current_type(block, fields.named.at(field.first));
                 }
-                codegen_invocation_args fields = co_await co_project_composite_fields(block, source, type);
                 co_return co_await co_construct_composite(block, std::move(type), std::move(fields));
             }
             if (expr.operation == composite_operation::join)
@@ -12114,6 +12129,12 @@ namespace quxlang
             symbol_kind const base_kind = co_await rpnx::querygraph::request< symbol_type_query >(base_type_noref);
             class_kind const base_class_kind = base_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(base_type_noref) : class_kind::noexist;
 
+            if (!is_ref(base_type) && (base_class_kind == class_kind::struct_ || base_class_kind == class_kind::generic || base_class_kind == class_kind::generic_ref))
+            {
+                base = create_reference(bidx, base, make_tref(base_type));
+                base_type = current_type(bidx, base);
+            }
+
             if (base_class_kind == class_kind::flagset)
             {
                 flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(base_type_noref);
@@ -16736,7 +16757,7 @@ namespace quxlang
                 {
                     type_symbol field_type = current_type(current_block, field.second);
                     type.fields.emplace(field.first, field_type);
-                    if (!is_ref(field_type) && !this->state.genvalues.at(field.second).template type_is< codegen_literal >())
+                    if (!is_ref(field_type) && this->state.genvalues.at(field.second).template type_is< codegen_local >())
                     {
                         field.second = create_reference(current_block, field.second, make_tref(field_type));
                     }

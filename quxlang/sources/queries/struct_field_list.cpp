@@ -11,6 +11,17 @@ rpnx::querygraph::coroutine< quxlang::struct_field_list_spec > quxlang::struct_f
         auto field_type = ptrref_type{ .target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant };
         co_return {struct_field{"__start", field_type}, struct_field{"__end", field_type}};
     }
+    if (input.type_is< composite_type >())
+    {
+        composite_type const& composite = input.get_as< composite_type >();
+        std::vector< struct_field > fields;
+        fields.reserve(composite.fields.size());
+        for (std::pair< std::string const, type_symbol > const& field : composite.fields)
+        {
+            fields.push_back(struct_field{.name = field.first, .type = field.second});
+        }
+        co_return fields;
+    }
     auto declarations = co_await rpnx::querygraph::request< struct_field_declaration_list_query >(input);
 
     std::string struct_name = quxlang::to_string(input);

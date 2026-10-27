@@ -1,0 +1,1042 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Restores the maximum-heap property below one root in a random-access sequence. $>
+PRIVATE(MODULE)
+::algorithm_sift_down
+  FUNCTION(@first AUTO(input_iterator), @count SZ, @root SZ, @compare TT(compare_type), @projection TT(projection_type))
+{
+  LOOP WHILE (root < count / 2) DO
+  {
+    VAR child SZ := root * 2 + 1;
+    VAR selected input_iterator := first + child;
+    IF (child + 1 < count)
+    {
+      VAR right input_iterator := first + (child + 1);
+      IF (compare(@left projection(selected->), @right projection(right->)) == ORDER::LESS)
+      { child++; selected := right; }
+    }
+    VAR parent input_iterator := first + root;
+    IF (compare(@left projection(parent->), @right projection(selected->)) != ORDER::LESS) { BREAK; }
+    parent-> <-> selected->; root := child;
+  }
+}
+
+DOC <$ Builds a maximum heap in linear work. $>
+::make_heap FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO make_heap;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO make_heap;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO make_heap_iterators;
+  }
+}
+
+DOC <$ Builds a maximum heap in linear work. $>
+PRIVATE(MODULE)
+::make_heap_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+{
+  IF (first == last) { RETURN; }
+  VAR count SZ := (last - first) AS ASSUME SZ;
+  VAR root SZ := count / 2;
+  LOOP WHILE (root != 0) DO
+  { root--; algorithm_sift_down(@first first, @count count, @root root, @compare compare, @projection projection); }
+}
+
+DOC <$ Extends the heap preceding the final element to include that element. $>
+::push_heap FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO push_heap;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO push_heap;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO push_heap_iterators;
+  }
+}
+
+DOC <$ Extends the heap preceding the final element to include that element. $>
+PRIVATE(MODULE)
+::push_heap_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+{
+  IF (first == last) { RETURN; }
+  VAR child SZ := ((last - first) AS ASSUME SZ) - 1;
+  LOOP WHILE (child != 0) DO
+  {
+    VAR parent SZ := (child - 1) / 2;
+    VAR lower input_iterator := first + child; VAR upper input_iterator := first + parent;
+    IF (compare(@left projection(upper->), @right projection(lower->)) != ORDER::LESS) { BREAK; }
+    upper-> <-> lower->; child := parent;
+  }
+}
+
+DOC <$ Moves the maximum to the final position and restores the preceding heap. $>
+::pop_heap FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO pop_heap;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO pop_heap;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO pop_heap_iterators;
+  }
+}
+
+DOC <$ Moves the maximum to the final position and restores the preceding heap. $>
+PRIVATE(MODULE)
+::pop_heap_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+{
+  IF (first == last) { RETURN; }
+  VAR count SZ := (last - first) AS ASSUME SZ;
+  IF (count < 2) { RETURN; }
+  VAR final input_iterator := last - (1 AS SZ);
+  first-> <-> final->;
+  algorithm_sift_down(@first first, @count count - 1, @root 0, @compare compare, @projection projection);
+}
+
+DOC <$ Sorts a maximum heap into ascending order. $>
+::sort_heap FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO sort_heap;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO sort_heap;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO sort_heap_iterators;
+  }
+}
+
+DOC <$ Sorts a maximum heap into ascending order. $>
+PRIVATE(MODULE)
+::sort_heap_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+{
+  LOOP WHILE (first != last) DO
+  { pop_heap(@first first, @last last, @compare compare, @projection projection); last--; }
+}
+
+DOC <$ Returns the first heap-order violation, or the exclusive end. $>
+::is_heap_until FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO is_heap_until;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO is_heap_until;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO is_heap_until_iterators;
+  }
+}
+
+DOC <$ Returns the first heap-order violation, or the exclusive end. $>
+PRIVATE(MODULE)
+::is_heap_until_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+{
+  IF (first == last) { RETURN last; }
+  VAR count SZ := (last - first) AS ASSUME SZ;
+  LOOP VALUE(index) FROM(1 AS SZ) UNTIL(count) DO
+  {
+    VAR parent input_iterator := first + ((index - 1) / 2);
+    VAR child input_iterator := first + index;
+    IF (compare(@left projection(parent->), @right projection(child->)) == ORDER::LESS) { RETURN child; }
+  }
+  RETURN last;
+}
+
+DOC <$ Tests the maximum-heap ordering relation. $>
+::is_heap FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO is_heap;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO is_heap;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO is_heap_iterators;
+  }
+}
+
+DOC <$ Tests the maximum-heap ordering relation. $>
+PRIVATE(MODULE)
+::is_heap_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): BOOL
+{
+  RETURN is_heap_until(@first first, @last last, @compare compare, @projection projection) == last;
+}
+
+DOC <$ Orders a bounded small sequence using adjacent element exchanges. $>
+PRIVATE(MODULE)
+::algorithm_insertion_sort
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+{
+  IF (first == last) { RETURN; }
+  VAR cursor input_iterator := first; cursor++;
+  LOOP WHILE (cursor != last) DO
+  {
+    VAR position input_iterator := cursor;
+    LOOP WHILE (position != first) DO
+    {
+      VAR previous input_iterator := position - (1 AS SZ);
+      IF (compare(@left projection(position->), @right projection(previous->)) != ORDER::LESS) { BREAK; }
+      position-> <-> previous->; position := previous;
+    }
+    cursor++;
+  }
+}
+
+DOC <$ Partitions around the final element and writes the bounds of its equivalence band. $>
+PRIVATE(MODULE)
+::algorithm_partition_equal
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @lower MUT& AUTO(input_iterator), @upper MUT& AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+{
+  VAR pivot input_iterator := last - (1 AS SZ);
+  lower := first;
+  VAR cursor input_iterator := first;
+  upper := pivot;
+  LOOP WHILE (cursor < upper) DO
+  {
+    VAR order ORDER := compare(@left projection(cursor->), @right projection(pivot->));
+    IF (order == ORDER::LESS) { lower-> <-> cursor->; lower++; cursor++; }
+    ELSE IF (order == ORDER::GREATER) { upper--; cursor-> <-> upper->; }
+    ELSE { cursor++; }
+  }
+  upper-> <-> pivot->;
+  upper++;
+}
+
+DOC <$ Uses bounded-depth three-way partitioning and processes the smaller partition recursively. $>
+PRIVATE(MODULE)
+::algorithm_intro_sort
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @depth SZ, @compare TT(compare_type), @projection TT(projection_type))
+{
+  LOOP WHILE (first != last) DO
+  {
+    VAR count SZ := (last - first) AS ASSUME SZ;
+    IF (count <= 16)
+    { algorithm_insertion_sort(@first first, @last last, @compare compare, @projection projection); RETURN; }
+    IF (depth == 0)
+    {
+      make_heap(@first first, @last last, @compare compare, @projection projection);
+      sort_heap(@first first, @last last, @compare compare, @projection projection);
+      RETURN;
+    }
+    depth--;
+    VAR middle input_iterator := first + (count / 2);
+    VAR final input_iterator := last - (1 AS SZ);
+    IF (compare(@left projection(middle->), @right projection(first->)) == ORDER::LESS) { middle-> <-> first->; }
+    IF (compare(@left projection(final->), @right projection(middle->)) == ORDER::LESS) { final-> <-> middle->; }
+    IF (compare(@left projection(middle->), @right projection(first->)) == ORDER::LESS) { middle-> <-> first->; }
+    middle-> <-> final->;
+    VAR lower input_iterator := first;
+    VAR upper input_iterator := last;
+    algorithm_partition_equal(@first first, @last last, @lower lower, @upper upper, @compare compare, @projection projection);
+    IF ((lower - first) < (last - upper))
+    {
+      algorithm_intro_sort(@first first, @last lower, @depth depth, @compare compare, @projection projection);
+      first := upper;
+    }
+    ELSE
+    {
+      algorithm_intro_sort(@first upper, @last last, @depth depth, @compare compare, @projection projection);
+      last := lower;
+    }
+  }
+}
+
+DOC <$ Sorts with deterministic introsort, worst-case O(N log N) comparisons and O(log N) stack. $>
+::sort FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO sort;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO sort;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO sort_iterators;
+  }
+}
+
+DOC <$ Sorts with deterministic introsort, worst-case O(N log N) comparisons and O(log N) stack. $>
+PRIVATE(MODULE)
+::sort_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+{
+  IF (first == last) { RETURN; }
+  VAR remaining SZ := (last - first) AS ASSUME SZ;
+  VAR depth SZ := 0;
+  LOOP WHILE (remaining > 1) DO { remaining /= 2; depth += 2; }
+  algorithm_intro_sort(@first first, @last last, @depth depth, @compare compare, @projection projection);
+}
+
+DOC <$ Partitions around nth using deterministic median-of-medians selection with worst-case linear comparisons. $>
+::nth_element FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO nth_element;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO nth_element;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO nth_element_iterators;
+  }
+}
+
+DOC <$ Partitions around nth using deterministic median-of-medians selection with worst-case linear comparisons. $>
+PRIVATE(MODULE)
+::nth_element_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @nth AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+{
+  IF (nth == last) { RETURN; }
+  LOOP WHILE (first != last) DO
+  {
+    VAR count SZ := (last - first) AS ASSUME SZ;
+    IF (count <= 5)
+    { algorithm_insertion_sort(@first first, @last last, @compare compare, @projection projection); RETURN; }
+    VAR groups SZ := count / 5;
+    IF ((count % 5) != 0) { groups++; }
+    LOOP VALUE(group) FROM(0 AS SZ) UNTIL(groups) DO
+    {
+      VAR begin input_iterator := first + (group * 5);
+      VAR length SZ := count - group * 5;
+      IF (length > 5) { length := 5; }
+      VAR end input_iterator := begin + length;
+      algorithm_insertion_sort(@first begin, @last end, @compare compare, @projection projection);
+      VAR median input_iterator := begin + (length / 2);
+      VAR destination input_iterator := first + group;
+      median-> <-> destination->;
+    }
+    VAR median input_iterator := first + (groups / 2);
+    nth_element(@first first, @last first + groups, @nth median, @compare compare, @projection projection);
+    VAR final input_iterator := last - (1 AS SZ);
+    median-> <-> final->;
+    VAR lower input_iterator := first;
+    VAR upper input_iterator := last;
+    algorithm_partition_equal(@first first, @last last, @lower lower, @upper upper, @compare compare, @projection projection);
+    IF (nth < lower) { last := lower; }
+    ELSE IF (nth < upper) { RETURN; }
+    ELSE { first := upper; }
+  }
+}
+
+DOC <$ Sorts the smallest middle-first elements into the prefix using heap selection. $>
+::partial_sort FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO partial_sort;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO partial_sort;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO partial_sort_iterators;
+  }
+}
+
+DOC <$ Sorts the smallest middle-first elements into the prefix using heap selection. $>
+PRIVATE(MODULE)
+::partial_sort_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+{
+  IF (first == middle) { RETURN; }
+  make_heap(@first first, @last middle, @compare compare, @projection projection);
+  VAR count SZ := (middle - first) AS ASSUME SZ;
+  VAR cursor input_iterator := middle;
+  LOOP WHILE (cursor != last) DO
+  {
+    IF (compare(@left projection(cursor->), @right projection(first->)) == ORDER::LESS)
+    {
+      cursor-> <-> first->;
+      algorithm_sift_down(@first first, @count count, @root 0, @compare compare, @projection projection);
+    }
+    cursor++;
+  }
+  sort_heap(@first first, @last middle, @compare compare, @projection projection);
+}
+
+DOC <$ Copies the smallest elements that fit into a bounded random-access destination and sorts them. $>
+::partial_sort_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO partial_sort_copy;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO partial_sort_copy;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO partial_sort_copy_iterators;
+  }
+}
+
+DOC <$ Copies the smallest elements that fit into a bounded random-access destination and sorts them. $>
+PRIVATE(MODULE)
+::partial_sort_copy_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output_first AUTO(output_iterator), @output_last AUTO(output_iterator), @compare TT(compare_type), @projection TT(projection_type)): AUTO
+{
+  VAR output output_iterator := output_first;
+  LOOP WHILE (first != last && output != output_last) DO
+  { output-> := first->; output++; first++; }
+  IF (output == output_first)
+  { LOOP WHILE (first != last) DO { first++; } RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; }; }
+  make_heap(@first output_first, @last output, @compare compare, @projection projection);
+  VAR count SZ := (output - output_first) AS ASSUME SZ;
+  LOOP WHILE (first != last) DO
+  {
+    IF (compare(@left projection(first->), @right projection(output_first->)) == ORDER::LESS)
+    {
+      output_first-> := first->;
+      algorithm_sift_down(@first output_first, @count count, @root 0, @compare compare, @projection projection);
+    }
+    first++;
+  }
+  sort_heap(@first output_first, @last output, @compare compare, @projection projection);
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Returns the first descending adjacent position, or the input end. $>
+::is_sorted_until FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO is_sorted_until;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO is_sorted_until;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO is_sorted_until_iterators;
+  }
+}
+
+DOC <$ Returns the first descending adjacent position, or the input end. $>
+PRIVATE(MODULE)
+::is_sorted_until_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+{
+  IF (first == last) { RETURN first; }
+  VAR previous input_iterator := first; first++;
+  LOOP WHILE (first != last) DO
+  {
+    IF (compare(@left projection(previous->), @right projection(first->)) == ORDER::GREATER) { RETURN first; }
+    previous := first; first++;
+  }
+  RETURN first;
+}
+
+DOC <$ Tests nondecreasing projected values. $>
+::is_sorted FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO is_sorted;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO is_sorted;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO is_sorted_iterators;
+  }
+}
+
+DOC <$ Tests nondecreasing projected values. $>
+PRIVATE(MODULE)
+::is_sorted_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): BOOL
+{
+  RETURN is_sorted_until(@first first, @last last, @compare compare, @projection projection) == last;
+}
+
+DOC <$ Finds the random-access partition boundary with logarithmic comparisons and movement. $>
+::lower_bound FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO lower_bound;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO lower_bound;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO lower_bound_iterators;
+  }
+}
+
+DOC <$ Finds the random-access partition boundary with logarithmic comparisons and movement. $>
+PRIVATE(MODULE)
+::lower_bound_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+{
+  IF (first == last) { RETURN first; }
+  VAR count SZ := (last - first) AS ASSUME SZ;
+  LOOP WHILE (count != 0) DO
+  {
+    VAR step SZ := count / 2;
+    VAR middle input_iterator := first + step;
+    IF (compare(@left projection(middle->), @right value) == ORDER::LESS) { first := middle; first++; count -= step + 1; }
+    ELSE { count := step; }
+  }
+  RETURN first;
+}
+
+DOC <$ Finds the random-access partition boundary with logarithmic comparisons and movement. $>
+::upper_bound FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO upper_bound;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO upper_bound;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO upper_bound_iterators;
+  }
+}
+
+DOC <$ Finds the random-access partition boundary with logarithmic comparisons and movement. $>
+PRIVATE(MODULE)
+::upper_bound_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+{
+  IF (first == last) { RETURN first; }
+  VAR count SZ := (last - first) AS ASSUME SZ;
+  LOOP WHILE (count != 0) DO
+  {
+    VAR step SZ := count / 2;
+    VAR middle input_iterator := first + step;
+    IF (compare(@left projection(middle->), @right value) != ORDER::GREATER) { first := middle; first++; count -= step + 1; }
+    ELSE { count := step; }
+  }
+  RETURN first;
+}
+
+DOC <$ Finds the random-access partition boundary with logarithmic comparisons and movement. $>
+::partition_point FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO partition_point;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO partition_point_iterators;
+  }
+}
+
+DOC <$ Finds the random-access partition boundary with logarithmic comparisons and movement. $>
+PRIVATE(MODULE)
+::partition_point_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+{
+  IF (first == last) { RETURN first; }
+  VAR count SZ := (last - first) AS ASSUME SZ;
+  LOOP WHILE (count != 0) DO
+  {
+    VAR step SZ := count / 2;
+    VAR middle input_iterator := first + step;
+    IF (predicate(projection(middle->))) { first := middle; first++; count -= step + 1; }
+    ELSE { count := step; }
+  }
+  RETURN first;
+}
+
+DOC <$ Returns the sorted subsequence equivalent to the unprojected lookup value. $>
+::equal_range FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO equal_range;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO equal_range;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO equal_range_iterators;
+  }
+}
+
+DOC <$ Returns the sorted subsequence equivalent to the unprojected lookup value. $>
+PRIVATE(MODULE)
+::equal_range_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): AUTO
+{
+  VAR lower input_iterator := lower_bound(@first first, @last last, @value value, @compare compare, @projection projection);
+  VAR upper input_iterator := upper_bound(@first lower, @last last, @value value, @compare compare, @projection projection);
+  RETURN subrange(@first lower, @last upper);
+}
+
+DOC <$ Tests membership in a sorted random-access range. $>
+::binary_search FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO binary_search;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO binary_search;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO binary_search_iterators;
+  }
+}
+
+DOC <$ Tests membership in a sorted random-access range. $>
+PRIVATE(MODULE)
+::binary_search_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): BOOL
+{
+  VAR position input_iterator := lower_bound(@first first, @last last, @value value, @compare compare, @projection projection);
+  IF (position == last) { RETURN FALSE; }
+  RETURN compare(@left projection(position->), @right value) == ORDER::EQUAL;
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+::merge FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO merge;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO merge;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO merge;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO merge_iterators;
+  }
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+PRIVATE(MODULE)
+::merge_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  {
+    VAR order ORDER := compare(@left projection1(first1->), @right projection2(first2->));
+    IF (order == ORDER::LESS)
+    { output-> := first1->; output++; first1++; }
+    ELSE IF (order == ORDER::GREATER)
+    { output-> := first2->; output++; first2++; }
+    ELSE
+    { output-> := first1->; output++; first1++; }
+  }
+  LOOP WHILE (first1 != last1) DO { output-> := first1->; output++; first1++; }
+  LOOP WHILE (first2 != last2) DO { output-> := first2->; output++; first2++; }
+  RETURN :{ .in1 = first1 AS iterator1; .in2 = first2 AS iterator2; .out = output AS output_iterator; };
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+::set_union FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO set_union;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO set_union;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO set_union;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO set_union_iterators;
+  }
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+PRIVATE(MODULE)
+::set_union_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  {
+    VAR order ORDER := compare(@left projection1(first1->), @right projection2(first2->));
+    IF (order == ORDER::LESS)
+    { output-> := first1->; output++; first1++; }
+    ELSE IF (order == ORDER::GREATER)
+    { output-> := first2->; output++; first2++; }
+    ELSE
+    { output-> := first1->; output++; first1++; first2++; }
+  }
+  LOOP WHILE (first1 != last1) DO { output-> := first1->; output++; first1++; }
+  LOOP WHILE (first2 != last2) DO { output-> := first2->; output++; first2++; }
+  RETURN :{ .in1 = first1 AS iterator1; .in2 = first2 AS iterator2; .out = output AS output_iterator; };
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+::set_intersection FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO set_intersection;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO set_intersection;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO set_intersection;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO set_intersection_iterators;
+  }
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+PRIVATE(MODULE)
+::set_intersection_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  {
+    VAR order ORDER := compare(@left projection1(first1->), @right projection2(first2->));
+    IF (order == ORDER::LESS)
+    { first1++; }
+    ELSE IF (order == ORDER::GREATER)
+    { first2++; }
+    ELSE
+    { output-> := first1->; output++; first1++; first2++; }
+  }
+  RETURN :{ .in1 = first1 AS iterator1; .in2 = first2 AS iterator2; .out = output AS output_iterator; };
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+::set_difference FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO set_difference;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO set_difference;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO set_difference;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO set_difference_iterators;
+  }
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+PRIVATE(MODULE)
+::set_difference_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  {
+    VAR order ORDER := compare(@left projection1(first1->), @right projection2(first2->));
+    IF (order == ORDER::LESS)
+    { output-> := first1->; output++; first1++; }
+    ELSE IF (order == ORDER::GREATER)
+    { first2++; }
+    ELSE
+    { first1++; first2++; }
+  }
+  LOOP WHILE (first1 != last1) DO { output-> := first1->; output++; first1++; }
+  RETURN :{ .in1 = first1 AS iterator1; .in2 = first2 AS iterator2; .out = output AS output_iterator; };
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+::set_symmetric_difference FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO set_symmetric_difference;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO set_symmetric_difference;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO set_symmetric_difference;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO set_symmetric_difference_iterators;
+  }
+}
+
+DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
+PRIVATE(MODULE)
+::set_symmetric_difference_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  {
+    VAR order ORDER := compare(@left projection1(first1->), @right projection2(first2->));
+    IF (order == ORDER::LESS)
+    { output-> := first1->; output++; first1++; }
+    ELSE IF (order == ORDER::GREATER)
+    { output-> := first2->; output++; first2++; }
+    ELSE
+    { first1++; first2++; }
+  }
+  LOOP WHILE (first1 != last1) DO { output-> := first1->; output++; first1++; }
+  LOOP WHILE (first2 != last2) DO { output-> := first2->; output++; first2++; }
+  RETURN :{ .in1 = first1 AS iterator1; .in2 = first2 AS iterator2; .out = output AS output_iterator; };
+}
+
+DOC <$ Tests whether the sorted first input contains every second-input multiplicity. $>
+::includes FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO includes;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO includes;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO includes;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO includes_iterators;
+  }
+}
+
+DOC <$ Tests whether the sorted first input contains every second-input multiplicity. $>
+PRIVATE(MODULE)
+::includes_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): BOOL
+{
+  LOOP WHILE (first2 != last2) DO
+  {
+    IF (first1 == last1) { RETURN FALSE; }
+    VAR order ORDER := compare(@left projection1(first1->), @right projection2(first2->));
+    IF (order == ORDER::GREATER) { RETURN FALSE; }
+    IF (order == ORDER::EQUAL) { first2++; }
+    first1++;
+  }
+  RETURN TRUE;
+}
+
+DOC <$ Advances the bidirectional permutation, wrapping to its opposite extreme on failure. $>
+::next_permutation FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO next_permutation;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO next_permutation;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO next_permutation_iterators;
+  }
+}
+
+DOC <$ Advances the bidirectional permutation, wrapping to its opposite extreme on failure. $>
+PRIVATE(MODULE)
+::next_permutation_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): BOOL
+{
+  IF (first == last) { RETURN FALSE; }
+  VAR cursor input_iterator := last; cursor--;
+  IF (cursor == first) { RETURN FALSE; }
+  LOOP DO
+  {
+    VAR suffix input_iterator := cursor;
+    cursor--;
+    IF (compare(@left projection(cursor->), @right projection(suffix->)) == ORDER::LESS)
+    {
+      VAR selected input_iterator := last;
+      LOOP DO
+      { selected--; IF (compare(@left projection(cursor->), @right projection(selected->)) == ORDER::LESS) { BREAK; } }
+      cursor-> <-> selected->;
+      reverse(@first suffix, @last last);
+      RETURN TRUE;
+    }
+    IF (cursor == first) { reverse(@first first, @last last); RETURN FALSE; }
+  }
+}
+
+DOC <$ Advances the bidirectional permutation, wrapping to its opposite extreme on failure. $>
+::prev_permutation FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO prev_permutation;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO prev_permutation;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO prev_permutation_iterators;
+  }
+}
+
+DOC <$ Advances the bidirectional permutation, wrapping to its opposite extreme on failure. $>
+PRIVATE(MODULE)
+::prev_permutation_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): BOOL
+{
+  IF (first == last) { RETURN FALSE; }
+  VAR cursor input_iterator := last; cursor--;
+  IF (cursor == first) { RETURN FALSE; }
+  LOOP DO
+  {
+    VAR suffix input_iterator := cursor;
+    cursor--;
+    IF (compare(@left projection(cursor->), @right projection(suffix->)) == ORDER::GREATER)
+    {
+      VAR selected input_iterator := last;
+      LOOP DO
+      { selected--; IF (compare(@left projection(cursor->), @right projection(selected->)) == ORDER::GREATER) { BREAK; } }
+      cursor-> <-> selected->;
+      reverse(@first suffix, @last last);
+      RETURN TRUE;
+    }
+    IF (cursor == first) { reverse(@first first, @last last); RETURN FALSE; }
+  }
+}
+

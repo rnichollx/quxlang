@@ -1,0 +1,106 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ The signed element-distance type produced by array-pointer subtraction. $>
+::iterator_difference INCLUDE_IF(BITS(SZ) == 32) ALIAS I32;
+DOC <$ The signed element-distance type on targets with 64-bit pointer carriers. $>
+::iterator_difference INCLUDE_IF(BITS(SZ) == 64) ALIAS I64;
+
+DOC <$ Preserves an lvalue reference and owns an expiring argument. $>
+::identity STRUCT
+{
+  DOC <$ Preserves the projected reference or expiring value. $>
+  .OPERATOR() FUNCTION(@ARG:value AUTO& DECAY(result)) CONST: result
+  { RETURN FORWARD(value); }
+}
+
+DOC <$ Compares two values through their equality operator. $>
+::equal_to STRUCT
+{
+  DOC <$ Applies the equality operator. $>
+  .OPERATOR() FUNCTION(@left CONST& AUTO, @right CONST& AUTO) CONST: BOOL
+  { RETURN left == right; }
+}
+
+DOC <$ Compares two values through their three-way ordering operator. $>
+::compare_three_way STRUCT
+{
+  DOC <$ Applies the three-way ordering operator. $>
+  .OPERATOR() FUNCTION(@left CONST& AUTO, @right CONST& AUTO) CONST: ORDER
+  { RETURN left <=> right; }
+}
+
+DOC <$ Borrows the half-open sequence bounded by first and last. $>
+::iterator_range TEMPLATE(@iterator TYPE AUTO, @sentinel TYPE AUTO) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .first VAR iterator;
+    .last VAR sentinel;
+  }
+  DOC <$ Copies the supplied sequence boundaries. $>
+  .CONSTRUCTOR FUNCTION(@first iterator, @last sentinel)
+  { .first := first; .last := last; }
+  DOC <$ Returns the initial iterator. $>
+  .BEGIN FUNCTION() CONST: iterator { RETURN .first; }
+  DOC <$ Returns the exclusive boundary. $>
+  .END FUNCTION() CONST: sentinel { RETURN .last; }
+}
+
+DOC <$ Deduces a borrowed range from its initial iterator and exclusive boundary. $>
+::subrange FUNCTION(@first AUTO(iterator_type), @last AUTO(sentinel_type)): iterator_range#(@iterator iterator_type, @sentinel sentinel_type)
+{ RETURN iterator_range#(@iterator iterator_type, @sentinel sentinel_type)(@first first, @last last); }
+
+DOC <$ Appends assigned values to a borrowed container through push_back. $>
+::back_insert_iterator TEMPLATE(@T TYPE AUTO) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    DOC <$ Forwards one assigned value to the destination container. $>
+    ::slot STRUCT
+    {
+      .container VAR MUT->T;
+      DOC <$ Appends the assigned value, preserving its access qualification. $>
+      .OPERATOR:= FUNCTION(@OTHER AUTO& AUTO) MUT
+      { .container->.push_back(FORWARD(OTHER)); }
+    }
+    .destination VAR slot;
+  }
+  DOC <$ Borrows container for every subsequent assignment. $>
+  .CONSTRUCTOR FUNCTION(@container MUT& T)
+  { .destination.container := container<-; }
+  DOC <$ Copies the borrowed destination without appending an element. $>
+  .OPERATOR:= FUNCTION(@OTHER CONST& back_insert_iterator#T) MUT
+  { .destination.container := OTHER.destination.container; }
+  DOC <$ Returns the assignment slot. $>
+  .OPERATOR-> FUNCTION() MUT: MUT& slot { RETURN .destination; }
+  DOC <$ Exposes the assignment slot of a temporary postfix-increment result. $>
+  .OPERATOR-> FUNCTION() TEMP: MUT& slot { RETURN .destination AS MUT& slot; }
+  DOC <$ Preserves the append destination and returns an equivalent iterator. $>
+  .OPERATOR++ FUNCTION() MUT: back_insert_iterator#T { RETURN THIS; }
+}
+
+DOC <$ Deduces an output iterator that appends to a mutable container. $>
+::back_inserter FUNCTION(@ARG:container MUT& AUTO(container_type)): back_insert_iterator#container_type
+{ RETURN back_insert_iterator#container_type(@container container); }
+
+DOC <$
+  Borrows count uninitialized T slots. The slots contain no live T objects on
+  entry to an algorithm and must remain alive and disjoint from its elements.
+  $>
+::scratch_ref TEMPLATE(@T TYPE AUTO) STRUCT
+{
+  DOC <$ Names the payload type authorized by each borrowed storage slot. $>
+  ::element_type ALIAS T;
+  PRIVATE(CLASS)
+  {
+    .storage VAR MUT=>>TYPED_STORAGE(T);
+    .count VAR SZ;
+  }
+  DOC <$ Borrows storage without starting any payload lifetime. $>
+  .CONSTRUCTOR FUNCTION(@storage MUT=>>TYPED_STORAGE(T), @count SZ)
+  { .storage := storage; .count := count; }
+  DOC <$ Returns the borrowed storage pointer. $>
+  .data FUNCTION() CONST: MUT=>>TYPED_STORAGE(T) { RETURN .storage; }
+  DOC <$ Returns the number of available slots. $>
+  .size FUNCTION() CONST: SZ { RETURN .count; }
+}

@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-DOC <$ Returns the number of significant bits of value, or zero for zero. $>
+DOC <$ The bit_width function returns the number of significant bits in value. The result is zero when value is zero. $>
 ::bit_width
   FUNCTION(@ARG:value SZ): SZ
 {
@@ -12,14 +12,22 @@ DOC <$ Returns the number of significant bits of value, or zero for zero. $>
 }
 
 DOC <$
-  Owns a sequence in segments of one, two, four and successively doubled sizes.
-  Append and reserve preserve element addresses. Indexing uses the significant
-  bits of index plus one to select a segment. Empty slots do not construct T.
-  Removal retains at most one empty trailing segment; shrink_to_fit releases all
-  empty segments. Moves transfer ownership and leave the source empty.
-  Failed reserve or resize preserves the original elements and size. Capacity
-  may change after a failed resize. Counts must remain below the maximum SZ
-  value; exceeding that limit throws container_error::size_overflow.
+  A geometric_array stores T objects in segments whose capacities are successive
+  powers of two, beginning with one element. Appending elements and reserving
+  capacity preserve existing element addresses. Indexing selects a segment from
+  the most significant set bit of index plus one. Unused slots contain no live
+  T objects.
+  Element removal retains at most one empty trailing segment. The shrink_to_fit
+  operation releases all empty segments. A move from a different array transfers
+  segment ownership and leaves the source array empty.
+  A failed reserve or resize operation preserves the original elements and size.
+  A failed resize operation may change capacity. Element counts must be less than
+  the maximum SZ value. A requested size or capacity equal to that value causes
+  container_error::size_overflow to be thrown.
+  Mutable and constant iterators support random access by logical element index.
+  The position produced by iterator arithmetic must lie between BEGIN() and END(),
+  inclusive. Ordering and iterator subtraction require iterators from the same
+  array. Iterator differences must be representable in iterator_difference.
   Element destructors must not throw.
   $>
 ::geometric_array
@@ -27,7 +35,7 @@ DOC <$
 {
   PRIVATE(MODULE, RUNTIME_MODULE)
   {
-    DOC <$ Owns one allocation and the constructed prefix of its typed slots. $>
+    DOC <$ A segment owns one allocation and the live objects in the initial portion of its typed storage. $>
     ::segment
       STRUCT MOVE_ONLY
     {
@@ -56,7 +64,7 @@ DOC <$
     }
   }
 
-  DOC <$ Traverses mut elements in geometric_array. Erasure invalidates the erased position; ownership transfer may invalidate the iterator. $>
+  DOC <$ The iterator type provides random access to mutable elements. Removing an element invalidates iterators to that element. Moving or swapping the array may invalidate its iterators. $>
   ::iterator
     STRUCT
   {
@@ -66,19 +74,58 @@ DOC <$
       .index VAR SZ;
       .CONSTRUCTOR FUNCTION(@owner MUT->geometric_array#T, @index SZ) { .owner := owner; .index := index; }
     }
-    DOC <$ Compares iterator positions. $>
+    DOC <$ The equality operator returns TRUE when both iterators refer to the same array and position. $>
     .OPERATOR==
       FUNCTION(@OTHER CONST& geometric_array#(T)::iterator) CONST: BOOL { RETURN .owner == OTHER.owner && .index == OTHER.index; }
-    DOC <$ Advances and returns the previous position. $>
+    DOC <$ The three-way comparison operator orders iterators by logical element index. Both iterators must refer to the same array. $>
+    .OPERATOR<=>
+      FUNCTION(@OTHER CONST& geometric_array#(T)::iterator) CONST: ORDER
+    {
+      ASSERT(.owner == OTHER.owner, "Cannot order iterators from different geometric arrays.");
+      RETURN .index <=> OTHER.index;
+    }
+    DOC <$ The postfix increment operator advances the iterator by one element and returns its previous value. The iterator must precede END(). $>
     .OPERATOR++
       FUNCTION() MUT: geometric_array#(T)::iterator
     { VAR previous geometric_array#(T)::iterator := THIS; INVARIANT(.index < .owner->.size(), "Cannot advance a geometric-array end iterator."); .index++; RETURN previous; }
-    DOC <$ Returns the current element with the iterator's access qualification. $>
+    DOC <$ The postfix decrement operator moves the iterator back by one element and returns its previous value. The iterator must follow BEGIN(). $>
+    .OPERATOR--
+      FUNCTION() MUT: geometric_array#(T)::iterator
+    { VAR previous geometric_array#(T)::iterator := THIS; .index--; RETURN previous; }
+    DOC <$ The += operator advances the iterator by OTHER elements and returns a reference to the modified iterator. $>
+    .OPERATOR+=
+      FUNCTION(@OTHER SZ) MUT: MUT& geometric_array#(T)::iterator
+    { .index += OTHER; RETURN THIS; }
+    DOC <$ The -= operator moves the iterator back by OTHER elements and returns a reference to the modified iterator. $>
+    .OPERATOR-=
+      FUNCTION(@OTHER SZ) MUT: MUT& geometric_array#(T)::iterator
+    { .index -= OTHER; RETURN THIS; }
+    DOC <$ The + operator returns an iterator OTHER elements after the current position. $>
+    .OPERATOR+
+      FUNCTION(@OTHER SZ) CONST: geometric_array#(T)::iterator
+    { RETURN geometric_array#(T)::iterator(@owner .owner, @index .index + OTHER); }
+    DOC <$ The - operator with an SZ operand returns an iterator OTHER elements before the current position. $>
+    .OPERATOR-
+      FUNCTION(@OTHER SZ) CONST: geometric_array#(T)::iterator
+    { RETURN geometric_array#(T)::iterator(@owner .owner, @index .index - OTHER); }
+    DOC <$ Subtracting another iterator returns the signed number of elements from OTHER to THIS. Both iterators must refer to the same array. $>
+    .OPERATOR-
+      FUNCTION(@OTHER CONST& geometric_array#(T)::iterator) CONST: iterator_difference
+    {
+      ASSERT(.owner == OTHER.owner, "Cannot subtract iterators from different geometric arrays.");
+      IF (.index >= OTHER.index) { RETURN (.index - OTHER.index) AS ASSUME iterator_difference; }
+      VAR magnitude SZ := OTHER.index - .index;
+      RETURN (0 AS iterator_difference) - ((magnitude - 1) AS ASSUME iterator_difference) - 1;
+    }
+    DOC <$ The subscript operator returns a mutable reference to the element at the specified offset from the iterator. The selected position must precede END(). $>
+    .OPERATOR[]
+      FUNCTION(%offset SZ) CONST: MUT& T { RETURN (.owner->)[.index + offset]; }
+    DOC <$ The dereference operator returns a mutable reference to the current element. The iterator must precede END(). $>
     .OPERATOR->
       FUNCTION() CONST: MUT& T { RETURN (.owner->)[.index]; }
   }
 
-  DOC <$ Traverses const elements in geometric_array. Erasure invalidates the erased position; ownership transfer may invalidate the iterator. $>
+  DOC <$ The const_iterator type provides random access to constant elements. Removing an element invalidates iterators to that element. Moving or swapping the array may invalidate its iterators. $>
   ::const_iterator
     STRUCT
   {
@@ -88,14 +135,57 @@ DOC <$
       .index VAR SZ;
       .CONSTRUCTOR FUNCTION(@owner CONST->geometric_array#T, @index SZ) { .owner := owner; .index := index; }
     }
-    DOC <$ Compares iterator positions. $>
+    DOC <$ The constructor creates a constant iterator that refers to the same array and position as OTHER. $>
+    .CONSTRUCTOR
+      FUNCTION(@OTHER CONST& geometric_array#(T)::iterator)
+    { .owner := OTHER.owner; .index := OTHER.index; }
+    DOC <$ The equality operator returns TRUE when both iterators refer to the same array and position. $>
     .OPERATOR==
       FUNCTION(@OTHER CONST& geometric_array#(T)::const_iterator) CONST: BOOL { RETURN .owner == OTHER.owner && .index == OTHER.index; }
-    DOC <$ Advances and returns the previous position. $>
+    DOC <$ The three-way comparison operator orders iterators by logical element index. Both iterators must refer to the same array. $>
+    .OPERATOR<=>
+      FUNCTION(@OTHER CONST& geometric_array#(T)::const_iterator) CONST: ORDER
+    {
+      ASSERT(.owner == OTHER.owner, "Cannot order iterators from different geometric arrays.");
+      RETURN .index <=> OTHER.index;
+    }
+    DOC <$ The postfix increment operator advances the iterator by one element and returns its previous value. The iterator must precede END(). $>
     .OPERATOR++
       FUNCTION() MUT: geometric_array#(T)::const_iterator
     { VAR previous geometric_array#(T)::const_iterator := THIS; INVARIANT(.index < .owner->.size(), "Cannot advance a geometric-array end iterator."); .index++; RETURN previous; }
-    DOC <$ Returns the current element with the iterator's access qualification. $>
+    DOC <$ The postfix decrement operator moves the iterator back by one element and returns its previous value. The iterator must follow BEGIN(). $>
+    .OPERATOR--
+      FUNCTION() MUT: geometric_array#(T)::const_iterator
+    { VAR previous geometric_array#(T)::const_iterator := THIS; .index--; RETURN previous; }
+    DOC <$ The += operator advances the iterator by OTHER elements and returns a reference to the modified iterator. $>
+    .OPERATOR+=
+      FUNCTION(@OTHER SZ) MUT: MUT& geometric_array#(T)::const_iterator
+    { .index += OTHER; RETURN THIS; }
+    DOC <$ The -= operator moves the iterator back by OTHER elements and returns a reference to the modified iterator. $>
+    .OPERATOR-=
+      FUNCTION(@OTHER SZ) MUT: MUT& geometric_array#(T)::const_iterator
+    { .index -= OTHER; RETURN THIS; }
+    DOC <$ The + operator returns an iterator OTHER elements after the current position. $>
+    .OPERATOR+
+      FUNCTION(@OTHER SZ) CONST: geometric_array#(T)::const_iterator
+    { RETURN geometric_array#(T)::const_iterator(@owner .owner, @index .index + OTHER); }
+    DOC <$ The - operator with an SZ operand returns an iterator OTHER elements before the current position. $>
+    .OPERATOR-
+      FUNCTION(@OTHER SZ) CONST: geometric_array#(T)::const_iterator
+    { RETURN geometric_array#(T)::const_iterator(@owner .owner, @index .index - OTHER); }
+    DOC <$ Subtracting another iterator returns the signed number of elements from OTHER to THIS. Both iterators must refer to the same array. $>
+    .OPERATOR-
+      FUNCTION(@OTHER CONST& geometric_array#(T)::const_iterator) CONST: iterator_difference
+    {
+      ASSERT(.owner == OTHER.owner, "Cannot subtract iterators from different geometric arrays.");
+      IF (.index >= OTHER.index) { RETURN (.index - OTHER.index) AS ASSUME iterator_difference; }
+      VAR magnitude SZ := OTHER.index - .index;
+      RETURN (0 AS iterator_difference) - ((magnitude - 1) AS ASSUME iterator_difference) - 1;
+    }
+    DOC <$ The subscript operator returns a constant reference to the element at the specified offset from the iterator. The selected position must precede END(). $>
+    .OPERATOR[]
+      FUNCTION(%offset SZ) CONST: CONST& T { RETURN (.owner->)[.index + offset]; }
+    DOC <$ The dereference operator returns a constant reference to the current element. The iterator must precede END(). $>
     .OPERATOR->
       FUNCTION() CONST: CONST& T { RETURN (.owner->)[.index]; }
   }
@@ -105,7 +195,7 @@ DOC <$
     .segments VAR dynarr#(geometric_array#(T)::segment);
     .length VAR SZ;
 
-    DOC <$ Releases trailing empty segments until retained segments remain. $>
+    DOC <$ The trim function releases trailing empty segments until at most retained segments remain. $>
     .trim
       FUNCTION(@ARG:retained SZ) MUT
     {
@@ -113,11 +203,11 @@ DOC <$
     }
   }
 
-  DOC <$ Creates an empty sequence without allocating storage. $>
+  DOC <$ The default constructor creates an empty array without allocating storage. $>
   .CONSTRUCTOR
     FUNCTION() { }
 
-  DOC <$ Copies elements in order into independent segments. $>
+  DOC <$ The copy constructor copies the elements of OTHER, in order, into separately allocated segments. $>
   .CONSTRUCTOR
     FUNCTION(@OTHER CONST& geometric_array#T)
   {
@@ -125,22 +215,22 @@ DOC <$
     { .emplace_back(@OTHER OTHER[index]); }
   }
 
-  DOC <$ Transfers segments and leaves OTHER empty. $>
+  DOC <$ The move constructor transfers the segments of OTHER to the new array and leaves OTHER empty. $>
   .CONSTRUCTOR
     FUNCTION(@OTHER TEMP& geometric_array#T)
   { .segments <-> OTHER.segments; .length <-> OTHER.length; }
 
-  DOC <$ Exchanges segment ownership and logical sizes. $>
+  DOC <$ The swap operator exchanges the segments and sizes of the two arrays. $>
   .OPERATOR<->
     FUNCTION(@OTHER MUT& geometric_array#T) MUT
   { .segments <-> OTHER.segments; .length <-> OTHER.length; }
 
-  DOC <$ Copies OTHER before replacing the current sequence. $>
+  DOC <$ Copy assignment constructs a copy of OTHER before replacing the current array. $>
   .OPERATOR:=
     FUNCTION(@OTHER CONST& geometric_array#T) MUT
   { VAR replacement geometric_array#T := OTHER; THIS <-> replacement; }
 
-  DOC <$ Replaces the sequence by OTHER, leaving OTHER empty. Self-move preserves the sequence. $>
+  DOC <$ Move assignment transfers the contents of OTHER to the current array and leaves OTHER empty. Assignment from the same array preserves its contents. $>
   .OPERATOR:=
     FUNCTION(@OTHER TEMP& geometric_array#T) MUT
   {
@@ -149,11 +239,11 @@ DOC <$
     THIS <-> replacement;
   }
 
-  DOC <$ Returns the number of constructed elements. $>
+  DOC <$ The size function returns the number of live elements. $>
   .size
     FUNCTION() CONST: SZ { RETURN .length; }
 
-  DOC <$ Returns the number of allocated slots. $>
+  DOC <$ The capacity function returns the number of allocated element slots. $>
   .capacity
     FUNCTION() CONST: SZ
   {
@@ -161,11 +251,11 @@ DOC <$
     RETURN ((1 AS SZ) #++ .segments.size()) - 1;
   }
 
-  DOC <$ Reports whether the sequence is empty. $>
+  DOC <$ The empty function returns TRUE when the array contains no elements. $>
   .empty
     FUNCTION() CONST: BOOL { RETURN .length == 0; }
 
-  DOC <$ Allocates complete segments for capacity elements, preserving live objects. Failure releases newly allocated segments. $>
+  DOC <$ The reserve function allocates sufficient segments for at least capacity elements and preserves existing elements. The function releases newly allocated segments if allocation fails. $>
   .reserve
     FUNCTION(@ARG:capacity SZ) MUT
   {
@@ -183,7 +273,7 @@ DOC <$
     committed := TRUE;
   }
 
-  DOC <$ Constructs one element from forwarded arguments and commits its size after construction succeeds. $>
+  DOC <$ The emplace_back function constructs an element at the end of the array from the forwarded arguments. The array size increases after construction succeeds. $>
   .emplace_back
     FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT: MUT& T
   {
@@ -212,12 +302,12 @@ DOC <$
     RETURN THIS[.length - 1];
   }
 
-  DOC <$ Appends a copied or moved value without relocating existing elements. $>
+  DOC <$ The push_back function appends a copy of value or moves value into the array. Existing element addresses remain valid. $>
   .push_back
     FUNCTION(@ARG:value AUTO& T) MUT
   { .emplace_back(@OTHER FORWARD(value)); }
 
-  DOC <$ Destroys the last element and retains at most one empty trailing segment. Requires a nonempty sequence. $>
+  DOC <$ The pop_back function destroys the last element and retains at most one empty trailing segment. The array must contain at least one element. $>
   .pop_back
     FUNCTION() MUT
   {
@@ -230,7 +320,7 @@ DOC <$
     .trim(bit_width(.length) + 1);
   }
 
-  DOC <$ Destroys a suffix or default-constructs a suffix, rolling back newly constructed elements on failure. $>
+  DOC <$ The resize function removes elements from the end or default constructs new elements to obtain the requested size. The function destroys newly constructed elements if growth fails. $>
   .resize
     FUNCTION(@ARG:size SZ) MUT
   {
@@ -243,15 +333,15 @@ DOC <$
     committed := TRUE;
   }
 
-  DOC <$ Destroys all elements, retaining at most the initial segment. $>
+  DOC <$ The clear function destroys all elements and retains at most the initial segment. $>
   .clear
     FUNCTION() MUT { LOOP WHILE (.length != 0) DO { .pop_back(); } .trim(1); }
 
-  DOC <$ Releases every empty trailing segment without relocating live elements. $>
+  DOC <$ The shrink_to_fit function releases all empty trailing segments and preserves existing element addresses. $>
   .shrink_to_fit
     FUNCTION() MUT { .trim(bit_width(.length)); }
 
-  DOC <$ Returns the mutable element at index. Requires index less than size. $>
+  DOC <$ The subscript operator returns a mutable reference to the element at index. The index must be less than size(). $>
   .OPERATOR[]
     FUNCTION(%index SZ) MUT: MUT& T
   {
@@ -260,7 +350,7 @@ DOC <$
     RETURN PUN .segments[segment].storage[(index + 1) - ((1 AS SZ) #++ segment)] AS T;
   }
 
-  DOC <$ Returns the constant element at index. Requires index less than size. $>
+  DOC <$ The subscript operator returns a constant reference to the element at index. The index must be less than size(). $>
   .OPERATOR[]
     FUNCTION(%index SZ) CONST: CONST& T
   {
@@ -269,31 +359,31 @@ DOC <$
     RETURN PUN .segments[segment].storage[(index + 1) - ((1 AS SZ) #++ segment)] AS T;
   }
 
-  DOC <$ Returns the first element. Requires a nonempty sequence. $>
+  DOC <$ The front function returns a reference to the first element. The array must contain at least one element. $>
   .front
     FUNCTION(@THIS AUTO& THISTYPE): AUTO& T { RETURN THIS[0]; }
 
-  DOC <$ Returns the last element. Requires a nonempty sequence. $>
+  DOC <$ The back function returns a reference to the last element. The array must contain at least one element. $>
   .back
     FUNCTION(@THIS AUTO& THISTYPE): AUTO& T { RETURN THIS[.length - 1]; }
 
-  DOC <$ Returns the first mut iterator. $>
+  DOC <$ The mutable BEGIN overload returns an iterator at the beginning of the array. $>
   .BEGIN
     FUNCTION() MUT: geometric_array#(T)::iterator { RETURN geometric_array#(T)::iterator(@owner THIS<-, @index 0); }
-  DOC <$ Returns the past-the-end mut iterator. $>
+  DOC <$ The mutable END overload returns an iterator at the exclusive end of the array. $>
   .END
     FUNCTION() MUT: geometric_array#(T)::iterator { RETURN geometric_array#(T)::iterator(@owner THIS<-, @index .length); }
-  DOC <$ Exposes mut element iteration. $>
+  DOC <$ The mutable VALUES overload returns a mutable reference to the array for element iteration. $>
   .VALUES
     FUNCTION() MUT: MUT& geometric_array#T { RETURN THIS; }
 
-  DOC <$ Returns the first const iterator. $>
+  DOC <$ The constant BEGIN overload returns an iterator at the beginning of the array. $>
   .BEGIN
     FUNCTION() CONST: geometric_array#(T)::const_iterator { RETURN geometric_array#(T)::const_iterator(@owner THIS<-, @index 0); }
-  DOC <$ Returns the past-the-end const iterator. $>
+  DOC <$ The constant END overload returns an iterator at the exclusive end of the array. $>
   .END
     FUNCTION() CONST: geometric_array#(T)::const_iterator { RETURN geometric_array#(T)::const_iterator(@owner THIS<-, @index .length); }
-  DOC <$ Exposes const element iteration. $>
+  DOC <$ The constant VALUES overload returns a constant reference to the array for element iteration. $>
   .VALUES
     FUNCTION() CONST: CONST& geometric_array#T { RETURN THIS; }
 }

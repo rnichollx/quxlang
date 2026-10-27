@@ -1,0 +1,641 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::algorithm_tests NAMESPACE
+{
+  DOC <$ Searches arrays and dynamic arrays through borrowed range and iterator forms. $>
+  ::basic_search DUAL_TEST
+  {
+    VAR values [4]I32 :[3, 1, 4, 1];
+    AUTO found := std::find(@range values, @value 4);
+    TEST_ASSERT(found == values[&2]);
+    TEST_ASSERT(std::count(@range values, @value 1) == 2);
+    TEST_ASSERT(std::all_of(@range values, @predicate -< (@ARG:value I32): BOOL = value > 0));
+    TEST_ASSERT(std::find(@first values.BEGIN(), @last values.END(), @value 8) == values.END());
+    AUTO extrema := std::minmax_element(@range values);
+    TEST_ASSERT(extrema.min == values[&1]);
+    TEST_ASSERT(extrema.max == values[&2]);
+    VAR dynamic std::dynarr#I32;
+    dynamic.push_back(7);
+    dynamic.push_back(9);
+    AUTO cursor := std::find(@range dynamic, @value 9);
+    TEST_ASSERT(cursor-> == 9);
+    AUTO range := std::subrange(@first values[&1], @last values[&3]);
+    TEST_ASSERT(std::count(@range range, @value 1) == 1);
+  }
+
+  DOC <$ Exercises finite searches, empty patterns, multiplicities, and owned result cursors. $>
+  ::search_relations DUAL_TEST
+  {
+    VAR values [6]I32 :[1, 2, 2, 3, 2, 2];
+    VAR pattern [2]I32 :[2, 2];
+    VAR permutation [6]I32 :[2, 3, 2, 2, 1, 2];
+    AUTO even := -< (@ARG:value I32): BOOL = value % 2 == 0;
+    TEST_ASSERT(std::any_of(@range values, @predicate even));
+    TEST_ASSERT(std::none_of(@range pattern, @predicate -< (@ARG:value I32): BOOL = value < 0));
+    TEST_ASSERT(std::count_if(@range values, @predicate even) == 4);
+    TEST_ASSERT(std::find_if(@range values, @predicate even) == values[&1]);
+    TEST_ASSERT(std::find_if_not(@range values, @predicate even) == values.BEGIN());
+    TEST_ASSERT(std::find_first_of(@range1 values, @range2 pattern) == values[&1]);
+    TEST_ASSERT(std::adjacent_find(@range values) == values[&1]);
+    AUTO first := std::search(@range1 values, @range2 pattern);
+    AUTO last := std::find_end(@range1 values, @range2 pattern);
+    TEST_ASSERT(first.BEGIN() == values[&1] && first.END() == values[&3]);
+    TEST_ASSERT(last.BEGIN() == values[&4] && last.END() == values.END());
+    AUTO run := std::search_n(@range values, @count 2, @value 2);
+    TEST_ASSERT(run.BEGIN() == values[&1] && run.END() == values[&3]);
+    AUTO empty := std::subrange(@first pattern.BEGIN(), @last pattern.BEGIN());
+    TEST_ASSERT(std::search(@range1 values, @range2 empty).BEGIN() == values.BEGIN());
+    TEST_ASSERT(std::find_end(@range1 values, @range2 empty).BEGIN() == values.END());
+    TEST_ASSERT(std::search_n(@range values, @count 0, @value 0).BEGIN() == values.BEGIN());
+    TEST_ASSERT(std::is_permutation(@range1 values, @range2 permutation));
+    TEST_ASSERT(std::equal(@range1 values, @range2 values));
+    TEST_ASSERT(std::equal(@range1 values, @range2 pattern) == FALSE);
+    AUTO different := std::mismatch(@range1 values, @range2 permutation);
+    TEST_ASSERT(different.in1 == values.BEGIN() && different.in2 == permutation.BEGIN());
+    TEST_ASSERT(std::lexicographical_compare(@range1 pattern, @range2 values) == ORDER::GREATER);
+    TEST_ASSERT(std::min_element(@range values) == values.BEGIN());
+    TEST_ASSERT(std::max_element(@range values) == values[&3]);
+    TEST_ASSERT(std::fold_left(@range pattern, @initial (0 AS I32),
+      @operation -< (@accumulator I32, @value I32): I32 = accumulator * 10 + value) == 22);
+    TEST_ASSERT(std::fold_right(@range values, @initial (0 AS I64),
+      @operation -< (@accumulator I64, @value I32): I64 = accumulator * 10 + (value AS I64)) == 223221);
+    std::for_each(@range pattern, @action -< (@ARG:value MUT& I32) { value++; });
+    TEST_ASSERT(pattern[0] == 3 && pattern[1] == 3);
+  }
+
+  DOC <$ Preserves callable state and exposes writable projected fields. $>
+  ::record STRUCT { .score VAR I32; .sequence VAR I32; }
+
+  DOC <$ Counts predicate calls without permitting a callable copy. $>
+  ::counting_predicate STRUCT MOVE_ONLY
+  {
+    .calls VAR SZ;
+    DOC <$ Tests positive integers and updates the original callable. $>
+    .OPERATOR() FUNCTION(@ARG:value I32) MUT: BOOL { .calls++; RETURN value > 0; }
+  }
+
+  DOC <$ Supports equality without supplying any ordering operation. $>
+  ::equality_value STRUCT
+  {
+    .value VAR I32;
+    DOC <$ Compares the stored integer. $>
+    .OPERATOR== FUNCTION(@OTHER CONST& equality_value) CONST: BOOL { RETURN .value == OTHER.value; }
+    DOC <$ Diagnoses an accidental requirement for ordered comparisons. $>
+    .OPERATOR<=> FUNCTION(@OTHER CONST& equality_value) CONST: ORDER
+    { COMPILATION_ERROR "This test value supports equality only."; }
+  }
+
+  DOC <$ Confirms projection, heterogeneous lookup, const access, and borrowed callable state. $>
+  ::projection_and_callbacks DUAL_TEST
+  {
+    VAR records [3]record;
+    records[0].score := 7; records[1].score := 3; records[2].score := 5;
+    AUTO score := -< (@ARG:item CONST& record): CONST& I32 = item.score;
+    TEST_ASSERT(std::find(@range records, @value 3, @projection score) == records[&1]);
+    std::sort(@range records, @projection score);
+    TEST_ASSERT(records[0].score == 3 && records[2].score == 7);
+    VAR values [3]I32 :[2, 4, 6];
+    VAR predicate counting_predicate;
+    TEST_ASSERT(std::all_of(@range values, @predicate predicate));
+    TEST_ASSERT(predicate.calls == 3);
+    VAR constant CONST& [3]I32 := values;
+    TEST_ASSERT(std::find(@range constant, @value 4) == constant[&1]);
+    VAR equality [2]equality_value;
+    equality[0].value := 9; equality[1].value := 11;
+    TEST_ASSERT(std::find(@range equality, @value equality[1]) == equality[&1]);
+    equality[0].value := 5; equality[1].value := 7;
+    AUTO key := -< (@ARG:item CONST& equality_value): CONST& I32 = item.value;
+    AUTO match := std::search(@range1 records, @range2 equality, @projection1 score, @projection2 key);
+    TEST_ASSERT(match.BEGIN() == records[&1] && match.END() == records.END());
+    AUTO tail := std::subrange(@first records[&1], @last records.END());
+    TEST_ASSERT(std::equal(@range1 tail, @range2 equality, @projection1 score, @projection2 key));
+    TEST_ASSERT(std::lexicographical_compare(@range1 tail, @range2 equality,
+      @projection1 score, @projection2 key) == ORDER::EQUAL);
+  }
+
+  DOC <$ Checks output cursor ownership, append adapters, backward overlap, and transformations. $>
+  ::transfers DUAL_TEST
+  {
+    VAR source [4]I32 :[1, 2, 3, 4];
+    VAR output [6]I32;
+    AUTO copied := std::copy(@range source, @output output.BEGIN());
+    TEST_ASSERT(copied.in == source.END() && copied.out == output[&4]);
+    TEST_ASSERT(output[0] == 1 && output[3] == 4);
+    AUTO self := std::move(@range source, @output source.BEGIN());
+    TEST_ASSERT(self.out == source.END() && source[0] == 1);
+    std::copy_backward(@range source, @output_last output.END());
+    TEST_ASSERT(output[2] == 1 && output[5] == 4);
+    std::move_backward(@first output[&2], @last output[&5], @output_last output.END());
+    TEST_ASSERT(output[3] == 1 && output[5] == 3);
+    VAR dynamic std::dynarr#I32;
+    std::copy_if(@range source, @output std::back_inserter(dynamic),
+      @predicate -< (@ARG:value I32): BOOL = value % 2 == 0);
+    TEST_ASSERT(dynamic.size() == 2 && dynamic[0] == 2 && dynamic[1] == 4);
+    AUTO append := std::back_inserter(dynamic);
+    AUTO assigned := append;
+    assigned := append;
+    (assigned++)-> := 5;
+    TEST_ASSERT(dynamic.size() == 3 && dynamic[2] == 5);
+    std::transform(@range source, @output output.BEGIN(),
+      @operation -< (@ARG:value I32): I32 = value * 3);
+    TEST_ASSERT(output[0] == 3 && output[3] == 12);
+    VAR short [2]I32 :[10, 20];
+    AUTO binary := std::transform(@range1 source, @range2 short, @output output.BEGIN(),
+      @operation -< (@left I32, @right I32): I32 = left + right);
+    TEST_ASSERT(binary.in1 == source[&2] && binary.in2 == short.END() && binary.out == output[&2]);
+    TEST_ASSERT(output[0] == 11 && output[1] == 22);
+    std::fill(@range output, @value 8);
+    TEST_ASSERT(output[5] == 8);
+    VAR next I32 := 0;
+    std::generate(@range output, @generator -< :I32 { next++; RETURN next; });
+    TEST_ASSERT(output[0] == 1 && output[5] == 6);
+    std::replace(@range output, @old_value 2, @new_value 12);
+    std::replace_if(@range output, @predicate -< (@ARG:value I32): BOOL = value > 10, @new_value 2);
+    TEST_ASSERT(output[1] == 2);
+    std::replace_copy(@range source, @output output.BEGIN(), @old_value 3, @new_value 30);
+    TEST_ASSERT(output[2] == 30);
+    std::replace_copy_if(@range source, @output output.BEGIN(),
+      @predicate -< (@ARG:value I32): BOOL = value > 2, @new_value 9);
+    TEST_ASSERT(output[1] == 2 && output[2] == 9 && output[3] == 9);
+    std::reverse_copy(@range source, @output output.BEGIN());
+    TEST_ASSERT(output[0] == 4 && output[3] == 1);
+    std::rotate_copy(@range source, @middle source[&1], @output output.BEGIN());
+    TEST_ASSERT(output[0] == 2 && output[3] == 1);
+  }
+
+  DOC <$ Checks retained order, logical ends, rotation positions, and partition outputs. $>
+  ::compaction_and_partition DUAL_TEST
+  {
+    VAR source [6]I32 :[1, 1, 2, 3, 3, 4];
+    VAR output [6]I32;
+    AUTO copied := std::unique_copy(@range source, @output output.BEGIN());
+    TEST_ASSERT(copied.out == output[&4] && output[0] == 1 && output[3] == 4);
+    AUTO end := std::unique(@range source);
+    TEST_ASSERT(end == source[&4] && source[0] == 1 && source[3] == 4);
+    AUTO retained := std::subrange(@first source.BEGIN(), @last end);
+    end := std::remove(@range retained, @value 2);
+    TEST_ASSERT(end == source[&3] && source[1] == 3);
+    retained := std::subrange(@first source.BEGIN(), @last end);
+    end := std::remove_if(@range retained, @predicate -< (@ARG:value I32): BOOL = value % 2 == 0);
+    TEST_ASSERT(end == source[&2] && source[1] == 3);
+    VAR input [5]I32 :[1, 2, 3, 4, 5];
+    copied := std::remove_copy(@range input, @output output.BEGIN(), @value 3);
+    TEST_ASSERT(copied.out == output[&4] && output[2] == 4);
+    copied := std::remove_copy_if(@range input, @output output.BEGIN(),
+      @predicate -< (@ARG:value I32): BOOL = value % 2 == 0);
+    TEST_ASSERT(copied.out == output[&3] && output[1] == 3);
+    std::reverse(@range input);
+    TEST_ASSERT(input[0] == 5 && input[4] == 1);
+    AUTO rotated := std::rotate(@range input, @middle input[&2]);
+    TEST_ASSERT(rotated == input[&3] && input[0] == 3 && input[3] == 5);
+    AUTO even := -< (@ARG:value I32): BOOL = value % 2 == 0;
+    AUTO boundary := std::partition(@range input, @predicate even);
+    TEST_ASSERT(boundary == input[&2] && std::is_partitioned(@range input, @predicate even));
+    VAR false_values [5]I32;
+    AUTO separated := std::partition_copy(@range input, @predicate even,
+      @output_true output.BEGIN(), @output_false false_values.BEGIN());
+    TEST_ASSERT(separated.out_true == output[&2] && separated.out_false == false_values[&3]);
+    VAR pair [2]I32 :[10, 20];
+    AUTO swapped := std::swap_ranges(@range1 input, @range2 pair);
+    TEST_ASSERT(swapped.in1 == input[&2] && swapped.in2 == pair.END());
+    TEST_ASSERT(input[0] == 10 && input[1] == 20);
+  }
+
+  DOC <$ Checks sorting, selection, signed iterator arithmetic, and sorted-bound queries. $>
+  ::ordering DUAL_TEST
+  {
+    VAR values [9]I32 :[8, 3, 1, 7, 2, 6, 2, 4, 5];
+    std::nth_element(@range values, @nth values[&4]);
+    TEST_ASSERT(values[4] == 4);
+    std::partial_sort(@range values, @middle values[&3]);
+    TEST_ASSERT(values[0] == 1 && values[1] == 2 && values[2] == 2);
+    std::sort(@range values);
+    TEST_ASSERT(std::is_sorted(@range values));
+    TEST_ASSERT(std::is_sorted_until(@range values) == values.END());
+    TEST_ASSERT(std::lower_bound(@range values, @value 2) == values[&1]);
+    TEST_ASSERT(std::upper_bound(@range values, @value 2) == values[&3]);
+    AUTO equal := std::equal_range(@range values, @value 2);
+    TEST_ASSERT(equal.BEGIN() == values[&1] && equal.END() == values[&3]);
+    TEST_ASSERT(std::binary_search(@range values, @value 7));
+    TEST_ASSERT(std::binary_search(@range values, @value 9) == FALSE);
+    TEST_ASSERT(std::partition_point(@range values, @predicate -< (@ARG:value I32): BOOL = value < 4) == values[&4]);
+    VAR output [3]I32;
+    AUTO partial := std::partial_sort_copy(@range values, @output_first output.BEGIN(), @output_last output.END());
+    TEST_ASSERT(partial.in == values.END() && partial.out == output.END());
+    TEST_ASSERT(output[0] == 1 && output[2] == 2);
+    VAR dynamic std::dynarr#I32;
+    dynamic.push_back(3); dynamic.push_back(1); dynamic.push_back(2);
+    std::sort(@range dynamic);
+    TEST_ASSERT(dynamic[0] == 1 && dynamic[2] == 3);
+    AUTO first := dynamic.BEGIN(); AUTO last := dynamic.END();
+    TEST_ASSERT(last - first == 3 && first - last == -3);
+    last -= 2; TEST_ASSERT(last-> == 2); last--; TEST_ASSERT(last == first);
+    VAR constant CONST& std::dynarr#I32 := dynamic;
+    TEST_ASSERT(constant.END() - constant.BEGIN() == 3);
+  }
+
+  DOC <$ Checks heap maintenance and permutation wrap behavior. $>
+  ::heaps_and_permutations DUAL_TEST
+  {
+    VAR values [6]I32 :[3, 1, 4, 2, 6, 5];
+    std::make_heap(@first values.BEGIN(), @last values[&5]);
+    std::push_heap(@range values);
+    TEST_ASSERT(std::is_heap(@range values) && values[0] == 6);
+    TEST_ASSERT(std::is_heap_until(@range values) == values.END());
+    std::pop_heap(@range values);
+    TEST_ASSERT(values[5] == 6 && std::is_heap(@first values.BEGIN(), @last values[&5]));
+    std::sort_heap(@first values.BEGIN(), @last values[&5]);
+    TEST_ASSERT(std::is_sorted(@range values));
+    VAR permutation [3]I32 :[1, 2, 3];
+    TEST_ASSERT(std::next_permutation(@range permutation));
+    TEST_ASSERT(permutation[0] == 1 && permutation[1] == 3 && permutation[2] == 2);
+    TEST_ASSERT(std::prev_permutation(@range permutation));
+    TEST_ASSERT(permutation[0] == 1 && permutation[1] == 2 && permutation[2] == 3);
+    TEST_ASSERT(std::prev_permutation(@range permutation) == FALSE);
+    TEST_ASSERT(permutation[0] == 3 && permutation[2] == 1);
+    TEST_ASSERT(std::next_permutation(@range permutation) == FALSE);
+    TEST_ASSERT(permutation[0] == 1 && permutation[2] == 3);
+  }
+
+  DOC <$ Checks stable merging and multiset multiplicities, including exhausted-input results. $>
+  ::merging_and_sets DUAL_TEST
+  {
+    VAR left [4]I32 :[1, 2, 2, 5];
+    VAR right [4]I32 :[2, 2, 3, 6];
+    VAR output [8]I32;
+    AUTO merged := std::merge(@range1 left, @range2 right, @output output.BEGIN());
+    TEST_ASSERT(merged.in1 == left.END() && merged.in2 == right.END() && merged.out == output.END());
+    TEST_ASSERT(output[0] == 1 && output[4] == 2 && output[7] == 6);
+    AUTO united := std::set_union(@range1 left, @range2 right, @output output.BEGIN());
+    TEST_ASSERT(united.out == output[&6] && output[0] == 1 && output[5] == 6);
+    AUTO intersected := std::set_intersection(@range1 left, @range2 right, @output output.BEGIN());
+    TEST_ASSERT(intersected.out == output[&2] && output[0] == 2 && output[1] == 2);
+    AUTO difference := std::set_difference(@range1 left, @range2 right, @output output.BEGIN());
+    TEST_ASSERT(difference.out == output[&2] && output[0] == 1 && output[1] == 5);
+    AUTO symmetric := std::set_symmetric_difference(@range1 left, @range2 right, @output output.BEGIN());
+    TEST_ASSERT(symmetric.out == output[&4] && output[0] == 1 && output[1] == 3 && output[3] == 6);
+    VAR subset [2]I32 :[2, 2];
+    TEST_ASSERT(std::includes(@range1 left, @range2 subset));
+    TEST_ASSERT(std::includes(@range1 left, @range2 right) == FALSE);
+  }
+
+  DOC <$ Checks stability and reuse of caller-owned uninitialized scratch storage. $>
+  ::buffered_stability DUAL_TEST
+  {
+    VAR values [6]record;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(6) DO
+    { values[index].score := ((5 - index) % 3) AS ASSUME I32; values[index].sequence := index AS ASSUME I32; }
+    VAR storage [6]TYPED_STORAGE(record);
+    VAR scratch std::scratch_ref#record :(@storage storage[&0], @count 6);
+    AUTO score := -< (@ARG:value CONST& record): I32 = value.score;
+    std::stable_sort(@range values, @scratch scratch, @projection score);
+    TEST_ASSERT(values[0].sequence == 2 && values[1].sequence == 5);
+    TEST_ASSERT(values[2].sequence == 1 && values[3].sequence == 4);
+    TEST_ASSERT(values[4].sequence == 0 && values[5].sequence == 3);
+    AUTO boundary := std::stable_partition(@range values, @scratch scratch,
+      @predicate -< (@ARG:value CONST& record): BOOL = value.score != 1);
+    TEST_ASSERT(boundary == values[&4] && values[0].sequence == 2 && values[3].sequence == 3);
+    TEST_ASSERT(values[4].sequence == 1 && values[5].sequence == 4);
+    VAR merge [5]I32 :[1, 3, 5, 2, 4];
+    VAR slots [2]TYPED_STORAGE(I32);
+    VAR small std::scratch_ref#I32 :(@storage slots[&0], @count 2);
+    std::inplace_merge(@range merge, @middle merge[&3], @scratch small);
+    TEST_ASSERT(std::is_sorted(@range merge));
+  }
+
+  DOC <$ Stores a distinct exclusive boundary for a readable cursor. $>
+  ::end_sentinel STRUCT { .position VAR CONST=>>I32; }
+
+  DOC <$ Supplies repeatable forward traversal with value-returning dereference. $>
+  ::value_cursor STRUCT
+  {
+    .position VAR CONST=>>I32;
+    DOC <$ Compares against the distinct exclusive boundary. $>
+    .OPERATOR== FUNCTION(@OTHER CONST& end_sentinel) CONST: BOOL { RETURN .position == OTHER.position; }
+    DOC <$ Compares two traversal positions. $>
+    .OPERATOR== FUNCTION(@OTHER CONST& value_cursor) CONST: BOOL { RETURN .position == OTHER.position; }
+    DOC <$ Advances and returns the preceding position. $>
+    .OPERATOR++ FUNCTION() MUT: value_cursor { VAR previous value_cursor := THIS; .position++; RETURN previous; }
+    DOC <$ Reads the current value without exposing a writable reference. $>
+    .OPERATOR-> FUNCTION() CONST: I32 { RETURN .position->; }
+  }
+
+  DOC <$ Supplies a function value as a predicate. $>
+  ::positive FUNCTION(@ARG:value I32): BOOL { RETURN value > 0; }
+
+  DOC <$ Exercises distinct sentinels, value results, linked traversal, and function callbacks. $>
+  ::forward_iterators DUAL_TEST
+  {
+    VAR values [4]I32 :[1, 2, 2, 3];
+    VAR first value_cursor; first.position := values.BEGIN();
+    VAR last end_sentinel; last.position := values.END();
+    VAR range std::iterator_range#(@iterator value_cursor, @sentinel end_sentinel) :(@first first, @last last);
+    TEST_ASSERT(std::count(@range range, @value 2) == 2);
+    TEST_ASSERT(std::find(@range range, @value 3).position == values[&3]);
+    VAR output [4]I32;
+    AUTO copied := std::copy(@range range, @output output.BEGIN());
+    TEST_ASSERT(copied.in.position == values.END() && output[3] == 3);
+  }
+
+  DOC <$ Accepts a compile-time function value without copying an erased callable. $>
+  ::function_callback DUAL_TEST
+  {
+    VAR values [2]I32 :[1, 2];
+    TEST_ASSERT(std::all_of(@range values, @predicate positive));
+  }
+
+  DOC <$ Uses linked and segmented containers through their existing traversal contracts. $>
+  ::forward_containers DUAL_TEST
+  {
+    VAR values [4]I32 :[1, 2, 2, 3];
+    VAR list std::list#I32;
+    std::copy(@range values, @output std::back_inserter(list));
+    std::reverse(@range list);
+    TEST_ASSERT(list.BEGIN()-> == 3);
+    AUTO boundary := std::partition(@range list, @predicate -< (@ARG:value I32): BOOL = value % 2 == 0);
+    TEST_ASSERT(boundary != list.BEGIN() && std::is_partitioned(@range list,
+      @predicate -< (@ARG:value I32): BOOL = value % 2 == 0));
+    STATIC_IF(ARCH_IS_JVM == FALSE)
+    {
+      VAR geometric std::geometric_array#I32;
+      std::copy(@range values, @output std::back_inserter(geometric));
+      TEST_ASSERT(std::count(@range geometric, @value 2) == 2);
+    }
+  }
+
+  DOC <$ Tracks every live payload and can inject failures into movement. $>
+  ::tracked_value STRUCT MOVE_ONLY
+  {
+    .key VAR I32;
+    .live VAR MUT->I32;
+    .remaining VAR MUT->I32;
+    DOC <$ Makes a default-construction requirement a compilation failure. $>
+    .CONSTRUCTOR FUNCTION() { COMPILATION_ERROR "A tracked value requires explicit arguments."; }
+    DOC <$ Starts one live payload and borrows its counters. $>
+    .CONSTRUCTOR FUNCTION(@key I32, @live MUT& I32, @remaining MUT& I32)
+    { .key := key; .live := live<-; .remaining := remaining<-; live++; }
+    DOC <$ Starts one moved payload, or throws at the requested operation. $>
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& tracked_value)
+    {
+      IF (OTHER.remaining-> != 0) { (OTHER.remaining->)--; IF (OTHER.remaining-> == 0) { THROW (7 AS I32); } }
+      .key := OTHER.key; .live := OTHER.live; .remaining := OTHER.remaining; (.live->)++;
+    }
+    DOC <$ Assigns a moved value while preserving the destination lifetime. $>
+    .OPERATOR:= FUNCTION(@OTHER TEMP& tracked_value) MUT
+    {
+      IF (OTHER.remaining-> != 0) { (OTHER.remaining->)--; IF (OTHER.remaining-> == 0) { THROW (7 AS I32); } }
+      .key := OTHER.key;
+    }
+    DOC <$ Exchanges keys without changing payload lifetime counts. $>
+    .OPERATOR<-> FUNCTION(@OTHER MUT& tracked_value) MUT { .key <-> OTHER.key; }
+    DOC <$ Ends one live payload. $>
+    .DESTRUCTOR FUNCTION() { (.live->)--; }
+  }
+
+  DOC <$ Checks move-only reordering and destroys every completed scratch payload after failure. $>
+  ::scratch_exception_cleanup INCLUDE_IF(ARCH_IS_JVM == FALSE) DUAL_TEST
+  {
+    VAR live I32 := 0;
+    VAR remaining I32 := 0;
+    {
+      VAR values std::dynarr#tracked_value;
+      LOOP VALUE(index) FROM(0 AS I32) UNTIL(6) DO
+      { values.push_back(tracked_value(@key 5 - index, @live live, @remaining remaining)); }
+      TEST_ASSERT(live == 6);
+      VAR storage [6]TYPED_STORAGE(tracked_value);
+      VAR scratch std::scratch_ref#tracked_value :(@storage storage[&0], @count 6);
+      AUTO key := -< (@ARG:value CONST& tracked_value): I32 = value.key;
+      std::sort(@range values, @projection key);
+      TEST_ASSERT(values[0].key == 0 && values[5].key == 5);
+      remaining := 3;
+      VAR caught BOOL := FALSE;
+      TRY
+      { std::stable_partition(@range values, @scratch scratch, @projection key,
+          @predicate -< (@ARG:value I32): BOOL = value % 2 == 0); }
+      CATCH error CONST& I32 { TEST_ASSERT(error == 7); caught := TRUE; }
+      TEST_ASSERT(caught && live == 6);
+      remaining := 0;
+      std::stable_sort(@range values, @scratch scratch, @projection key);
+      TEST_ASSERT(std::is_sorted(@range values, @projection key) && live == 6);
+      VAR calls I32 := 0;
+      caught := FALSE;
+      TRY
+      { std::inplace_merge(@range values, @middle values.BEGIN() + (3 AS SZ), @scratch scratch,
+          @projection key, @compare -< (@left I32, @right I32): ORDER
+          { calls++; IF (calls == 2) { THROW (9 AS I32); } RETURN left <=> right; }); }
+      CATCH error CONST& I32 { TEST_ASSERT(error == 9); caught := TRUE; }
+      TEST_ASSERT(caught && live == 6);
+      std::stable_sort(@range values, @scratch scratch, @projection key);
+      TEST_ASSERT(live == 6);
+    }
+    TEST_ASSERT(live == 0);
+  }
+
+  DOC <$ Keeps comparator counts bounded on descending, equal, and duplicate-heavy inputs. $>
+  ::complexity_and_adversarial UNIT_TEST
+  {
+    VAR values [257]I32;
+    LOOP VALUE(mode) FROM(0 AS SZ) UNTIL(3) DO
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(257) DO
+      {
+        IF (mode == 0) { values[index] := (256 - index) AS ASSUME I32; }
+        ELSE IF (mode == 1) { values[index] := 7; }
+        ELSE { values[index] := ((index * 31) % 17) AS ASSUME I32; }
+      }
+      VAR calls SZ := 0;
+      AUTO compare := -< (@left I32, @right I32): ORDER { calls++; RETURN left <=> right; };
+      std::nth_element(@range values, @nth values[&128], @compare compare);
+      TEST_ASSERT(calls < 60 * 257);
+      VAR pivot I32 := values[128];
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(128) DO { TEST_ASSERT(values[index] <= pivot); }
+      LOOP VALUE(index) FROM(129 AS SZ) UNTIL(257) DO { TEST_ASSERT(values[index] >= pivot); }
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(257) DO
+      {
+        IF (mode == 0) { values[index] := (256 - index) AS ASSUME I32; }
+        ELSE IF (mode == 1) { values[index] := 7; }
+        ELSE { values[index] := ((index * 31) % 17) AS ASSUME I32; }
+      }
+      calls := 0;
+      std::sort(@range values, @compare compare);
+      TEST_ASSERT(calls < 8 * 257 * 9 && std::is_sorted(@range values));
+    }
+  }
+
+  DOC <$ The cursor records dereferences and constant-time changes of position. $>
+  ::counted_cursor STRUCT
+  {
+    .position VAR CONST=>>I32;
+    .movements VAR MUT->SZ;
+    .reads VAR MUT->SZ;
+    DOC <$ The equality operator compares traversal positions. $>
+    .OPERATOR== FUNCTION(@OTHER CONST& counted_cursor) CONST: BOOL { RETURN .position == OTHER.position; }
+    DOC <$ The ordering operator compares traversal positions. $>
+    .OPERATOR<=> FUNCTION(@OTHER CONST& counted_cursor) CONST: ORDER { RETURN .position <=> OTHER.position; }
+    DOC <$ Dereference records one element read. $>
+    .OPERATOR-> FUNCTION() CONST: CONST& I32 { (.reads->)++; RETURN .position->; }
+    DOC <$ Increment records one position change and returns the preceding cursor. $>
+    .OPERATOR++ FUNCTION() MUT: counted_cursor
+    { VAR previous counted_cursor := THIS; (.movements->)++; .position++; RETURN previous; }
+    DOC <$ Decrement records one position change and returns the preceding cursor. $>
+    .OPERATOR-- FUNCTION() MUT: counted_cursor
+    { VAR previous counted_cursor := THIS; (.movements->)++; .position--; RETURN previous; }
+    DOC <$ Addition records one constant-time offset. $>
+    .OPERATOR+ FUNCTION(@OTHER SZ) CONST: counted_cursor
+    { VAR result counted_cursor := THIS; (.movements->)++; result.position := .position + OTHER; RETURN result; }
+    DOC <$ Count subtraction records one constant-time offset. $>
+    .OPERATOR- FUNCTION(@OTHER SZ) CONST: counted_cursor
+    { VAR result counted_cursor := THIS; (.movements->)++; result.position := .position - OTHER; RETURN result; }
+    DOC <$ Cursor subtraction returns the signed element distance. $>
+    .OPERATOR- FUNCTION(@OTHER CONST& counted_cursor) CONST: std::iterator_difference
+    { RETURN .position - OTHER.position; }
+  }
+
+  DOC <$ Binary searches use logarithmic element reads and position changes. $>
+  ::binary_search_traversal DUAL_TEST
+  {
+    VAR values [65]I32;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(65) DO { values[index] := index AS ASSUME I32; }
+    VAR movements SZ := 0;
+    VAR reads SZ := 0;
+    VAR calls SZ := 0;
+    VAR first counted_cursor;
+    first.position := values.BEGIN(); first.movements := movements<-; first.reads := reads<-;
+    VAR last counted_cursor := first; last.position := values.END();
+    AUTO compare := -< (@left I32, @right I32): ORDER { calls++; RETURN left <=> right; };
+    AUTO lower := std::lower_bound(@first first, @last last, @value 43, @compare compare);
+    TEST_ASSERT(lower.position == values[&43] && calls <= 7 && reads == calls && movements <= 14);
+    movements := 0; reads := 0; calls := 0;
+    AUTO upper := std::upper_bound(@first first, @last last, @value 43, @compare compare);
+    TEST_ASSERT(upper.position == values[&44] && calls <= 7 && reads == calls && movements <= 14);
+    movements := 0; reads := 0;
+    AUTO boundary := std::partition_point(@first first, @last last,
+      @predicate -< (@ARG:value I32): BOOL = value < 43);
+    TEST_ASSERT(boundary.position == values[&43] && reads <= 7 && movements <= 14);
+  }
+
+  DOC <$ Copies of this cursor share a single input position. $>
+  ::single_pass_cursor STRUCT
+  {
+    .position VAR MUT->CONST=>>I32;
+    DOC <$ The boundary comparison observes the shared input position. $>
+    .OPERATOR== FUNCTION(@OTHER CONST& end_sentinel) CONST: BOOL { RETURN .position-> == OTHER.position; }
+    DOC <$ Increment advances the shared input position. $>
+    .OPERATOR++ FUNCTION() MUT { (.position->)++; }
+    DOC <$ Dereference reads the current element as a value. $>
+    .OPERATOR-> FUNCTION() CONST: I32 { VAR current CONST=>>I32 := .position->; RETURN current->; }
+  }
+
+  DOC <$ Linear input algorithms consume a shared cursor through a distinct boundary. $>
+  ::single_pass_inputs DUAL_TEST
+  {
+    VAR values [4]I32 :[1, 2, 3, 4];
+    VAR position CONST=>>I32 := values.BEGIN();
+    VAR first single_pass_cursor; first.position := position<-;
+    VAR last end_sentinel; last.position := values.END();
+    TEST_ASSERT(std::count_if(@first first, @last last,
+      @predicate -< (@ARG:value I32): BOOL = value % 2 == 0) == 2);
+    TEST_ASSERT(position == values.END());
+    position := values.BEGIN();
+    VAR output [4]I32;
+    AUTO result := std::copy(@first first, @last last, @output output.BEGIN());
+    TEST_ASSERT(position == values.END() && result.out == output.END() && output[3] == 4);
+  }
+
+  DOC <$ Uses Quxlang total floating ordering for signed zeros and canonical NaNs. $>
+  ::floating_order DUAL_TEST
+  {
+    VAR zero F64 := 0.0;
+    VAR negative F64 := zero * (zero - 1.0);
+    VAR nan F64 := zero / zero;
+    VAR values [5]F64 :[nan, zero, 1.0, negative, -1.0];
+    std::sort(@range values);
+    TEST_ASSERT(values[0] == -1.0 && values[1] == negative && values[2] == zero);
+    TEST_ASSERT(values[4] == nan && std::binary_search(@range values, @value nan));
+  }
+
+  DOC <$ Provides a callable whose declaration is private to the tests module. $>
+  PRIVATE(MODULE) ::private_predicate STRUCT
+  {
+    DOC <$ Observes a value through the callable's public surface. $>
+    .OPERATOR() FUNCTION(@ARG:value I32) CONST: BOOL { RETURN value > 0; }
+  }
+
+  DOC <$ Counts range-bound evaluations independently of element traversal. $>
+  ::counted_range STRUCT
+  {
+    .first VAR MUT=>>I32;
+    .last VAR MUT=>>I32;
+    .begins VAR SZ;
+    .ends VAR SZ;
+    DOC <$ Supplies the beginning once for each range invocation. $>
+    .BEGIN FUNCTION() MUT: MUT=>>I32 { .begins++; RETURN .first; }
+    DOC <$ Supplies the end once for each range invocation. $>
+    .END FUNCTION() MUT: MUT=>>I32 { .ends++; RETURN .last; }
+  }
+
+  DOC <$ Preserves private callable types and evaluates each borrowed boundary once. $>
+  ::private_callbacks_and_boundaries DUAL_TEST
+  {
+    VAR values [2]I32 :[1, 2];
+    VAR range counted_range;
+    range.first := values.BEGIN(); range.last := values.END();
+    VAR predicate private_predicate;
+    TEST_ASSERT(std::all_of(@range range, @predicate predicate));
+    TEST_ASSERT(range.begins == 1 && range.ends == 1);
+    TEST_ASSERT(std::all_of(@range range, @predicate counting_predicate()));
+    TEST_ASSERT(range.begins == 2 && range.ends == 2);
+  }
+
+  DOC <$ Defines empty-range results and accepts zero scratch capacity for empty operations. $>
+  ::empty_ranges DUAL_TEST
+  {
+    VAR values std::dynarr#I32;
+    VAR scratch std::scratch_ref#I32 :(@storage NULL, @count 0);
+    TEST_ASSERT(std::all_of(@range values, @predicate positive));
+    TEST_ASSERT(std::any_of(@range values, @predicate positive) == FALSE);
+    TEST_ASSERT(std::none_of(@range values, @predicate positive));
+    TEST_ASSERT(std::min_element(@range values) == values.END());
+    std::sort(@range values);
+    std::stable_sort(@range values, @scratch scratch);
+    TEST_ASSERT(std::stable_partition(@range values, @scratch scratch, @predicate positive) == values.END());
+    TEST_ASSERT(std::lower_bound(@range values, @value 1) == values.END());
+    TEST_ASSERT(std::binary_search(@range values, @value 1) == FALSE);
+    TEST_ASSERT(std::next_permutation(@range values) == FALSE);
+    TEST_ASSERT(std::rotate(@range values, @middle values.BEGIN()) == values.END());
+    TEST_ASSERT(std::fold_left(@range values, @initial (17 AS I32),
+      @operation -< (@accumulator I32, @value I32): I32 = accumulator + value) == 17);
+  }
+
+  DOC <$ Produces an owning temporary for lifetime-contract rejection tests. $>
+  ::temporary_values FUNCTION(): std::dynarr#I32 { VAR values std::dynarr#I32; RETURN values; }
+
+  DOC <$ Rejects borrowed algorithm calls on owning temporaries. $>
+  ::temporary_range STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { std::find(@range temporary_values(), @value 3); }
+
+  DOC <$ Rejects temporary range-view objects as specified by the borrowing contract. $>
+  ::temporary_view STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR values [2]I32; std::find(@range std::subrange(@first values.BEGIN(), @last values.END()), @value 3); }
+
+  DOC <$ Rejects reordering through constant element references. $>
+  ::immutable_sort STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR values [2]I32; VAR constant CONST& [2]I32 := values; std::sort(@range constant); }
+
+  DOC <$ Rejects binary searching a forward-only range. $>
+  ::forward_binary_search STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values [2]I32;
+    VAR first value_cursor; first.position := values.BEGIN();
+    VAR last value_cursor; last.position := values.END();
+    std::lower_bound(@first first, @last last, @value 3);
+  }
+
+  DOC <$ Requires a Boolean predicate result. $>
+  ::invalid_predicate STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR values [2]I32; std::all_of(@range values, @predicate -< (@ARG:value I32): I32 = value); }
+
+  DOC <$ Requires a three-way ordering result. $>
+  ::invalid_comparator STATIC_TEST EXPECT_COMPILATION_FAILURE
+  { VAR values [2]I32; std::sort(@range values, @compare -< (@left I32, @right I32): BOOL = left < right); }
+}

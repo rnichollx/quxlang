@@ -1,0 +1,572 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Transfers all elements and returns owned cursor values; exact self-transfer is a no-op. $>
+::copy
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator)): AUTO
+{
+  STATIC_IF(SAME_TYPES(input_iterator, output_iterator))
+  {
+    IF (first == output)
+    { LOOP WHILE (first != last) DO { first++; output++; } RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; }; }
+  }
+  LOOP WHILE (first != last) DO
+  { output-> := first->; first++; output++; }
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Transfers all elements and returns owned cursor values; exact self-transfer is a no-op. $>
+::move
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator)): AUTO
+{
+  STATIC_IF(SAME_TYPES(input_iterator, output_iterator))
+  {
+    IF (first == output)
+    { LOOP WHILE (first != last) DO { first++; output++; } RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; }; }
+  }
+  LOOP WHILE (first != last) DO
+  { VAR element TYPEOF(first->) := first->; output-> := MOVE(element); first++; output++; }
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Transfers bidirectional elements backwards and returns the produced destination beginning. $>
+::copy_backward
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @output_last AUTO(output_iterator)): AUTO
+{
+  STATIC_IF(SAME_TYPES(input_iterator, output_iterator))
+  {
+    IF (last == output_last)
+    { LOOP WHILE (first != last) DO { last--; output_last--; }
+      RETURN :{ .in = first AS input_iterator; .out = output_last AS output_iterator; }; }
+  }
+  LOOP WHILE (first != last) DO
+  { last--; output_last--; output_last-> := last->; }
+  RETURN :{ .in = first AS input_iterator; .out = output_last AS output_iterator; };
+}
+
+DOC <$ Transfers bidirectional elements backwards and returns the produced destination beginning. $>
+::move_backward
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @output_last AUTO(output_iterator)): AUTO
+{
+  STATIC_IF(SAME_TYPES(input_iterator, output_iterator))
+  {
+    IF (last == output_last)
+    { LOOP WHILE (first != last) DO { last--; output_last--; }
+      RETURN :{ .in = first AS input_iterator; .out = output_last AS output_iterator; }; }
+  }
+  LOOP WHILE (first != last) DO
+  { last--; output_last--; VAR element TYPEOF(last->) := last->; output_last-> := MOVE(element); }
+  RETURN :{ .in = first AS input_iterator; .out = output_last AS output_iterator; };
+}
+
+DOC <$ Copies selected elements in their input order and returns final cursors. $>
+::copy_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO copy_if;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO copy_if_iterators;
+  }
+}
+
+DOC <$ Copies selected elements in their input order and returns final cursors. $>
+PRIVATE(MODULE)
+::copy_if_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): AUTO
+{
+  LOOP WHILE (first != last) DO
+  { IF (predicate(projection(first->))) { output-> := first->; output++; } first++; }
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Copies selected elements in their input order and returns final cursors. $>
+::remove_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO remove_copy;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO remove_copy;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO remove_copy_iterators;
+  }
+}
+
+DOC <$ Copies selected elements in their input order and returns final cursors. $>
+PRIVATE(MODULE)
+::remove_copy_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): AUTO
+{
+  LOOP WHILE (first != last) DO
+  { IF (equal(@left projection(first->), @right value) == FALSE) { output-> := first->; output++; } first++; }
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Copies selected elements in their input order and returns final cursors. $>
+::remove_copy_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO remove_copy_if;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO remove_copy_if_iterators;
+  }
+}
+
+DOC <$ Copies selected elements in their input order and returns final cursors. $>
+PRIVATE(MODULE)
+::remove_copy_if_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): AUTO
+{
+  LOOP WHILE (first != last) DO
+  { IF (predicate(projection(first->)) == FALSE) { output-> := first->; output++; } first++; }
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Writes one unary transformation for each input element. $>
+::transform
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @operation TT(operation_type)): AUTO
+{
+  LOOP WHILE (first != last) DO
+  { output-> := operation(first->); output++; first++; }
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Writes binary transformations until either finite input ends. $>
+::transform
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @operation TT(operation_type)): AUTO
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  { output-> := operation(@left first1->, @right first2->); output++; first1++; first2++; }
+  RETURN :{ .in1 = first1 AS iterator1; .in2 = first2 AS iterator2; .out = output AS output_iterator; };
+}
+
+DOC <$ Assigns value to every input position. $>
+::fill
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO)
+{
+  LOOP WHILE (first != last) DO { first-> := value; first++; }
+}
+
+DOC <$ Assigns one generator result to every input position in order. $>
+::generate
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @generator TT(generator_type))
+{
+  LOOP WHILE (first != last) DO { first-> := generator(); first++; }
+}
+
+DOC <$ Replaces selected original elements using their projected relation. $>
+::replace FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO replace;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO replace;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO replace_iterators;
+  }
+}
+
+DOC <$ Replaces selected original elements using their projected relation. $>
+PRIVATE(MODULE)
+::replace_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @old_value CONST& AUTO, @equal TT(equal_type), @new_value CONST& AUTO, @projection TT(projection_type))
+{
+  LOOP WHILE (first != last) DO
+  { IF (equal(@left projection(first->), @right old_value)) { first-> := new_value; } first++; }
+}
+
+DOC <$ Replaces selected original elements using their projected relation. $>
+::replace_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO replace_if;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO replace_if_iterators;
+  }
+}
+
+DOC <$ Replaces selected original elements using their projected relation. $>
+PRIVATE(MODULE)
+::replace_if_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @new_value CONST& AUTO, @projection TT(projection_type))
+{
+  LOOP WHILE (first != last) DO
+  { IF (predicate(projection(first->))) { first-> := new_value; } first++; }
+}
+
+DOC <$ Replaces selected original elements using their projected relation. $>
+::replace_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO replace_copy;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO replace_copy;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO replace_copy_iterators;
+  }
+}
+
+DOC <$ Replaces selected original elements using their projected relation. $>
+PRIVATE(MODULE)
+::replace_copy_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @old_value CONST& AUTO, @equal TT(equal_type), @new_value CONST& AUTO, @projection TT(projection_type)): AUTO
+{
+  LOOP WHILE (first != last) DO
+  {
+    IF (equal(@left projection(first->), @right old_value)) { output-> := new_value; } ELSE { output-> := first->; }
+    first++; output++;
+  }
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Replaces selected original elements using their projected relation. $>
+::replace_copy_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO replace_copy_if;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO replace_copy_if_iterators;
+  }
+}
+
+DOC <$ Replaces selected original elements using their projected relation. $>
+PRIVATE(MODULE)
+::replace_copy_if_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @predicate TT(predicate_type), @new_value CONST& AUTO, @projection TT(projection_type)): AUTO
+{
+  LOOP WHILE (first != last) DO
+  {
+    IF (predicate(projection(first->))) { output-> := new_value; } ELSE { output-> := first->; }
+    first++; output++;
+  }
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Stably compacts retained elements and returns their logical end without destroying the suffix. $>
+::remove FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO remove;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO remove;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO remove_iterators;
+  }
+}
+
+DOC <$ Stably compacts retained elements and returns their logical end without destroying the suffix. $>
+PRIVATE(MODULE)
+::remove_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): input_iterator
+{
+  LOOP WHILE (first != last) DO { IF (equal(@left projection(first->), @right value)) { BREAK; } first++; }
+  VAR output input_iterator := first;
+  IF (first == last) { RETURN output; }
+  first++;
+  LOOP WHILE (first != last) DO
+  {
+    IF (equal(@left projection(first->), @right value) == FALSE) { VAR element TYPEOF(first->) := first->; output-> := MOVE(element); output++; }
+    first++;
+  }
+  RETURN output;
+}
+
+DOC <$ Stably compacts retained elements and returns their logical end without destroying the suffix. $>
+::remove_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO remove_if;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO remove_if_iterators;
+  }
+}
+
+DOC <$ Stably compacts retained elements and returns their logical end without destroying the suffix. $>
+PRIVATE(MODULE)
+::remove_if_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+{
+  LOOP WHILE (first != last) DO { IF (predicate(projection(first->))) { BREAK; } first++; }
+  VAR output input_iterator := first;
+  IF (first == last) { RETURN output; }
+  first++;
+  LOOP WHILE (first != last) DO
+  {
+    IF (predicate(projection(first->)) == FALSE) { VAR element TYPEOF(first->) := first->; output-> := MOVE(element); output++; }
+    first++;
+  }
+  RETURN output;
+}
+
+DOC <$ Stably retains the first element of each adjacent equivalence run. $>
+::unique FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO unique;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO unique;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO unique_iterators;
+  }
+}
+
+DOC <$ Stably retains the first element of each adjacent equivalence run. $>
+PRIVATE(MODULE)
+::unique_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @equal TT(equal_type), @projection TT(projection_type)): input_iterator
+{
+  IF (first == last) { RETURN first; }
+  VAR previous input_iterator := first;
+  VAR output input_iterator := first;
+  output++; first++;
+  LOOP WHILE (first != last) DO
+  {
+    IF (equal(@left projection(previous->), @right projection(first->)) == FALSE)
+    {
+      IF (output != first) { VAR element TYPEOF(first->) := first->; output-> := MOVE(element); }
+      previous := output; output++;
+    }
+    first++;
+  }
+  RETURN output;
+}
+
+DOC <$ Copies the first element of each adjacent equivalence run using a forward input. $>
+::unique_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO unique_copy;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO unique_copy;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO unique_copy_iterators;
+  }
+}
+
+DOC <$ Copies the first element of each adjacent equivalence run using a forward input. $>
+PRIVATE(MODULE)
+::unique_copy_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @equal TT(equal_type), @projection TT(projection_type)): AUTO
+{
+  IF (first == last) { RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; }; }
+  VAR previous input_iterator := first;
+  output-> := first->; output++; first++;
+  LOOP WHILE (first != last) DO
+  {
+    IF (equal(@left projection(previous->), @right projection(first->)) == FALSE)
+    { output-> := first->; output++; previous := first; }
+    first++;
+  }
+  RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Reverses a bidirectional range by exchanging elements. $>
+::reverse
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator))
+{
+  LOOP WHILE (first != last) DO
+  {
+    last--;
+    IF (first == last) { BREAK; }
+    first-> <-> last->;
+    first++;
+  }
+}
+
+DOC <$ Copies a bidirectional range in reverse order. $>
+::reverse_copy
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @output AUTO(output_iterator)): AUTO
+{
+  VAR cursor input_iterator := last;
+  LOOP WHILE (cursor != first) DO
+  { cursor--; output-> := cursor->; output++; }
+  RETURN :{ .in = last AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Rotates two adjacent forward ranges and returns the new position of the original first element. $>
+::rotate
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator)): input_iterator
+{
+  IF (first == middle) { RETURN last; }
+  IF (middle == last) { RETURN first; }
+  VAR cursor input_iterator := middle;
+  LOOP DO
+  {
+    first-> <-> cursor->; first++; cursor++;
+    IF (first == middle) { middle := cursor; }
+    IF (cursor == last) { BREAK; }
+  }
+  VAR result input_iterator := first;
+  cursor := middle;
+  LOOP WHILE (cursor != last) DO
+  {
+    first-> <-> cursor->; first++; cursor++;
+    IF (first == middle) { middle := cursor; }
+    ELSE IF (cursor == last) { cursor := middle; }
+  }
+  RETURN result;
+}
+
+DOC <$ Copies the second adjacent range followed by the first. $>
+::rotate_copy
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator), @output AUTO(output_iterator)): AUTO
+{
+  VAR cursor input_iterator := middle;
+  LOOP WHILE (cursor != last) DO { output-> := cursor->; output++; cursor++; }
+  cursor := first;
+  LOOP WHILE (cursor != middle) DO { output-> := cursor->; output++; cursor++; }
+  RETURN :{ .in = last AS input_iterator; .out = output AS output_iterator; };
+}
+
+DOC <$ Exchanges elements until either finite range ends. $>
+::swap_ranges
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2)): AUTO
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  { first1-> <-> first2->; first1++; first2++; }
+  RETURN :{ .in1 = first1 AS iterator1; .in2 = first2 AS iterator2; };
+}
+
+DOC <$ Partitions a forward range and returns the first false position. $>
+::partition FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO partition;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO partition_iterators;
+  }
+}
+
+DOC <$ Partitions a forward range and returns the first false position. $>
+PRIVATE(MODULE)
+::partition_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+{
+  LOOP WHILE (first != last) DO { IF (predicate(projection(first->)) == FALSE) { BREAK; } first++; }
+  VAR boundary input_iterator := first;
+  IF (first == last) { RETURN boundary; }
+  first++;
+  LOOP WHILE (first != last) DO
+  { IF (predicate(projection(first->))) { boundary-> <-> first->; boundary++; } first++; }
+  RETURN boundary;
+}
+
+DOC <$ Tests whether every true element precedes every false element. $>
+::is_partitioned FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO is_partitioned;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO is_partitioned_iterators;
+  }
+}
+
+DOC <$ Tests whether every true element precedes every false element. $>
+PRIVATE(MODULE)
+::is_partitioned_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
+{
+  LOOP WHILE (first != last) DO { IF (predicate(projection(first->)) == FALSE) { BREAK; } first++; }
+  LOOP WHILE (first != last) DO { IF (predicate(projection(first->))) { RETURN FALSE; } first++; }
+  RETURN TRUE;
+}
+
+DOC <$ Copies true and false elements to separate destinations, preserving their orders. $>
+::partition_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO partition_copy;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO partition_copy_iterators;
+  }
+}
+
+DOC <$ Copies true and false elements to separate destinations, preserving their orders. $>
+PRIVATE(MODULE)
+::partition_copy_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output_true AUTO(true_iterator), @output_false AUTO(false_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): AUTO
+{
+  LOOP WHILE (first != last) DO
+  {
+    IF (predicate(projection(first->))) { output_true-> := first->; output_true++; }
+    ELSE { output_false-> := first->; output_false++; }
+    first++;
+  }
+  RETURN :{ .in = first AS input_iterator; .out_true = output_true AS true_iterator; .out_false = output_false AS false_iterator; };
+}
+

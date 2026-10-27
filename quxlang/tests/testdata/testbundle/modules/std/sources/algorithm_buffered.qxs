@@ -1,0 +1,164 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Stably partitions a forward range in linear work using N uninitialized scratch slots. $>
+::stable_partition FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO stable_partition;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO stable_partition_iterators;
+  }
+}
+
+DOC <$ Stably partitions a forward range in linear work using N uninitialized scratch slots. $>
+PRIVATE(MODULE)
+::stable_partition_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @scratch CONST& AUTO(scratch_type), @projection TT(projection_type)): input_iterator
+{
+  VAR count SZ := 0;
+  VAR cursor input_iterator := first;
+  LOOP WHILE (cursor != last) DO { count++; cursor++; }
+  VAR storage MUT=>>TYPED_STORAGE(scratch_type::element_type) := scratch.data();
+  VAR true_count SZ := 0;
+  VAR false_count SZ := 0;
+  DEFER
+  {
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(true_count) DO { DESTROY AT(storage[index]) scratch_type::element_type; }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(false_count) DO { DESTROY AT(storage[count - 1 - index]) scratch_type::element_type; }
+  }
+  cursor := first;
+  LOOP WHILE (cursor != last) DO
+  {
+    VAR selected BOOL := predicate(projection(cursor->));
+    VAR element MUT& scratch_type::element_type := cursor->;
+    IF (selected)
+    { PLACE AT(storage[true_count]) scratch_type::element_type := MOVE(element); true_count++; }
+    ELSE
+    { PLACE AT(storage[count - 1 - false_count]) scratch_type::element_type := MOVE(element); false_count++; }
+    cursor++;
+  }
+  cursor := first;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(true_count) DO
+  { VAR element MUT& scratch_type::element_type := PUN storage[index] AS scratch_type::element_type; cursor-> := MOVE(element); cursor++; }
+  VAR boundary input_iterator := cursor;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(false_count) DO
+  { VAR element MUT& scratch_type::element_type := PUN storage[count - 1 - index] AS scratch_type::element_type; cursor-> := MOVE(element); cursor++; }
+  RETURN boundary;
+}
+
+DOC <$ Stably merges adjacent sorted bidirectional ranges using min(left_size, right_size) scratch slots. $>
+::inplace_merge FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO inplace_merge;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO inplace_merge;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO inplace_merge_iterators;
+  }
+}
+
+DOC <$ Stably merges adjacent sorted bidirectional ranges using min(left_size, right_size) scratch slots. $>
+PRIVATE(MODULE)
+::inplace_merge_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator), @scratch CONST& AUTO(scratch_type), @compare TT(compare_type), @projection TT(projection_type))
+{
+  VAR left_size SZ := 0;
+  VAR right_size SZ := 0;
+  VAR cursor input_iterator := first;
+  LOOP WHILE (cursor != middle) DO { left_size++; cursor++; }
+  LOOP WHILE (cursor != last) DO { right_size++; cursor++; }
+  IF (left_size == 0 || right_size == 0) { RETURN; }
+  VAR storage MUT=>>TYPED_STORAGE(scratch_type::element_type) := scratch.data();
+  VAR live SZ := 0;
+  DEFER { LOOP VALUE(index) FROM(0 AS SZ) UNTIL(live) DO { DESTROY AT(storage[index]) scratch_type::element_type; } }
+  IF (left_size <= right_size)
+  {
+    cursor := first;
+    LOOP WHILE (cursor != middle) DO
+    { VAR element MUT& scratch_type::element_type := cursor->; PLACE AT(storage[live]) scratch_type::element_type := MOVE(element); live++; cursor++; }
+    VAR stored SZ := 0;
+    VAR output input_iterator := first;
+    cursor := middle;
+    LOOP WHILE (stored != live && cursor != last) DO
+    {
+      VAR element MUT& scratch_type::element_type := PUN storage[stored] AS scratch_type::element_type;
+      IF (compare(@left projection(element), @right projection(cursor->)) != ORDER::GREATER)
+      { output-> := MOVE(element); stored++; }
+      ELSE
+      { VAR source MUT& scratch_type::element_type := cursor->; output-> := MOVE(source); cursor++; }
+      output++;
+    }
+    LOOP WHILE (stored != live) DO
+    { VAR element MUT& scratch_type::element_type := PUN storage[stored] AS scratch_type::element_type; output-> := MOVE(element); stored++; output++; }
+  }
+  ELSE
+  {
+    cursor := middle;
+    LOOP WHILE (cursor != last) DO
+    { VAR element MUT& scratch_type::element_type := cursor->; PLACE AT(storage[live]) scratch_type::element_type := MOVE(element); live++; cursor++; }
+    VAR stored SZ := live;
+    VAR output input_iterator := last;
+    cursor := middle;
+    LOOP WHILE (stored != 0 && cursor != first) DO
+    {
+      VAR previous input_iterator := cursor; previous--;
+      VAR element MUT& scratch_type::element_type := PUN storage[stored - 1] AS scratch_type::element_type;
+      output--;
+      IF (compare(@left projection(previous->), @right projection(element)) == ORDER::GREATER)
+      { VAR source MUT& scratch_type::element_type := previous->; output-> := MOVE(source); cursor := previous; }
+      ELSE { output-> := MOVE(element); stored--; }
+    }
+    LOOP WHILE (stored != 0) DO
+    { stored--; output--; VAR element MUT& scratch_type::element_type := PUN storage[stored] AS scratch_type::element_type; output-> := MOVE(element); }
+  }
+}
+
+DOC <$ Stably sorts a random-access range with O(N log N) comparisons and N supplied scratch slots. $>
+::stable_sort FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @KWARGS:options ...)
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO stable_sort;
+    RETURN;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO stable_sort;
+    RETURN;
+  }
+  STATIC_ELSE
+  {
+    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS input_iterator; }, COMPOSITE_FORWARD(options)) TO stable_sort_iterators;
+  }
+}
+
+DOC <$ Stably sorts a random-access range with O(N log N) comparisons and N supplied scratch slots. $>
+PRIVATE(MODULE)
+::stable_sort_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @scratch CONST& AUTO(scratch_type), @compare TT(compare_type), @projection TT(projection_type))
+{
+  IF (first == last) { RETURN; }
+  VAR count SZ := (last - first) AS ASSUME SZ;
+  IF (count < 2) { RETURN; }
+  VAR middle input_iterator := first + (count / 2);
+  stable_sort(@first first, @last middle, @scratch scratch, @compare compare, @projection projection);
+  stable_sort(@first middle, @last last, @scratch scratch, @compare compare, @projection projection);
+  inplace_merge(@first first, @last last, @middle middle, @scratch scratch, @compare compare, @projection projection);
+}
+

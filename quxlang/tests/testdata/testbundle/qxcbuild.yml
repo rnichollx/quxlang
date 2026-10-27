@@ -215,37 +215,6 @@ targets:
         options:
           option_num: 5
         source: tests
-  jvm-jvm:
-    platform: jvm
-    run_static_tests: false
-    modules:
-      syscall:
-        source: syscall
-      posix:
-        source: posix
-      RUNTIME:
-        source: runtime
-      std:
-        source: std
-      foolib:
-        source: foolib1_0
-      barlib:
-        source: barlib2_1
-      integer_blur:
-        source: integer_blur_main
-      argv_case:
-        source: argv_case_main
-      benchmarks:
-        source: benchmarks
-      tests:
-        options:
-          option_num: 5
-        source: tests
-      jvm_interop:
-        source: jvm_interop
-      jvm_failure:
-        source: jvm_failure
-
 outputs:
   linux-x64/helloworld:
     target: linux-x64
@@ -322,12 +291,6 @@ outputs:
   macos-arm64/tests:
     target: macos-arm64
     type: unit_test_suite
-
-
-  jvm-jvm/tests.jar:
-    target: jvm-jvm
-    type: unit_test_suite
-    test_modules: [RUNTIME, tests]
 
   macos-arm64/benchmarks:
     target: macos-arm64

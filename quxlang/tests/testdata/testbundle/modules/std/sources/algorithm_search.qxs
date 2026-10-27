@@ -1,0 +1,739 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Tests projected elements in order and stops when the result is determined. $>
+::all_of FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO all_of;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO all_of_iterators;
+  }
+}
+
+DOC <$ Tests projected elements in order and stops when the result is determined. $>
+PRIVATE(MODULE)
+::all_of_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
+{
+  LOOP WHILE (first != last) DO
+  {
+    IF (predicate(projection(first->)) == FALSE) { RETURN FALSE; }
+    first++;
+  }
+  RETURN TRUE;
+}
+
+DOC <$ Tests projected elements in order and stops when the result is determined. $>
+::any_of FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO any_of;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO any_of_iterators;
+  }
+}
+
+DOC <$ Tests projected elements in order and stops when the result is determined. $>
+PRIVATE(MODULE)
+::any_of_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
+{
+  LOOP WHILE (first != last) DO
+  {
+    IF (predicate(projection(first->))) { RETURN TRUE; }
+    first++;
+  }
+  RETURN FALSE;
+}
+
+DOC <$ Tests projected elements in order and stops when the result is determined. $>
+::none_of FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO none_of;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO none_of_iterators;
+  }
+}
+
+DOC <$ Tests projected elements in order and stops when the result is determined. $>
+PRIVATE(MODULE)
+::none_of_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
+{
+  LOOP WHILE (first != last) DO
+  {
+    IF (predicate(projection(first->))) { RETURN FALSE; }
+    first++;
+  }
+  RETURN TRUE;
+}
+
+DOC <$ Counts elements satisfying the selected projected relation. $>
+::count FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO count;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO count;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO count_iterators;
+  }
+}
+
+DOC <$ Counts elements satisfying the selected projected relation. $>
+PRIVATE(MODULE)
+::count_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): SZ
+{
+  VAR result SZ := 0;
+  LOOP WHILE (first != last) DO
+  { IF (equal(@left projection(first->), @right value)) { result++; } first++; }
+  RETURN result;
+}
+
+DOC <$ Counts elements satisfying the selected projected relation. $>
+::count_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO count_if;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO count_if_iterators;
+  }
+}
+
+DOC <$ Counts elements satisfying the selected projected relation. $>
+PRIVATE(MODULE)
+::count_if_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): SZ
+{
+  VAR result SZ := 0;
+  LOOP WHILE (first != last) DO
+  { IF (predicate(projection(first->))) { result++; } first++; }
+  RETURN result;
+}
+
+DOC <$ Returns the first matching iterator, or the input end. $>
+::find FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO find;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO find;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO find_iterators;
+  }
+}
+
+DOC <$ Returns the first matching iterator, or the input end. $>
+PRIVATE(MODULE)
+::find_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): input_iterator
+{
+  LOOP WHILE (first != last) DO
+  { IF (equal(@left projection(first->), @right value)) { BREAK; } first++; }
+  RETURN first;
+}
+
+DOC <$ Returns the first matching iterator, or the input end. $>
+::find_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO find_if;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO find_if_iterators;
+  }
+}
+
+DOC <$ Returns the first matching iterator, or the input end. $>
+PRIVATE(MODULE)
+::find_if_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+{
+  LOOP WHILE (first != last) DO
+  { IF (predicate(projection(first->))) { BREAK; } first++; }
+  RETURN first;
+}
+
+DOC <$ Returns the first matching iterator, or the input end. $>
+::find_if_not FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO find_if_not;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO find_if_not_iterators;
+  }
+}
+
+DOC <$ Returns the first matching iterator, or the input end. $>
+PRIVATE(MODULE)
+::find_if_not_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+{
+  LOOP WHILE (first != last) DO
+  { IF (predicate(projection(first->)) == FALSE) { BREAK; } first++; }
+  RETURN first;
+}
+
+DOC <$ Invokes action once for each element in traversal order. $>
+::for_each
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @action TT(action_type))
+{
+  LOOP WHILE (first != last) DO
+  { action(first->); first++; }
+}
+
+DOC <$ Returns the first input element equivalent to an element of the second forward range. $>
+::find_first_of FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO find_first_of;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO find_first_of;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO find_first_of;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO find_first_of_iterators;
+  }
+}
+
+DOC <$ Returns the first input element equivalent to an element of the second forward range. $>
+PRIVATE(MODULE)
+::find_first_of_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): iterator1
+{
+  LOOP WHILE (first1 != last1) DO
+  {
+    VAR candidate iterator2 := first2;
+    LOOP WHILE (candidate != last2) DO
+    {
+      IF (equal(@left projection1(first1->), @right projection2(candidate->))) { RETURN first1; }
+      candidate++;
+    }
+    first1++;
+  }
+  RETURN first1;
+}
+
+DOC <$ Returns the first iterator of an equivalent adjacent pair, or the end. $>
+::adjacent_find FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO adjacent_find;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO adjacent_find;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO adjacent_find_iterators;
+  }
+}
+
+DOC <$ Returns the first iterator of an equivalent adjacent pair, or the end. $>
+PRIVATE(MODULE)
+::adjacent_find_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @equal TT(equal_type), @projection TT(projection_type)): input_iterator
+{
+  IF (first == last) { RETURN first; }
+  VAR next input_iterator := first;
+  next++;
+  LOOP WHILE (next != last) DO
+  {
+    IF (equal(@left projection(first->), @right projection(next->))) { RETURN first; }
+    first := next; next++;
+  }
+  RETURN next;
+}
+
+DOC <$ Returns the first matching subsequence. $>
+::search FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO search;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO search;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO search;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO search_iterators;
+  }
+}
+
+DOC <$ Returns the first matching subsequence. $>
+PRIVATE(MODULE)
+::search_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+{
+  IF (first2 == last2) { RETURN subrange(@first first1, @last first1); }
+  VAR result_first iterator1 := first1;
+  VAR result_last iterator1 := first1;
+  VAR found BOOL := FALSE;
+  LOOP WHILE (first1 != last1) DO
+  {
+    VAR cursor iterator1 := first1;
+    VAR pattern iterator2 := first2;
+    LOOP WHILE (cursor != last1 && pattern != last2) DO
+    {
+      IF (equal(@left projection1(cursor->), @right projection2(pattern->)) == FALSE) { BREAK; }
+      cursor++; pattern++;
+    }
+    IF (pattern == last2)
+    {
+      result_first := first1; result_last := cursor; found := TRUE;
+      RETURN subrange(@first result_first, @last result_last);
+    }
+    first1++;
+  }
+  IF (found == FALSE || first2 == last2) { result_first := first1; result_last := first1; }
+  RETURN subrange(@first result_first, @last result_last);
+}
+
+DOC <$ Returns the last matching subsequence; an empty pattern matches the input end. $>
+::find_end FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO find_end;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO find_end;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO find_end;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO find_end_iterators;
+  }
+}
+
+DOC <$ Returns the last matching subsequence; an empty pattern matches the input end. $>
+PRIVATE(MODULE)
+::find_end_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+{
+  VAR result_first iterator1 := first1;
+  VAR result_last iterator1 := first1;
+  VAR found BOOL := FALSE;
+  LOOP WHILE (first1 != last1) DO
+  {
+    VAR cursor iterator1 := first1;
+    VAR pattern iterator2 := first2;
+    LOOP WHILE (cursor != last1 && pattern != last2) DO
+    {
+      IF (equal(@left projection1(cursor->), @right projection2(pattern->)) == FALSE) { BREAK; }
+      cursor++; pattern++;
+    }
+    IF (pattern == last2)
+    {
+      result_first := first1; result_last := cursor; found := TRUE;
+    }
+    first1++;
+  }
+  IF (found == FALSE || first2 == last2) { result_first := first1; result_last := first1; }
+  RETURN subrange(@first result_first, @last result_last);
+}
+
+DOC <$ Finds the first run of count equivalent projected elements in linear time. $>
+::search_n FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO search_n;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO search_n;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO search_n_iterators;
+  }
+}
+
+DOC <$ Finds the first run of count equivalent projected elements in linear time. $>
+PRIVATE(MODULE)
+::search_n_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @count SZ, @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): AUTO
+{
+  IF (count == 0) { RETURN subrange(@first first, @last first); }
+  VAR begin input_iterator := first;
+  VAR matched SZ := 0;
+  LOOP WHILE (first != last) DO
+  {
+    IF (equal(@left projection(first->), @right value))
+    {
+      IF (matched == 0) { begin := first; }
+      matched++;
+      IF (matched == count) { first++; RETURN subrange(@first begin, @last first); }
+    }
+    ELSE { matched := 0; }
+    first++;
+  }
+  RETURN subrange(@first first, @last first);
+}
+
+DOC <$ Tests equivalent elements and equal input lengths. $>
+::equal FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO equal;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO equal;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO equal;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO equal_iterators;
+  }
+}
+
+DOC <$ Tests equivalent elements and equal input lengths. $>
+PRIVATE(MODULE)
+::equal_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): BOOL
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  { IF (equal(@left projection1(first1->), @right projection2(first2->)) == FALSE) { RETURN FALSE; } first1++; first2++; }
+  RETURN first1 == last1 && first2 == last2;
+}
+
+DOC <$ Returns the first differing or exhausted positions in both inputs. $>
+::mismatch FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO mismatch;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO mismatch;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO mismatch;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO mismatch_iterators;
+  }
+}
+
+DOC <$ Returns the first differing or exhausted positions in both inputs. $>
+PRIVATE(MODULE)
+::mismatch_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  { IF (equal(@left projection1(first1->), @right projection2(first2->)) == FALSE) { BREAK; } first1++; first2++; }
+  RETURN :{ .in1 = first1 AS iterator1; .in2 = first2 AS iterator2; };
+}
+
+DOC <$ Returns the lexicographical three-way order of two finite inputs. $>
+::lexicographical_compare FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO lexicographical_compare;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO lexicographical_compare;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO lexicographical_compare;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO lexicographical_compare_iterators;
+  }
+}
+
+DOC <$ Returns the lexicographical three-way order of two finite inputs. $>
+PRIVATE(MODULE)
+::lexicographical_compare_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): ORDER
+{
+  LOOP WHILE (first1 != last1 && first2 != last2) DO
+  {
+    VAR order ORDER := compare(@left projection1(first1->), @right projection2(first2->));
+    IF (order != ORDER::EQUAL) { RETURN order; }
+    first1++; first2++;
+  }
+  IF (first1 != last1) { RETURN ORDER::GREATER; }
+  IF (first2 != last2) { RETURN ORDER::LESS; }
+  RETURN ORDER::EQUAL;
+}
+
+DOC <$ Tests equality-class multiplicities using forward traversal and constant storage. $>
+::is_permutation FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  {
+    VAR default_value equal_to;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO is_permutation;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO is_permutation;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO is_permutation;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO is_permutation_iterators;
+  }
+}
+
+DOC <$ Tests equality-class multiplicities using forward traversal and constant storage. $>
+PRIVATE(MODULE)
+::is_permutation_iterators
+  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): BOOL
+{
+  VAR size1 SZ := 0;
+  VAR size2 SZ := 0;
+  VAR cursor1 iterator1 := first1;
+  VAR cursor2 iterator2 := first2;
+  LOOP WHILE (cursor1 != last1) DO { size1++; cursor1++; }
+  LOOP WHILE (cursor2 != last2) DO { size2++; cursor2++; }
+  IF (size1 != size2) { RETURN FALSE; }
+  cursor1 := first1;
+  LOOP WHILE (cursor1 != last1) DO
+  {
+    VAR previous iterator1 := first1;
+    VAR seen BOOL := FALSE;
+    LOOP WHILE (previous != cursor1) DO
+    {
+      IF (equal(@left projection1(previous->), @right projection1(cursor1->))) { seen := TRUE; BREAK; }
+      previous++;
+    }
+    IF (seen == FALSE)
+    {
+      VAR count1 SZ := 0; VAR count2 SZ := 0;
+      previous := cursor1;
+      LOOP WHILE (previous != last1) DO
+      { IF (equal(@left projection1(previous->), @right projection1(cursor1->))) { count1++; } previous++; }
+      cursor2 := first2;
+      LOOP WHILE (cursor2 != last2) DO
+      { IF (equal(@left projection1(cursor1->), @right projection2(cursor2->))) { count2++; } cursor2++; }
+      IF (count1 != count2) { RETURN FALSE; }
+    }
+    cursor1++;
+  }
+  RETURN TRUE;
+}
+
+DOC <$ Returns the first equivalent extremum, or the input end. $>
+::min_element FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO min_element;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO min_element;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO min_element_iterators;
+  }
+}
+
+DOC <$ Returns the first equivalent extremum, or the input end. $>
+PRIVATE(MODULE)
+::min_element_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+{
+  IF (first == last) { RETURN first; }
+  VAR result input_iterator := first;
+  first++;
+  LOOP WHILE (first != last) DO
+  {
+    IF (compare(@left projection(first->), @right projection(result->)) == ORDER::LESS) { result := first; }
+    first++;
+  }
+  RETURN result;
+}
+
+DOC <$ Returns the first equivalent extremum, or the input end. $>
+::max_element FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO max_element;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO max_element;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO max_element_iterators;
+  }
+}
+
+DOC <$ Returns the first equivalent extremum, or the input end. $>
+PRIVATE(MODULE)
+::max_element_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+{
+  IF (first == last) { RETURN first; }
+  VAR result input_iterator := first;
+  first++;
+  LOOP WHILE (first != last) DO
+  {
+    IF (compare(@left projection(first->), @right projection(result->)) == ORDER::GREATER) { result := first; }
+    first++;
+  }
+  RETURN result;
+}
+
+DOC <$ Returns the first minimum and first maximum positions. $>
+::minmax_element FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
+{
+  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  {
+    VAR default_value compare_three_way;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO minmax_element;
+  }
+  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  {
+    VAR default_value identity;
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO minmax_element;
+  }
+  STATIC_ELSE
+  {
+    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO minmax_element_iterators;
+  }
+}
+
+DOC <$ Returns the first minimum and first maximum positions. $>
+PRIVATE(MODULE)
+::minmax_element_iterators
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): AUTO
+{
+  VAR minimum input_iterator := first;
+  VAR maximum input_iterator := first;
+  IF (first != last) { first++; }
+  LOOP WHILE (first != last) DO
+  {
+    IF (compare(@left projection(first->), @right projection(minimum->)) == ORDER::LESS) { minimum := first; }
+    IF (compare(@left projection(first->), @right projection(maximum->)) == ORDER::GREATER) { maximum := first; }
+    first++;
+  }
+  RETURN :{ .min = minimum AS input_iterator; .max = maximum AS input_iterator; };
+}
+
+DOC <$ Folds elements in the specified traversal order with the supplied accumulator. $>
+::fold_left
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @initial AUTO(accumulator_type), @operation TT(operation_type)): accumulator_type
+{
+  LOOP WHILE (first != last) DO
+  { initial := operation(@accumulator MOVE(initial), @value first->); first++; }
+  RETURN initial;
+}
+
+DOC <$ Folds elements in the specified traversal order with the supplied accumulator. $>
+::fold_right
+  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @initial AUTO(accumulator_type), @operation TT(operation_type)): accumulator_type
+{
+  LOOP WHILE (first != last) DO
+  { last--; initial := operation(@accumulator MOVE(initial), @value last->); }
+  RETURN initial;
+}
+

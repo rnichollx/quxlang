@@ -1,0 +1,686 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Applies all_of to the borrowed range boundaries. $>
+::all_of FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO all_of; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::all_of FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies any_of to the borrowed range boundaries. $>
+::any_of FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO any_of; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::any_of FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies none_of to the borrowed range boundaries. $>
+::none_of FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO none_of; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::none_of FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies count to the borrowed range boundaries. $>
+::count FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO count; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::count FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies count_if to the borrowed range boundaries. $>
+::count_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO count_if; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::count_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies find to the borrowed range boundaries. $>
+::find FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO find; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::find FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies find_if to the borrowed range boundaries. $>
+::find_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO find_if; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::find_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies find_if_not to the borrowed range boundaries. $>
+::find_if_not FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO find_if_not; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::find_if_not FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies for_each to the borrowed range boundaries. $>
+::for_each FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO for_each; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::for_each FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies find_first_of to the borrowed range boundaries. $>
+::find_first_of FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO find_first_of; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::find_first_of FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::find_first_of FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies adjacent_find to the borrowed range boundaries. $>
+::adjacent_find FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO adjacent_find; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::adjacent_find FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies search to the borrowed range boundaries. $>
+::search FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO search; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::search FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::search FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies find_end to the borrowed range boundaries. $>
+::find_end FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO find_end; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::find_end FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::find_end FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies search_n to the borrowed range boundaries. $>
+::search_n FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO search_n; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::search_n FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies equal to the borrowed range boundaries. $>
+::equal FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO equal; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::equal FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::equal FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies mismatch to the borrowed range boundaries. $>
+::mismatch FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO mismatch; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::mismatch FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::mismatch FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies lexicographical_compare to the borrowed range boundaries. $>
+::lexicographical_compare FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO lexicographical_compare; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::lexicographical_compare FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::lexicographical_compare FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies is_permutation to the borrowed range boundaries. $>
+::is_permutation FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO is_permutation; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::is_permutation FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::is_permutation FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies min_element to the borrowed range boundaries. $>
+::min_element FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO min_element; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::min_element FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies max_element to the borrowed range boundaries. $>
+::max_element FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO max_element; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::max_element FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies minmax_element to the borrowed range boundaries. $>
+::minmax_element FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO minmax_element; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::minmax_element FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies fold_left to the borrowed range boundaries. $>
+::fold_left FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO fold_left; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::fold_left FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies fold_right to the borrowed range boundaries. $>
+::fold_right FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO fold_right; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::fold_right FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies copy to the borrowed range boundaries. $>
+::copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO copy; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies move to the borrowed range boundaries. $>
+::move FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO move; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::move FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies copy_backward to the borrowed range boundaries. $>
+::copy_backward FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO copy_backward; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::copy_backward FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies move_backward to the borrowed range boundaries. $>
+::move_backward FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO move_backward; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::move_backward FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies copy_if to the borrowed range boundaries. $>
+::copy_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO copy_if; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::copy_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies remove_copy to the borrowed range boundaries. $>
+::remove_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO remove_copy; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::remove_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies remove_copy_if to the borrowed range boundaries. $>
+::remove_copy_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO remove_copy_if; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::remove_copy_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies transform to the borrowed range boundaries. $>
+::transform FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO transform; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::transform FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies transform to the borrowed range boundaries. $>
+::transform FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO transform; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::transform FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::transform FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies fill to the borrowed range boundaries. $>
+::fill FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO fill; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::fill FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies generate to the borrowed range boundaries. $>
+::generate FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO generate; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::generate FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies replace to the borrowed range boundaries. $>
+::replace FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO replace; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::replace FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies replace_if to the borrowed range boundaries. $>
+::replace_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO replace_if; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::replace_if FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies replace_copy to the borrowed range boundaries. $>
+::replace_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO replace_copy; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::replace_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies replace_copy_if to the borrowed range boundaries. $>
+::replace_copy_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO replace_copy_if; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::replace_copy_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies remove to the borrowed range boundaries. $>
+::remove FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO remove; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::remove FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies remove_if to the borrowed range boundaries. $>
+::remove_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO remove_if; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::remove_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies unique to the borrowed range boundaries. $>
+::unique FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO unique; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::unique FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies unique_copy to the borrowed range boundaries. $>
+::unique_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO unique_copy; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::unique_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies reverse to the borrowed range boundaries. $>
+::reverse FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO reverse; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::reverse FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies reverse_copy to the borrowed range boundaries. $>
+::reverse_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO reverse_copy; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::reverse_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies rotate to the borrowed range boundaries. $>
+::rotate FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO rotate; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::rotate FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies rotate_copy to the borrowed range boundaries. $>
+::rotate_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO rotate_copy; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::rotate_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies swap_ranges to the borrowed range boundaries. $>
+::swap_ranges FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO swap_ranges; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::swap_ranges FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::swap_ranges FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies partition to the borrowed range boundaries. $>
+::partition FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partition; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::partition FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies is_partitioned to the borrowed range boundaries. $>
+::is_partitioned FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_partitioned; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::is_partitioned FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies partition_copy to the borrowed range boundaries. $>
+::partition_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partition_copy; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::partition_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies make_heap to the borrowed range boundaries. $>
+::make_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO make_heap; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::make_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies push_heap to the borrowed range boundaries. $>
+::push_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO push_heap; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::push_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies pop_heap to the borrowed range boundaries. $>
+::pop_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO pop_heap; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::pop_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies sort_heap to the borrowed range boundaries. $>
+::sort_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO sort_heap; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::sort_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies is_heap_until to the borrowed range boundaries. $>
+::is_heap_until FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_heap_until; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::is_heap_until FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies is_heap to the borrowed range boundaries. $>
+::is_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_heap; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::is_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies sort to the borrowed range boundaries. $>
+::sort FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO sort; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::sort FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies nth_element to the borrowed range boundaries. $>
+::nth_element FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO nth_element; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::nth_element FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies partial_sort to the borrowed range boundaries. $>
+::partial_sort FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partial_sort; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::partial_sort FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies partial_sort_copy to the borrowed range boundaries. $>
+::partial_sort_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partial_sort_copy; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::partial_sort_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies is_sorted_until to the borrowed range boundaries. $>
+::is_sorted_until FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_sorted_until; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::is_sorted_until FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies is_sorted to the borrowed range boundaries. $>
+::is_sorted FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_sorted; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::is_sorted FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies lower_bound to the borrowed range boundaries. $>
+::lower_bound FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO lower_bound; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::lower_bound FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies upper_bound to the borrowed range boundaries. $>
+::upper_bound FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO upper_bound; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::upper_bound FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies partition_point to the borrowed range boundaries. $>
+::partition_point FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partition_point; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::partition_point FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies equal_range to the borrowed range boundaries. $>
+::equal_range FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO equal_range; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::equal_range FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies binary_search to the borrowed range boundaries. $>
+::binary_search FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO binary_search; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::binary_search FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies merge to the borrowed range boundaries. $>
+::merge FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO merge; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::merge FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::merge FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies set_union to the borrowed range boundaries. $>
+::set_union FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO set_union; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::set_union FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::set_union FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies set_intersection to the borrowed range boundaries. $>
+::set_intersection FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO set_intersection; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::set_intersection FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::set_intersection FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies set_difference to the borrowed range boundaries. $>
+::set_difference FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO set_difference; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::set_difference FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::set_difference FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies set_symmetric_difference to the borrowed range boundaries. $>
+::set_symmetric_difference FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO set_symmetric_difference; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::set_symmetric_difference FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::set_symmetric_difference FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies includes to the borrowed range boundaries. $>
+::includes FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO includes; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::includes FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::includes FUNCTION(@range1 AUTO& AUTO, @range2 TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies next_permutation to the borrowed range boundaries. $>
+::next_permutation FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO next_permutation; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::next_permutation FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies prev_permutation to the borrowed range boundaries. $>
+::prev_permutation FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO prev_permutation; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::prev_permutation FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies stable_partition to the borrowed range boundaries. $>
+::stable_partition FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
+{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO stable_partition; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::stable_partition FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies inplace_merge to the borrowed range boundaries. $>
+::inplace_merge FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO inplace_merge; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::inplace_merge FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
+DOC <$ Applies stable_sort to the borrowed range boundaries. $>
+::stable_sort FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
+{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO stable_sort; }
+
+DOC <$ Rejects a temporary range whose storage may expire. $>
+::stable_sort FUNCTION(@range TEMP& AUTO, @KWARGS ...)
+{ COMPILATION_ERROR "Algorithm range arguments must be lvalues."; }
+
