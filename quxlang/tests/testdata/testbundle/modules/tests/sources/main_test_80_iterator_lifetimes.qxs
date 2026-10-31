@@ -2,6 +2,220 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::iterator_lifetime_tests NAMESPACE
 {
+  DOC <$ The range exposes its lifetime during traversal. $>
+  ::owned_range STRUCT MOVE_ONLY
+  {
+    .values VAR [2]I32;
+    .alive VAR MUT->I32;
+
+    DOC <$ The constructor records the construction of one range. $>
+    .CONSTRUCTOR FUNCTION(@alive MUT& I32)
+    {
+      .alive := alive<-;
+      alive++;
+      .values[0] := 7;
+      .values[1] := 8;
+    }
+
+    DOC <$ The move constructor transfers ownership of the live-range count. $>
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& owned_range)
+    {
+      VAR source MUT& owned_range := OTHER AS MUT& owned_range;
+      .values := source.values;
+      .alive <-> source.alive;
+    }
+
+    DOC <$ The destructor records the destruction of one range. $>
+    .DESTRUCTOR FUNCTION() { IF (.alive??) { .alive-> --; } }
+
+    DOC <$ BEGIN returns an iterator into the live range. $>
+    .BEGIN FUNCTION() CONST: CONST=>>I32
+    {
+      TEST_ASSERT(.alive-> == 1);
+      RETURN .values.BEGIN();
+    }
+
+    DOC <$ END returns the endpoint of the live range. $>
+    .END FUNCTION() CONST: CONST=>>I32
+    {
+      TEST_ASSERT(.alive-> == 1);
+      RETURN .values.END();
+    }
+  }
+
+  DOC <$ The function returns an owned range while an intermediate argument temporary remains alive. $>
+  ::select_owned_range FUNCTION(@argument CONST& short_circuit_tests::temporary, @alive MUT& I32): owned_range
+  {
+    TEST_ASSERT(argument.alive-> == 1);
+    RETURN owned_range(@alive alive);
+  }
+
+  DOC <$ The final range survives traversal, intermediate temporaries expire before the body, and loop exit destroys the range. $>
+  ::range_operand_lifetime
+    DUAL_TEST
+  {
+    VAR mode I32 := 0;
+    LOOP WHILE(mode < 3) DO
+    {
+      VAR events I32 := 0;
+      VAR intermediate_alive I32 := 0;
+      VAR range_alive I32 := 0;
+      VAR cleanup I32 := 0;
+      VAR visits SZ := 0;
+      LOOP INIT { VAR first control_flow_tests::exit_record :(@events cleanup, @digit 1); }
+      EVAL { VAR second control_flow_tests::exit_record :(@events cleanup, @digit 2); }
+      ITEM(item) IN(select_owned_range(
+        @argument short_circuit_tests::temporary(@events events, @alive intermediate_alive, @digit 1),
+        @alive range_alive)) FILTER(mode != 2) DO
+      {
+        TEST_ASSERT(range_alive == 1);
+        TEST_ASSERT(intermediate_alive == 0);
+        TEST_ASSERT(events == 15);
+        TEST_ASSERT(cleanup == 0);
+        visits++;
+        IF (mode == 1) { BREAK; }
+        CONTINUE;
+      };
+      TEST_ASSERT(range_alive == 0);
+      TEST_ASSERT(intermediate_alive == 0);
+      TEST_ASSERT(cleanup == 21);
+      IF (mode == 0) { TEST_ASSERT(visits == 2); }
+      ELSE IF (mode == 1) { TEST_ASSERT(visits == 1); }
+      ELSE { TEST_ASSERT(visits == 0); }
+      mode++;
+    };
+
+    VAR range_alive I32 := 0;
+    VAR caught BOOL := FALSE;
+    TRY
+    {
+      LOOP ITEM(item) IN(owned_range(@alive range_alive)) DO
+      {
+        TEST_ASSERT(range_alive == 1);
+        THROW I32(@OTHER 42);
+      };
+    }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 42);
+      TEST_ASSERT(range_alive == 0);
+      caught := TRUE;
+    }
+    TEST_ASSERT(caught);
+  }
+
+  DOC <$ Built-in arrays expose their zero-based indexes through the range protocol. $>
+  ::builtin_array_indexes
+    DUAL_TEST
+  {
+    VAR values [4]I32 :[10, 20, 30, 40];
+    VAR visits SZ := 0;
+    LOOP INDEX(index) IN(values) DO
+    {
+      TEST_ASSERT(SAME_TYPES(DECLTYPE(index), SZ));
+      TEST_ASSERT(index == visits);
+      values[index] += 1;
+      visits++;
+    };
+    TEST_ASSERT(visits == 4);
+    TEST_ASSERT(values[0] == 11);
+    TEST_ASSERT(values[3] == 41);
+
+    VAR constant_values CONST& [4]I32 := values;
+    VAR total SZ := 0;
+    LOOP INDEX(index SZ) IN(constant_values) FILTER(index != 1) DO
+    {
+      IF (index == 2) { CONTINUE; }
+      total += index;
+    };
+    TEST_ASSERT(total == 3);
+
+    VAR stepped SZ := 0;
+    LOOP INDEX(index) IN(values) BY(3 AS SZ) DO { stepped += index; };
+    TEST_ASSERT(stepped == 3);
+
+    VAR empty [0]BYTE;
+    LOOP INDEX(index) IN(empty) DO { TEST_ASSERT(FALSE); };
+    VAR singleton [1]BYTE;
+    LOOP INDEX(index) IN(singleton) DO { TEST_ASSERT(index == 0); visits++; };
+    TEST_ASSERT(visits == 5);
+
+    VAR matrix [2][3]I32;
+    VAR elements SZ := 0;
+    LOOP INDEX(row) IN(matrix) DO
+    {
+      LOOP INDEX(column) IN(matrix[row]) DO { elements++; };
+    };
+    TEST_ASSERT(elements == 6);
+
+    VAR indexes AUTO := values.INDEXES();
+    VAR cursor AUTO := indexes.BEGIN();
+    TEST_ASSERT(cursor-> == 0);
+    cursor += 3;
+    TEST_ASSERT(cursor-> == 3);
+    cursor++;
+    TEST_ASSERT(cursor == indexes.END());
+  }
+
+  DOC <$ The index range remains valid after a temporary built-in array expires. $>
+  ::temporary_array_indexes
+    DUAL_TEST
+  {
+    VAR temporary_visits SZ := 0;
+    VAR indexes AUTO := [2]I32(% [7, 8]).INDEXES();
+    LOOP ITEM(index) IN(indexes) DO
+    {
+      TEST_ASSERT(index == temporary_visits);
+      temporary_visits++;
+    };
+    TEST_ASSERT(temporary_visits == 2);
+  }
+
+  DOC <$ A temporary array used directly as a loop range survives through index and item iteration. $>
+  ::temporary_array_loop_range
+    DUAL_TEST
+  {
+    VAR visits SZ := 0;
+    LOOP INDEX(index) IN([2]I32(% [7, 8])) DO
+    {
+      TEST_ASSERT(index == visits);
+      visits++;
+    };
+    TEST_ASSERT(visits == 2);
+    VAR total I32 := 0;
+    LOOP ITEM(item) IN([2]I32(% [7, 8])) DO { total += item; };
+    TEST_ASSERT(total == 15);
+  }
+
+  DOC <$ Index iteration retains temporary array elements until loop exit and destroys them in reverse order. $>
+  ::temporary_array_element_lifetime
+    DUAL_TEST
+  {
+    VAR events I32 := 0;
+    VAR visits SZ := 0;
+    LOOP INDEX(index) IN([2]control_flow_tests::exit_record(% [
+      control_flow_tests::exit_record(@events events, @digit 1),
+      control_flow_tests::exit_record(@events events, @digit 2)])) DO
+    {
+      TEST_ASSERT(events == 0);
+      TEST_ASSERT(index == visits);
+      visits++;
+    };
+    TEST_ASSERT(visits == 2);
+    TEST_ASSERT(events == 21);
+  }
+
+  DOC <$ Index iteration accepts IBC-qualified built-in arrays. $>
+  ::ibc_array_indexes
+    DUAL_TEST
+  {
+    VAR values [4]I32;
+    VAR ibc_values IBC MUT& [4]I32 := values AS IBC MUT& [4]I32;
+    VAR ibc_visits SZ := 0;
+    LOOP INDEX(index) IN(ibc_values) DO { TEST_ASSERT(index == ibc_visits); ibc_visits++; };
+    TEST_ASSERT(ibc_visits == 4);
+  }
+
   DOC <$ Filter temporaries expire before the body, mutable items alias array storage, and CONTINUE advances rejected and accepted iterations. $>
   ::filtered_mutation
     DUAL_TEST

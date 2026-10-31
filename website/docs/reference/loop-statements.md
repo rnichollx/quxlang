@@ -217,7 +217,7 @@ ASSERT(total == 6);
 `ITEM` cannot be combined with `INDEX` or `VALUE`. `ITER` may accompany any
 projection because it names the iterator rather than the dereferenced value.
 
-Arrays support direct item iteration and value projection:
+Arrays support direct item iteration, value projection, and index projection:
 
 ```quxlang
 VAR values [4]I32 :[1, 2, 3, 4];
@@ -297,7 +297,12 @@ same `.END()` result is treated as a `LIMIT` boundary and uses `<`.
 ### Iterator phase order
 
 `INIT`, `EVAL`, the range or explicit boundary expressions, and `BY` are
-evaluated once on loop entry. Each iteration then follows this order:
+evaluated once on loop entry. A final temporary value produced by `IN`,
+`START`, `END`, `LIMIT`, or `BY` remains alive until the loop exits.
+Intermediate temporaries created while evaluating an operand expire before
+the next operand or range projection is evaluated. Loop exit destroys the
+retained values, including exits through `BREAK` and exception propagation.
+Each iteration then follows this order:
 
 1. Check `END` with `!=` or `LIMIT` with `<`, when present.
 2. Dereference the iterator and establish `ITEM`, `INDEX`, and `VALUE` bindings.

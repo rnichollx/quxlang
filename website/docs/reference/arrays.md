@@ -157,6 +157,25 @@ LOOP ITEM(item) IN(initialized) DO
 `ITEM` binds writable element access for a mutable array; `VALUE` creates the
 loop's projected value according to the iterator projection rules.
 
+`INDEXES()` returns a range of zero-based `SZ` indexes. The range contains
+exactly the indexes below the array's element count. A zero-length array
+produces an empty range, and a nested array's range describes its outer
+dimension. The range is independent of element storage and is available for
+mutable, constant, temporary, and write-qualified array receivers.
+
+```quxlang
+LOOP INDEX(index) IN(initialized) DO
+{
+  initialized[index] += 1;
+};
+```
+
+The range's `BEGIN()` and `END()` return iterators at zero and the element
+count, respectively. Dereferencing an iterator returns its current index by
+value. Postfix `++` advances by one, and `+=` advances by an unsigned `SZ`
+count. Iterator equality and ordering compare the current indexes. These
+operations support constant evaluation and runtime execution.
+
 ## Assignment, swap, and comparison
 
 Array assignment applies assignment to corresponding elements. `<->` swaps

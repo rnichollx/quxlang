@@ -11172,6 +11172,7 @@ namespace quxlang
         {
             this->validate_iterator_loop_statement(st);
 
+            block_index after_block = this->generate_subblock(current_block, "loop_iterator_after");
             std::map< std::string, value_index > outer_lookup_values = this->block(current_block).lookup_values;
             co_await co_enter_body_scope();
 
@@ -11184,12 +11185,29 @@ namespace quxlang
                 co_await this->co_generate_loop_clause_block(current_block, *st.eval_block);
             }
 
+            /** Operand evaluation retains the final value in the loop scope after intermediate temporaries expire. */
+            auto co_evaluate_operand = [&](expression const& operand) -> co_type< value_index >
+            {
+                block_index evaluation_block = this->generate_subblock(current_block, "loop_operand_expression");
+                block_index retained_block = this->generate_subblock(current_block, "loop_operand_value");
+                this->generate_jump(current_block, evaluation_block);
+                value_index result = co_await this->co_generate_expr(evaluation_block, operand);
+                this->generate_jump(evaluation_block, retained_block);
+                value_index storage_value = this->genlocal_index(result);
+                if (storage_value != value_index(0) && this->state.genvalues.at(storage_value).template type_is< codegen_local >())
+                {
+                    this->generate_survivor_local(evaluation_block, retained_block, this->get_local_index(storage_value));
+                }
+                current_block = retained_block;
+                co_return result;
+            };
+
             std::optional< value_index > start_input;
             std::optional< value_index > end_input;
             std::optional< value_index > limit_input;
             if (st.in_expr.has_value())
             {
-                value_index range_value = co_await this->co_generate_expr(current_block, *st.in_expr);
+                value_index range_value = co_await co_evaluate_operand(*st.in_expr);
                 std::optional< std::string > range_projection;
                 if (st.index_binding.has_value() && st.value_binding.has_value())
                 {
@@ -11228,14 +11246,14 @@ namespace quxlang
             }
             else
             {
-                start_input = co_await this->co_generate_expr(current_block, *st.start_expr);
+                start_input = co_await co_evaluate_operand(*st.start_expr);
                 if (st.end_expr.has_value())
                 {
-                    end_input = co_await this->co_generate_expr(current_block, *st.end_expr);
+                    end_input = co_await co_evaluate_operand(*st.end_expr);
                 }
                 if (st.limit_expr.has_value())
                 {
-                    limit_input = co_await this->co_generate_expr(current_block, *st.limit_expr);
+                    limit_input = co_await co_evaluate_operand(*st.limit_expr);
                 }
             }
 
@@ -11267,10 +11285,9 @@ namespace quxlang
             std::optional< value_index > by_value;
             if (st.by_expr.has_value())
             {
-                by_value = co_await this->co_generate_expr(current_block, *st.by_expr);
+                by_value = co_await co_evaluate_operand(*st.by_expr);
             }
 
-            block_index after_block = this->generate_subblock(current_block, "loop_iterator_after");
             block_index boundary_block = this->generate_subblock(current_block, "loop_iterator_boundary");
             block_index iteration_values_block = this->generate_subblock(current_block, "loop_iterator_values");
             this->generate_jump(current_block, boundary_block);

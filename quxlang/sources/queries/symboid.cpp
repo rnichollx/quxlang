@@ -3,6 +3,7 @@
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/merge_entity.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
+#include <quxlang/data/builtin_array_ranges.hpp>
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/symboid_spec.hpp>
 
@@ -12,6 +13,11 @@
 
 rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_symbol input)
 {
+    if (input.type_is< array_type >())
+    {
+        co_return builtin_array_index_declaration(input.get_as< array_type >());
+    }
+
     if (std::optional< std::uint64_t > number = snapshot_number(input))
     {
         snapshot_value snapshot = co_await rpnx::querygraph::subquery_request< snapshot_value_subquery >(
