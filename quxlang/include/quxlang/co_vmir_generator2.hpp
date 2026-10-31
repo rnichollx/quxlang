@@ -1348,7 +1348,6 @@ namespace quxlang
                     co_return materialize_reference ? create_reference(bidx, converted_value, target_type) : converted_value;
                 }
 
-                throw compiler_bug("Selected invalid NULL conversion from NULL_TYPE to " + to_string(target_type));
             }
 
             if (typeis< attached_type_reference >(value_type) || typeis< attached_type_reference >(target_type))
@@ -12119,6 +12118,7 @@ namespace quxlang
             co_return co_await co_generate_dot_access(bidx, parent, what.field_name, std::move(what.template_arguments));
         }
 
+        /** Resolves members of a value's canonical receiver type with access checks in the caller's scope. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_dot_access(block_index& bidx, value_index base, std::string field_name, std::vector< expression_arg > template_arguments = {}) -> co_type< value_index >
         {
             auto base_type = this->current_type(bidx, base);
@@ -12254,7 +12254,7 @@ namespace quxlang
                         {
                             inherited_member = initialization_reference{.initializee = std::move(inherited_member), .context = body_context(), .arguments = std::move(template_arguments)};
                         }
-                        std::optional< type_symbol > inherited_function = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = std::move(inherited_member)});
+                        std::optional< type_symbol > const& inherited_function = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = candidate.receiver_type, .type = std::move(inherited_member)});
                         if (inherited_function.has_value())
                         {
                             co_return create_binding(receiver, std::move(*inherited_function));
@@ -12350,22 +12350,31 @@ namespace quxlang
                 }
             }
 
-            // If no field is found, look for a member function
-            auto member_func = submember{.of = base_type_noref, .name = field_name};
-            type_symbol lookup_target = member_func;
+            // The value already supplies a canonical receiver type. Resolve its members in that
+            // type's scope while checking member and overload access in the caller's scope.
+            submember member_func{.of = base_type_noref, .name = field_name};
+            std::optional< type_symbol > const& member = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = base_type_noref, .type = member_func});
+            if (!member.has_value() || co_await rpnx::querygraph::request< symbol_type_query >(*member) == symbol_kind::noexist)
+            {
+                throw semantic_compilation_error("Cannot find member " + field_name + " in " + to_string(base_type));
+            }
+            std::optional< type_symbol > lookup_result = member;
             if (!template_arguments.empty())
             {
-                std::optional< type_symbol > member = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = member_func});
-                if (!member.has_value() || co_await rpnx::querygraph::request< symbol_type_query >(*member) == symbol_kind::noexist)
-                {
-                    throw semantic_compilation_error("Cannot find member " + field_name + " in " + to_string(base_type));
-                }
-                lookup_target = initialization_reference{.initializee = std::move(*member), .context = body_context(), .arguments = std::move(template_arguments)};
+                initialization_reference lookup_target{.initializee = *member, .context = body_context(), .arguments = std::move(template_arguments)};
+                lookup_result = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = base_type_noref, .type = std::move(lookup_target)});
             }
-            auto lookup_result = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = body_context(), .type = std::move(lookup_target)});
 
             if (lookup_result)
             {
+                bool const accessible = co_await rpnx::querygraph::request< declaration_is_accessible_query >(declaration_access_request{
+                    .accessor_context = body_context(),
+                    .selected_declaration = *lookup_result,
+                });
+                if (!accessible)
+                {
+                    throw semantic_compilation_error("Member " + to_string(*lookup_result) + " is private in context " + to_string(body_context()));
+                }
                 // Create a binding to the member function with the base object
                 auto binding = create_binding(base, lookup_result.value());
                 if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
@@ -12720,7 +12729,7 @@ namespace quxlang
             co_return get_result();
         }
 
-        /** Generates one ABI-stable erased operation that forwards to a concrete member function. */
+        /** Generates an erased operation with ordinary argument adaptation for its concrete member function. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_generic_operation(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             if (!typeis< subsymbol >(func.temploid.templexoid))
@@ -12742,10 +12751,17 @@ namespace quxlang
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block(0);
+            instatype const& target_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(target);
             codegen_invocation_args target_arguments;
-            for (vmir2::routine_parameter const& parameter : this->state.params.positional)
+            for (std::size_t index = 0; index < this->state.params.positional.size(); ++index)
             {
-                target_arguments.positional.push_back(get_value_index(parameter.local_index));
+                value_index argument = get_value_index(this->state.params.positional.at(index).local_index);
+                type_symbol expected = parameter_instantiation_type(target_params.positional.at(index));
+                if (current_type(current_block, argument) != expected)
+                {
+                    argument = co_await co_gen_argument_adaptation(current_block, argument, expected, allowed_adaptations::destination_rebinding);
+                }
+                target_arguments.positional.push_back(argument);
             }
             for (std::pair< std::string const, vmir2::routine_parameter > const& parameter : this->state.params.named)
             {
@@ -12753,7 +12769,17 @@ namespace quxlang
                 {
                     continue;
                 }
-                target_arguments.named[parameter.first] = get_value_index(parameter.second.local_index);
+                value_index argument = get_value_index(parameter.second.local_index);
+                std::map< std::string, parameter_instantiation >::const_iterator expected_parameter = target_params.named.find(parameter.first);
+                if (expected_parameter != target_params.named.end())
+                {
+                    type_symbol expected = parameter_instantiation_type(expected_parameter->second);
+                    if (current_type(current_block, argument) != expected)
+                    {
+                        argument = co_await co_gen_argument_adaptation(current_block, argument, expected, allowed_adaptations::destination_rebinding);
+                    }
+                }
+                target_arguments.named[parameter.first] = argument;
             }
 
             std::optional< value_index > erased_this = local_value_direct_lookup(current_block, "GENERIC_THIS");
@@ -12761,7 +12787,6 @@ namespace quxlang
             {
                 throw compiler_bug("Generic operation has no GENERIC_THIS parameter");
             }
-            instatype target_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(target);
             auto target_this = target_params.named.find("THIS");
             if (target_this == target_params.named.end())
             {
@@ -14569,7 +14594,6 @@ namespace quxlang
                 block_index condition_block = this->generate_subblock(current_block, "array_compare_condition");
                 block_index element_block = this->generate_subblock(current_block, "array_compare_element");
                 block_index advance_block = this->generate_subblock(current_block, "array_compare_advance");
-                block_index mismatch_block = this->generate_subblock(current_block, "array_compare_mismatch");
                 block_index equal_block = this->generate_subblock(current_block, "array_compare_equal");
                 this->generate_jump(current_block, condition_block);
 
@@ -14594,7 +14618,9 @@ namespace quxlang
                     value_index condition_ordering = this->load_reference_value(element_block, comparison_reference, builtin_symbol{"ORDER"});
                     elements_equal = this->generate_comparison_from_order(element_block, condition_ordering, "==");
                 }
+                block_index mismatch_block = this->generate_subblock(element_block, "array_compare_mismatch");
                 this->generate_branch(elements_equal, element_block, advance_block, mismatch_block);
+                this->kill_entry_value(mismatch_block, elements_equal);
 
                 value_index old_index = co_await this->co_construct_copy(advance_block, index, uintptr_type);
                 value_index one = this->create_small_uint_value(advance_block, 1, uintptr_type);
@@ -14852,7 +14878,7 @@ namespace quxlang
             co_return result;
         }
 
-        /** Resolves one typed DEFAULT_ALLOCATOR lifecycle entry point. */
+        /** Resolves a typed allocator using the canonical payload's context for its type argument. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_resolve_default_allocator_member(std::string member_name, type_symbol const& payload_type) -> co_type< type_symbol >
         {
             initialization_reference typed_allocator{
@@ -14861,7 +14887,7 @@ namespace quxlang
                         .of = absolute_module_reference{.module_name = "RUNTIME"},
                         .name = "DEFAULT_ALLOCATOR",
                     },
-                .context = body_context(),
+                .context = payload_type,
             };
             typed_allocator.arguments.push_back(expression_arg{
                 .name = "T",
@@ -14957,6 +14983,104 @@ namespace quxlang
                                           .to_reference = get_local_index(payload_reference),
                                       });
             return payload_reference;
+        }
+
+        /** Generates equality or ordering by fusion state, alternative index, and active payload. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_fusion_compare(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            submember const& member = func.temploid.templexoid.get_as< submember >();
+            bool const generate_ordering = member.name == "OPERATOR<=>";
+            type_symbol const result_type = generate_ordering ? type_symbol(builtin_symbol{"ORDER"}) : type_symbol(bool_type{});
+            co_await co_generate_arg_info(func);
+            generate_entry_block();
+            block_index current_block(0);
+            std::optional< value_index > const this_value = local_value_direct_lookup(current_block, "THIS");
+            std::optional< value_index > const other_value = local_value_direct_lookup(current_block, "OTHER");
+            QUXLANG_COMPILER_BUG_IF(!this_value.has_value() || !other_value.has_value(), "Generated fusion comparison is missing THIS or OTHER");
+            fusion_codegen_info const info = co_await co_load_fusion_codegen_info(member.of);
+
+            if (!info.properties().never_valueless)
+            {
+                value_index const this_empty = create_local_value(bool_type{});
+                value_index const other_empty = create_local_value(bool_type{});
+                emit(current_block, vmir2::fusion_is_valueless{.subject = get_local_index(*this_value), .result = get_local_index(this_empty)});
+                emit(current_block, vmir2::fusion_is_valueless{.subject = get_local_index(*other_value), .result = get_local_index(other_empty)});
+                value_index const this_empty_condition = co_await co_construct_copy(current_block, this_empty, bool_type{});
+                block_index empty_block = generate_subblock(current_block, "fusion_compare_empty");
+                block_index check_other_block = generate_subblock(current_block, "fusion_compare_check_other");
+                generate_branch(this_empty_condition, current_block, empty_block, check_other_block);
+                kill_entry_value(empty_block, this_empty_condition);
+                kill_entry_value(check_other_block, this_empty_condition);
+                value_index const other_empty_condition = co_await co_construct_copy(check_other_block, other_empty, bool_type{});
+                block_index active_block = generate_subblock(check_other_block, "fusion_compare_active");
+                generate_branch(other_empty_condition, check_other_block, empty_block, active_block);
+                kill_entry_value(active_block, other_empty_condition);
+
+                value_index const empty_left = co_await co_construct_copy(empty_block, other_empty, bool_type{});
+                value_index const empty_right = co_await co_construct_copy(empty_block, this_empty, bool_type{});
+                value_index const empty_result = co_await co_generate_binary(empty_block, generate_ordering ? "<=>" : "==", empty_left, empty_right);
+                value_index const empty_reference = create_reference(empty_block, empty_result, make_tref(result_type));
+                co_await co_return_value(empty_block, empty_reference);
+                current_block = active_block;
+            }
+
+            type_symbol const index_type = info.active_index_type();
+            value_index const this_index = create_local_value(index_type);
+            value_index const other_index = create_local_value(index_type);
+            emit(current_block, vmir2::fusion_active_index{.subject = get_local_index(*this_value), .result = get_local_index(this_index)});
+            emit(current_block, vmir2::fusion_active_index{.subject = get_local_index(*other_value), .result = get_local_index(other_index)});
+            value_index const this_index_copy = co_await co_construct_copy(current_block, this_index, index_type);
+            value_index const other_index_copy = co_await co_construct_copy(current_block, other_index, index_type);
+            value_index const same_alternative = co_await co_generate_binary(current_block, "==", this_index_copy, other_index_copy);
+            block_index same_block = generate_subblock(current_block, "fusion_compare_same_alternative");
+            block_index different_block = generate_subblock(current_block, "fusion_compare_different_alternative");
+            generate_branch(same_alternative, current_block, same_block, different_block);
+            kill_entry_value(same_block, same_alternative);
+            kill_entry_value(different_block, same_alternative);
+
+            value_index different_result;
+            if (generate_ordering)
+            {
+                value_index const left = co_await co_construct_copy(different_block, this_index, index_type);
+                value_index const right = co_await co_construct_copy(different_block, other_index, index_type);
+                different_result = co_await co_generate_binary(different_block, "<=>", left, right);
+            }
+            else
+            {
+                different_result = create_bool_value(different_block, false);
+            }
+            value_index const different_reference = create_reference(different_block, different_result, make_tref(result_type));
+            co_await co_return_value(different_block, different_reference);
+
+            std::vector< block_index > alternatives;
+            alternatives.reserve(info.alternative_count());
+            for (std::size_t index = 0; index < info.alternative_count(); ++index)
+            {
+                alternatives.push_back(generate_subblock(same_block, "fusion_compare_alternative_" + std::to_string(index)));
+            }
+            set_terminator(same_block, vmir2::tablebranch{.index = get_local_index(this_index), .targets = alternatives, .default_target = alternatives.front()});
+            for (std::size_t index = 0; index < alternatives.size(); ++index)
+            {
+                block_index alternative_block = alternatives.at(index);
+                kill_entry_value(alternative_block, this_index);
+                value_index result;
+                if (typeis< void_type >(info.alternative(index)))
+                {
+                    result = generate_ordering ? load_zero_value(alternative_block, result_type) : create_bool_value(alternative_block, true);
+                }
+                else
+                {
+                    value_index const this_reference = copy_ref_value(alternative_block, *this_value);
+                    value_index const other_reference = copy_ref_value(alternative_block, *other_value);
+                    value_index const left = project_fusion_payload(alternative_block, info, this_reference, index);
+                    value_index const right = project_fusion_payload(alternative_block, info, other_reference, index);
+                    result = co_await co_generate_binary(alternative_block, generate_ordering ? "<=>" : "==", left, right);
+                }
+                value_index const result_reference = create_reference(alternative_block, result, make_tref(result_type));
+                co_await co_return_value(alternative_block, result_reference);
+            }
+            co_await co_generate_dtor_references();
+            co_return get_result();
         }
 
         /** Constructs and then publishes one fusion alternative. */

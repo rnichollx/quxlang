@@ -43,6 +43,18 @@ integer promotions; convert mixed concrete numeric types explicitly.
 integer representation. Array and generated structural comparisons are
 lexicographic in element or field order.
 
+Generated comparison also applies to `VARIANT`, `INLINE_VARIANT`, `UNION`, and
+`INLINE_UNION` when every non-`VOID` alternative supports generated structural
+comparison. Structures and arrays containing those values receive comparison
+under the same recursive eligibility rule. A declared comparison operator takes
+precedence over generation.
+
+Fusion equality compares active alternative identity and then the active
+payload. Two valueless objects compare equal. A valueless object orders before
+an active object. Different active alternatives order by their declaration
+index. Equal alternative indexes order by their payloads; a `VOID` alternative
+has no payload to compare. Boxed representation does not affect comparison.
+
 Polymorphic structs are not implicitly datatypes and do not receive generated
 equality or three-way comparison. They may declare an explicit comparison when
 one static-type contract is meaningful; inheritance does not make comparison

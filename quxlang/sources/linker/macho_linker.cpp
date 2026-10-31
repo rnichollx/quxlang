@@ -601,6 +601,12 @@ namespace quxlang::detail
 
                     bool zerofill = section_is_zerofill(header.flags);
                     std::uint64_t alignment = std::uint64_t{1} << header.align;
+                    if ((header.flags & llvm::MachO::SECTION_TYPE) == llvm::MachO::S_THREAD_LOCAL_VARIABLES)
+                    {
+                        // Mach-O TLV descriptors contain three pointers. LLVM emits this section without
+                        // explicit alignment; its descriptor ABI supplies the pointer-sized minimum.
+                        alignment = std::max(alignment, machine.pointer_align());
+                    }
                     macho_input_section input{
                         .id = macho_input_section_id{.object_index = object_index, .section_ordinal = ordinal},
                         .segment_name = segment,
@@ -1887,7 +1893,8 @@ namespace quxlang::detail
                     if ((address & 7) != 0)
                     {
                         throw quxlang::semantic_compilation_error(
-                            "Mach-O dynamic import pointer is not naturally aligned");
+                            "Mach-O dynamic import pointer is not naturally aligned: " +
+                            entry.first + " at " + std::to_string(address));
                     }
                     bind_data.push_back(encode_dyld_opcode(
                         static_cast< std::uint8_t >(llvm::MachO::BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB),

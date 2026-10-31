@@ -157,7 +157,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
             co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
             co_return co_await gen.co_generate_builtin_nominal_integer_spaceship(input);
         }
-        if (co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
+        if (co_await rpnx::querygraph::request< type_is_implicitly_comparable_query >(compared_type))
         {
             co_return co_await rpnx::querygraph::request< builtin_datatype_compare_vm_procedure3_query >(input);
         }
@@ -171,7 +171,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     }))).has_value())
     {
         auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
-        if (co_await rpnx::querygraph::request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
+        if (co_await rpnx::querygraph::request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::request< type_is_implicitly_comparable_query >(compared_type))
         {
             co_return co_await rpnx::querygraph::request< builtin_datatype_compare_vm_procedure3_query >(input);
         }

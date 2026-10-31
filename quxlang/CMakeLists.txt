@@ -396,6 +396,8 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/type_is_antestatal_spec.hpp
         include/quxlang/queries/specs/type_is_serialoid_spec.hpp
         include/quxlang/queries/specs/type_is_stringlike_spec.hpp
+        include/quxlang/queries/type_is_implicitly_comparable.hpp
+        include/quxlang/queries/specs/type_is_implicitly_comparable_spec.hpp
         include/quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp
         include/quxlang/queries/specs/type_is_trivially_default_constructible_spec.hpp
         include/quxlang/queries/specs/functanoid_is_noexcept_spec.hpp
@@ -618,6 +620,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/type_is_antestatal.cpp
         sources/queries/type_is_serialoid.cpp
         sources/queries/type_is_stringlike.cpp
+        sources/queries/type_is_implicitly_comparable.cpp
         sources/queries/type_is_implicitly_datatype.cpp
         sources/queries/type_is_trivially_default_constructible.cpp
         sources/queries/functanoid_is_noexcept.cpp

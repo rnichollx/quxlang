@@ -1,0 +1,43 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+PRIVATE(MODULE)
+{
+  DOC <$ Owns a callable retained after structural method dispatch returns. $>
+  ::forwarded_callable GENERIC MOVE_ONLY INCOMPARABLE
+  { .read FUNCTION() CONST: I32; }
+
+  DOC <$ Borrows a sink whose declared operation takes ownership of a callable value. $>
+  ::forwarded_sink_ref GENERIC_REF INCOMPARABLE
+  { .store FUNCTION(@callback forwarded_callable) MUT; }
+
+  DOC <$ Provides a concrete callable payload for the forwarding contract. $>
+  ::forwarded_payload STRUCT
+  {
+    .value VAR I32;
+    DOC <$ Returns the callable's retained payload. $>
+    .read FUNCTION() CONST: I32 { RETURN .value; }
+  }
+
+  DOC <$ Retains an owning erased callable through an implementation with a forwarding parameter. $>
+  ::forwarded_sink STRUCT
+  {
+    .stored VAR std::optional#forwarded_callable;
+    DOC <$ Moves the forwarded value into storage that outlives method dispatch. $>
+    .store FUNCTION(@callback AUTO& AUTO(callback_type)) MUT
+    { .stored.emplace(@OTHER FORWARD(callback)); }
+  }
+
+  DOC <$ Structural value parameters adapt to concrete forwarding references without losing ownership. $>
+  ::generic_forwarded_value DUAL_TEST
+  {
+    VAR sink forwarded_sink;
+    VAR reference forwarded_sink_ref := sink;
+    VAR payload forwarded_payload;
+    payload.value := 47;
+    reference.store(@callback payload);
+    TEST_ASSERT(sink.stored.has_value());
+    TEST_ASSERT(sink.stored.value().read() == 47);
+  }
+}

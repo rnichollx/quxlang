@@ -76,7 +76,7 @@
 #include <quxlang/queries/temploid_formal_ensig.hpp>
 #include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/class_placement_info.hpp>
-#include <quxlang/queries/type_is_implicitly_datatype.hpp>
+#include <quxlang/queries/type_is_implicitly_comparable.hpp>
 #include <quxlang/queries/type_is_serialoid.hpp>
 #include <quxlang/queries/type_is_stringlike.hpp>
 #include <quxlang/queries/pseudotype_match.hpp>
@@ -253,7 +253,7 @@ namespace quxlang
         builtin_dtor_vm_procedure3_query,
         builtin_move_ctor_vm_procedure3_query,
         builtin_swap_vm_procedure3_query,
-        type_is_implicitly_datatype_query >;
+        type_is_implicitly_comparable_query >;
 } // namespace quxlang
 
 #endif // QUXLANG_CO_VMIR_GENERATOR2_DEPS_HEADER_GUARD

@@ -207,12 +207,12 @@ class qxc_implementation
     }
 
     /**
-     * Finds direct functanoid dependencies of a VMIR2 routine and keeps source locations for invoke-like references.
+     * Finds direct functanoid dependencies in the selected execution mode and retains source locations.
      */
-    auto directly_referenced_functanoid_locations(quxlang::compiler_querygraph& graph, quxlang::type_symbol const& symbol) -> functanoid_reference_locations
+    auto directly_referenced_functanoid_locations(quxlang::compiler_querygraph& graph, quxlang::type_symbol const& symbol, quxlang::dependency_set dependency_mode) -> functanoid_reference_locations
     {
         functanoid_reference_locations result;
-            quxlang::dependencies const& dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = symbol, .set = quxlang::dependency_set::native});
+            quxlang::dependencies const& dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = symbol, .set = dependency_mode});
         for (auto const& [symbol, location] : dependencies.functanoids)
         {
             record_referenced_functanoid(graph, result, symbol, location);
@@ -222,12 +222,12 @@ class qxc_implementation
     }
 
     /**
-     * Finds abstract runtime procedures required by native lowering of one VMIR2 routine.
+     * Finds abstract runtime procedures required in the selected execution mode.
      */
-    auto directly_referenced_runtime_procedure_locations(quxlang::compiler_querygraph& graph, quxlang::type_symbol const& symbol) -> runtime_procedure_reference_locations
+    auto directly_referenced_runtime_procedure_locations(quxlang::compiler_querygraph& graph, quxlang::type_symbol const& symbol, quxlang::dependency_set dependency_mode) -> runtime_procedure_reference_locations
     {
         runtime_procedure_reference_locations result;
-            quxlang::dependencies const& dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = symbol, .set = quxlang::dependency_set::native});
+            quxlang::dependencies const& dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = symbol, .set = dependency_mode});
         for (quxlang::vmir_runtime_dependency const dependency : dependencies.runtime_dependencies)
         {
             quxlang::llvm_backend::runtime_procedure procedure = quxlang::llvm_backend::runtime_procedure_from_dependency(dependency);
@@ -721,7 +721,7 @@ class qxc_implementation
 
                         std::map< std::string, quxlang::output_query_output > const outputs_to_compile = graph.make_request< quxlang::output_binaries_information_query >(std::monostate{});
                 std::set< quxlang::type_symbol > compiled_vmir2_routines;
-                        auto collect_routine_tree = [&](quxlang::type_symbol root_symbol, quxlang::vmir2::functanoid_routine3 const& root_routine, std::vector< quxlang::trace_frame > root_traceback, std::optional< quxlang::type_symbol > runtime_program_start) -> collected_routine_tree
+                        auto collect_routine_tree = [&](quxlang::type_symbol root_symbol, quxlang::vmir2::functanoid_routine3 const& root_routine, std::vector< quxlang::trace_frame > root_traceback, std::optional< quxlang::type_symbol > runtime_program_start, quxlang::dependency_set dependency_mode) -> collected_routine_tree
                 {
                     std::vector< std::pair< quxlang::instanciation_reference, std::vector< quxlang::trace_frame > > > pending_functanoids;
                     std::set< quxlang::type_symbol > queued_functanoids;
@@ -765,7 +765,7 @@ class qxc_implementation
                     };
                             auto enqueue_runtime_procedure_dependencies = [&](quxlang::type_symbol const& caller, std::vector< quxlang::trace_frame > const& traceback) -> void
                     {
-                        runtime_procedure_reference_locations const referenced_runtime_procedures = directly_referenced_runtime_procedure_locations(graph, caller);
+                        runtime_procedure_reference_locations const referenced_runtime_procedures = directly_referenced_runtime_procedure_locations(graph, caller, dependency_mode);
                         for (std::pair< quxlang::llvm_backend::runtime_procedure_reference const, std::optional< quxlang::source_location > > const& referenced_runtime_procedure : referenced_runtime_procedures)
                         {
                                     enqueue_runtime_procedure(referenced_runtime_procedure.first, make_dependency_traceback(traceback, caller, referenced_runtime_procedure.second));
@@ -798,7 +798,7 @@ class qxc_implementation
                         quxlang::asm_procedure procedure = graph.make_request< quxlang::asm_procedure_from_symbol_query >(asm_body_symbol);
                         asm_routines.emplace(asm_body_symbol, std::move(procedure));
 
-                                quxlang::dependencies const& direct_dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = asm_body_symbol, .set = quxlang::dependency_set::native});
+                                quxlang::dependencies const& direct_dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = asm_body_symbol, .set = dependency_mode});
                         functanoid_reference_locations referenced_functanoids;
                         for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& dependency : direct_dependencies.functanoids)
                         {
@@ -826,7 +826,7 @@ class qxc_implementation
                         }
                     };
 
-                    functanoid_reference_locations const root_dependencies = directly_referenced_functanoid_locations(graph, root_symbol);
+                    functanoid_reference_locations const root_dependencies = directly_referenced_functanoid_locations(graph, root_symbol, dependency_mode);
                     for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : root_dependencies)
                     {
                         quxlang::type_symbol const& referenced_symbol = referenced_functanoid.first;
@@ -837,7 +837,7 @@ class qxc_implementation
                                 enqueue_functanoid(referenced_symbol.as< quxlang::instanciation_reference >(), make_dependency_traceback(root_traceback, root_symbol, referenced_functanoid.second));
                     }
                     enqueue_runtime_procedure_dependencies(root_symbol, root_traceback);
-                            quxlang::dependencies const& root_direct_dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = root_symbol, .set = quxlang::dependency_set::native});
+                            quxlang::dependencies const& root_direct_dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = root_symbol, .set = dependency_mode});
                     for (quxlang::type_symbol const& global : root_direct_dependencies.antestatal_globals)
                     {
                         enqueue_antestatal_global(global);
@@ -860,8 +860,8 @@ class qxc_implementation
                             quxlang::type_symbol global = std::move(pending_antestatal_globals.back());
                             pending_antestatal_globals.pop_back();
 
-                                    quxlang::dependencies const& direct_dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = global, .set = quxlang::dependency_set::native});
-                            functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, global);
+                                    quxlang::dependencies const& direct_dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = global, .set = dependency_mode});
+                            functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, global, dependency_mode);
                             for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
                             {
                                 if (!referenced_functanoid.first.type_is< quxlang::instanciation_reference >())
@@ -951,7 +951,7 @@ class qxc_implementation
 
                         tree_routines.emplace(functanoid_symbol, procedure);
 
-                        functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, functanoid_symbol);
+                        functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, functanoid_symbol, dependency_mode);
                         for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
                         {
                             quxlang::type_symbol const& referenced_symbol = referenced_functanoid.first;
@@ -962,7 +962,7 @@ class qxc_implementation
                                     enqueue_functanoid(referenced_symbol.as< quxlang::instanciation_reference >(), make_dependency_traceback(dependency_traceback, functanoid_symbol, referenced_functanoid.second));
                         }
                         enqueue_runtime_procedure_dependencies(functanoid_symbol, dependency_traceback);
-                                quxlang::dependencies const& direct_dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = functanoid_symbol, .set = quxlang::dependency_set::native});
+                                quxlang::dependencies const& direct_dependencies = graph.make_request< quxlang::direct_dependencies_query >(quxlang::direct_dependencies_input{.symbol = functanoid_symbol, .set = dependency_mode});
                         for (quxlang::type_symbol const& global : direct_dependencies.antestatal_globals)
                         {
                             enqueue_antestatal_global(global);
@@ -1033,7 +1033,7 @@ class qxc_implementation
                                 }
                                 else
                                 {
-                        emit_vmir_tree(collect_routine_tree(static_test_symbol, static_test_routine, {}, std::nullopt));
+                        emit_vmir_tree(collect_routine_tree(static_test_symbol, static_test_routine, {}, std::nullopt, quxlang::dependency_set::constexpr_));
                     }
                 }
                         }
@@ -1085,7 +1085,7 @@ class qxc_implementation
                             }
 
                             quxlang::vmir2::functanoid_routine3 unit_test_routine = graph.make_request< quxlang::unit_test_vmir_query >(unit_test_symbol);
-                            emit_vmir_tree(collect_routine_tree(unit_test_symbol, unit_test_routine, {}, std::nullopt));
+                            emit_vmir_tree(collect_routine_tree(unit_test_symbol, unit_test_routine, {}, std::nullopt, quxlang::dependency_set::native));
                         }
                     }
                     else
@@ -1102,7 +1102,7 @@ class qxc_implementation
                         }
                         quxlang::vmir2::functanoid_routine3 entry_routine = graph.make_request< quxlang::vm_procedure3_query >(entry_functanoid);
                                 std::optional< quxlang::type_symbol > const runtime_program_start = try_resolve_runtime_entrypoint(graph, target_config, "PROGRAM_START");
-                        collected_routine_tree const output_tree = collect_routine_tree(entry_functanoid, entry_routine, {}, runtime_program_start);
+                        collected_routine_tree const output_tree = collect_routine_tree(entry_functanoid, entry_routine, {}, runtime_program_start, quxlang::dependency_set::native);
                         emit_vmir_tree(output_tree);
                     }
 

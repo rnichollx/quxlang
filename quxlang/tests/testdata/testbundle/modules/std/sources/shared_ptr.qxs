@@ -382,18 +382,11 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     .count VAR ATOMIC#SZ;
     .value VAR T;
 
-    DOC <$ Default-constructs the object with one owner. $>
+    DOC <$ Constructs the object directly from forwarded arguments with one owner. $>
     .CONSTRUCTOR
-      FUNCTION()
+      FUNCTION(%...values AUTO& AUTO, @KWARGS ...)
+      :> .value:(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)))
     {
-      .count.STORE#ATOMIC_RELEASE(1);
-    }
-
-    DOC <$ Constructs the object from value with one owner. $>
-    .CONSTRUCTOR
-      FUNCTION(%value AUTO& T)
-    {
-      .value := FORWARD(value);
       .count.STORE#ATOMIC_RELEASE(1);
     }
   }
@@ -530,11 +523,12 @@ DOC <$
 }
 
 
-DOC <$ Allocates an object and its reference count together and returns its first owner. $>
+DOC <$ Constructs an object from forwarded arguments together with its reference count and returns its first owner. $>
 ::make_shared
-  TEMPLATE(@T TYPE AUTO) FUNCTION(): shared_ptr#(T)
+  TEMPLATE(@T TYPE AUTO) FUNCTION(%...values AUTO& AUTO, @KWARGS ...): shared_ptr#(T)
 {
-  VAR allocation MUT->shared_allocation#(T) := NEW shared_allocation#(T);
+  VAR allocation MUT->shared_allocation#(T) := NEW shared_allocation#(T) :(
+    COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
   RETURN shared_ptr#(T)(@allocation allocation);
 }
 
@@ -543,6 +537,28 @@ DOC <$ Allocates an object constructed from value together with its reference co
 ::make_shared_value
   TEMPLATE(@T TYPE AUTO) FUNCTION(@ARG:value AUTO& T): shared_ptr#(T)
 {
-  VAR allocation MUT->shared_allocation#(T) := NEW shared_allocation#(T):[FORWARD(value)];
+  VAR allocation MUT->shared_allocation#(T) := NEW shared_allocation#(T):(@OTHER FORWARD(value));
   RETURN shared_ptr#(T)(@allocation allocation);
+}
+
+PRIVATE(MODULE)
+{
+  DOC <$ Provides a rooted payload that requires direct named construction. $>
+  ::shared_constructor_payload STRUCT ROOTED
+  {
+    .sum VAR I32;
+    DOC <$ Records both constructor arguments without requiring a movable payload. $>
+    .CONSTRUCTOR FUNCTION(@left I32, @right I32) { .sum := left + right; }
+  }
+
+  DOC <$ Shared allocation forwards constructor arguments directly and preserves rooted object identity. $>
+  ::shared_constructor_forwarding DUAL_TEST
+  {
+    VAR original shared_ptr#shared_constructor_payload := make_shared#shared_constructor_payload(@left 17, @right 19);
+    VAR copied shared_ptr#shared_constructor_payload := original;
+    TEST_ASSERT(original->.sum == 36 && copied.get() == original.get());
+    TEST_ASSERT(original.use_count() == 2);
+    copied.reset();
+    TEST_ASSERT(original.use_count() == 1);
+  }
 }

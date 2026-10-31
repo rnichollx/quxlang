@@ -148,6 +148,13 @@ payload when one exists.
 
 ## Inline and boxed representation
 
+Generated `==` and `<=>` compare the active alternative and its payload when
+the alternatives support generated structural comparison. Equal `VOID`
+alternatives compare equal. Two valueless variants compare equal, and a
+valueless variant orders before an active variant. Different alternatives
+order by their declaration indexes. See
+[Comparison Operators](comparison-operators.md).
+
 `INLINE_VARIANT` requires enough inline layout for every alternative.
 `VARIANT` owns boxed payload storage and permits recursive alternatives that
 cannot be embedded directly. Representation does not change `ISA`, `UNWRAP`,

@@ -1,0 +1,71 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::generic_private_values NAMESPACE
+{
+  DOC <$ Owns a concrete value through its public observation contract. $>
+  ::value GENERIC
+  {
+    .read FUNCTION() CONST: I32;
+  }
+
+  DOC <$ Defines a concrete type whose name is private to its declaring module. $>
+  PRIVATE(MODULE) ::private_value STRUCT
+  {
+    .number VAR I32;
+    DOC <$ Supplies the value through a public member. $>
+    .read FUNCTION() CONST: I32 { RETURN .number; }
+  }
+
+  DOC <$ Generated generic allocation, copying, and deletion retain access to a private concrete type. $>
+  ::private_owned_lifecycle DUAL_TEST
+  {
+    VAR concrete private_value;
+    concrete.number := 17;
+    VAR erased value := concrete;
+    VAR copied value := erased;
+    TEST_ASSERT(erased.read() == 17);
+    TEST_ASSERT(copied.read() == 17);
+  }
+
+  DOC <$ Supplies a public serializer while keeping the concrete key type private. $>
+  PRIVATE(MODULE) ::private_key STRUCT
+  {
+    .number VAR U32;
+    DOC <$ Orders keys by their numeric value. $>
+    .OPERATOR<=> FUNCTION(@OTHER CONST& private_key) CONST: ORDER
+    { RETURN .number <=> OTHER.number; }
+    DOC <$ Serializes the key through a caller-supplied iterator. $>
+    .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output AUTO(iterator_type)) CONST: iterator_type
+    { RETURN .number.SERIALIZE(@OUTPUT_ITERATOR output); }
+  }
+
+  DOC <$ Generic hashing and map lookup can call public members of deduced private types. $>
+  ::private_generic_member DUAL_TEST
+  {
+    VAR key private_key; key.number := 23;
+    VAR map std::hadix_map#(@INDEX private_key, @VALUE U32);
+    TEST_ASSERT(map.insert(@key key, @value 41 AS U32));
+    TEST_ASSERT(map.contains(key) && map.at(key) == 41);
+  }
+
+  DOC <$ A private serializer remains inaccessible to an external generic caller. $>
+  PRIVATE(MODULE) ::private_serializer STRUCT
+  {
+    PRIVATE(CLASS)
+    {
+      DOC <$ Provides a member that external generic code cannot select. $>
+      .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output AUTO(iterator_type)) CONST: iterator_type
+      { RETURN output; }
+    }
+  }
+
+  DOC <$ Canonical receiver lookup preserves the selected overload's access restriction. $>
+  ::private_generic_member_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR key private_serializer;
+    VAR hasher std::default_hasher;
+    hasher.hash(key);
+  }
+}

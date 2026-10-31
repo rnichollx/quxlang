@@ -141,8 +141,7 @@ LABEL static_linux_clone_x86_child;
     SVC 0
     CBNZ X0, static_linux_clone_arm64_parent
     MOV X0, X5
-    LDR X16, PROCEDURE_REF("", static_linux_thread_worker!$[0])
-    BLR X16
+    BL PROCEDURE_REF("", static_linux_thread_worker!$[0])
     MOV X0, 0
     MOV X8, 93
     SVC 0

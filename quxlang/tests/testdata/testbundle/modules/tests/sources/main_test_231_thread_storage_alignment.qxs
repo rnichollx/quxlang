@@ -4,13 +4,67 @@ IMPORT std;
 
 ::thread_storage_alignment_tests NAMESPACE
 {
+  DOC <$ Provides explicitly aligned thread-local payload storage. $>
   ::storage VAR PER_THREAD [8]U64 ALIGN(64);
+  DOC <$ Exercises the natural alignment of a thread-local pointer object. $>
+  ::pointer VAR PER_THREAD MUT->BYTE;
+  DOC <$ Exercises a pointer object's stronger declared alignment. $>
+  ::aligned_pointer VAR PER_THREAD MUT->BYTE ALIGN(64);
+  DOC <$ Provides a byte-aligned thread-local value independently of its TLS descriptor. $>
+  ::byte_value VAR PER_THREAD BYTE;
+  DOC <$ Exercises a stronger alignment on a small thread-local byte payload. $>
+  ::aligned_bytes VAR PER_THREAD [3]BYTE ALIGN(32);
+  DOC <$ Exercises the natural alignment of an ordinary global pointer object. $>
+  ::global_pointer VAR MUT->BYTE;
+  DOC <$ Exercises a stronger alignment on an ordinary global byte payload. $>
+  ::global_bytes VAR [3]BYTE ALIGN(32);
+
+  DOC <$ Exercises pointer member alignment following a byte in native field order. $>
+  ::pointer_record IBC_STRUCT
+  {
+    .prefix VAR BYTE;
+    .pointer VAR MUT->BYTE;
+  }
+
+  DOC <$ Pointer object alignment follows the target pointer ABI independently of pointee type. $>
+  ::pointer_type_alignment INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) STATIC_TEST
+  {
+    TEST_ASSERT(ALIGNOF(MUT->BYTE) == ALIGNOF(ADDRESS));
+    TEST_ASSERT(ALIGNOF(MUT->BYTE) == SIZEOF(ADDRESS));
+    TEST_ASSERT(ALIGNOF(CONST->U64) == ALIGNOF(ADDRESS));
+    TEST_ASSERT(ALIGNOF([3]MUT->BYTE) == ALIGNOF(ADDRESS));
+  }
+
+  DOC <$ Checks native addresses and pointer access in the current thread. $>
+  ::check_alignment FUNCTION()
+  {
+    VAR local_pointer MUT->BYTE;
+    VAR aligned_local_pointer MUT->BYTE ALIGN(64);
+    VAR record pointer_record;
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION local_pointer<-) % ALIGNOF(MUT->BYTE) == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION aligned_local_pointer<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION record.pointer<-) % ALIGNOF(MUT->BYTE) == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION pointer<-) % ALIGNOF(MUT->BYTE) == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION aligned_pointer<-) % 64 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION aligned_bytes<-) % 32 == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION global_pointer<-) % ALIGNOF(MUT->BYTE) == 0);
+    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION global_bytes<-) % 32 == 0);
+    byte_value := 53;
+    pointer := byte_value<-;
+    aligned_pointer := byte_value<-;
+    local_pointer := byte_value<-;
+    aligned_local_pointer := byte_value<-;
+    record.pointer := byte_value<-;
+    TEST_ASSERT(pointer-> == 53 && aligned_pointer-> == 53);
+    TEST_ASSERT(local_pointer-> == 53 && aligned_local_pointer-> == 53 && record.pointer-> == 53);
+  }
 
   ::entry STRUCT
   {
     .OPERATOR() FUNCTION()
     {
-      TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage<-) % 64 == 0);
+      check_alignment();
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8) DO { storage[index] := index + 1; }
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8) DO { TEST_ASSERT(storage[index] == index + 1); }
     }
@@ -18,7 +72,7 @@ IMPORT std;
 
   ::main_and_worker INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
   {
-    TEST_ASSERT((ADDRESS_LAUNDER_ESCAPE_ALLOC_REGION storage<-) % 64 == 0);
+    check_alignment();
     VAR operation entry;
     VAR worker std::thread := std::thread(operation);
     worker.join();

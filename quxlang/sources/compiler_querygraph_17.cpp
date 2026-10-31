@@ -8,6 +8,7 @@
 #include <quxlang/queries/specs/templex_select_template_spec.hpp>
 #include <quxlang/queries/specs/type_is_antestatal_spec.hpp>
 #include <quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp>
+#include <quxlang/queries/specs/type_is_implicitly_comparable_spec.hpp>
 
 auto quxlang::detail::register_compiler_querygraph_handlers_15(compiler_querygraph& querygraph) -> void
 {
@@ -18,4 +19,5 @@ auto quxlang::detail::register_compiler_querygraph_handlers_15(compiler_querygra
     graph.register_handler_function< templex_select_template_spec >(templex_select_template_impl);
     graph.register_handler_function< type_is_antestatal_spec >(type_is_antestatal_impl);
     graph.register_handler_function< type_is_implicitly_datatype_spec >(type_is_implicitly_datatype_impl);
+    graph.register_handler_function< type_is_implicitly_comparable_spec >(type_is_implicitly_comparable_impl);
 }

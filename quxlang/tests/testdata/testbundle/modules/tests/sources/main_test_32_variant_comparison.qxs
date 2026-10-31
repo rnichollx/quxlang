@@ -1,0 +1,127 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE)
+{
+  DOC <$ Supplies inline alternatives for generated comparison contracts. $>
+  ::comparison_inline_variant INLINE_VARIANT [I32 DEFAULT, U32, VOID];
+  DOC <$ Supplies boxed alternatives for generated comparison contracts. $>
+  ::comparison_boxed_variant VARIANT [I32 DEFAULT, U32, VOID];
+  DOC <$ Supplies a default inactive variant for generated comparison contracts. $>
+  ::comparison_empty_variant INLINE_VARIANT VALUELESS_DEFAULT [I32, VOID];
+  DOC <$ Supplies a boxed inactive variant for generated comparison contracts. $>
+  ::comparison_empty_boxed_variant VARIANT VALUELESS_DEFAULT [I32, VOID];
+  DOC <$ Supplies a variant whose generated lifecycle preserves an active alternative. $>
+  ::comparison_active_variant INLINE_VARIANT NEVER_VALUELESS [I32 DEFAULT, VOID];
+  DOC <$ Supplies named alternatives with repeated payload types. $>
+  ::comparison_union INLINE_UNION
+  {
+    .first OPTION DEFAULT I32;
+    .second OPTION I32;
+    .empty OPTION VOID;
+  }
+  DOC <$ Contains inline variants inside an array and an ordinary field. $>
+  ::comparison_variant_record STRUCT
+  {
+    .values VAR [2]comparison_inline_variant;
+    .sequence VAR U16;
+  }
+  DOC <$ Supplies recursive boxed alternatives for generated comparison contracts. $>
+  ::comparison_recursive_union UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .number OPTION I32;
+    .next OPTION comparison_recursive_union;
+  }
+
+  DOC <$ Generated inline comparison distinguishes alternatives before comparing active payloads. $>
+  ::inline_variant_comparison_contract DUAL_TEST
+  {
+    VAR first comparison_inline_variant := 4 AS I32;
+    VAR second comparison_inline_variant := 4 AS I32;
+    TEST_ASSERT(first == second && (first <=> second) == ORDER::EQUAL);
+    second := 5 AS I32;
+    TEST_ASSERT(first != second && first < second && second > first);
+    second := 4 AS U32;
+    TEST_ASSERT(first != second && first < second && second > first);
+    first := 4 AS U32;
+    TEST_ASSERT(first == second);
+    first := NULL; second := NULL;
+    TEST_ASSERT(first == second && (first <=> second) == ORDER::EQUAL);
+  }
+
+  DOC <$ Boxed comparisons inspect payload values rather than allocation identities. $>
+  ::boxed_variant_comparison_contract DUAL_TEST
+  {
+    VAR first comparison_boxed_variant := 7 AS I32;
+    VAR second comparison_boxed_variant := 7 AS I32;
+    TEST_ASSERT(first == second && (first <=> second) == ORDER::EQUAL);
+    second := 8 AS I32;
+    TEST_ASSERT(first != second && first < second);
+    second := 7 AS U32;
+    TEST_ASSERT(first != second && first < second);
+    first := NULL; second := NULL;
+    TEST_ASSERT(first == second);
+  }
+
+  DOC <$ Inactive variants compare equal and precede active alternatives including VOID. $>
+  ::inactive_variant_comparison_contract DUAL_TEST
+  {
+    VAR first comparison_empty_variant;
+    VAR second comparison_empty_variant;
+    TEST_ASSERT(first == second && (first <=> second) == ORDER::EQUAL);
+    second := 0 AS I32;
+    TEST_ASSERT(first != second && first < second && second > first);
+    second := NULL;
+    TEST_ASSERT(first != second && first < second && second > first);
+    first := NULL;
+    TEST_ASSERT(first == second && (first <=> second) == ORDER::EQUAL);
+
+    VAR boxed_first comparison_empty_boxed_variant;
+    VAR boxed_second comparison_empty_boxed_variant;
+    TEST_ASSERT(boxed_first == boxed_second);
+    boxed_second := NULL;
+    TEST_ASSERT(boxed_first != boxed_second && boxed_first < boxed_second);
+    boxed_first := NULL;
+    TEST_ASSERT(boxed_first == boxed_second);
+
+    VAR active_first comparison_active_variant;
+    VAR active_second comparison_active_variant;
+    TEST_ASSERT(active_first == active_second);
+    active_second := 1 AS I32;
+    TEST_ASSERT(active_first < active_second);
+  }
+
+  DOC <$ Generated aggregate comparison propagates through arrays of variants and later fields. $>
+  ::aggregate_variant_comparison_contract DUAL_TEST
+  {
+    VAR first comparison_variant_record;
+    VAR second comparison_variant_record;
+    TEST_ASSERT(first == second && (first <=> second) == ORDER::EQUAL);
+    second.values[1] := 1 AS I32;
+    TEST_ASSERT(first != second && first < second);
+    first := second; second.sequence := 1;
+    TEST_ASSERT(first != second && first < second);
+  }
+
+  DOC <$ Union comparisons preserve named alternative identity even for equal payload types. $>
+  ::named_union_comparison_contract DUAL_TEST
+  {
+    VAR first comparison_union :(@first 9);
+    VAR second comparison_union :(@first 9);
+    TEST_ASSERT(first == second && (first <=> second) == ORDER::EQUAL);
+    second := comparison_union(@second 9);
+    TEST_ASSERT(first != second && first < second);
+    first := comparison_union(@empty NULL); second := comparison_union(@empty NULL);
+    TEST_ASSERT(first == second);
+  }
+
+  DOC <$ Recursive boxed comparisons terminate at active leaves and compare their payloads. $>
+  ::recursive_union_comparison_contract DUAL_TEST
+  {
+    VAR first comparison_recursive_union :(@next comparison_recursive_union(@number 2));
+    VAR second comparison_recursive_union :(@next comparison_recursive_union(@number 3));
+    TEST_ASSERT(first != second && first < second);
+    VAR equal comparison_recursive_union := first;
+    TEST_ASSERT(first == equal && (first <=> equal) == ORDER::EQUAL);
+  }
+}
