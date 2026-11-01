@@ -83,38 +83,38 @@ limits are specified in [Exception Handling](exceptions.md).
 
 ## Default allocator
 
-`NEW` and `DELETE` resolve typed single-object storage through
-`::DEFAULT_ALLOCATOR`:
+`NEW` and `DELETE` resolve typed storage through
+`RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)`. The default allocator supplies these
+language integration members:
 
 ```quxlang
-::DEFAULT_ALLOCATOR STRUCT
-{
-  ::allocate TEMPLATE(@T TYPE AUTO)
-    FUNCTION(): ->TYPED_STORAGE(T)
-  {
-    UNIMPLEMENTED;
-  }
-
-  ::dealloc TEMPLATE(@T TYPE AUTO)
-    FUNCTION(@ptr ->TYPED_STORAGE(T))
-  {
-    UNIMPLEMENTED;
-  }
-}
+::ALLOC FUNCTION(): ->TYPED_STORAGE(T);
+::DEALLOC FUNCTION(@PTR:ptr ->TYPED_STORAGE(T));
+::MULTI_ALLOC FUNCTION(@COUNT:count SZ): =>>TYPED_STORAGE(T);
+::MULTI_DEALLOC FUNCTION(@PTR:ptr =>>TYPED_STORAGE(T), @COUNT:count SZ);
 ```
 
-The allocator returns storage rather than a live `T`; the language operation
-performs construction after allocation and destruction before deallocation. A
-runtime can select among compile-time, native, and managed implementations with
-`RUNTIME CONSTEXPR`, `RUNTIME NATIVE`, and target predicates. Native allocators
-provide native storage, while the JVM path uses managed object-storage
-builtins.
+The allocator returns uninitialized storage for the selected element type.
+`COUNT` selects `MULTI_ALLOC` and `MULTI_DEALLOC`, including counts zero and one.
+Array storage must be contiguous and correctly aligned for the element type.
+The allocation implementation checks size overflow and reports allocation
+failure through the runtime's ordinary exception contract. Deallocation receives
+the original pointer and evaluated count.
 
-A runtime library may also expose `allocate_multiple` and `dealloc_multiple`
-members returning and accepting `=>>TYPED_STORAGE(T)`, plus explicit
-`@size`/`@align` overloads returning `ALIGNED_STORAGE(size, align)`. Those are
-ordinary runtime-library APIs; the typed `allocate#T` and `dealloc#T` members
-above are the reserved single-object language integration points.
+`WITH(allocator)` selects typed `ALLOCATE#T` and `DEALLOCATE#T` members through
+ordinary member lookup. Scalar allocation passes no count; counted allocation
+passes `@COUNT`. Deallocation passes `@PTR`, and counted deallocation additionally
+passes `@COUNT`. Class members and receiver-bound members use the same contracts.
+
+Construction starts after allocation. If element construction fails, ordinary
+function cleanup destroys the current output and partial subobjects. The array
+initializer destroys its completed prefix in reverse order and calls the matching
+deallocation operation once. Successful deletion destroys the elements before
+releasing their storage.
+
+The runtime may select compile-time, native, and managed implementations with
+`RUNTIME CONSTEXPR`, `RUNTIME NATIVE`, and target predicates. Native allocators
+provide native storage, while the JVM path uses managed object-storage builtins.
 
 ## Global initialization guards
 

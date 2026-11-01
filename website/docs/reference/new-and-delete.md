@@ -1,9 +1,8 @@
 # `NEW` and `DELETE`
 
-`NEW` obtains storage from `MODULE(RUNTIME)::DEFAULT_ALLOCATOR`, constructs one
-object in it, and returns a mutable single-object pointer. `DELETE` destroys the
-object behind such a pointer and returns the underlying storage to the default
-allocator.
+`NEW` obtains storage from `MODULE(RUNTIME)::DEFAULT_ALLOCATOR`, constructs objects in it, and returns a mutable pointer. `COUNT` selects a
+runtime-sized array allocation. `DELETE` destroys the objects and returns their
+storage to the matching allocator.
 
 ## Result type
 
@@ -21,8 +20,8 @@ VAR values MUT->[2]I32 := NEW [2]I32 :[53, 59];
 ASSERT((values->)[1] == 59);
 ```
 
-This is not a dynamic allocation of two independent `I32` objects and does not
-produce `MUT=>>I32`.
+`NEW [2]I32` returns a pointer to one fixed-array object.
+`NEW I32 COUNT(2)` returns `MUT=>>I32`.
 
 ## Default construction
 
@@ -84,9 +83,8 @@ DELETE values;
 ```
 
 `DELETE expression` requires a mutable instance pointer. The
-pointed-to type must not be `VOID`. Constant pointers, references, raw
-addresses, garbage-collected pointers, and `=>>T` multi-object pointers do not
-satisfy this contract.
+pointed-to type must not be `VOID`. Constant pointers, references, raw addresses, and garbage-collected pointers
+do not satisfy this contract. An array pointer requires `DELETE COUNT(n)`.
 
 Deletion performs these operations in order:
 
@@ -132,3 +130,106 @@ and lifetime contract. `DELETE` does not clear other copies of the pointer.
 storage and lifetime operations for storage owned separately from the payload.
 [Compile-Time Allocation](constexpr-allocation.md) specifies explicit constexpr
 allocation.
+
+## Runtime-sized arrays
+
+Runtime-sized allocation and generator construction are supported by the LLVM
+backend and constant evaluation.
+
+```quxlang
+VAR count SZ := 4;
+VAR values MUT=>>I32 := NEW I32 COUNT(count) INDEX(i) DO
+{
+  INIT := i AS CHECKED I32;
+  CONTINUE;
+};
+DELETE COUNT(count) values;
+```
+
+`COUNT(expression)` evaluates its expression once as `SZ`. Its presence selects
+array allocation for every count, including zero and one. Elements occupy
+contiguous storage and are initialized in ascending index order. Deletion
+destroys elements in descending index order. The deletion count, element type,
+allocator, and original allocation pointer must match the allocation.
+
+Counted allocation accepts each ordinary constructor initializer. Its initializer
+expressions are evaluated separately for each element. A zero count performs
+matching zero-count allocation and deallocation operations and invokes no element
+generator.
+
+## Element generators
+
+```quxlang
+::construct_element FUNCTION(@INITVAL NVALUE[I32], @INDEX:index SZ)
+{
+  INIT := (index AS CHECKED I32) + 10;
+  RETURN;
+}
+
+VAR values MUT=>>I32 := NEW I32 COUNT(4) GENERATOR(construct_element);
+DELETE COUNT(4) values;
+```
+
+`GENERATOR(expression)` evaluates the callable expression once. Every element
+call uses that same callable. Overload resolution first supplies `@INITVAL` and
+`@INDEX`. It retries with only `@INITVAL` when the indexed call has no viable
+overload. An ambiguous indexed call or an error in its selected body remains an
+error. The selected generator must return `VOID`.
+
+`DO { statements }` defines an element initialization body with an
+`@INITVAL NVALUE[T]` destination. `INDEX(name)` additionally binds the element
+index as `@INDEX:name SZ`. The body follows
+ordinary lambda capture and exception rules. `INDEX` requires `DO`;
+`GENERATOR` and `DO` require `COUNT`. A single allocation accepts exactly one
+initialization form.
+
+`INIT` initializes the lambda's destination and execution continues afterward.
+An unlabeled `CONTINUE;` outside a nested runtime loop completes the current
+element's initialization and executes ordinary exit cleanup. Falling through the
+body has the same completion behavior. A `CONTINUE` inside a nested loop targets
+that loop; labeled forms target their named loop. `RETURN` and `RETURN_UNEQUAL`
+are rejected in the implicit `DO` body. Explicit functions and lambdas passed to
+`GENERATOR` retain their ordinary `RETURN` semantics. Every normal completion
+path must initialize the destination exactly once. See
+[Initialization parameters](functions-and-parameters.md#initialization-parameters).
+
+The completed prefix advances only when an element call returns normally,
+including the call's exit cleanup. An exceptional exit destroys the current
+completed output and any partially constructed subobjects through ordinary
+function cleanup. Allocation cleanup then destroys the completed prefix in
+reverse order and releases the allocation.
+
+## Allocators and pointer slots
+
+`WITH(allocator)` selects a custom allocator. Counted allocation calls its typed
+`ALLOCATE#T(@COUNT n)` operation. Counted deletion calls
+`DEALLOCATE#T(@PTR storage, @COUNT n)`. The pointer identifies
+`MUT=>>TYPED_STORAGE(T)`. The default allocator supplies `MULTI_ALLOC` and
+`MULTI_DEALLOC` for these operations.
+
+```quxlang
+VAR values MUT=>>I32;
+NEW COUNT(3) TO(values) := 7;
+DELETE FROM(values) COUNT(3);
+```
+
+`TO(slot)` infers the element type from the pointer slot and publishes the pointer
+only after complete construction succeeds. `FROM(slot)` clears the slot after
+successful deletion. `OPTIONAL` preserves the corresponding scalar operation's
+skipping behavior. `COUNT`, `WITH`, `TO`, and `OPTIONAL` allocation clauses may
+precede or follow an explicit element type. `FROM` as an allocation initializer
+continues to select construction from a source expression.
+
+## Evaluation order
+
+A `TO` destination is evaluated first, and an optional-operation check follows.
+When allocation proceeds, the allocator expression is evaluated, followed by the
+count and explicit generator expressions. Allocation then obtains storage, and
+element calls run in ascending index order. A constructor initializer's source
+and argument expressions execute inside each element call. The completed pointer
+is published to the destination after the final call returns normally.
+
+Deletion evaluates its pointer or `FROM` slot first. An optional-operation check
+precedes evaluation of the allocator and count. Destruction runs in reverse index
+order, followed by deallocation and clearing of a `FROM` slot. A skipped optional
+operation evaluates neither its allocator nor its count or initializer.

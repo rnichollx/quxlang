@@ -169,6 +169,8 @@ namespace quxlang
             std::vector< vmir2::vm_instruction > instructions;
             std::optional< vmir2::vm_terminator > terminator;
             std::optional< std::string > dbg_name;
+            /** Records whether a reachable control-flow edge has established output parameter state. */
+            bool has_incoming_flow = false;
             /** Exceptional call destination inherited from the enclosing TRY. */
             std::optional< vmir2::exception_catcher > catcher;
             /** Innermost lexical catch whose exception is owned by this block. */
@@ -179,7 +181,7 @@ namespace quxlang
             /// Names intentionally hidden from enclosing lookup scopes in this block.
             std::set< std::string > lookup_tombstones;
 
-            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, catcher, catch_exception, catch_region, lookup_values, lookup_tombstones);
+            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, has_incoming_flow, catcher, catch_exception, catch_region, lookup_values, lookup_tombstones);
         };
 
         struct codegen_argument
@@ -362,6 +364,8 @@ namespace quxlang
             std::optional< block_index > catch_region;
             /** Whether propagation out of the generated routine is forbidden. */
             bool is_noexcept = false;
+            /** Source-level completion statement for the current callable body. */
+            function_completion completion = function_completion::return_;
             std::vector< codegen_value > genvalues{codegen_binding{.attached_symbol = void_type(), .bound_value = value_index(0)}};
             std::vector< vmir2::local_type > locals{vmir2::local_type{.type = void_type()}};
             std::vector< codegen_block > blocks;
@@ -558,12 +562,115 @@ namespace quxlang
                                         });
         }
 
+        /** Carries initialization parameter state across an ordinary control-flow edge. */
+        void merge_nvalue_flow(block_index source, block_index target)
+        {
+            codegen_block& from = state.blocks.at(source);
+            codegen_block& to = state.blocks.at(target);
+            if (source != block_index(0) && !from.has_incoming_flow)
+            {
+                return;
+            }
+            auto merge_parameter = [&](vmir2::routine_parameter const& parameter)
+            {
+                if (!typeis< nvalue_slot >(parameter.type))
+                {
+                    return;
+                }
+                local_index slot = parameter.local_index;
+                vmir2::slot_state incoming = from.current_state[slot];
+                if (to.has_incoming_flow || !to.instructions.empty() || to.terminator.has_value())
+                {
+                    vmir2::slot_state const& expected = to.entry_state[slot];
+                    if (incoming.stage != expected.stage || incoming.storage_valid != expected.storage_valid)
+                    {
+                        throw semantic_compilation_error("NVALUE initialization state differs across control-flow paths");
+                    }
+                }
+                else
+                {
+                    to.entry_state[slot] = incoming;
+                    to.current_state[slot] = incoming;
+                }
+            };
+            for (vmir2::routine_parameter const& parameter : state.params.positional)
+            {
+                merge_parameter(parameter);
+            }
+            for (std::pair< std::string const, vmir2::routine_parameter > const& parameter : state.params.named)
+            {
+                merge_parameter(parameter.second);
+            }
+            to.has_incoming_flow = true;
+        }
+
         void set_terminator(block_index idx, vmir2::vm_terminator terminator)
         {
             if (this->state.blocks.at(idx).terminator.has_value())
             {
                 throw compiler_bug("Attempted to replace block terminator");
             }
+            rpnx::apply_visitor< void >(terminator,
+                                        [&](auto& selected)
+                                        {
+                                            using terminator_type = std::decay_t< decltype(selected) >;
+                                            if constexpr (std::is_same_v< terminator_type, vmir2::jump >)
+                                            {
+                                                merge_nvalue_flow(idx, selected.target);
+                                            }
+                                            else if constexpr (std::is_same_v< terminator_type, vmir2::branch >)
+                                            {
+                                                merge_nvalue_flow(idx, selected.target_true);
+                                                merge_nvalue_flow(idx, selected.target_false);
+                                            }
+                                            else if constexpr (std::is_same_v< terminator_type, vmir2::tablebranch >)
+                                            {
+                                                for (block_index target : selected.targets)
+                                                {
+                                                    merge_nvalue_flow(idx, target);
+                                                }
+                                                merge_nvalue_flow(idx, selected.default_target);
+                                            }
+                                            else if constexpr (std::is_same_v< terminator_type, vmir2::policy_branch >)
+                                            {
+                                                for (block_index target : selected.targets)
+                                                {
+                                                    merge_nvalue_flow(idx, target);
+                                                }
+                                            }
+                                            else if constexpr (std::is_same_v< terminator_type, vmir2::runtime_constexpr >)
+                                            {
+                                                merge_nvalue_flow(idx, selected.target_constexpr);
+                                                merge_nvalue_flow(idx, selected.target_native);
+                                            }
+                                            else if constexpr (std::is_same_v< terminator_type, vmir2::initguard_try_acquire >)
+                                            {
+                                                merge_nvalue_flow(idx, selected.target_acquired);
+                                                merge_nvalue_flow(idx, selected.target_already_initialized);
+                                            }
+                                            else if constexpr (std::is_same_v< terminator_type, vmir2::ret >)
+                                            {
+                                                if (idx != block_index(0) && !state.blocks.at(idx).has_incoming_flow)
+                                                {
+                                                    return;
+                                                }
+                                                auto validate_parameter = [&](vmir2::routine_parameter const& parameter)
+                                                {
+                                                    if (typeis< nvalue_slot >(parameter.type) && !vmir2::codegen_state_engine::initialization_completed(state.blocks.at(idx).current_state, parameter.local_index))
+                                                    {
+                                                        throw semantic_compilation_error("Normal return from " + to_string(ctx) + " requires initialization of parameter slot " + std::to_string(parameter.local_index) + " of type " + to_string(parameter.type));
+                                                    }
+                                                };
+                                                for (vmir2::routine_parameter const& parameter : state.params.positional)
+                                                {
+                                                    validate_parameter(parameter);
+                                                }
+                                                for (std::pair< std::string const, vmir2::routine_parameter > const& parameter : state.params.named)
+                                                {
+                                                    validate_parameter(parameter.second);
+                                                }
+                                            }
+                                        });
             this->apply_current_source_location(terminator);
             this->state.blocks.at(idx).terminator = std::move(terminator);
         }
@@ -2730,6 +2837,10 @@ namespace quxlang
             // val.from = get_local_index(val.from);
             // ... (do this for all relevant fields)
             this->apply_current_source_location(val);
+            if (block.catcher.has_value() && (val.type_is< vmir2::invoke >() || val.type_is< vmir2::invoke_virtual >() || val.type_is< vmir2::invoke_indirect >() || val.type_is< vmir2::interface_invoke >()))
+            {
+                merge_nvalue_flow(bidx, block.catcher->handler);
+            }
             try
             {
                 vmir2::codegen_state_engine(this->state.blocks.at(bidx).current_state, this->state.locals, this->state.params).apply(val);
@@ -2807,6 +2918,10 @@ namespace quxlang
                 return this->copy_attached_binding_value(idx, lookup, lookup_type);
             }
 
+            if (typeis< nvalue_slot >(lookup_type))
+            {
+                return lookup;
+            }
             if (!is_ref(lookup_type))
             {
                 lookup = create_reference(idx, lookup, make_mref(lookup_type));
@@ -4013,6 +4128,10 @@ namespace quxlang
                 {
                     throw compiler_bug("Lambda capture disappeared during closure generation: " + capture.name);
                 }
+                if (typeis< nvalue_slot >(current_type(bidx, *source)))
+                {
+                    throw semantic_compilation_error("An uninitialized destination cannot be captured by a lambda");
+                }
                 if (capture.mode == lambda_capture_mode::reference)
                 {
                     value_index capture_pointer = this->create_local_value(capture.field_type);
@@ -4087,11 +4206,10 @@ namespace quxlang
             }
 
             array_initializer_type init_type;
-            init_type.count = res;
             init_type.element_type = element_type;
 
             value_index initializer = create_local_value(init_type);
-            this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(args.named.at("THIS")), .initializer = get_local_index(initializer)});
+            this->emit(current_block, vmir2::array_init_start{.source = get_local_index(args.named.at("THIS")), .initializer = get_local_index(initializer)});
 
             type_symbol constructor = co_await co_select_constructor_entry(element_type, false);
             for (value_index argument : args.positional)
@@ -7497,17 +7615,14 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, format == unwind_format::wasm);
             }
 
-            if (kw.keyword == "THIS" || kw.keyword == "ARG" || kw.keyword == "OTHER" ||
-                kw.keyword == "EXPLICIT" || kw.keyword == "REINTERPRET" ||
-                kw.keyword == "PARTIAL" || kw.keyword == "ASSUME" || kw.keyword == "CHECKED" ||
-                kw.keyword == "APPROXIMATE")
+            if (kw.keyword == "THIS" || kw.keyword == "ARG" || kw.keyword == "OTHER" || kw.keyword == "INITVAL" || kw.keyword == "EXPLICIT" || kw.keyword == "REINTERPRET" || kw.keyword == "PARTIAL" || kw.keyword == "ASSUME" || kw.keyword == "CHECKED" || kw.keyword == "APPROXIMATE")
             {
                 auto result = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = kw.keyword});
                 if (!result.has_value())
                 {
                     throw quxlang::semantic_compilation_error("Expected symbol " + kw.keyword + " to be defined.");
                 }
-                co_return result.value();
+                co_return materialize_lookup_reference(bidx, result.value());
             }
 
             throw rpnx::unimplemented();
@@ -7984,6 +8099,10 @@ namespace quxlang
                     }
                     else if constexpr (std::is_same_v< value_type, expression_new >)
                     {
+                        if (value.count.has_value())
+                        {
+                            co_await co_analyze_lambda_expression(analysis, *value.count);
+                        }
                         if (value.allocator.has_value()) { co_await co_analyze_lambda_expression(analysis, *value.allocator); }
                         if (value.destination.has_value()) { co_await co_analyze_lambda_expression(analysis, *value.destination); }
                         co_await rpnx::apply_visitor< co_type< void > >(value.initializer,
@@ -8001,12 +8120,20 @@ namespace quxlang
                                         co_await this->co_analyze_lambda_expression(analysis, argument.value);
                                     }
                                 }
+                                else if constexpr (std::is_same_v< initializer_type, new_generator_initializer >)
+                                {
+                                    co_await co_analyze_lambda_expression(analysis, initializer.generator);
+                                }
                                 co_return;
                             });
                     }
                     else if constexpr (std::is_same_v< value_type, expression_delete >)
                     {
                         co_await this->co_analyze_lambda_expression(analysis, value.pointer);
+                        if (value.count.has_value())
+                        {
+                            co_await co_analyze_lambda_expression(analysis, *value.count);
+                        }
                         if (value.allocator.has_value()) { co_await co_analyze_lambda_expression(analysis, *value.allocator); }
                     }
                     else if constexpr (std::is_same_v< value_type, expression_choose >)
@@ -8403,6 +8530,10 @@ namespace quxlang
                         else if constexpr (std::is_same_v< statement_type, function_assert_statement >)
                         {
                             co_await this->co_analyze_lambda_expression(analysis, st.condition);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_init_statement >)
+                        {
+                            co_await co_analyze_lambda_operands(analysis, st.initializer);
                         }
                         else if constexpr (std::is_same_v< statement_type, function_place_statement >)
                         {
@@ -9694,8 +9825,8 @@ namespace quxlang
             co_return co_await co_generate_place_expression(bidx, input.at, input.type, input.assign_init, input.args);
         }
 
-        /** Validates a mutable single-object pointer slot and returns its pointer type. */
-        auto allocation_slot_type(block_index bidx, value_index slot) -> type_symbol
+        /** Validates a mutable pointer slot against the selected allocation kind. */
+        auto allocation_slot_type(block_index bidx, value_index slot, pointer_class expected_class = pointer_class::instance) -> type_symbol
         {
             type_symbol reference_type = current_type(bidx, slot);
             if (!is_ref(reference_type) || as< ptrref_type >(reference_type).qual != qualifier::mut)
@@ -9703,9 +9834,9 @@ namespace quxlang
                 throw semantic_compilation_error("NEW TO and DELETE FROM require a mutable pointer reference");
             }
             type_symbol pointer_type = remove_ref(reference_type);
-            if (!typeis< ptrref_type >(pointer_type) || as< ptrref_type >(pointer_type).ptr_class != pointer_class::instance || as< ptrref_type >(pointer_type).qual != qualifier::mut || typeis< void_type >(as< ptrref_type >(pointer_type).target))
+            if (!typeis< ptrref_type >(pointer_type) || as< ptrref_type >(pointer_type).ptr_class != expected_class || as< ptrref_type >(pointer_type).qual != qualifier::mut || typeis< void_type >(as< ptrref_type >(pointer_type).target))
             {
-                throw semantic_compilation_error("NEW TO and DELETE FROM require a mutable single-object instance pointer to a non-VOID type");
+                throw semantic_compilation_error("NEW TO and DELETE FROM require a mutable pointer to a non-VOID type with COUNT present exactly for array pointers");
             }
             return pointer_type;
         }
@@ -9778,6 +9909,212 @@ namespace quxlang
             co_return co_await co_gen_call_functum(bidx, std::move(function), std::move(arguments), allowed_adaptations::destination_rebinding, bound);
         }
 
+        /** Releases a typed sequence through the selected allocator's ordinary member contract. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_deallocate_array_storage(block_index& block, type_symbol const& element_type, value_index storage_pointer, value_index count, std::optional< value_index > allocator) -> co_type< void >
+        {
+            codegen_invocation_args arguments;
+            arguments.named["PTR"] = co_await co_construct_copy(block, storage_pointer, remove_ref(current_type(block, storage_pointer)));
+            arguments.named["COUNT"] = co_await co_construct_copy(block, count, remove_ref(current_type(block, count)));
+            if (allocator.has_value())
+            {
+                co_await co_call_allocation_member(block, *allocator, "DEALLOCATE", element_type, std::move(arguments));
+            }
+            else
+            {
+                type_symbol operation = co_await co_resolve_default_allocator_member("MULTI_DEALLOC", element_type);
+                co_await co_gen_call_functum(block, std::move(operation), std::move(arguments));
+            }
+            co_return;
+        }
+
+        /** Resolves and invokes one generator with the uninitialized element destination. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_invoke_array_generator(block_index& block, value_index generator, value_index destination, value_index index) -> co_type< void >
+        {
+            value_index callee = materialize_lookup_reference(block, generator);
+            type_symbol callee_type = current_type(block, callee);
+            if (!typeis< attached_type_reference >(callee_type))
+            {
+                callee = create_binding(callee, submember{.of = remove_ref(callee_type), .name = "OPERATOR()"});
+                callee_type = current_type(block, callee);
+            }
+            type_symbol operation = as< attached_type_reference >(callee_type).attached_symbol;
+            codegen_invocation_args arguments;
+            arguments.named["INITVAL"] = destination;
+            arguments.named["INDEX"] = index;
+            bool bound = !typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type);
+            if (bound)
+            {
+                arguments.named["THIS"] = state.genvalues.at(callee).template get_as< codegen_binding >().bound_value;
+            }
+            invotype signature;
+            for (std::pair< std::string const, value_index > const& argument : arguments.named)
+            {
+                signature.named[argument.first] = current_type(block, argument.second);
+            }
+            initialization_reference selection{.initializee = operation, .context = body_context(), .parameters = instatype_from_invotype(signature)};
+            std::optional< instanciation_reference > invocation = co_await rpnx::querygraph::request< instanciation_query >(selection);
+            if (!invocation.has_value())
+            {
+                signature.named.erase("INDEX");
+                arguments.named.erase("INDEX");
+                selection.parameters = instatype_from_invotype(signature);
+                invocation = co_await rpnx::querygraph::request< instanciation_query >(selection);
+            }
+            if (!invocation.has_value())
+            {
+                throw semantic_compilation_error("Generator must accept INITVAL NVALUE[T], optionally with INDEX SZ");
+            }
+            type_symbol result_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(*invocation);
+            if (!typeis< void_type >(result_type))
+            {
+                throw semantic_compilation_error("Array generator must return VOID");
+            }
+            co_await co_gen_call_functanoid(block, *invocation, std::move(arguments), allowed_adaptations::destination_rebinding, bound);
+            co_return;
+        }
+
+        /** Allocates a contiguous sequence and constructs its elements through ordinary generator calls. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_array_allocation(block_index& block, expression_new const& input, type_symbol const& element_type, std::optional< value_index > allocator) -> co_type< value_index >
+        {
+            type_symbol size_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+            value_index count = co_await co_generate_typed_expr(block, *input.count, size_type);
+            expression generator_expression;
+            rpnx::apply_visitor< void >(input.initializer,
+                                        [&](auto& initializer)
+                                        {
+                                            using initializer_type = std::decay_t< decltype(initializer) >;
+                                            if constexpr (std::is_same_v< initializer_type, new_generator_initializer >)
+                                            {
+                                                generator_expression = initializer.generator;
+                                            }
+                                            else
+                                            {
+                                                expression_lambda generator;
+                                                generator.parameters.push_back(ast2_function_parameter{.name = "INITVAL", .api_name = "INITVAL", .type = nvalue_slot{element_type}});
+                                                generator.return_type = void_type{};
+                                                generator.body.statements.push_back(function_init_statement{.initializer = initializer});
+                                                generator_expression = std::move(generator);
+                                            }
+                                        });
+            value_index generator = co_await co_generate_expr(block, generator_expression);
+            codegen_invocation_args allocation_arguments;
+            allocation_arguments.named["COUNT"] = co_await co_construct_copy(block, count, size_type);
+            value_index storage_pointer;
+            if (allocator.has_value())
+            {
+                storage_pointer = co_await co_call_allocation_member(block, *allocator, "ALLOCATE", element_type, allocation_arguments);
+            }
+            else
+            {
+                type_symbol operation = co_await co_resolve_default_allocator_member("MULTI_ALLOC", element_type);
+                storage_pointer = co_await co_gen_call_functum(block, std::move(operation), allocation_arguments);
+            }
+            storage storage_type;
+            storage_type.storable_types.insert(element_type);
+            type_symbol storage_pointer_type = ptrref_type{.target = storage_type, .ptr_class = pointer_class::array, .qual = qualifier::mut};
+            storage_pointer = co_await co_gen_implicit_conversion(block, storage_pointer, storage_pointer_type);
+            type_symbol exception_type = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_PTR"};
+            value_index exception = co_await co_gen_call_ctor(block, exception_type, {});
+            std::optional< vmir2::exception_catcher > outer_catcher = state.catcher;
+            block_index failure = generate_subblock(block, "array_allocation_failure");
+            block_index success = generate_subblock(block, "array_allocation_success");
+            state.catcher = vmir2::exception_catcher{.exception = get_local_index(exception), .handler = failure};
+            block_index construction = generate_subblock(block, "array_allocation_construct");
+            generate_jump(block, construction);
+            value_index initializer = create_local_value(array_initializer_type{.element_type = element_type});
+            value_index storage_copy = co_await co_construct_copy(construction, storage_pointer, storage_pointer_type);
+            value_index count_copy = co_await co_construct_copy(construction, count, size_type);
+            emit(construction, vmir2::array_init_start{.source = vmir2::array_init_storage_source{.storage_pointer = get_local_index(storage_copy), .count = get_local_index(count_copy)}, .initializer = get_local_index(initializer)});
+            block_index condition = generate_subblock(construction, "array_allocation_condition");
+            block_index element_block = generate_subblock(construction, "array_allocation_element");
+            block_index done = generate_subblock(construction, "array_allocation_done");
+            generate_jump(construction, condition);
+            value_index more = create_local_value(bool_type{});
+            emit(condition, vmir2::array_init_more{.initializer = get_local_index(initializer), .result = get_local_index(more)});
+            generate_branch(more, condition, element_block, done);
+            value_index element = create_local_value(element_type);
+            value_index index = create_local_value(size_type);
+            emit(element_block, vmir2::array_init_element{.initializer = get_local_index(initializer), .target = get_local_index(element)});
+            emit(element_block, vmir2::array_init_index{.initializer = get_local_index(initializer), .result = get_local_index(index)});
+            co_await co_invoke_array_generator(element_block, generator, element, index);
+            generate_jump(element_block, condition);
+            emit(done, vmir2::array_init_finish{.initializer = get_local_index(initializer)});
+            generate_jump(done, success);
+            state.catcher = outer_catcher;
+            co_await co_deallocate_array_storage(failure, element_type, storage_pointer, count, allocator);
+            co_await co_gen_call_functum(failure, subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "THROW_EXCEPTION_PTR"}, codegen_invocation_args{.named = {{"ARG", exception}}});
+            set_terminator(failure, vmir2::unreachable{});
+            block = success;
+            value_index pointer_copy = co_await co_construct_copy(block, storage_pointer, storage_pointer_type);
+            co_return cast_ptrref(block, pointer_copy, ptrref_type{.target = element_type, .ptr_class = pointer_class::array, .qual = qualifier::mut});
+        }
+
+        /** Destroys a contiguous sequence in reverse order and releases its typed storage. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_delete_array_allocation(block_index& block, value_index pointer, value_index count, type_symbol const& element_type, std::optional< value_index > allocator) -> co_type< void >
+        {
+            storage storage_type;
+            storage_type.storable_types.insert(element_type);
+            type_symbol pointer_type = ptrref_type{.target = storage_type, .ptr_class = pointer_class::array, .qual = qualifier::mut};
+            value_index storage_pointer = cast_ptrref(block, pointer, pointer_type);
+            type_symbol size_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+            value_index remaining = co_await co_construct_copy(block, count, size_type);
+            block_index condition = generate_subblock(block, "array_delete_condition");
+            block_index element_block = generate_subblock(block, "array_delete_element");
+            block_index done = generate_subblock(block, "array_delete_done");
+            generate_jump(block, condition);
+            value_index test_count = co_await co_construct_copy(condition, remaining, size_type);
+            value_index zero = create_small_uint_value(condition, 0, size_type);
+            value_index more = co_await co_generate_binary(condition, "!=", test_count, zero);
+            generate_branch(more, condition, element_block, done);
+            co_await co_generate_unary_postfix(element_block, "--", materialize_lookup_reference(element_block, remaining));
+            value_index index = co_await co_construct_copy(element_block, remaining, size_type);
+            value_index base = co_await co_construct_copy(element_block, storage_pointer, pointer_type);
+            value_index element_storage = create_local_value(make_mref(storage_type));
+            emit(element_block, vmir2::access_pointer{.base_index = get_local_index(base), .index_index = get_local_index(index), .store_index = get_local_index(element_storage)});
+            value_index element = co_await co_begin_storage_delegate(element_block, element_storage, element_type, true);
+            emit(element_block, vmir2::destroy{.of = get_local_index(element)});
+            generate_jump(element_block, condition);
+            block = done;
+            co_await co_deallocate_array_storage(block, element_type, storage_pointer, count, allocator);
+            co_return;
+        }
+
+        /** Constructs the current function's output destination through its ordinary constructor. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& bidx, function_init_statement const& input) -> co_type< void >
+        {
+            std::map< std::string, vmir2::routine_parameter >::const_iterator parameter = state.params.named.find("INITVAL");
+            if (parameter == state.params.named.end() || !typeis< nvalue_slot >(parameter->second.type))
+            {
+                throw semantic_compilation_error("INIT requires an INITVAL parameter of type NVALUE[T]");
+            }
+            value_index destination = get_value_index(parameter->second.local_index);
+            if (value_alive(bidx, destination))
+            {
+                throw semantic_compilation_error("INITVAL is already initialized");
+            }
+            type_symbol target = as< nvalue_slot >(parameter->second.type).target;
+            std::vector< expression_arg > arguments;
+            rpnx::apply_visitor< void >(input.initializer,
+                                        [&](auto& initializer)
+                                        {
+                                            using initializer_type = std::decay_t< decltype(initializer) >;
+                                            if constexpr (std::is_same_v< initializer_type, new_from_initializer >)
+                                            {
+                                                arguments.push_back(expression_arg{.name = initializer.mode.has_value() ? std::string(conversion_mode_keyword(*initializer.mode)) : "OTHER", .value = initializer.source});
+                                            }
+                                            else if constexpr (std::is_same_v< initializer_type, new_arguments_initializer >)
+                                            {
+                                                arguments = initializer.arguments;
+                                            }
+                                        });
+            codegen_invocation_args invocation;
+            invocation.named["THIS"] = destination;
+            co_await co_append_arguments(bidx, invocation, arguments);
+            type_symbol constructor = co_await co_select_constructor_entry(target, false);
+            co_await co_gen_call_functum(bidx, constructor, std::move(invocation));
+            co_return;
+        }
+
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_new input) -> co_type< value_index >
         {
             std::optional< value_index > destination;
@@ -9786,8 +10123,12 @@ namespace quxlang
             if (input.destination.has_value())
             {
                 destination = co_await co_generate_expr(bidx, *input.destination);
-                type_symbol pointer_type = allocation_slot_type(bidx, *destination);
+                type_symbol pointer_type = allocation_slot_type(bidx, *destination, input.count.has_value() ? pointer_class::array : pointer_class::instance);
                 target_type = as< ptrref_type >(pointer_type).target;
+                if (!typeis< auto_temploidic >(input.type) && co_await co_resolve_type_symbol(bidx, input.type) != target_type)
+                {
+                    throw semantic_compilation_error("NEW element type does not match its TO destination");
+                }
                 value_index pointer_value = load_reference_value(bidx, copy_ref_value(bidx, *destination), pointer_type);
                 value_index null_value = co_await co_generate(bidx, expression_value_keyword{.keyword = "NULL"});
                 value_index condition = co_await co_generate_binary(bidx, "==", pointer_value, null_value);
@@ -9805,6 +10146,22 @@ namespace quxlang
             if (typeis< void_type >(target_type))
             {
                 throw semantic_compilation_error("NEW cannot construct VOID");
+            }
+
+            if (input.count.has_value())
+            {
+                value_index result = co_await co_generate_array_allocation(bidx, input, target_type, allocator);
+                if (!destination.has_value())
+                {
+                    co_return result;
+                }
+                co_await co_generate_binary(bidx, ":=", copy_ref_value(bidx, *destination), result);
+                if (after_block.has_value())
+                {
+                    generate_jump(bidx, *after_block);
+                    bidx = *after_block;
+                }
+                co_return value_index(0);
             }
 
             std::vector< expression_arg > arguments;
@@ -9895,7 +10252,7 @@ namespace quxlang
             if (input.from)
             {
                 source_slot = object_pointer;
-                type_symbol slot_pointer_type = allocation_slot_type(bidx, object_pointer);
+                type_symbol slot_pointer_type = allocation_slot_type(bidx, object_pointer, input.count.has_value() ? pointer_class::array : pointer_class::instance);
                 object_pointer = load_reference_value(bidx, copy_ref_value(bidx, object_pointer), slot_pointer_type);
                 value_index null_value = co_await co_generate(bidx, expression_value_keyword{.keyword = "NULL"});
                 value_index condition = co_await co_generate_binary(bidx, "!=", co_await co_construct_copy(bidx, object_pointer, remove_ref(current_type(bidx, object_pointer))), null_value);
@@ -9920,12 +10277,12 @@ namespace quxlang
             type_symbol pointer_type = remove_ref(expression_type);
             if (!typeis< ptrref_type >(pointer_type))
             {
-                throw semantic_compilation_error("DELETE requires an instance pointer");
+                throw semantic_compilation_error("DELETE requires an object pointer");
             }
             ptrref_type const& pointer = as< ptrref_type >(pointer_type);
-            if (pointer.ptr_class != pointer_class::instance || pointer.qual != qualifier::mut)
+            if (pointer.ptr_class != (input.count.has_value() ? pointer_class::array : pointer_class::instance) || pointer.qual != qualifier::mut)
             {
-                throw semantic_compilation_error("DELETE requires a mutable single-object instance pointer");
+                throw semantic_compilation_error("DELETE requires a mutable pointer with COUNT present exactly for array pointers");
             }
             if (typeis< void_type >(pointer.target))
             {
@@ -9949,6 +10306,14 @@ namespace quxlang
             if (input.allocator.has_value())
             {
                 allocator = co_await co_generate_expr(bidx, *input.allocator);
+            }
+            if (input.count.has_value())
+            {
+                type_symbol size_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+                value_index count = co_await co_generate_typed_expr(bidx, *input.count, size_type);
+                co_await co_delete_array_allocation(bidx, object_pointer, count, pointer.target, allocator);
+                co_await co_finish_deletion();
+                co_return value_index(0);
             }
             type_symbol object_type = pointer.target;
             class_kind const object_kind = co_await rpnx::querygraph::request< class_type_query >(object_type);
@@ -10839,9 +11204,14 @@ namespace quxlang
             {
                 target = this->state.loop_controls.back().continue_target;
             }
+            else if (this->state.completion == function_completion::continue_)
+            {
+                this->generate_return(current_block);
+                co_return;
+            }
             else
             {
-                throw semantic_compilation_error("CONTINUE used outside a runtime loop");
+                throw semantic_compilation_error("CONTINUE used outside a runtime loop or array initializer body");
             }
             this->generate_jump(current_block, *target, "continue");
             co_return;
@@ -11975,6 +12345,10 @@ namespace quxlang
 
                 value_index init_idx = co_await co_generate_expr(new_expr_block, *st.equals_initializer);
                 type_symbol var_type = remove_ref(this->current_type(new_expr_block, init_idx));
+                if (typeis< nvalue_slot >(var_type))
+                {
+                    throw semantic_compilation_error("An uninitialized destination cannot be stored in a variable");
+                }
 
                 if (typeis< attached_type_reference >(var_type))
                 {
@@ -12021,6 +12395,10 @@ namespace quxlang
             }
 
             type_symbol var_type = co_await this->co_resolve_type_symbol(current_block, st.type);
+            if (typeis< nvalue_slot >(var_type))
+            {
+                throw semantic_compilation_error("NVALUE[T] is an initialization parameter type");
+            }
 
             if (typeis< attached_type_reference >(var_type))
             {
@@ -16125,6 +16503,7 @@ namespace quxlang
             auto function_decl_opt = co_await rpnx::querygraph::request< function_declaration_query >(function_ref);
             assert(function_decl_opt.has_value());
             ast2_function_declaration& function_decl = function_decl_opt.value();
+            this->state.completion = function_decl.definition.body.completion;
             this->state.is_noexcept = co_await rpnx::querygraph::request< functanoid_is_noexcept_query >(func);
 
 
@@ -16135,8 +16514,14 @@ namespace quxlang
                 co_await this->co_publish_deduced_return_type(void_type{});
             }
 
-            // TODO: Check if default return is allowed.
-            this->generate_return(current_block);
+            if (state.params.named.contains("RETURN"))
+            {
+                this->set_terminator(current_block, vmir2::unreachable{});
+            }
+            else
+            {
+                this->generate_return(current_block);
+            }
             this->validate_no_pending_gotos();
 
             co_return;
@@ -16211,6 +16596,10 @@ namespace quxlang
 
         [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_return_statement const& st) -> co_type< void >
         {
+            if (this->state.completion != function_completion::return_)
+            {
+                throw semantic_compilation_error("NEW DO bodies complete with CONTINUE or fallthrough; RETURN requires an explicit function or lambda");
+            }
             auto return_arg_opt = this->local_value_direct_lookup(current_block, "RETURN");
 
             if (return_arg_opt.has_value())
@@ -16271,6 +16660,10 @@ namespace quxlang
         /** Returns an ordering when a single expression or a two-operand comparison is non-equal. */
         [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_return_unequal_statement const& st) -> co_type< void >
         {
+            if (this->state.completion != function_completion::return_)
+            {
+                throw semantic_compilation_error("NEW DO bodies complete with CONTINUE or fallthrough; RETURN requires an explicit function or lambda");
+            }
             block_index comparison_block = this->generate_subblock(current_block, "return_unequal");
             this->generate_jump(current_block, comparison_block);
 
@@ -17410,7 +17803,6 @@ namespace quxlang
             }
 
             array_initializer_type init_type;
-            init_type.count = res;
             init_type.element_type = element_type;
 
             auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
@@ -17425,7 +17817,7 @@ namespace quxlang
 
             auto initiailizer = create_local_value(init_type);
 
-            this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(thisidx_value), .initializer = get_local_index(initiailizer)});
+            this->emit(current_block, vmir2::array_init_start{.source = get_local_index(thisidx_value), .initializer = get_local_index(initiailizer)});
 
             auto init_loop_condition_block = this->generate_subblock(current_block, "array_copy_condition_ctor_loop");
             auto init_loop_block = this->generate_subblock(current_block, "array_copy_ctor_loop");
@@ -17488,9 +17880,9 @@ namespace quxlang
             QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value() || !other_lookup.has_value(), "Generated array move constructor is missing THIS or OTHER");
             value_index this_value = *this_lookup;
             value_index other_value = *other_lookup;
-            array_initializer_type initializer_type{.element_type = array.element_type, .count = element_count};
+            array_initializer_type initializer_type{.element_type = array.element_type};
             value_index initializer = create_local_value(initializer_type);
-            this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(this_value), .initializer = get_local_index(initializer)});
+            this->emit(current_block, vmir2::array_init_start{.source = get_local_index(this_value), .initializer = get_local_index(initializer)});
 
             block_index condition_block = this->generate_subblock(current_block, "array_move_ctor_condition");
             block_index element_block = this->generate_subblock(current_block, "array_move_ctor_element");
@@ -18106,7 +18498,6 @@ namespace quxlang
             }
 
             array_initializer_type init_type;
-            init_type.count = res;
             init_type.element_type = element_type;
 
             auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
@@ -18117,7 +18508,7 @@ namespace quxlang
 
             auto initiailizer = create_local_value(init_type);
 
-            this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(thisidx_value), .initializer = get_local_index(initiailizer)});
+            this->emit(current_block, vmir2::array_init_start{.source = get_local_index(thisidx_value), .initializer = get_local_index(initiailizer)});
 
             if (!func.params.positional.empty())
             {

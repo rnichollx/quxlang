@@ -56,7 +56,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
         co_return templated;
     }
 
-    if (typeis< attached_type_reference >(from) || typeis< attached_type_reference >(to))
+    if (typeis< attached_type_reference >(from) || typeis< attached_type_reference >(to) || typeis< nvalue_slot >(from) || typeis< nvalue_slot >(to))
     {
         co_return std::nullopt;
     }

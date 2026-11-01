@@ -70,8 +70,8 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     std::string const constructor_name = typeis< submember >(input.temploid.templexoid) && keywords::is_constructor_name(as< submember >(input.temploid.templexoid).name)
         ? as< submember >(input.temploid.templexoid).name : "CONSTRUCTOR";
     auto ctor_match = make_builtin_pattern(constructor_name, instatype{
-        .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("NEW& TT(t1)"))}},
-    });
+                                                                 .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("NVALUE[TT(t1)]"))}},
+                                                             });
 
     auto input_str = quxlang::to_string(input);
 

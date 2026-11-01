@@ -20,8 +20,24 @@ VAR fixed_array MUT->[2]I32 := NEW [2]I32 :[53, 59];
 - `NEW T :(...)` supplies named arguments and positional groups.
 - `NEW T :[...]` supplies positional constructor arguments.
 
-`NEW [N]T` allocates one fixed-array object. It does not return a dynamically
-sized multi-object pointer.
+`NEW [N]T` allocates one fixed-array object. `COUNT` allocates a runtime-sized
+sequence of elements:
+
+```quxlang
+VAR values MUT=>>I32 := NEW I32 COUNT(4) INDEX(i) DO
+{
+  INIT := (i AS CHECKED I32) + 10;
+};
+DELETE COUNT(4) values;
+```
+
+Each `INIT` constructs one element directly in its destination. Execution
+continues after `INIT`. Fallthrough or an unlabeled `CONTINUE;` outside a nested
+loop completes the element initialization. `GENERATOR(callable)` reuses an
+explicit function, lambda, or callable object with ordinary `RETURN` semantics.
+A generator accepts `@INITVAL NVALUE[T]` and optionally `@INDEX SZ`.
+If construction fails, completed elements are destroyed in reverse order and
+the allocation is released.
 
 ## Deallocation
 
@@ -34,9 +50,9 @@ DELETE default_value;
 ```
 
 `DELETE` destroys the object and releases its allocation. It accepts a mutable
-instance pointer. A `CONST`-qualified instance pointer and every array pointer
-are rejected because they do not carry the required single-object deletion
-contract.
+instance pointer, or a mutable array pointer with a matching `COUNT`.
+Counted deletion requires the original pointer, element type, allocator, and
+count.
 
 The pointer must identify the matching live allocation and must not be used
 after deletion.

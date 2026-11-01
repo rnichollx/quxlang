@@ -5316,7 +5316,11 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::array_init_start >)
                                                 {
-                                                    vmir2::local_index const array = resolved_reference(selected.on_value);
+                                                    if (!selected.source.template type_is< vmir2::local_index >())
+                                                    {
+                                                        throw lowering_compilation_error("Runtime array initialization is unavailable in the JVM backend");
+                                                    }
+                                                    vmir2::local_index const array = resolved_reference(selected.source.template as< vmir2::local_index >());
                                                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >();
                                                     emit_composite_object(array);
                                                     m_code.append< opcode::lconst_0 >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(selected.initializer));
@@ -5361,7 +5365,7 @@ namespace quxlang::cortado_backend
                                                         throw compiler_bug("Quxlang's Cortado backend ARRAY_INIT_MORE received a non-initializer local");
                                                     }
                                                     m_code.aload(jvm_slot(selected.initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J");
-                                                    emit_long_constant(m_code, initializer_type.as< array_initializer_type >().count);
+                                                    m_code.aload(jvm_slot(selected.initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;").template append< opcode::arraylength >().template append< opcode::i2l >();
                                                     m_code.append< opcode::lcmp >().branch< opcode::iflt >(elements_remain).append< opcode::iconst_0 >().branch< opcode::goto_ >(comparison_done).bind(elements_remain).append< opcode::iconst_1 >().bind(comparison_done).istore(jvm_slot(selected.result));
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::array_init_finish >)

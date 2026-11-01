@@ -199,6 +199,10 @@ namespace quxlang
             {
                 result += to_string(expr.type);
             }
+            if (expr.count.has_value())
+            {
+                result += " COUNT(" + expr_to_string(*expr.count) + ")";
+            }
             rpnx::apply_visitor< void >(expr.initializer,
                 [&](auto&& initializer)
                 {
@@ -212,6 +216,10 @@ namespace quxlang
                             result += " ";
                         }
                         result += expr_to_string(initializer.source);
+                    }
+                    else if constexpr (std::is_same_v< initializer_type, new_generator_initializer >)
+                    {
+                        result += " GENERATOR(" + expr_to_string(initializer.generator) + ")";
                     }
                     else if constexpr (std::is_same_v< initializer_type, new_arguments_initializer >)
                     {
@@ -238,6 +246,10 @@ namespace quxlang
         std::string operator()(expression_delete const& expr) const
         {
             std::string result = "( DELETE ";
+            if (expr.count.has_value())
+            {
+                result += "COUNT(" + expr_to_string(*expr.count) + ") ";
+            }
             if (expr.optional)
             {
                 result += "OPTIONAL ";
@@ -1061,9 +1073,9 @@ namespace quxlang
             return is_template(ref.target);
         }
 
-        bool operator()(nvalue_slot const&) const
+        bool operator()(nvalue_slot const& ref) const
         {
-            return false;
+            return is_template(ref.target);
         }
 
         bool operator()(initialization_reference const& ref) const
@@ -1767,7 +1779,7 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(array_initializer_type const& ai) const
     {
-        return "__ARRAY_INITIALIZER( " + to_string(ai.element_type) + ", " + std::to_string(ai.count) + " )";
+        return "__ARRAY_INITIALIZER( " + to_string(ai.element_type) + " )";
     }
 
     /// Formats an internal function-local static storage symbol.
@@ -1820,7 +1832,7 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(nvalue_slot const& ref) const
     {
-        return "NEW{ " + to_string(ref.target) + " }";
+        return "NVALUE[" + to_string(ref.target) + "]";
     }
 
     std::string type_symbol_stringifier::operator()(dvalue_slot const& ref) const
@@ -2321,6 +2333,10 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             else if constexpr (std::is_same_v< value_type, expression_new >)
             {
                 value.type = strip_source_locations(std::move(value.type));
+                if (value.count.has_value())
+                {
+                    value.count = strip_source_locations(std::move(*value.count));
+                }
                 if (value.allocator.has_value()) { value.allocator = strip_source_locations(std::move(*value.allocator)); }
                 if (value.destination.has_value()) { value.destination = strip_source_locations(std::move(*value.destination)); }
                 rpnx::apply_visitor< void >(value.initializer,
@@ -2330,6 +2346,10 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                         if constexpr (std::is_same_v< initializer_type, new_from_initializer >)
                         {
                             initializer.source = strip_source_locations(std::move(initializer.source));
+                        }
+                        else if constexpr (std::is_same_v< initializer_type, new_generator_initializer >)
+                        {
+                            initializer.generator = strip_source_locations(std::move(initializer.generator));
                         }
                         else if constexpr (std::is_same_v< initializer_type, new_arguments_initializer >)
                         {
@@ -2344,6 +2364,10 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             else if constexpr (std::is_same_v< value_type, expression_delete >)
             {
                 value.pointer = strip_source_locations(std::move(value.pointer));
+                if (value.count.has_value())
+                {
+                    value.count = strip_source_locations(std::move(*value.count));
+                }
                 if (value.allocator.has_value()) { value.allocator = strip_source_locations(std::move(*value.allocator)); }
             }
             else if constexpr (std::is_same_v< value_type, expression_choose > || std::is_same_v< value_type, expression_static_choose >)

@@ -808,14 +808,20 @@ namespace quxlang::parsers
             pr_result.target = parse_type_symbol(ctx);
             return pr_result;
         }
-        else if (skip_keyword_if_is(pos, end, "NEW"))
+        else if (skip_keyword_if_is(pos, end, "NVALUE"))
         {
-            if (!skip_symbol_if_is(pos, end, "&"))
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "["))
             {
-                // TODO: Support MUT-> etc
-                throw syntax_compilation_error("Expected & after NEW");
+                throw syntax_compilation_error("Expected [ after NVALUE");
             }
-            return nvalue_slot{parse_type_symbol(ctx)};
+            type_symbol target = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "]"))
+            {
+                throw syntax_compilation_error("Expected ] after NVALUE target type");
+            }
+            return nvalue_slot{std::move(target)};
         }
         else if (skip_keyword_if_is(pos, end, "DESTROY"))
         {

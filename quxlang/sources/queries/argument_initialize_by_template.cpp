@@ -60,7 +60,7 @@ namespace quxlang::detail
             std::vector< source_form > forms;
             append_source_form(forms, from, source_form_kind::exact);
 
-            if (typeis< attached_type_reference >(from) || !allows_source_rebinding(adaptations))
+            if (typeis< attached_type_reference >(from) || typeis< nvalue_slot >(from) || !allows_source_rebinding(adaptations))
             {
                 return forms;
             }

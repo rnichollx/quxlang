@@ -64,6 +64,44 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Expected expression");
         }
 
+        /** Parses the constructor arguments or source used by allocation and INIT. */
+        inline new_initializer parse_construction_initializer(parsing_context& ctx)
+        {
+            parse_iterator& pos = ctx.iter_pos;
+            parse_iterator end = ctx.iter_end;
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, ":="))
+            {
+                skip_whitespace_and_comments(pos, end);
+                return new_from_initializer{.mode = std::nullopt, .source = parse_expression_impl(ctx)};
+            }
+            else if (skip_keyword_if_is(pos, end, "FROM"))
+            {
+                skip_whitespace_and_comments(pos, end);
+                std::optional< conversion_mode > mode = try_parse_conversion_mode(ctx);
+                if (mode.has_value())
+                {
+                    skip_whitespace_and_comments(pos, end);
+                }
+                return new_from_initializer{
+                    .mode = mode,
+                    .source = parse_expression_impl(ctx),
+                };
+            }
+            else if (skip_symbol_if_is(pos, end, ":("))
+            {
+                return new_arguments_initializer{.arguments = parse_call_argument_list(ctx, ")")};
+            }
+            else if (skip_symbol_if_is(pos, end, ":["))
+            {
+                return new_arguments_initializer{.arguments = parse_positional_argument_sequence(ctx, "]")};
+            }
+            else
+            {
+                return new_default_initializer{};
+            }
+        }
+
         inline std::vector< lambda_capture > parse_lambda_captures(parsing_context& ctx)
         {
             auto& pos = ctx.iter_pos;
@@ -1000,6 +1038,9 @@ namespace quxlang::parsers
         else if (skip_keyword_if_is(pos, end, "NEW"))
         {
             expression_new new_expr;
+            new_expr.type = auto_temploidic{};
+            bool have_type = false;
+            std::optional< std::string > index_name;
             skip_whitespace_and_comments(pos, end);
             while (true)
             {
@@ -1049,50 +1090,118 @@ namespace quxlang::parsers
                         throw syntax_compilation_error("Expected closing parenthesis in allocation clause");
                     }
                 }
+                else if (skip_keyword_if_is(pos, end, "COUNT"))
+                {
+                    if (new_expr.count.has_value())
+                    {
+                        throw syntax_compilation_error("Duplicate COUNT clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "("))
+                    {
+                        throw syntax_compilation_error("Expected ( after COUNT");
+                    }
+                    new_expr.count = parse_expression_impl(ctx);
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, ")"))
+                    {
+                        throw syntax_compilation_error("Expected ) after count");
+                    }
+                }
+                else if (skip_keyword_if_is(pos, end, "INDEX"))
+                {
+                    if (index_name.has_value())
+                    {
+                        throw syntax_compilation_error("Duplicate INDEX clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "("))
+                    {
+                        throw syntax_compilation_error("Expected ( after INDEX");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    index_name = parse_identifier(pos, end);
+                    if (index_name->empty())
+                    {
+                        throw syntax_compilation_error("Expected index binding name");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, ")"))
+                    {
+                        throw syntax_compilation_error("Expected ) after index binding");
+                    }
+                }
+                else if (!have_type && next_keyword(pos, end) != "GENERATOR" && next_keyword(pos, end) != "DO" && next_keyword(pos, end) != "FROM")
+                {
+                    std::optional< type_symbol > explicit_type = try_parse_type_symbol(ctx);
+                    if (!explicit_type.has_value())
+                    {
+                        break;
+                    }
+                    new_expr.type = std::move(*explicit_type);
+                    have_type = true;
+                }
                 else
                 {
                     break;
                 }
                 skip_whitespace_and_comments(pos, end);
             }
+            if (!have_type && !new_expr.destination.has_value())
+            {
+                throw syntax_compilation_error("NEW requires an element type or TO destination");
+            }
             if (new_expr.optional && !new_expr.destination.has_value())
             {
                 throw syntax_compilation_error("NEW OPTIONAL requires TO");
             }
-            if (!new_expr.destination.has_value())
-            {
-                new_expr.type = parse_type_symbol(ctx);
-                skip_whitespace_and_comments(pos, end);
-            }
-            if (skip_symbol_if_is(pos, end, ":="))
+            if (skip_keyword_if_is(pos, end, "GENERATOR"))
             {
                 skip_whitespace_and_comments(pos, end);
-                new_expr.initializer = new_from_initializer{.mode = std::nullopt, .source = parse_expression_impl(ctx)};
-            }
-            else if (skip_keyword_if_is(pos, end, "FROM"))
-            {
-                skip_whitespace_and_comments(pos, end);
-                std::optional< conversion_mode > mode = try_parse_conversion_mode(ctx);
-                if (mode.has_value())
+                if (!skip_symbol_if_is(pos, end, "("))
                 {
-                    skip_whitespace_and_comments(pos, end);
+                    throw syntax_compilation_error("Expected ( after GENERATOR");
                 }
-                new_expr.initializer = new_from_initializer{
-                    .mode = mode,
-                    .source = parse_expression_impl(ctx),
-                };
+                expression generator = parse_expression_impl(ctx);
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ) after generator");
+                }
+                if (index_name.has_value())
+                {
+                    throw syntax_compilation_error("INDEX requires DO");
+                }
+                new_expr.initializer = new_generator_initializer{.generator = std::move(generator)};
             }
-            else if (skip_symbol_if_is(pos, end, ":("))
+            else if (skip_keyword_if_is(pos, end, "DO"))
             {
-                new_expr.initializer = new_arguments_initializer{.arguments = parse_call_argument_list(ctx, ")")};
-            }
-            else if (skip_symbol_if_is(pos, end, ":["))
-            {
-                new_expr.initializer = new_arguments_initializer{.arguments = parse_positional_argument_sequence(ctx, "]")};
+                expression_lambda generator;
+                generator.parameters.push_back(ast2_function_parameter{.name = "INITVAL", .api_name = "INITVAL", .type = nvalue_slot{auto_temploidic{}}});
+                if (index_name.has_value())
+                {
+                    generator.parameters.push_back(ast2_function_parameter{.name = *index_name, .api_name = "INDEX", .type = size_type{}});
+                }
+                generator.return_type = void_type{};
+                generator.body = parse_function_block(ctx);
+                generator.body.completion = function_completion::continue_;
+                new_expr.initializer = new_generator_initializer{.generator = std::move(generator)};
             }
             else
             {
-                new_expr.initializer = new_default_initializer{};
+                if (index_name.has_value())
+                {
+                    throw syntax_compilation_error("INDEX requires DO");
+                }
+                rpnx::apply_visitor< void >(parse_construction_initializer(ctx),
+                                            [&](auto initializer)
+                                            {
+                                                new_expr.initializer = std::move(initializer);
+                                            });
+            }
+            if (new_expr.initializer.type_is< new_generator_initializer >() && !new_expr.count.has_value())
+            {
+                throw syntax_compilation_error("Array generators require COUNT");
             }
             *value_bind_point = std::move(new_expr);
             have_anything = true;
@@ -1148,6 +1257,24 @@ namespace quxlang::parsers
                     if (!skip_symbol_if_is(pos, end, ")"))
                     {
                         throw syntax_compilation_error("Expected closing parenthesis in allocation clause");
+                    }
+                }
+                else if (skip_keyword_if_is(pos, end, "COUNT"))
+                {
+                    if (delete_expr.count.has_value())
+                    {
+                        throw syntax_compilation_error("Duplicate COUNT clause");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "("))
+                    {
+                        throw syntax_compilation_error("Expected ( after COUNT");
+                    }
+                    delete_expr.count = parse_expression_impl(ctx);
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, ")"))
+                    {
+                        throw syntax_compilation_error("Expected ) after count");
                     }
                 }
                 else

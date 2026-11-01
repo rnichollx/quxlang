@@ -6,8 +6,14 @@ optional return type, and an executable body.
 ```quxlang
 ::clamp FUNCTION(@value I32, @minimum I32, @maximum I32): I32
 {
-  IF (value < minimum) { RETURN minimum; }
-  IF (value > maximum) { RETURN maximum; }
+  IF (value < minimum)
+  {
+    RETURN minimum;
+  }
+  IF (value > maximum)
+  {
+    RETURN maximum;
+  }
   RETURN value;
 }
 ```
@@ -31,8 +37,14 @@ exception handling to complete before control leaves the callable:
 ```quxlang
 ::fallback_value FUNCTION() NOEXCEPT: I32
 {
-  TRY { THROW I32(@OTHER 17); }
-  CATCH error CONST& I32 { RETURN error; }
+  TRY
+  {
+    THROW I32(@OTHER 17);
+  }
+  CATCH error CONST& I32
+  {
+    RETURN error;
+  }
   RETURN 0;
 }
 ```
@@ -49,7 +61,7 @@ parameter types.
 
 ```quxlang
 ::exchange FUNCTION(@left MUT& AUTO(t), @right MUT& AUTO(t))
-  NOEXCEPT_IF(IS_NOEXCEPT_SWAPPABLE(t))
+NOEXCEPT_IF(IS_NOEXCEPT_SWAPPABLE(t))
 {
   left <-> right;
 }
@@ -91,7 +103,10 @@ changing the call interface:
 bare argument binds it to `@ARG`:
 
 ```quxlang
-::twice FUNCTION(@ARG I32): I32 { RETURN ARG * 2; }
+::twice FUNCTION(@ARG I32): I32
+{
+  RETURN ARG * 2;
+}
 ASSERT(twice(6) == 12);
 ```
 
@@ -173,7 +188,10 @@ The return type follows `:` after the parameter list and any `ENABLE_IF`:
 ```quxlang
 ::absolute FUNCTION(@ARG:value I32): I32
 {
-  IF (value < 0) { RETURN 0 - value; }
+  IF (value < 0)
+  {
+    RETURN 0 - value;
+  }
   RETURN value;
 }
 ```
@@ -187,8 +205,14 @@ the selected result contract. See [`RETURN` Statements](return-statements.md).
 Several declarations may share a name when their callable signatures differ:
 
 ```quxlang
-::width FUNCTION(@ARG I32): I32 { RETURN 32; }
-::width FUNCTION(@ARG I64): I32 { RETURN 64; }
+::width FUNCTION(@ARG I32): I32
+{
+  RETURN 32;
+}
+::width FUNCTION(@ARG I64): I32
+{
+  RETURN 64;
+}
 ```
 
 Parameter binding, type adaptation, template deduction, candidate priorities,
@@ -197,7 +221,7 @@ written after the parameter list and before the return type:
 
 ```quxlang
 ::small_width FUNCTION(@ARG AUTO(value_type))
-  ENABLE_IF(BITS(value_type) < 32 AS I32): I32
+ENABLE_IF(BITS(value_type) < 32 AS I32): I32
 {
   RETURN BITS(value_type) AS I32;
 }
@@ -216,10 +240,19 @@ function that receives no object:
 {
   .value VAR I32;
 
-  .read FUNCTION() CONST: I32 { RETURN .value; }
-  .set FUNCTION(@ARG I32) MUT { .value := ARG; }
+  .read FUNCTION() CONST: I32
+  {
+    RETURN .value;
+  }
+  .set FUNCTION(@ARG I32) MUT
+  {
+    .value := ARG;
+  }
 
-  ::zero FUNCTION(): counter { RETURN counter(); }
+  ::zero FUNCTION(): counter
+  {
+    RETURN counter();
+  }
 }
 ```
 
@@ -234,3 +267,55 @@ Named and positional call arguments are evaluated in source order before the
 selected function body begins. Calls may target a function symbol, member,
 procedure pointer, or callable function value. See [Call Arguments](call-arguments.md)
 and [Procedure Pointers and Function Values](procedure-pointers-and-function-values.md).
+
+## Initialization parameters
+
+`NVALUE[T]` declares an initialization parameter whose argument identifies
+uninitialized destination storage for `T`. Ordinary functions, lambdas, and
+callable objects may declare these parameters. Forwarding an initialization
+parameter passes the original destination storage through ordinary overload
+resolution.
+
+```quxlang
+::construct_number FUNCTION(@INITVAL NVALUE[I32])
+{
+  INIT := 42;
+}
+
+::forward_number FUNCTION(@INITVAL NVALUE[I32])
+{
+  construct_number(@INITVAL INITVAL);
+  RETURN;
+}
+```
+
+`INIT` selects the constructor of the current function's named `@INITVAL`
+parameter. Its accepted forms are:
+
+```quxlang
+INIT;
+INIT := expression;
+INIT FROM expression;
+INIT FROM CHECKED expression;
+INIT :(@argument expression);
+INIT :[expression, expression];
+```
+
+`FROM` accepts the same conversion modes as `NEW`. Constructor selection and
+argument adaptation follow ordinary construction rules. `INIT` does not return;
+subsequent statements and exit cleanup execute normally. A `VOID` function may
+fall through after successful initialization.
+
+Every normal function exit requires every initialization parameter to contain a
+completed object. Branches, loops, and lexical scopes preserve and validate this
+state. Reading an uninitialized destination, initializing a completed destination,
+forwarding a destination twice, or consuming a completed output before return is
+ill-formed. Uninitialized destinations cannot escape through lambda captures or
+stored aliases. `NVALUE[T]` is a parameter type. It cannot be a variable or field
+type, a function return type, an array element, a pointer or reference target, or
+a type admitted by typed storage.
+
+Normal return transfers the completed output to the caller. Exceptional exit
+destroys completed outputs and partially constructed subobjects through ordinary
+cleanup. The caller treats an output as completed only after its call returns
+normally. This rule applies through forwarding chains.

@@ -193,10 +193,6 @@ namespace quxlang
             {
                 array_initializer_type const& pseudotype = as< array_initializer_type >(pseudotype_symbol);
                 array_initializer_type const& candidate = as< array_initializer_type >(candidate_symbol);
-                if (pseudotype.count != candidate.count)
-                {
-                    return false;
-                }
                 return self(self, pseudotype.element_type, candidate.element_type);
             }
             if (typeis< temploid_reference >(pseudotype_symbol))

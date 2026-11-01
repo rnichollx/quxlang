@@ -144,3 +144,19 @@ value parameter.
 
 See [Procedure Pointers and Function Values](procedure-pointers-and-function-values.md),
 [Call Arguments](call-arguments.md), and [Functions](functions-and-parameters.md).
+
+## Initialization parameters
+
+A lambda may declare `@INITVAL NVALUE[T]` and initialize its destination with an
+`INIT` statement. `INIT` continues execution. Ordinary `VOID` fallthrough and
+`RETURN;` complete the call after exit cleanup. The same initialization and
+forwarding rules apply to ordinary functions and callable objects; see
+[Initialization parameters](functions-and-parameters.md#initialization-parameters).
+
+The `NEW T COUNT(n) INDEX(i) DO { ... }` form lowers to an implicit lambda with an
+additional `@INDEX:i SZ` parameter. Omitting `INDEX` omits that parameter. The body
+uses ordinary capture and exception semantics. An unlabeled `CONTINUE;` outside
+a nested runtime loop completes the implicit initializer body; fallthrough also
+completes it. `RETURN` is reserved for explicit functions and lambdas. A nested
+explicit lambda retains its own return rules. An uninitialized destination
+cannot itself be captured by a nested lambda.

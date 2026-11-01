@@ -1,0 +1,761 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::array_generator_tests NAMESPACE
+{
+  DOC <$ Constructs an indexed integer through a forwarded initialization parameter. $>
+  ::generate_value FUNCTION(@INITVAL NVALUE[I32], @INDEX:index SZ)
+  {
+    INIT := (index AS CHECKED I32) + 10;
+    TEST_ASSERT(INITVAL >= 10);
+  }
+
+  DOC <$ Forwards an initialization destination through an ordinary function call. $>
+  ::forward_value FUNCTION(@INITVAL:destination NVALUE[I32], @INDEX:index SZ)
+  {
+    generate_value(@INITVAL destination, @INDEX index);
+    RETURN;
+  }
+
+  DOC <$ An index-free callable retains its state between element calls. $>
+  ::sequence STRUCT
+  {
+    .next VAR I32;
+    .OPERATOR() FUNCTION(@INITVAL NVALUE[I32])
+    {
+      INIT := .next;
+      .next++;
+    }
+  }
+
+  DOC <$ Counted allocation constructs a distinct value at each index and permits ordinary pointer arithmetic. $>
+  ::indexed_values DUAL_TEST
+  {
+    VAR count SZ := 4;
+    VAR values MUT=>>I32 := NEW I32 COUNT(count) GENERATOR(forward_value);
+    TEST_ASSERT(values[0] == 10);
+    TEST_ASSERT(values[3] == 13);
+    TEST_ASSERT((values + count) - values == 4);
+    DELETE COUNT(count) values;
+  }
+
+  DOC <$ Structured generators capture enclosing values and continue after INIT. $>
+  ::structured_values DUAL_TEST
+  {
+    VAR calls I32;
+    VAR values MUT=>>I32 := NEW I32 COUNT(3) INDEX(index) DO
+    {
+      IF (index == 0)
+      {
+        INIT := 7;
+      }
+      ELSE
+      {
+        INIT := index AS CHECKED I32;
+      }
+      calls++;
+      CONTINUE;
+      calls += 100;
+    };
+    TEST_ASSERT(calls == 3);
+    TEST_ASSERT(values[0] == 7);
+    TEST_ASSERT(values[2] == 2);
+    DELETE COUNT(3) values;
+  }
+
+  DOC <$ Generator calls reuse one callable and accept an omitted index parameter. $>
+  ::stateful_generator DUAL_TEST
+  {
+    VAR generator sequence;
+    VAR values MUT=>>I32 := NEW I32 COUNT(3) GENERATOR(generator);
+    TEST_ASSERT(generator.next == 3);
+    TEST_ASSERT(values[0] == 0);
+    TEST_ASSERT(values[2] == 2);
+    DELETE COUNT(3) values;
+  }
+
+  DOC <$ Empty allocations skip the generator and pointer slots support counted operations. $>
+  ::empty_and_single DUAL_TEST
+  {
+    VAR calls I32;
+    VAR values MUT=>>I32;
+    NEW COUNT(0) TO(values) DO
+    {
+      calls++;
+      INIT := 1;
+    };
+    TEST_ASSERT(calls == 0);
+    DELETE COUNT(0) FROM(values);
+    TEST_ASSERT(values!?);
+    NEW TO(values) COUNT(1) := 23;
+    TEST_ASSERT(values[0] == 23);
+    DELETE FROM(values) COUNT(1);
+    TEST_ASSERT(values!?);
+  }
+
+  DOC <$ Allocated elements can themselves be fixed-array objects. $>
+  ::nested_elements DUAL_TEST
+  {
+    VAR values MUT=>> [2]I32 := NEW [2]I32 COUNT(2) INDEX(index) DO
+    {
+      INIT :[index AS CHECKED I32, 19];
+    };
+    TEST_ASSERT(values[0][0] == 0);
+    TEST_ASSERT(values[1][0] == 1);
+    TEST_ASSERT(values[1][1] == 19);
+    DELETE COUNT(2) values;
+  }
+
+  DOC <$ Records the destruction order of initialized elements. $>
+  ::tracked STRUCT
+  {
+    .events VAR MUT->I32;
+    .digit VAR I32;
+    .CONSTRUCTOR FUNCTION(@events MUT->I32, @digit I32)
+    {
+      .events := events;
+      .digit := digit;
+    }
+    .DESTRUCTOR FUNCTION()
+    {
+      .events-> := .events-> * 10 + .digit;
+    }
+  }
+
+  DOC <$ A generator failure after INIT destroys its current output before the completed prefix. $>
+  ::failure_after_initialization DUAL_TEST
+  {
+    VAR events I32;
+    VAR caught BOOL;
+    TRY
+    {
+      VAR values MUT=>>tracked := NEW tracked COUNT(3) INDEX(index) DO
+      {
+        INIT :(@events events<-, @digit (index AS CHECKED I32) + 1);
+        IF (index == 1)
+        {
+          THROW 42 AS I32;
+        }
+      };
+      DELETE COUNT(3) values;
+    }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 42);
+      caught := TRUE;
+    }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 21);
+  }
+
+  DOC <$ A normal generator exit requires a completed destination. $>
+  ::missing_initialization STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(2) INDEX(index) DO
+    {
+      IF (index == 0)
+      {
+        INIT := 1;
+      }
+    };
+    DELETE COUNT(2) values;
+  }
+
+  DOC <$ A destination cannot be initialized twice. $>
+  ::duplicate_initialization STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) DO
+    {
+      INIT := 1;
+      INIT := 2;
+    };
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ Array generators return VOID. $>
+  ::nonvoid_generator STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    AUTO generator := -< (@INITVAL NVALUE[I32]): I32
+    {
+      INIT := 1;
+      RETURN 2;
+    };
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) GENERATOR(generator);
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ Records the count and release contract of a custom allocator. $>
+  ::allocator STRUCT
+  {
+    .allocations VAR I32;
+    .releases VAR I32;
+    .last_count VAR SZ;
+    .ALLOCATE TEMPLATE(@T TYPE) FUNCTION(@COUNT:count SZ): =>>TYPED_STORAGE(T)
+    {
+      .allocations++;
+      .last_count := count;
+      RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::MULTI_ALLOC(@COUNT count);
+    }
+    .DEALLOCATE TEMPLATE(@T TYPE) FUNCTION(@PTR:ptr =>>TYPED_STORAGE(T), @COUNT:count SZ)
+    {
+      TEST_ASSERT(count == .last_count);
+      .releases++;
+      RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::MULTI_DEALLOC(@PTR ptr, @COUNT count);
+    }
+  }
+
+  DOC <$ Returns one count while recording its evaluation. $>
+  ::count_once FUNCTION(@calls MUT& I32): SZ
+  {
+    calls++;
+    RETURN 3;
+  }
+
+  DOC <$ Returns a distinct ordinary constructor source for each element. $>
+  ::next_value FUNCTION(@calls MUT& I32): I32
+  {
+    calls++;
+    RETURN calls;
+  }
+
+  DOC <$ Selects one callable while recording its expression evaluation. $>
+  ::select_generator FUNCTION(@calls MUT& I32, @generator MUT& sequence): MUT& sequence
+  {
+    calls++;
+    RETURN generator;
+  }
+
+  DOC <$ Counts and generator expressions execute once while constructor sources execute per element. $>
+  ::evaluation_order DUAL_TEST
+  {
+    VAR counts I32;
+    VAR sources I32;
+    VAR selections I32;
+    VAR generator sequence;
+    VAR values MUT=>>I32 := NEW COUNT(count_once(@calls counts)) I32 := next_value(@calls sources);
+    TEST_ASSERT(counts == 1);
+    TEST_ASSERT(sources == 3);
+    TEST_ASSERT(values[0] == 1);
+    TEST_ASSERT(values[2] == 3);
+    DELETE COUNT(3) values;
+    values := NEW I32 COUNT(3) GENERATOR(select_generator(@calls selections, @generator generator));
+    TEST_ASSERT(selections == 1);
+    TEST_ASSERT(generator.next == 3);
+    DELETE COUNT(3) values;
+  }
+
+  DOC <$ Optional pointer-slot operations skip counts and construction when the operation is skipped. $>
+  ::allocator_and_optional DUAL_TEST
+  {
+    VAR memory allocator;
+    VAR values MUT=>>I32;
+    VAR counts I32;
+    NEW WITH(memory) COUNT(3) TO(values) := 12;
+    NEW OPTIONAL COUNT(count_once(@calls counts)) WITH(memory) TO(values) := 25;
+    TEST_ASSERT(counts == 0);
+    TEST_ASSERT(values[0] == 12);
+    DELETE COUNT(3) WITH(memory) FROM(values);
+    DELETE OPTIONAL COUNT(count_once(@calls counts)) WITH(memory) FROM(values);
+    TEST_ASSERT(counts == 0);
+    TEST_ASSERT(memory.allocations == 1);
+    TEST_ASSERT(memory.releases == 1);
+    NEW COUNT(0) WITH(memory) TO(values);
+    DELETE WITH(memory) COUNT(0) FROM(values);
+    TEST_ASSERT(memory.allocations == 2);
+    TEST_ASSERT(memory.releases == 2);
+  }
+
+  DOC <$ A throwing branch need not initialize an output. $>
+  ::throwing_branch DUAL_TEST
+  {
+    VAR memory allocator;
+    VAR events I32;
+    VAR caught BOOL;
+    TRY
+    {
+      VAR values MUT=>>tracked := NEW WITH(memory) tracked COUNT(3) INDEX(index) DO
+      {
+        IF (index == 1)
+        {
+          THROW 7 AS I32;
+        }
+        ELSE
+        {
+          INIT :(@events events<-, @digit 1);
+        }
+      };
+      DELETE COUNT(3) WITH(memory) values;
+    }
+    CATCH error CONST& I32
+    {
+      caught := TRUE;
+    }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 1);
+    TEST_ASSERT(memory.allocations == 1);
+    TEST_ASSERT(memory.releases == 1);
+  }
+
+  DOC <$ An output cannot be forwarded twice. $>
+  ::duplicate_forwarding STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    AUTO generator := -< (@INITVAL NVALUE[I32])
+    {
+      generate_value(@INITVAL INITVAL, @INDEX 0);
+      generate_value(@INITVAL INITVAL, @INDEX 1);
+    };
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) GENERATOR(generator);
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ An uninitialized destination cannot be read. $>
+  ::read_before_initialization STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) DO
+    {
+      VAR copy I32 := INITVAL;
+      INIT := copy;
+    };
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ An uninitialized destination cannot escape in a closure. $>
+  ::capture_before_initialization STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) DO
+    {
+      AUTO nested := -<
+      {
+        generate_value(@INITVAL INITVAL, @INDEX 0);
+      };
+      nested();
+    };
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ Initialization state cannot change across a loop backedge. $>
+  ::loop_initialization STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) DO
+    {
+      LOOP DO
+      {
+        INIT := 1;
+      }
+    };
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ A constructor can fail before completing its output. $>
+  ::retryable STRUCT
+  {
+    .value VAR I32;
+    .CONSTRUCTOR FUNCTION(@fail BOOL)
+    {
+      IF (fail)
+      {
+        THROW 29 AS I32;
+      }
+      .value := 17;
+    }
+  }
+
+  DOC <$ A caught constructor failure leaves the output available for retry. $>
+  ::retry_initialization DUAL_TEST
+  {
+    VAR values MUT=>>retryable := NEW retryable COUNT(2) DO
+    {
+      TRY
+      {
+        INIT :(@fail TRUE);
+      }
+      CATCH error CONST& I32
+      {
+        INIT :(@fail FALSE);
+      }
+    };
+    TEST_ASSERT(values[0].value == 17);
+    TEST_ASSERT(values[1].value == 17);
+    DELETE COUNT(2) values;
+  }
+
+  DOC <$ A local destructor may fail while a generator returns. $>
+  ::exit_failure STRUCT
+  {
+    .DESTRUCTOR FUNCTION() NOEXCEPT_IF(FALSE)
+    {
+      THROW 31 AS I32;
+    }
+  }
+
+  DOC <$ Exit cleanup failure destroys the completed output before releasing its allocation. $>
+  ::failure_during_exit DUAL_TEST
+  {
+    VAR memory allocator;
+    VAR events I32;
+    VAR caught BOOL;
+    TRY
+    {
+      VAR values MUT=>>tracked := NEW tracked WITH(memory) COUNT(2) DO
+      {
+        VAR cleanup exit_failure;
+        INIT :(@events events<-, @digit 4);
+        CONTINUE;
+      };
+      DELETE COUNT(2) WITH(memory) values;
+    }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 31);
+      caught := TRUE;
+    }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 4);
+    TEST_ASSERT(memory.allocations == 1);
+    TEST_ASSERT(memory.releases == 1);
+  }
+
+  DOC <$ The indexed overload is preferred when both generator signatures are viable. $>
+  ::preferred FUNCTION(@INITVAL NVALUE[I32], @INDEX SZ)
+  {
+    INIT := 9;
+  }
+  ::preferred FUNCTION(@INITVAL NVALUE[I32])
+  {
+    INIT := 3;
+  }
+
+  ::indexed_overload_preference DUAL_TEST
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) GENERATOR(preferred);
+    TEST_ASSERT(values[0] == 9);
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ Neither indexed signature is more specialized across both parameters. $>
+  ::ambiguous FUNCTION(@INITVAL NVALUE[AUTO], @INDEX SZ)
+  {
+    INIT := 1;
+  }
+  ::ambiguous FUNCTION(@INITVAL NVALUE[I32], @INDEX AUTO)
+  {
+    INIT := 2;
+  }
+  ::ambiguous FUNCTION(@INITVAL NVALUE[I32])
+  {
+    INIT := 3;
+  }
+
+  DOC <$ Indexed ambiguity remains an error even when an index-free overload exists. $>
+  ::ambiguous_generator STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) GENERATOR(ambiguous);
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ A selected indexed body must initialize its destination. $>
+  ::invalid_indexed FUNCTION(@INITVAL NVALUE[I32], @INDEX SZ)
+  {
+    RETURN;
+  }
+  ::invalid_indexed FUNCTION(@INITVAL NVALUE[I32])
+  {
+    INIT := 3;
+  }
+
+  ::selected_body_error STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) GENERATOR(invalid_indexed);
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ Fails while evaluating a later member initializer. $>
+  ::partial_digit FUNCTION(@fail BOOL): I32
+  {
+    IF (fail)
+    {
+      THROW 37 AS I32;
+    }
+    RETURN 2;
+  }
+
+  DOC <$ Partial construction destroys completed members before the completed array prefix. $>
+  ::pair STRUCT
+  {
+    .first VAR tracked;
+    .second VAR tracked;
+    .CONSTRUCTOR FUNCTION(@events MUT->I32, @INDEX:index SZ)
+    :> .first:(@events events, @digit (index AS CHECKED I32) * 2 + 1),
+    .second:(@events events, @digit partial_digit(@fail index == 1))
+    {
+    }
+  }
+
+  ::partial_construction DUAL_TEST
+  {
+    VAR memory allocator;
+    VAR events I32;
+    VAR values MUT=>>pair;
+    VAR caught BOOL;
+    TRY
+    {
+      NEW pair COUNT(3) WITH(memory) TO(values) INDEX(index) DO
+      {
+        INIT :(@events events<-, @INDEX index);
+      };
+    }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 37);
+      caught := TRUE;
+    }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(values!?);
+    TEST_ASSERT(events == 321);
+    TEST_ASSERT(memory.allocations == 1);
+    TEST_ASSERT(memory.releases == 1);
+  }
+
+  DOC <$ A forwarded output remains owned by the active initializing call. $>
+  ::forward_tracked FUNCTION(@INITVAL NVALUE[tracked], @INDEX:index SZ, @events MUT->I32)
+  {
+    INIT :(@events events, @digit (index AS CHECKED I32) + 1);
+    IF (index == 1)
+    {
+      THROW 41 AS I32;
+    }
+  }
+
+  ::forwarding_failure DUAL_TEST
+  {
+    VAR memory allocator;
+    VAR events I32;
+    VAR caught BOOL;
+    TRY
+    {
+      VAR values MUT=>>tracked := NEW tracked COUNT(3) WITH(memory) INDEX(index) DO
+      {
+        forward_tracked(@INITVAL INITVAL, @INDEX index, @events events<-);
+      };
+      DELETE COUNT(3) WITH(memory) values;
+    }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 41);
+      caught := TRUE;
+    }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 21);
+    TEST_ASSERT(memory.allocations == 1);
+    TEST_ASSERT(memory.releases == 1);
+  }
+
+  DOC <$ Completed output state survives nested scopes and ordinary loops. $>
+  ::scopes_and_loops DUAL_TEST
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(2) DO
+    {
+      VAR remaining I64 := 2;
+      LOOP WHILE(remaining > 0) DO
+      {
+        remaining--;
+      };
+      {
+        INIT FROM CHECKED remaining;
+      }
+      LOOP WHILE(remaining < 2) DO
+      {
+        remaining++;
+      };
+      TEST_ASSERT(INITVAL == 0);
+    };
+    TEST_ASSERT(values[1] == 0);
+    DELETE COUNT(2) values;
+  }
+
+  DOC <$ A control transfer cannot bypass output initialization. $>
+  ::bypassed_initialization STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) DO
+    {
+      GOTO :done;
+      INIT := 1;
+      LABEL :done;
+    };
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ Initialization destinations cannot be stored as ordinary variables. $>
+  ::stored_destination STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) DO
+    {
+      VAR alias NVALUE[I32] := INITVAL;
+      INIT := 1;
+    };
+    DELETE COUNT(1) values;
+  }
+
+
+  DOC <$ Ordinary initialization parameters can use an application-defined argument name. $>
+  ::initialize_named FUNCTION(@destination NVALUE[I32])
+  {
+    generate_value(@INITVAL destination, @INDEX 0);
+  }
+
+  ::default_and_named DUAL_TEST
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1);
+    TEST_ASSERT(values[0] == 0);
+    DELETE COUNT(1) values;
+    values := NEW I32 COUNT(1) DO
+    {
+      initialize_named(@destination INITVAL);
+    };
+    TEST_ASSERT(values[0] == 10);
+    DELETE COUNT(1) values;
+  }
+
+  ::invalid_field STRUCT
+  {
+    .value VAR NVALUE[I32];
+  }
+  ::stored_field STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value invalid_field;
+  }
+
+  ::invalid_global VAR NVALUE[I32];
+  ::stored_global STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    invalid_global;
+  }
+
+  ::invalid_return FUNCTION(): NVALUE[I32]
+  {
+    RETURN;
+  }
+  ::returned_destination STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    invalid_return();
+  }
+
+  ::destination_reference STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value MUT& NVALUE[I32];
+  }
+
+  ::destination_array STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value [1]NVALUE[I32];
+  }
+
+  ::destination_storage STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value TYPED_STORAGE(NVALUE[I32]);
+  }
+
+
+  DOC <$ Mutates a completed output through its ordinary reference. $>
+  ::increment_value FUNCTION(@value MUT& I32)
+  {
+    value++;
+  }
+
+  ::initialized_reference DUAL_TEST
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(2) DO
+    {
+      INIT := 1;
+      increment_value(@value INITVAL);
+      TEST_ASSERT(INITVAL == 2);
+      INITVAL++;
+    };
+    TEST_ASSERT(values[0] == 3);
+    TEST_ASSERT(values[1] == 3);
+    DELETE COUNT(2) values;
+  }
+
+
+  DOC <$ CONTINUE completes an element while nested loops and explicit lambdas retain their control flow. $>
+  ::continue_scopes DUAL_TEST
+  {
+    VAR calls I32;
+    VAR values MUT=>>I32 := NEW I32 COUNT(2) INDEX(index) DO
+    {
+      VAR step I32;
+      LOOP :inner WHILE(step < 3) DO
+      {
+        step++;
+        IF (step == 1)
+        {
+          CONTINUE;
+        }
+        IF (step == 2)
+        {
+          CONTINUE :inner;
+        }
+        calls++;
+      }
+      AUTO explicit_generator := -< (@INITVAL NVALUE[I32])
+      {
+        INIT := 19;
+        RETURN;
+      };
+      VAR inner MUT=>>I32 := NEW I32 COUNT(1) GENERATOR(explicit_generator);
+      AUTO choose := -< (): I32
+      {
+        RETURN inner[0];
+      };
+      IF (index == 0)
+      {
+        INIT := choose();
+        DELETE COUNT(1) inner;
+        CONTINUE;
+      }
+      INIT := step;
+      DELETE COUNT(1) inner;
+      CONTINUE;
+      calls += 100;
+    };
+    TEST_ASSERT(calls == 2);
+    TEST_ASSERT(values[0] == 19);
+    TEST_ASSERT(values[1] == 3);
+    DELETE COUNT(2) values;
+  }
+
+  DOC <$ Completing an element still requires initialization of its destination. $>
+  ::continue_without_initialization STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) DO
+    {
+      CONTINUE;
+    };
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ The implicit array initializer body does not accept function return syntax. $>
+  ::return_from_do STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) DO
+    {
+      INIT := 1;
+      RETURN;
+    };
+    DELETE COUNT(1) values;
+  }
+
+  DOC <$ An explicit lambda does not inherit the enclosing initializer's completion syntax. $>
+  ::continue_from_explicit_lambda STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR values MUT=>>I32 := NEW I32 COUNT(1) DO
+    {
+      AUTO invalid := -< ()
+      {
+        CONTINUE;
+      };
+      invalid();
+      INIT := 1;
+    };
+    DELETE COUNT(1) values;
+  }
+}

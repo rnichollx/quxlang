@@ -70,6 +70,18 @@ namespace quxlang::parsers
         }
 
         auto kw = next_keyword(pos, end);
+        if (skip_keyword_if_is(pos, end, "INIT"))
+        {
+            function_init_statement statement;
+            statement.initializer = detail::parse_construction_initializer(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw syntax_compilation_error("Expected ; after INIT");
+            }
+            statement.location = ctx.get_location_optional(begin, pos);
+            return statement;
+        }
         if (kw == "HINT_CODE_ALIGN")
         {
             function_code_align_statement statement = parse_code_align(ctx);

@@ -634,7 +634,21 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
     };
     auto add_edge_destructors = [&](state_map const& current, state_map const& target, lifetime_transition_kind kind)
     {
-        for (lifetime_action action : codegen_state_engine::plan_transition(routine, current, target, kind))
+        std::vector< lifetime_action > actions = codegen_state_engine::plan_transition(routine, current, target, kind);
+        bool invokes_cleanup = std::ranges::any_of(actions,
+                                                   [](lifetime_action action)
+                                                   {
+                                                       return action.kind == lifetime_action_kind::destroy_object || action.kind == lifetime_action_kind::destroy_array_prefix;
+                                                   });
+        if (invokes_cleanup && kind != lifetime_transition_kind::exceptional_exit)
+        {
+            // A destructor can fail before the edge transfers completed outputs to the caller.
+            state_map exceptional_exit;
+            codegen_state_engine(exceptional_exit, routine.local_types, routine.parameters).apply_exception_exit();
+            std::vector< lifetime_action > exceptional_actions = codegen_state_engine::plan_transition(routine, current, exceptional_exit, lifetime_transition_kind::exceptional_exit);
+            actions.insert(actions.end(), exceptional_actions.begin(), exceptional_actions.end());
+        }
+        for (lifetime_action action : actions)
         {
             if (action.kind == lifetime_action_kind::destroy_object)
             {
@@ -644,7 +658,10 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
             {
                 type_symbol const& element_type = routine.local_types.at(action.slot).type.as< array_initializer_type >().element_type;
                 std::map< type_symbol, type_symbol >::const_iterator destructor = routine.non_trivial_dtors.find(element_type);
-                if (destructor != routine.non_trivial_dtors.end()) add_functanoid(result, destructor->second);
+                if (destructor != routine.non_trivial_dtors.end())
+                {
+                    add_functanoid(result, destructor->second);
+                }
             }
         }
     };

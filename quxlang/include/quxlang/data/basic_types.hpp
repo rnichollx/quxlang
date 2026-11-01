@@ -59,6 +59,8 @@ RPNX_ENUM(quxlang, noexcept_operation, std::uint8_t, move, copy, swap);
 RPNX_ENUM(quxlang, integral_qualifier, std::uint8_t, none, signed_, unsigned_);
 RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, class_, value);
 RPNX_ENUM(quxlang, lambda_capture_mode, std::uint8_t, reference, value);
+/** Selects the source statement that completes a callable body. */
+RPNX_ENUM(quxlang, function_completion, std::uint8_t, return_, continue_);
 /** Identifies whether a direct struct base is embedded or shared virtually. */
 RPNX_ENUM(quxlang, inheritance_kind, std::uint8_t, nonvirtual, virtual_);
 /** Identifies whether a constructor delegate selects an ordinary member/base or a canonical virtual base. */
@@ -796,8 +798,7 @@ namespace quxlang
     struct array_initializer_type
     {
         type_symbol element_type;
-        std::uint64_t count;
-        RPNX_MEMBER_METADATA(array_initializer_type, element_type, count);
+        RPNX_MEMBER_METADATA(array_initializer_type, element_type);
     };
 
     /// Represents a __STATIC_LOCAL symbol for stable function-local static storage.
@@ -1325,6 +1326,7 @@ namespace quxlang
     struct function_benchmark_loop;
     struct function_measure_statement;
     struct function_expression_statement;
+    struct function_init_statement;
     struct function_if_statement;
     struct function_loop_statement;
     struct function_assert_statement;
@@ -1354,14 +1356,16 @@ namespace quxlang
     struct function_try_statement;
     struct function_rethrow_statement;
 
-    using function_statement = rpnx::variant< function_benchmark_loop, function_measure_statement, function_block, function_expression_statement, function_if_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_policy_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement, function_code_align_statement >;
+    using function_statement = rpnx::variant< function_benchmark_loop, function_measure_statement, function_block, function_expression_statement, function_init_statement, function_if_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_policy_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement, function_code_align_statement >;
 
     struct function_block
     {
         std::vector< function_statement > statements;
         std::string block_dbg_string;
+        /** Selects completion syntax when this block defines a callable body. */
+        function_completion completion = function_completion::return_;
 
-        QUX_AST_METADATA(function_block, statements, block_dbg_string);
+        QUX_AST_METADATA(function_block, statements, block_dbg_string, completion);
     };
 
     /** Repeats a benchmark workload using the suite iteration budget. */
@@ -2078,11 +2082,27 @@ namespace quxlang
     /** Describes the mutually exclusive initialization forms accepted by NEW. */
     using new_initializer = rpnx::variant< new_default_initializer, new_from_initializer, new_arguments_initializer >;
 
-    /** Allocates and constructs one object, optionally assigning its pointer to a slot. */
+    /** Constructs the destination supplied by the current function's INITVAL parameter. */
+    struct function_init_statement
+    {
+        new_initializer initializer;
+        QUX_AST_METADATA(function_init_statement, initializer);
+    };
+
+    /** Supplies an ordinary callable that constructs each allocated array element. */
+    struct new_generator_initializer
+    {
+        expression generator;
+        RPNX_MEMBER_METADATA(new_generator_initializer, generator);
+    };
+
+    /** Allocates and constructs objects, optionally assigning their pointer to a slot. */
     struct expression_new
     {
         type_symbol type;
-        new_initializer initializer;
+        rpnx::variant< new_default_initializer, new_from_initializer, new_arguments_initializer, new_generator_initializer > initializer;
+        /// Runtime number of elements for an array allocation.
+        std::optional< expression > count;
         /// Allocator object or class supplying typed allocation operations.
         std::optional< expression > allocator;
         /// Mutable pointer slot whose pointee type determines the constructed type.
@@ -2090,13 +2110,15 @@ namespace quxlang
         /// Skips construction when the destination already contains an object.
         bool optional = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_new, type, initializer, allocator, destination, optional);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_new, type, initializer, count, allocator, destination, optional);
     };
 
     /** Destroys and deallocates one object, optionally clearing its pointer slot. */
     struct expression_delete
     {
         expression pointer;
+        /// Runtime number of elements in the matching array allocation.
+        std::optional< expression > count;
         /// Allocator object or class supplying typed deallocation operations.
         std::optional< expression > allocator;
         /// Identifies a mutable pointer slot that is cleared after deletion.
@@ -2104,7 +2126,7 @@ namespace quxlang
         /// Skips deletion when the operand pointer is null.
         bool optional = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_delete, pointer, allocator, from, optional);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_delete, pointer, count, allocator, from, optional);
     };
 
     struct expression_static_choose

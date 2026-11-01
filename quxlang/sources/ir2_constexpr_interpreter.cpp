@@ -204,6 +204,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool storage_destroy_delegate = false;
         std::uint64_t storage_alignment = 1;
         std::uint64_t init_count = 0;
+        /// Number of elements tracked by this array initializer.
+        std::uint64_t init_length = 0;
+        /// Selects payloads in typed storage instead of fixed-array element objects.
+        bool initializes_storage_sequence = false;
         std::optional< std::uint64_t > fusion_active_alternative;
         std::shared_ptr< local > fusion_payload_storage;
 
@@ -282,6 +286,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::map< local_index, std::shared_ptr< local > > local_values;
         /** Retains the selected destination while block cleanup executes destructor frames. */
         std::optional< block_index > pending_block;
+        /** Identifies the instruction whose normal completion publishes array progress. */
+        std::optional< interp_addr > pending_instruction;
+        /** Associates pending element destinations with initializers owned by this frame. */
+        std::map< local_index, local_index > pending_array_elements;
         /** Suspended exceptional cleanup belongs to its frame, allowing nested handlers. */
         std::optional< exception_propagation > propagation;
 
@@ -322,6 +330,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     quxlang::vmir2::state_diff get_state_diff();
     void exec_instr();
     void exec_instr3();
+    /** Publishes array progress after an instruction or its invoked function completes normally. */
+    void complete_instruction();
     /** Finds the nearest receiving TRY boundary without performing language catch matching. */
     void select_exception_handler(pointer_impl frame);
     /** Advances exceptional cleanup by at most one destructor invocation. */
@@ -847,7 +857,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             // Slots create a shared reference to the same object in a previous frame, unlike all other
             // calls which consume their arguments.
             //
-            // That means NEW[T] / DESTROY[T] parameters operate on the caller's existing storage
+            // That means NVALUE[T] / DESTROY[T] parameters operate on the caller's existing storage
             // rather than receiving a copied value.
 
             if (typeis< nvalue_slot >(param_type))
@@ -900,7 +910,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
             if (typeis< nvalue_slot >(param_type))
             {
-                // NEW& values should NOT be alive when we enter the function,
+                // NVALUE[T] parameters should NOT be alive when we enter the function,
                 // and are alive when we return except via exception
                 assert(!current_frame.local_values[new_arg_index]->alive());
             }
@@ -1032,7 +1042,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     while (!stack.empty())
     {
-        exec_instr3();
+        try
+        {
+            exec_instr3();
+        }
+        catch (std::bad_variant_access const&)
+        {
+            if (stack.empty())
+            {
+                throw;
+            }
+            stack_frame const& frame = stack.back();
+            throw compiler_bug("Invalid constexpr operand variant in " + to_string(frame.type.get()) + " block " + std::to_string(frame.address.block) + " instruction " + std::to_string(frame.address.instruction_index));
+        }
     }
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec3()
@@ -1068,6 +1090,34 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     throw compiler_bug("removed");
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::complete_instruction()
+{
+    if (stack.empty() || !stack.back().pending_instruction.has_value())
+    {
+        return;
+    }
+    stack.back().pending_instruction.reset();
+    stack_frame& frame = stack.back();
+    for (std::map< local_index, local_index >::iterator element = frame.pending_array_elements.begin(); element != frame.pending_array_elements.end();)
+    {
+        std::shared_ptr< local > value = frame.local_values[element->first];
+        std::shared_ptr< local > initializer = frame.local_values[element->second];
+        if (!value || !initializer)
+        {
+            element = frame.pending_array_elements.erase(element);
+        }
+        else if (value->stage == slot_stage::full)
+        {
+            ++initializer->init_count;
+            element = frame.pending_array_elements.erase(element);
+        }
+        else
+        {
+            ++element;
+        }
+    }
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr3()
 {
     if (stack.back().propagation.has_value())
@@ -1141,6 +1191,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         }
 
         std::size_t stack_size1 = stack.size();
+        stack.back().pending_instruction = current_instr_address;
         rpnx::apply_visitor< void >(instr,
                                     [this](auto const& param)
                                     {
@@ -1148,6 +1199,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                                     });
         std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
+        if (stack_size1 == stack_size2)
+        {
+            complete_instruction();
+        }
 
         return;
     }
@@ -1217,6 +1272,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (frame_index == propagation.destination_frame)
     {
         exception_catcher catcher = propagation.catcher;
+        stack.back().pending_instruction.reset();
         transition3(catcher.handler);
         if (stack.size() != frame_index + 1 || stack.back().address.block != catcher.handler) return;
         std::shared_ptr< local > exception = stack.back().local_values.at(catcher.exception);
@@ -3587,6 +3643,28 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     local_ptr_result->ref = local_ptr_base->ref;
+    if (typeis< ptrref_type >(source_type) && typeis< ptrref_type >(target_type) && as< ptrref_type >(source_type).ptr_class == pointer_class::array && as< ptrref_type >(target_type).ptr_class == pointer_class::array && local_ptr_result->ref.has_value() && local_ptr_result->ref->pointer_target.has_value())
+    {
+        std::shared_ptr< local > object = local_ptr_result->ref->pointer_target->lock();
+        type_symbol const& target = as< ptrref_type >(target_type).target;
+        if (object && typeis< storage >(as< ptrref_type >(source_type).target) && !typeis< storage >(target))
+        {
+            if (!object->stored_object || object->storage_active_type != std::optional< type_symbol >(target))
+            {
+                throw constexpr_logic_execution_error("Array storage has no live payload of " + to_string(target));
+            }
+            local_ptr_result->ref = make_pointer_to(object->stored_object);
+        }
+        else if (object && typeis< storage >(target) && object->storage_owner.has_value())
+        {
+            std::shared_ptr< local > owner = object->storage_owner->lock();
+            if (!owner || owner->actual_type != std::optional< type_symbol >(target))
+            {
+                throw constexpr_logic_execution_error("Array payload has incompatible storage");
+            }
+            local_ptr_result->ref = make_pointer_to(owner);
+        }
+    }
 
     end_lifetime(local_ptr_base);
     local_ptr_base = nullptr;
@@ -4033,7 +4111,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         target->stored_object = nullptr;
         // A value copy retains the destination storage projection and ownership.
         target->initializer_of = std::nullopt;
-        target->array_init_member_of = std::nullopt;
         target->storage_destroy_delegate = false;
 
         if (source->struct_members.size() != target->struct_members.size())
@@ -4175,6 +4252,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             phase_complete_object->active_polymorphic_subobject = stack.back().previous_active_polymorphic_subobject;
         }
         stack.pop_back();
+        complete_instruction();
     }
 }
 
@@ -5879,6 +5957,14 @@ std::optional< std::weak_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_con
             throw constexpr_logic_execution_error("pointer arithmetic on pointer to already invalidated storage is UB");
         }
 
+        if (target_object->storage_owner.has_value())
+        {
+            std::shared_ptr< local > owner = target_object->storage_owner->lock();
+            if (owner && owner->member_of.has_value())
+            {
+                return owner->member_of;
+            }
+        }
         return target_object->member_of;
     }
 }
@@ -5904,7 +5990,7 @@ std::int64_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interprete
 
     for (std::size_t i = 0; i < array->array_members.size(); i++)
     {
-        if (array->array_members[i] == target)
+        if (array->array_members[i] == target || array->array_members[i]->stored_object == target)
         {
             return static_cast< std::int64_t >(i);
         }
@@ -5960,7 +6046,13 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
     }
     else
     {
-        return make_pointer_to(arry->array_members[new_position]);
+        std::shared_ptr< local > target = arry->array_members[new_position];
+        type_symbol element_type = as< ptrref_type >(type).target;
+        if (target->actual_type != std::optional< type_symbol >(element_type) && target->stored_object && target->storage_active_type == std::optional< type_symbol >(element_type))
+        {
+            target = target->stored_object;
+        }
+        return make_pointer_to(target);
     }
 }
 /** Orders symbolic pointers without consulting allocation validity or host addresses. */
@@ -7799,9 +7891,27 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             continue;
         }
         entry.second.stage = object->second->stage;
-        // Runtime aliases may refer to storage owned by a different interpreter frame.
-        entry.second.is_projection = entry.second.is_projection || object->second->member_of.has_value() || object->second->storage_owner.has_value() ||
-            object->second->initializer_of.has_value() || object->second->array_init_member_of.has_value();
+        bool initializes_output = false;
+        auto inspect_parameter = [&](routine_parameter const& parameter)
+        {
+            if (parameter.local_index == entry.first && parameter.type.type_is< nvalue_slot >())
+            {
+                initializes_output = true;
+            }
+        };
+        for (routine_parameter const& parameter : frame.ir3->parameters.positional)
+        {
+            inspect_parameter(parameter);
+        }
+        for (std::pair< std::string const, routine_parameter > const& parameter : frame.ir3->parameters.named)
+        {
+            inspect_parameter(parameter.second);
+        }
+        // Initialization parameters own completed outputs until the call returns normally.
+        if (!initializes_output)
+        {
+            entry.second.is_projection = entry.second.is_projection || object->second->member_of.has_value() || object->second->storage_owner.has_value() || object->second->initializer_of.has_value() || object->second->array_init_member_of.has_value();
+        }
     }
     for (lifetime_action action : codegen_state_engine::plan_transition(frame.ir3.read(), current_state, target_state, kind))
     {
@@ -7818,12 +7928,22 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         case lifetime_action_kind::destroy_array_prefix:
         {
             std::shared_ptr< local > array = object->initializer_of.value().lock();
-            if (!array || array->stage != slot_stage::partial) break;
+            if (!array || (!object->initializes_storage_sequence && array->stage != slot_stage::partial))
+            {
+                break;
+            }
             array_initializer_type const& initializer_type = frame.ir3->local_types.at(action.slot).type.as< array_initializer_type >();
             while (object->init_count != 0)
             {
                 std::shared_ptr< local > element = array->array_members.at(--object->init_count);
-                if (!element->alive()) continue;
+                if (object->initializes_storage_sequence)
+                {
+                    element = element->stored_object;
+                }
+                if (!element || !element->alive())
+                {
+                    continue;
+                }
                 std::map< type_symbol, type_symbol >::const_iterator destructor = frame.ir3->non_trivial_dtors.find(initializer_type.element_type);
                 if (destructor != frame.ir3->non_trivial_dtors.end())
                 {
@@ -7926,7 +8046,7 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             }
             else if (new_values.contains(idx) && !exceptional)
             {
-                // If we have a NEW[T] slot, then returning from this function
+                // If we have an NVALUE[T] slot, then returning from this function
                 // transitions from partial to full by definition.
                 assert(local->stage != slot_stage::dead);
                 // Construction may already have completed and advanced its array initializer.
@@ -8018,12 +8138,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         }
     }
 
-    if (object->array_init_member_of.has_value())
-    {
-        auto array_init = object->array_init_member_of.value().lock();
 
-        array_init->init_count++;
-    }
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::validate_storage_lifetime_end(local const& object)
 {
@@ -8074,7 +8189,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    auto& frame_slot = get_current_frame().local_values[slot];
+    stack_frame& frame = get_current_frame();
+    state_map instruction_state = get_expected_state_map_preexec3(stack.size() - 1, frame.address.block, frame.address.instruction_index);
+    if (!instruction_state.contains(slot) || !instruction_state.at(slot).is_projection)
+    {
+        return;
+    }
+    auto& frame_slot = frame.local_values[slot];
     if (frame_slot == object)
     {
         frame_slot = nullptr;
@@ -8428,8 +8549,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto original_ptr = ptr;
 
-    // TODO: include type?
-    ptr = pointer_arith(ptr.value(), increment ? 1 : -1, void_type{});
+    ptr = pointer_arith(ptr.value(), increment ? 1 : -1, pointer_type_v);
 
     if (postfix)
     {
@@ -8574,26 +8694,59 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto& frame = get_current_frame();
 
-    auto& array = frame.local_values[ais.on_value];
-    if (array == nullptr)
-    {
-        array = create_object_skeleton(get_local_type(ais.on_value));
-    }
-
-    auto initializer = output_local(ais.initializer);
-
-    auto initializer_type = get_local_type(ais.initializer);
-
-    if (!initializer_type.template type_is< array_initializer_type >()) [[unlikely]]
-    {
-        throw invalid_instruction_transition_error("array_init_start expects __ARRAY_INITAILIZER");
-    }
-
-    initializer->initializer_of = array;
-    auto delgs = invocation_args{};
-    array->stage = slot_stage::partial;
-    delgs.named["INIT"] = ais.initializer;
-    array->delegates = delgs;
+    std::shared_ptr< local > initializer = output_local(ais.initializer);
+    rpnx::apply_visitor< void >(ais.source,
+                                [&](auto& source)
+                                {
+                                    using source_type = std::decay_t< decltype(source) >;
+                                    if constexpr (std::is_same_v< source_type, local_index >)
+                                    {
+                                        std::shared_ptr< local >& array = frame.local_values[source];
+                                        if (!array)
+                                        {
+                                            array = create_object_skeleton(get_local_type(source));
+                                        }
+                                        initializer->initializer_of = array;
+                                        initializer->init_length = array->array_members.size();
+                                        array->stage = slot_stage::partial;
+                                        invocation_args delegates;
+                                        delegates.named["INIT"] = ais.initializer;
+                                        array->delegates = delegates;
+                                    }
+                                    else
+                                    {
+                                        std::shared_ptr< local > pointer = consume_local(source.storage_pointer);
+                                        initializer->init_length = consume_u64(source.count);
+                                        if (!pointer->ref.has_value())
+                                        {
+                                            throw constexpr_logic_execution_error("Array initialization requires a storage pointer");
+                                        }
+                                        pointer_impl const& reference = *pointer->ref;
+                                        std::shared_ptr< local > root;
+                                        if (reference.pointer_target.has_value())
+                                        {
+                                            std::shared_ptr< local > first = reference.pointer_target->lock();
+                                            if (first && first->member_of.has_value())
+                                            {
+                                                root = first->member_of->lock();
+                                            }
+                                            if (!root || root->array_members.empty() || root->array_members.front() != first)
+                                            {
+                                                throw constexpr_logic_execution_error("Array initialization requires the allocation's first storage element");
+                                            }
+                                        }
+                                        else if (reference.one_past_the_end.has_value())
+                                        {
+                                            root = reference.one_past_the_end->lock();
+                                        }
+                                        if (!root || root->array_members.size() < initializer->init_length)
+                                        {
+                                            throw constexpr_logic_execution_error("Array initialization count does not match storage");
+                                        }
+                                        initializer->initializer_of = root;
+                                        initializer->initializes_storage_sequence = true;
+                                    }
+                                });
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::array_init_element const& aie)
 {
@@ -8617,11 +8770,23 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("initializing element out of bounds of array");
     }
 
-    auto element_cell = array->array_members.at(element_id);
+    std::shared_ptr< local > element_cell = array->array_members.at(element_id);
+    if (initializer->initializes_storage_sequence)
+    {
+        std::shared_ptr< local > storage_cell = element_cell;
+        if (storage_cell->storage_active_type.has_value())
+        {
+            throw constexpr_logic_execution_error("Array element storage is already occupied");
+        }
+        element_cell = create_object_skeleton(get_local_type(aie.target));
+        element_cell->storage_owner = storage_cell;
+        element_cell->storage_projection_type = get_local_type(aie.target);
+    }
     assert(element_cell->stage == slot_stage::dead);
 
     element_cell->array_init_member_of = initializer;
     current_local(aie.target) = element_cell;
+    get_current_frame().pending_array_elements[aie.target] = aie.initializer;
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::array_init_index const& air)
@@ -8640,9 +8805,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw invalid_instruction_transition_error("array_init_index expects __ARRAY_INITAILIZER");
     }
 
-    auto const& initializer_type_t = initializer_type.get_as< array_initializer_type >();
-
-    auto count = initializer_type_t.count;
+    auto count = initializer->init_length;
 
     auto idx = initializer->init_count;
 
@@ -8690,9 +8853,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw invalid_instruction_transition_error("array_init_index expects __ARRAY_INITAILIZER");
     }
 
-    auto const& initializer_type_t = initializer_type.get_as< array_initializer_type >();
-
-    auto count = initializer_type_t.count;
+    auto count = initializer->init_length;
 
     auto idx = initializer->init_count;
 
@@ -8734,9 +8895,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw invalid_instruction_transition_error("array_init_finish expects __ARRAY_INITAILIZER");
     }
 
-    auto const& initializer_type_t = initializer_type.get_as< array_initializer_type >();
-
-    auto array_length = initializer_type_t.count;
+    auto array_length = initializer->init_length;
 
     auto remaining = array_length - initializer->init_count;
     if (remaining != 0)
@@ -8770,10 +8929,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     for (auto& member : array->array_members)
     {
-        if (member && member->array_init_member_of.has_value() && member->array_init_member_of.value().lock() == initializer)
+        std::shared_ptr< local > element = initializer->initializes_storage_sequence ? member->stored_object : member;
+        if (element && element->array_init_member_of.has_value() && element->array_init_member_of.value().lock() == initializer)
         {
-            member->array_init_member_of.reset();
+            element->array_init_member_of.reset();
         }
     }
-    begin_lifetime(array);
+    if (!initializer->initializes_storage_sequence)
+    {
+        begin_lifetime(array);
+    }
+    end_lifetime(initializer);
+    initializer = nullptr;
 }

@@ -18,6 +18,10 @@ rpnx::querygraph::coroutine< quxlang::struct_field_list_spec > quxlang::struct_f
         fields.reserve(composite.fields.size());
         for (std::pair< std::string const, type_symbol > const& field : composite.fields)
         {
+            if (field.second.type_is< nvalue_slot >())
+            {
+                throw semantic_compilation_error("NVALUE parameters cannot be composite fields");
+            }
             fields.push_back(struct_field{.name = field.first, .type = field.second});
         }
         co_return fields;
@@ -37,6 +41,10 @@ rpnx::querygraph::coroutine< quxlang::struct_field_list_spec > quxlang::struct_f
 
         f.name = decl.name;
         f.type = real_type.value();
+        if (f.type.type_is< nvalue_slot >())
+        {
+            throw semantic_compilation_error("NVALUE parameters cannot be struct fields");
+        }
         f.ibc_access = decl.ibc_access;
         if (decl.alignment.has_value())
         {

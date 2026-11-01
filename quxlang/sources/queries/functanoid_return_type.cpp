@@ -77,6 +77,11 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
         throw error;
     }
 
+    if (decl_type->type_is< nvalue_slot >())
+    {
+        throw semantic_compilation_error("NVALUE is an initialization parameter type and cannot be returned");
+    }
+
     if (is_template(decl_type.value()))
     {
         try

@@ -728,7 +728,20 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::array_init_start ani)
     {
-        return std::string("ARRAY_INIT_START %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.on_value);
+        std::string source = rpnx::apply_visitor< std::string >(ani.source,
+                                                                [](auto& selected) -> std::string
+                                                                {
+                                                                    using source_type = std::decay_t< decltype(selected) >;
+                                                                    if constexpr (std::is_same_v< source_type, local_index >)
+                                                                    {
+                                                                        return "%" + std::to_string(selected);
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        return "STORAGE %" + std::to_string(selected.storage_pointer) + " COUNT %" + std::to_string(selected.count);
+                                                                    }
+                                                                });
+        return "ARRAY_INIT_START %" + std::to_string(ani.initializer) + ", " + source;
     }
 
     std::string assembler::to_string_internal(vmir2::array_init_index ani)

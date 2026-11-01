@@ -595,7 +595,7 @@ namespace quxlang
         else if (qt.template type_is< array_initializer_type >())
         {
             array_initializer_type const& ref = qt.template get_as< array_initializer_type >();
-            return "AI" + std::to_string(ref.count) + "T" + mangle_internal(ref.element_type) + "E";
+            return "AIT" + mangle_internal(ref.element_type) + "E";
         }
         else if (qt.template type_is< static_local_ref >())
         {

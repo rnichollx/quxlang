@@ -6140,7 +6140,7 @@ namespace quxlang::llvm_backend::detail
                 current_block = normal;
                 return call;
             }
-            std::vector< quxlang::vmir2::lifetime_action > unwind_actions = quxlang::vmir2::codegen_state_engine::plan_transition(*state.routine, state.current_state, {});
+            std::vector< quxlang::vmir2::lifetime_action > unwind_actions = quxlang::vmir2::codegen_state_engine::plan_transition(*state.routine, state.current_state, {}, quxlang::vmir2::lifetime_transition_kind::exceptional_exit);
             bool needs_cleanup = std::ranges::any_of(unwind_actions, [&](quxlang::vmir2::lifetime_action action)
             {
                 if (action.kind == quxlang::vmir2::lifetime_action_kind::destroy_array_prefix)
@@ -9439,15 +9439,32 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             quxlang::vmir2::array_init_start const& inst = instruction;
             quxlang::type_symbol initializer_type = state.routine->local_types.at(local_slot_index(inst.initializer)).type;
-            quxlang::array_initializer_type const& array_info = initializer_type.get_as< quxlang::array_initializer_type >();
-            llvm::Value* base_pointer = value_address(state, inst.on_value);
+            llvm::Value* base_pointer = nullptr;
+            llvm::Value* count_value = nullptr;
+            rpnx::apply_visitor< void >(inst.source,
+                                        [&](auto& source)
+                                        {
+                                            using source_type = std::decay_t< decltype(source) >;
+                                            if constexpr (std::is_same_v< source_type, quxlang::vmir2::local_index >)
+                                            {
+                                                base_pointer = value_address(state, source);
+                                                quxlang::array_type const& array = state.routine->local_types.at(local_slot_index(source)).type.template get_as< quxlang::array_type >();
+                                                std::uint64_t count = std::stoull(array.element_count.get_as< quxlang::expression_numeric_literal >().value);
+                                                count_value = llvm::ConstantInt::get(i64_type(), count);
+                                            }
+                                            else
+                                            {
+                                                base_pointer = load_slot_value(state, builder, source.storage_pointer);
+                                                count_value = builder.CreateZExtOrTrunc(load_slot_value(state, builder, source.count), i64_type());
+                                            }
+                                        });
             llvm::Value* init_storage = state.locals.at(local_slot_index(inst.initializer)).storage;
             llvm::Value* base_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 0);
             llvm::Value* index_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 1);
             llvm::Value* count_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 2);
             builder.CreateStore(builder.CreateBitCast(base_pointer, opaque_pointer_type()), base_field);
             builder.CreateStore(llvm::ConstantInt::get(i64_type(), 0), index_field);
-            builder.CreateStore(llvm::ConstantInt::get(i64_type(), array_info.count), count_field);
+            builder.CreateStore(count_value, count_field);
             return;
         }
 

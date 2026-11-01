@@ -93,5 +93,9 @@ rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_typ
         throw quxlang::semantic_compilation_error("Variable type could not be resolved.");
     }
 
+    if (var_type->type_is< nvalue_slot >())
+    {
+        throw semantic_compilation_error("NVALUE parameters cannot be stored variables");
+    }
     co_return var_type.value();
 }

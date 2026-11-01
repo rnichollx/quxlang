@@ -618,6 +618,11 @@ namespace quxlang::detail
             co_return std::nullopt;
         }
 
+        if (canon_ptr_to_type->type_is< nvalue_slot >())
+        {
+            throw semantic_compilation_error("NVALUE parameters cannot be pointer or reference targets");
+        }
+
         ptrref_type canonical_ptr_type;
         canonical_ptr_type.qual = ptr.qual;
         canonical_ptr_type.ptr_class = ptr.ptr_class;
@@ -676,6 +681,10 @@ namespace quxlang::detail
         {
             co_return std::nullopt;
         }
+        if (canonical_target->type_is< nvalue_slot >())
+        {
+            throw semantic_compilation_error("NVALUE parameters cannot initialize another NVALUE parameter object");
+        }
         canonical_slot.target = *canonical_target;
         co_return canonical_slot;
     }
@@ -705,6 +714,10 @@ namespace quxlang::detail
         if (!lookup_element_type.has_value())
         {
             co_return std::nullopt;
+        }
+        if (lookup_element_type->type_is< nvalue_slot >())
+        {
+            throw semantic_compilation_error("NVALUE parameters cannot be array elements");
         }
         result_type.element_type = strip_source_locations(lookup_element_type.value());
         co_return result_type;
@@ -741,6 +754,10 @@ namespace quxlang::detail
             if (!lookup_stored_type.has_value())
             {
                 co_return std::nullopt;
+            }
+            if (lookup_stored_type->type_is< nvalue_slot >())
+            {
+                throw semantic_compilation_error("NVALUE parameters cannot be stored objects");
             }
             result_type.storable_types.insert(strip_source_locations(lookup_stored_type.value()));
         }

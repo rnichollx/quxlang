@@ -40,6 +40,32 @@ namespace quxlang::vmir2
         vmir2::routine_parameters const& routine_params;
 
       public:
+        /** Verifies that an output contains a complete value or a complete set of construction delegates. */
+        static bool initialization_completed(state_map const& states, local_index slot)
+        {
+            state_map::const_iterator value = states.find(slot);
+            if (value == states.end() || !value->second.storage_valid)
+            {
+                return false;
+            }
+            if (value->second.stage == slot_stage::full)
+            {
+                return true;
+            }
+            if (value->second.stage != slot_stage::partial || !value->second.struct_delegates.has_value())
+            {
+                return false;
+            }
+            for (struct_init_delegate const& delegate : *value->second.struct_delegates)
+            {
+                if (!initialization_completed(states, delegate.value))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         /**
          * Plans cleanup without mutating either state. Completed struct delegates are
          * destroyed before their owners, and each group uses reverse slot order.
@@ -51,6 +77,26 @@ namespace quxlang::vmir2
         static auto plan_transition(functanoid_routine3 const& routine, state_map const& current, state_map const& target,
                                     lifetime_transition_kind kind = lifetime_transition_kind::control_flow) -> std::vector< lifetime_action >
         {
+            auto validate_initialization_parameter = [&](routine_parameter const& parameter)
+            {
+                if (!parameter.type.type_is< nvalue_slot >())
+                {
+                    return;
+                }
+                bool initialized = initialization_completed(current, parameter.local_index);
+                if (kind == lifetime_transition_kind::normal_exit && !initialized)
+                {
+                    throw invalid_instruction_transition_error("VMIR normal return requires initialization of parameter slot " + std::to_string(parameter.local_index) + " of type " + to_string(parameter.type));
+                }
+            };
+            for (routine_parameter const& parameter : routine.parameters.positional)
+            {
+                validate_initialization_parameter(parameter);
+            }
+            for (std::pair< std::string const, routine_parameter > const& parameter : routine.parameters.named)
+            {
+                validate_initialization_parameter(parameter.second);
+            }
             std::vector< lifetime_action > actions;
             auto survives = [&](local_index slot) -> bool
             {
@@ -169,7 +215,7 @@ namespace quxlang::vmir2
 
         // apply_normal_exit is used to apply the normal exit state of a function,
         // when it returns without an exception.
-        // Any values passed by value are destroyed, NEW&& values are set to alive.
+        // Any values passed by value are destroyed, NVALUE[T] parameters are set to alive.
         void apply_normal_exit()
         {
             check_state_valid();
@@ -180,7 +226,7 @@ namespace quxlang::vmir2
 
                 if (param.type.template type_is< nvalue_slot >())
                 {
-                    // NEW&& values are set to alive
+                    // NVALUE[T] parameters are set to alive
                     state[param_slot_index].stage = slot_stage::full;
                     state[param_slot_index].struct_delegates = std::nullopt;
                     state[param_slot_index].array_delegates = std::nullopt;
@@ -209,7 +255,7 @@ namespace quxlang::vmir2
 
                 if (param.type.template type_is< nvalue_slot >())
                 {
-                    // NEW&& values are set to alive
+                    // NVALUE[T] parameters are set to alive
                     state[param_slot_index].stage = slot_stage::full;
                     state[param_slot_index].struct_delegates = std::nullopt;
                     state[param_slot_index].array_delegates = std::nullopt;
@@ -245,7 +291,7 @@ namespace quxlang::vmir2
 
                 if (param.type.template type_is< nvalue_slot >())
                 {
-                    // NEW&& values are not set to alive
+                    // NVALUE[T] parameters are not set to alive
                     state[param_slot_index].stage = slot_stage::dead;
 
                     state[param_slot_index].struct_delegates = std::nullopt;
@@ -270,7 +316,7 @@ namespace quxlang::vmir2
 
                 if (param.type.template type_is< nvalue_slot >())
                 {
-                    // NEW&& values are *not* initialized when an exception is thrown,
+                    // NVALUE[T] parameters are *not* initialized when an exception is thrown,
                     // but their storage remains valid
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
@@ -1437,20 +1483,28 @@ namespace quxlang::vmir2
         }
         void apply_internal(vmir2::array_init_start const& ain)
         {
-            // Array enters partial state; its delegate is the initializer
-            // Record the initializer as the sole delegate of the array value
-            vmir2::invocation_args args;
-            args.named["INIT"] = ain.initializer;
-            state[ain.on_value].array_delegates = args;
-            // Set initializer as a delegate of the array
-            state[ain.initializer].delegate_of = ain.on_value;
+            rpnx::apply_visitor< void >(ain.source,
+                                        [&](auto& source)
+                                        {
+                                            using source_type = std::decay_t< decltype(source) >;
+                                            if constexpr (std::is_same_v< source_type, local_index >)
+                                            {
+                                                vmir2::invocation_args arguments;
+                                                arguments.named["INIT"] = ain.initializer;
+                                                state[source].array_delegates = arguments;
+                                                state[ain.initializer].delegate_of = source;
+                                                state[source].storage_valid = true;
+                                                state[source].stage = slot_stage::partial;
+                                            }
+                                            else
+                                            {
+                                                consume(source.storage_pointer);
+                                                consume(source.count);
+                                            }
+                                        });
             state[ain.initializer].is_projection = false;
-            // Initializer itself is alive and valid during initialization
             state[ain.initializer].stage = slot_stage::full;
             state[ain.initializer].storage_valid = true;
-            // Array storage is valid and considered alive but not yet dtor-enabled (partial)
-            state[ain.on_value].storage_valid = true;
-            state[ain.on_value].stage = slot_stage::partial;
         }
         void apply_internal(vmir2::array_init_index const& aim)
         {
@@ -1530,6 +1584,21 @@ namespace quxlang::vmir2
         }
         void consume(local_index idx)
         {
+            auto validate_parameter = [&](routine_parameter const& parameter)
+            {
+                if (parameter.local_index == idx && parameter.type.type_is< nvalue_slot >())
+                {
+                    throw invalid_instruction_transition_error("An initialization output cannot be consumed before normal return");
+                }
+            };
+            for (routine_parameter const& parameter : routine_params.positional)
+            {
+                validate_parameter(parameter);
+            }
+            for (std::pair< std::string const, routine_parameter > const& parameter : routine_params.named)
+            {
+                validate_parameter(parameter.second);
+            }
             if (state[idx].delegate_of.has_value())
             {
                 throw invalid_instruction_transition_error("delegates are not consumable");

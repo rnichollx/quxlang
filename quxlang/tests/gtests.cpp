@@ -1624,6 +1624,20 @@ TEST(typeutils, value_template_arguments_print_with_equals)
     ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = positional_temploid, .params = positional_params})), "foo#{I32=4}");
 }
 
+// Syntax errors are rejected before STATIC_TEST bodies can be instantiated.
+TEST(parsing, array_generator_syntax_rejections)
+{
+    EXPECT_NO_THROW(parse_type_symbol("NVALUE[I32]"));
+    EXPECT_NO_THROW(parse_expression_text("-< (@INITVAL NVALUE[I32]) { INIT := 1; }"));
+    EXPECT_NO_THROW(parse_expression_text("NEW I32 COUNT(2) INDEX(i) DO { INIT := i AS CHECKED I32; }"));
+    EXPECT_NO_THROW(parse_expression_text("NEW COUNT(2) TO(values) I32 := 3"));
+    EXPECT_THROW(parse_type_symbol("NEW& I32"), quxlang::compilation_error);
+    EXPECT_THROW(parse_type_symbol("NEW&& I32"), quxlang::compilation_error);
+    EXPECT_THROW(parse_expression_text("NEW I32 GENERATOR(generator)"), quxlang::compilation_error);
+    EXPECT_THROW(parse_expression_text("NEW I32 COUNT(2) INDEX(i) GENERATOR(generator)"), quxlang::compilation_error);
+    EXPECT_THROW(parse_expression_text("NEW I32 COUNT(2) COUNT(3)"), quxlang::compilation_error);
+}
+
 TEST(parsing, parse_new_template_parameter_kinds)
 {
     auto file = parse_file_text("::foo TEMPLATE(%t TYPE, %object CLASS, %count VALUE I32, @u TYPE AUTO, @v CLASS, @n VALUE I32) STRUCT {}");
@@ -5341,7 +5355,6 @@ TEST(llvm_backend, array_initializer_local_does_not_require_type_placement)
     quxlang::type_symbol const array_type = parse_type_symbol("[3] BYTE");
     quxlang::type_symbol const initializer_type = quxlang::array_initializer_type{
         .element_type = quxlang::byte_type{},
-        .count = 3,
     };
 
     quxlang::vmir2::functanoid_routine3 routine;
@@ -5352,7 +5365,7 @@ TEST(llvm_backend, array_initializer_local_does_not_require_type_placement)
     };
     routine.blocks.resize(1);
     routine.blocks[0].instructions.push_back(quxlang::vmir2::array_init_start{
-        .on_value = quxlang::vmir2::local_index(1),
+        .source = quxlang::vmir2::local_index(1),
         .initializer = quxlang::vmir2::local_index(2),
     });
     routine.blocks[0].instructions.push_back(quxlang::vmir2::array_init_finish{
@@ -5744,7 +5757,8 @@ TEST(llvm_backend, caller_provided_output_slots_do_not_allocate_local_storage)
         .local_index = quxlang::vmir2::local_index(1),
     };
     routine.blocks.resize(1);
-    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+    // The ABI fixture has no object definition from which to construct its output.
+    routine.blocks[0].terminator = quxlang::vmir2::unreachable{};
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
@@ -5812,7 +5826,8 @@ TEST(llvm_backend, source_abi_orders_named_parameters_before_positionals_and_use
         .local_index = quxlang::vmir2::local_index(3),
     };
     routine.blocks.resize(1);
-    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+    // The ABI fixture has no object definition from which to construct its output.
+    routine.blocks[0].terminator = quxlang::vmir2::unreachable{};
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;

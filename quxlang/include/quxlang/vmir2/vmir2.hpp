@@ -582,7 +582,7 @@ namespace quxlang
 
         // STRUCT_INIT_START begins the partial-construction interval for one struct object. Its
         // ordered delegates cover fields, direct bases, and canonical virtual bases. Each delegate
-        // slot has the selected subobject's type without NEW&.
+        // slot has the selected subobject's type without NVALUE.
         struct struct_init_start
         {
             local_index on_value;
@@ -605,21 +605,20 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(struct_init_finish, on_value);
         };
 
-        // The array_init_start (ARRAY_INIT_START) instruction is used to mark the beginning of
-        // an array initialization. It constructs an array initializer `__ARRAY_INITIALIZER(N, T)`
-        // for the array located at 'on_value'.
-        // The `__ARRAY_INITIALIZER(N, T)` type has a special interaction with invoke and the lifetime
-        // tracking/unwinding, namely it provides runtime lifetime tracking support for a potentially
-        // unlimited number of array elements.
-        // Calling IVK on an array initializer with a new slot advances the array initialization by one element,
-        // constructing the next element in place.
-        // When unwinding occurs, the array initializer will destruct the subset of the initialized elements.
+        /** Identifies typed array storage and its runtime element count. */
+        struct array_init_storage_source
+        {
+            local_index storage_pointer;
+            local_index count;
+            RPNX_MEMBER_METADATA(array_init_storage_source, storage_pointer, count);
+        };
+
+        /** Starts prefix lifetime tracking for a fixed array or an allocated storage sequence. */
         struct array_init_start
         {
-            local_index on_value;
+            rpnx::variant< local_index, array_init_storage_source > source;
             local_index initializer;
-
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(array_init_start, on_value, initializer);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(array_init_start, source, initializer);
         };
 
         // The array_init_element (ARRAY_INIT_ELEMENT) instruction is used to assign a

@@ -54,6 +54,7 @@ namespace quxlang
             kw_values = {
                 "ARG",
                 "OTHER",
+                "INITVAL",
                 "EXPLICIT",
                 "REINTERPRET",
                 "CHECKED",
