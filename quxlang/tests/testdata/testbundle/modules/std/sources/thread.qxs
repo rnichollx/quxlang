@@ -192,7 +192,8 @@ LABEL static_linux_clone_arm64_parent;
 
   ::run_thread_entry FUNCTION(@control MUT->thread_control)
   {
-    ASSERT(control->.published.LOAD#ATOMIC_ACQUIRE(),
+    VAR published BOOL := control->.published.LOAD#ATOMIC_ACQUIRE();
+    ASSERT(published,
       "A native thread started before its control was published.");
     RUNTIME_MODULE::thread_runtime_start(@identity control->.identity<-);
     ASSERT(control->.entry_live, "A native thread started without a live entry object.");

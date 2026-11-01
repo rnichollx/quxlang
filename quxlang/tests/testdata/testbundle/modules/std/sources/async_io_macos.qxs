@@ -295,7 +295,7 @@ PRIVATE(MODULE)
       {
         CONTINUE;
       }
-      PANIC "kevent failed while posting a worker stop event.";
+      THROW async_error::worker_stop_failed;
     };
   }
 
@@ -323,8 +323,10 @@ PRIVATE(MODULE)
   ::shutdown_async_context INCLUDE_IF(OS_MACOS)
     FUNCTION(@control MUT->async_context_control)
   {
-    ASSERT(syscall::macos::close(@fd control->.macos.queue_descriptor) == 0,
-      "close failed for an async kqueue descriptor.");
+    IF (syscall::macos::close(@fd control->.macos.queue_descriptor) != 0)
+    {
+      THROW async_error::resource_release_failed;
+    }
     control->.macos.queue_descriptor := 0 - 1;
     control->.valid := FALSE;
   }

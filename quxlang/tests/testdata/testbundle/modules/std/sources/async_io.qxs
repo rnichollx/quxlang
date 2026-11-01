@@ -2,6 +2,13 @@ LANGUAGE QUXLANG EN 0.0;
 
 IMPORT syscall;
 
+DOC <$
+  Identifies a failed async resource release or worker-stop submission.
+  resource_release_failed denotes a failed native queue close or unmap.
+  worker_stop_failed denotes a failed submission of a worker-stop notification.
+  $>
+::async_error ENUM [resource_release_failed, worker_stop_failed];
+
 
 PRIVATE(MODULE)
 {
@@ -199,6 +206,8 @@ DOC <$
     ASSERT(entries <= ((0 AS U32) #!!) AS SZ,
       "Async context capacity exceeds the native queue limit.");
     NEW TO(.control);
+    VAR initialized BOOL := FALSE;
+    DEFER { IF (initialized == FALSE) { DELETE FROM(.control); } }
     .control->.capacity := entries;
     STATIC_IF(OS_LINUX)
     {
@@ -218,6 +227,7 @@ DOC <$
     {
       .control->.valid := initialize_macos_async_context(@state .control->.macos);
     }
+    initialized := TRUE;
   }
 
   DOC <$ Transfers ownership of another context without moving native queue state. $>
@@ -230,7 +240,10 @@ DOC <$
     .control <-> other_control;
   }
 
-  DOC <$ Releases the native queue after all requests have completed. $>
+  DOC <$
+    Releases the native queue after all requests have completed. Native release
+    failures throw async_error::resource_release_failed.
+    $>
   .DESTRUCTOR FUNCTION()
   {
     IF (.control??)
@@ -241,11 +254,11 @@ DOC <$
         "An async context must outlive its attached thread pool.");
       ASSERT(.control->.manual_waiters == 0,
         "An async context cannot be destroyed while wait_one is active.");
+      DEFER { DELETE FROM(.control); }
       IF (.control->.valid)
       {
         shutdown_async_context(@control .control);
       }
-      DELETE FROM(.control);
     }
   }
 
@@ -527,6 +540,7 @@ DOC <$
     Drains the context, stops its workers, and consumes pool ownership. No
     thread may start a new operation on the context after join begins, and a
     completion callback must not call join on its own pool.
+    A rejected stop notification throws async_error::worker_stop_failed.
     $>
   .join FUNCTION()
   {

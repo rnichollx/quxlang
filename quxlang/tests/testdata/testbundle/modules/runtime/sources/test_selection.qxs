@@ -20,7 +20,10 @@ DOC <$ Owns any platform argument storage for the duration of the test runner. $
     STATIC_IF(OS_WINDOWS)
     {
       test_windows_arguments := syscall::windows::command_line_to_argv_w(@command syscall::windows::get_command_line_w(), @count test_windows_count<-);
-      ASSERT(test_windows_arguments??);
+      IF ((test_windows_arguments??) == FALSE)
+      {
+        THROW syscall::windows::get_last_error();
+      }
     }
   }
   DOC <$ Releases platform argument storage after all text views have been consumed. $>

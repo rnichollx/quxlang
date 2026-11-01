@@ -154,18 +154,24 @@ PRIVATE(MODULE)
   }
 
   DOC <$
-    Unmaps every live io_uring region and closes its descriptor.
+    Unmaps every live io_uring region and closes its descriptor. A failed
+    release throws async_error::resource_release_failed after all releases
+    have been attempted.
     $>
   ::release_linux_async_context_state INCLUDE_IF(OS_LINUX)
     FUNCTION(@state MUT& linux_async_context_state)
   {
+    VAR release_failed BOOL := FALSE;
     IF (state.submission_entries_mapping??)
     {
       VAR entries_address ADDRESS := IBC_GETADDR(@PTR state.submission_entries_mapping);
-      ASSERT(syscall::linux::munmap(
+      IF (syscall::linux::munmap(
         @addr entries_address,
         @len state.submission_entries_mapping_size
-      ) == 0, "munmap failed for io_uring submission entries.");
+      ) != 0)
+      {
+        release_failed := TRUE;
+      }
       VAR empty_entries MUT=>>TYPED_STORAGE(BYTE);
       state.submission_entries_mapping := empty_entries;
     }
@@ -173,10 +179,13 @@ PRIVATE(MODULE)
     IF (state.submission_ring??)
     {
       VAR submission_address ADDRESS := IBC_GETADDR(@PTR state.submission_ring);
-      ASSERT(syscall::linux::munmap(
+      IF (syscall::linux::munmap(
         @addr submission_address,
         @len state.submission_ring_size
-      ) == 0, "munmap failed for the io_uring submission ring.");
+      ) != 0)
+      {
+        release_failed := TRUE;
+      }
       VAR empty_submission MUT=>>TYPED_STORAGE(BYTE);
       state.submission_ring := empty_submission;
     }
@@ -184,20 +193,26 @@ PRIVATE(MODULE)
     IF (state.completion_ring?? && state.single_ring_mapping == FALSE)
     {
       VAR completion_address ADDRESS := IBC_GETADDR(@PTR state.completion_ring);
-      ASSERT(syscall::linux::munmap(
+      IF (syscall::linux::munmap(
         @addr completion_address,
         @len state.completion_ring_size
-      ) == 0, "munmap failed for the io_uring completion ring.");
+      ) != 0)
+      {
+        release_failed := TRUE;
+      }
     }
     VAR empty_completion MUT=>>TYPED_STORAGE(BYTE);
     state.completion_ring := empty_completion;
 
     IF (state.descriptor >= 0)
     {
-      ASSERT(syscall::linux::close(@fd state.descriptor) == 0,
-        "close failed for an io_uring descriptor.");
+      IF (syscall::linux::close(@fd state.descriptor) != 0)
+      {
+        release_failed := TRUE;
+      }
       state.descriptor := 0 - 1;
     }
+    IF (release_failed) { THROW async_error::resource_release_failed; }
   }
 
   DOC <$
@@ -518,8 +533,10 @@ PRIVATE(MODULE)
     {
       VAR entry syscall::linux::io_uring_submission_entry;
       entry.opcode := 0;
-      ASSERT(submit_linux_io_uring_entry(@state state, @entry entry),
-        "Failed to submit an io_uring worker stop entry.");
+      IF (submit_linux_io_uring_entry(@state state, @entry entry) == FALSE)
+      {
+        THROW async_error::worker_stop_failed;
+      }
     };
   }
 

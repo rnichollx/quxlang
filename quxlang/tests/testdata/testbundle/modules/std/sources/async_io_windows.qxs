@@ -191,12 +191,15 @@ PRIVATE(MODULE)
     VAR null_overlapped MUT->syscall::windows::overlapped;
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
     {
-      ASSERT(syscall::windows::post_queued_completion_status(
+      IF (syscall::windows::post_queued_completion_status(
         @completion_port control->.windows.completion_port,
         @transferred 0,
         @completion_key 0,
         @overlapped null_overlapped
-      ) != 0, "PostQueuedCompletionStatus failed for a worker stop packet.");
+      ) == 0)
+      {
+        THROW async_error::worker_stop_failed;
+      }
     };
   }
 
@@ -206,8 +209,10 @@ PRIVATE(MODULE)
   ::shutdown_async_context INCLUDE_IF(OS_WINDOWS)
     FUNCTION(@control MUT->async_context_control)
   {
-    ASSERT(syscall::windows::close_handle(@handle control->.windows.completion_port) != 0,
-      "CloseHandle failed for an I/O completion port.");
+    IF (syscall::windows::close_handle(@handle control->.windows.completion_port) == 0)
+    {
+      THROW async_error::resource_release_failed;
+    }
     VAR null_port ADDRESS;
     control->.windows.completion_port := null_port;
     control->.valid := FALSE;
