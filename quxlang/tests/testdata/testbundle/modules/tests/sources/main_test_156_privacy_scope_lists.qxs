@@ -5,11 +5,9 @@ LANGUAGE QUXLANG EN 0.0;
   PRIVATE(privacy_scope_list_tests::first, privacy_scope_list_tests::second)
   {
     DOC <$ Grants either listed namespace access to one shared declaration. $>
-    ::secret
-      FUNCTION(): I32 { RETURN 37; }
+    ::secret FUNCTION(): I32 { RETURN 37; }
     DOC <$ Applies the same scope list to a second declaration in the privacy block. $>
-    ::hidden
-      ALIAS I64;
+    ::hidden ALIAS I64;
   }
 
   DOC <$ Combines class access with one external friend scope. $>
@@ -19,18 +17,15 @@ LANGUAGE QUXLANG EN 0.0;
     PRIVATE(CLASS, privacy_scope_list_tests::first)
       .number VAR I32;
     DOC <$ Writes the member from its class context. $>
-    .set
-      FUNCTION(@value I32) { .number := value; }
+    .set FUNCTION(@value I32) { .number := value; }
     DOC <$ Reads the member from its class context. $>
-    .get
-      FUNCTION() CONST: I32 { RETURN .number; }
+    .get FUNCTION() CONST: I32 { RETURN .number; }
   }
 
   ::first NAMESPACE
   {
     DOC <$ The first listed scope accesses block declarations and directly mutates a class-private friend member. $>
-    ::first_scope_and_class_friend
-      DUAL_TEST
+    ::first_scope_and_class_friend DUAL_TEST
     {
       TEST_ASSERT(secret() == 37);
       TEST_ASSERT(SAME_TYPES(hidden, I64));
@@ -44,8 +39,7 @@ LANGUAGE QUXLANG EN 0.0;
     ::nested NAMESPACE
     {
       DOC <$ Descendants inherit permission from a listed enclosing namespace. $>
-      ::descendant_access
-        DUAL_TEST
+      ::descendant_access DUAL_TEST
       {
         TEST_ASSERT(secret() == 37);
         VAR value record;
@@ -58,8 +52,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::second NAMESPACE
   {
     DOC <$ The second listed scope independently grants access rather than requiring intersection of scopes. $>
-    ::second_scope_access
-      DUAL_TEST
+    ::second_scope_access DUAL_TEST
     {
       TEST_ASSERT(secret() == 37);
       VAR value hidden := 4294967313;
@@ -70,8 +63,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
 
     DOC <$ Friendship on one declaration does not grant access to a different declaration's private member. $>
-    ::reject_unlisted_member_access
-      STATIC_TEST EXPECT_COMPILATION_FAILURE
+    ::reject_unlisted_member_access STATIC_TEST EXPECT_COMPILATION_FAILURE
     {
       VAR value record;
       value.number := 17;
@@ -81,10 +73,8 @@ LANGUAGE QUXLANG EN 0.0;
   ::outsider NAMESPACE
   {
     DOC <$ A sibling absent from the scope list cannot call the private function. $>
-    ::reject_function_access
-      STATIC_TEST EXPECT_COMPILATION_FAILURE { TEST_ASSERT(secret() == 37); }
+    ::reject_function_access STATIC_TEST EXPECT_COMPILATION_FAILURE { TEST_ASSERT(secret() == 37); }
     DOC <$ The same privacy block protects its type alias from an unlisted sibling. $>
-    ::reject_alias_access
-      STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value hidden := 17; }
+    ::reject_alias_access STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value hidden := 17; }
   }
 }

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::logical_shift_tests NAMESPACE
 {
   DOC <$ Logical right shifts insert zero bits even for signed all-ones operands. $>
-  ::signed_right
-    TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO) FUNCTION()
+  ::signed_right TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO) FUNCTION()
   {
     VAR source signed_type := (0 AS signed_type) - 1;
     VAR expected unsigned_type := (0 AS unsigned_type) #!!;
@@ -23,8 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Every valid right-shift count has logical rather than arithmetic behavior across six signed widths. $>
-  ::signed_logical_right_counts
-    DUAL_TEST
+  ::signed_logical_right_counts DUAL_TEST
   {
     signed_right#(@signed_type I5, @unsigned_type U5)();
     signed_right#(@signed_type I8, @unsigned_type U8)();
@@ -35,8 +33,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Shift results match multiplication or division by powers of two with explicit destination-width truncation. $>
-  ::unsigned_pattern
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::unsigned_pattern TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR source T := 13;
     VAR mask T := (0 AS T) #!!;
@@ -62,8 +59,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Every valid shift count preserves or discards exactly the expected bits, including non-byte widths. $>
-  ::unsigned_pattern_counts
-    DUAL_TEST
+  ::unsigned_pattern_counts DUAL_TEST
   {
     unsigned_pattern#(U5)();
     unsigned_pattern#(U8)();

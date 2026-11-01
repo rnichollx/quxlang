@@ -26,8 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ IBC records expose qualified accesses while preserving their declared field types. $>
-  ::field_access
-    DUAL_TEST
+  ::field_access DUAL_TEST
   {
     VAR value record;
     value.number := 13;
@@ -44,8 +43,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::buffer_record IBC_STRUCT { .bytes VAR [4]BYTE; }
 
   DOC <$ Array fields preserve IBC access through indexing and pointer construction. $>
-  ::array_field_access
-    UNIT_TEST
+  ::array_field_access UNIT_TEST
   {
     VAR value buffer_record;
     TEST_ASSERT(SAME_TYPES(TYPEOF(value.bytes), IBC MUT& [4]BYTE));
@@ -57,8 +55,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An ordinary byte array can be passed to an IBC buffer API without changing its element type. $>
-  ::ordinary_array
-    DUAL_TEST
+  ::ordinary_array DUAL_TEST
   {
     VAR bytes [4]BYTE;
     fill(@bytes bytes[&0] AS IBC MUT=>>BYTE);
@@ -71,8 +68,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ IBC follows dereferencing and address-taking but does not qualify a loaded pointer's own pointee. $>
-  ::pointer_access
-    DUAL_TEST
+  ::pointer_access DUAL_TEST
   {
     VAR value ordinary_record;
     VAR pointer IBC MUT->ordinary_record := value<- AS IBC MUT->ordinary_record;
@@ -88,8 +84,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ References can explicitly gain IBC qualification and still copy ordinary values. $>
-  ::qualified_reference
-    DUAL_TEST
+  ::qualified_reference DUAL_TEST
   {
     VAR value I32 := 23;
     VAR reference IBC MUT& I32 := value AS IBC MUT& I32;
@@ -107,8 +102,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ AUTO references deduce IBC access together with their mutability. $>
-  ::generic_reference
-    DUAL_TEST
+  ::generic_reference DUAL_TEST
   {
     VAR value I32 := 31;
     VAR reference IBC MUT& I32 := value AS IBC MUT& I32;
@@ -117,8 +111,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An explicit cast can request ordinary access again. $>
-  ::explicit_qualification_drop
-    DUAL_TEST
+  ::explicit_qualification_drop DUAL_TEST
   {
     VAR value I32 := 37;
     VAR pointer IBC MUT->I32 := value<- AS IBC MUT->I32;
@@ -132,8 +125,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::accept_ordinary FUNCTION(@value MUT& I32) { }
 
   DOC <$ IBC references cannot silently become ordinary mutable references. $>
-  ::implicit_reference_drop_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::implicit_reference_drop_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 0;
     VAR reference IBC MUT& I32 := value AS IBC MUT& I32;
@@ -141,8 +133,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Procedure calls preserve the declared aliasing qualification of their parameters. $>
-  ::indirect_reference_drop_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::indirect_reference_drop_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 0;
     VAR reference IBC MUT& I32 := value AS IBC MUT& I32;
@@ -151,8 +142,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ IBC pointer access cannot be discarded by an implicit pointer conversion. $>
-  ::implicit_pointer_drop_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::implicit_pointer_drop_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 0;
     VAR qualified IBC MUT->I32 := value<- AS IBC MUT->I32;
@@ -160,32 +150,28 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Ordinary references require a cast before use at an IBC interface. $>
-  ::implicit_reference_add_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::implicit_reference_add_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 0;
     increment(@value value);
   }
 
   DOC <$ Ordinary pointers cannot silently gain IBC access qualification. $>
-  ::implicit_pointer_add_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::implicit_pointer_add_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR bytes [4]BYTE;
     fill(@bytes bytes[&0]);
   }
 
   DOC <$ Read-only binding cannot implicitly introduce IBC qualification. $>
-  ::implicit_const_reference_add_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::implicit_const_reference_add_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 0;
     VAR reference IBC CONST& I32 := value;
   }
 
   DOC <$ Read-only binding cannot implicitly remove IBC qualification. $>
-  ::implicit_const_reference_drop_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::implicit_const_reference_drop_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 0;
     VAR qualified IBC MUT& I32 := value AS IBC MUT& I32;

@@ -96,8 +96,7 @@ DOC <$ Holds a stable queue and parameters shared by one thread pair. $>
 }
 
 DOC <$ Times producer and consumer creation through all joins, including remote frees and TLS teardown. $>
-::producer_consumer
-  BENCHMARK(@batches SZ, @pairs SZ, @passes SZ) ONESHOT
+::producer_consumer BENCHMARK(@batches SZ, @pairs SZ, @passes SZ) ONESHOT
 {
   IF (batches == 0 || pairs == 0 || passes == 0) { THROW (1 AS I32); }
   producer_consumer_passes := passes;

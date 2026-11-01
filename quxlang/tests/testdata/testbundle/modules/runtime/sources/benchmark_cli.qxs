@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT std;
 
 DOC <$ Reports a benchmark diagnostic and terminates the current invocation by exception. $>
-::BENCHMARK_ERROR
-  FUNCTION(@MESSAGE:message STRING_CONSTANT)
+::BENCHMARK_ERROR FUNCTION(@MESSAGE:message STRING_CONSTANT)
 {
   write(@fd 2, @msg message);
   write(@fd 2, @msg "\n");
@@ -12,8 +11,7 @@ DOC <$ Reports a benchmark diagnostic and terminates the current invocation by e
 }
 
 DOC <$ Copies one process argument into a UTF-8 string. $>
-::BENCHMARK_ARGUMENT_TEXT
-  FUNCTION(@INDEX:index SZ): std::string
+::BENCHMARK_ARGUMENT_TEXT FUNCTION(@INDEX:index SZ): std::string
 {
   VAR text test_text;
   text.command := TRUE;
@@ -47,8 +45,7 @@ DOC <$ Copies one process argument into a UTF-8 string. $>
 }
 
 DOC <$ Owns and validates named standalone benchmark arguments before type parsing. $>
-::BENCHMARK_CLI_ARGUMENTS
-  STRUCT MOVE_ONLY
+::BENCHMARK_CLI_ARGUMENTS STRUCT MOVE_ONLY
 {
   .owner VAR test_command_arguments;
   .names VAR std::dynarr#STRING_CONSTANT;
@@ -56,8 +53,7 @@ DOC <$ Owns and validates named standalone benchmark arguments before type parsi
   .present VAR std::dynarr#BOOL;
 
   DOC <$ Appends one declared command-line parameter. $>
-  .REGISTER
-    FUNCTION(@NAME:name STRING_CONSTANT) MUT
+  .REGISTER FUNCTION(@NAME:name STRING_CONSTANT) MUT
   {
     .names.push_back(name);
     VAR empty std::string;
@@ -66,8 +62,7 @@ DOC <$ Owns and validates named standalone benchmark arguments before type parsi
   }
 
   DOC <$ Loads options and rejects unknown, duplicate, or missing arguments. $>
-  .VALIDATE
-    FUNCTION() MUT
+  .VALIDATE FUNCTION() MUT
   {
     LOOP INIT { VAR index SZ := 1; } WHILE (index < test_argument_count()) STEP { index++; } DO
     {
@@ -106,20 +101,17 @@ DOC <$ Owns and validates named standalone benchmark arguments before type parsi
   }
 
   DOC <$ Borrows a validated argument value in declaration order. $>
-  .VALUE
-    FUNCTION(@INDEX:index SZ) CONST: CONST& std::string
+  .VALUE FUNCTION(@INDEX:index SZ) CONST: CONST& std::string
   {
     RETURN .values[index];
   }
 }
 
 DOC <$ Parses complete CLI values using checked numeric conversions. $>
-::DEFAULT_PARSER
-  STRUCT
+::DEFAULT_PARSER STRUCT
 {
   DOC <$ Assigns a parsed integer, floating-point value, Boolean, or string to OUTPUT. $>
-  .PARSE
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@INPUT:input CONST& std::string, @OUTPUT:output WRITE& T) MUT
+  .PARSE TEMPLATE(@T TYPE AUTO) FUNCTION(@INPUT:input CONST& std::string, @OUTPUT:output WRITE& T) MUT
   {
     STATIC_IF(SAME_TYPES(T, std::string)) { output := input; }
     STATIC_ELSE STATIC_IF(SAME_TYPES(T, BOOL))

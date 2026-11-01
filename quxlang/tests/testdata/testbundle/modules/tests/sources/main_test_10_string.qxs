@@ -5,8 +5,7 @@ IMPORT std;
 DOC <$
   Exercises destruction, copying, moving, and growth of empty string literals.
   $>
-::empty_string_literal_lifetime
-  DUAL_TEST
+::empty_string_literal_lifetime DUAL_TEST
 {
   {
     VAR empty std::string := "";
@@ -55,8 +54,7 @@ DOC <$
   Preserves the short-circuit branch result while destroying temporary
   strings constructed for comparisons on both sides of logical AND.
   $>
-::string_logical_and_temporaries
-  DUAL_TEST
+::string_logical_and_temporaries DUAL_TEST
 {
   VAR first std::string := "first";
   VAR second std::string := "first";
@@ -66,8 +64,7 @@ DOC <$
 DOC <$
   Preserves owned bytes when assignment or swapping aliases the same string.
   $>
-::string_self_assignment_and_swap
-  DUAL_TEST
+::string_self_assignment_and_swap DUAL_TEST
 {
   VAR value std::string := "overlapping ownership";
   value := value;
@@ -84,8 +81,7 @@ DOC <$
   Keeps copies independent and permits growth of both a moved value and its
   emptied source, including assignment over an existing allocation.
   $>
-::string_copy_move_and_reuse
-  DUAL_TEST
+::string_copy_move_and_reuse DUAL_TEST
 {
   VAR source std::string := "abc";
   VAR copy std::string := source;
@@ -108,8 +104,7 @@ DOC <$
   Treats zero bytes as content and preserves either operand when concatenating
   with an empty string.
   $>
-::string_embedded_zero_and_empty_concatenation
-  DUAL_TEST
+::string_embedded_zero_and_empty_concatenation DUAL_TEST
 {
   VAR value std::string := "A";
   value.push_back(0);

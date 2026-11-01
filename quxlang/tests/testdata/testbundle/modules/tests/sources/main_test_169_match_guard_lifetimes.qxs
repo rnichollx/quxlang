@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::match_guard_lifetime_tests NAMESPACE
 {
   DOC <$ Failed and successful guards destroy their temporaries before proceeding while the subject-expression temporary remains live through the arm. $>
-  ::guard_continuation
-    DUAL_TEST
+  ::guard_continuation DUAL_TEST
   {
     VAR evaluations I32 := 0;
     VAR destructions I32 := 0;
@@ -35,8 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Throwing guard evaluation releases guard and retained subject-expression temporaries before reaching a handler. $>
-  ::throwing_guard
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::throwing_guard DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR evaluations I32 := 0;
     VAR destructions I32 := 0;

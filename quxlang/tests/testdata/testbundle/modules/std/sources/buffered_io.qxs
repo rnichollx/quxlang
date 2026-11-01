@@ -31,8 +31,7 @@ DOC <$ Returns the process standard input handle. $>
 }
 
 DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures by exception. $>
-::buffered_writer
-  STRUCT MOVE_ONLY
+::buffered_writer STRUCT MOVE_ONLY
 {
   PRIVATE(CLASS)
   {
@@ -42,12 +41,10 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
   }
 
   DOC <$ Borrows file without assuming responsibility for closing it. $>
-  .CONSTRUCTOR
-    FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
+  .CONSTRUCTOR FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
 
   DOC <$ Writes all pending bytes, including partial native writes, or throws on failure. $>
-  .flush
-    FUNCTION() MUT
+  .flush FUNCTION() MUT
   {
     LOOP INIT { VAR offset SZ := 0; } WHILE (offset < .used) DO
     {
@@ -61,8 +58,7 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
   }
 
   DOC <$ Appends one byte and flushes a full buffer. $>
-  .write_byte
-    FUNCTION(@ARG:value BYTE) MUT
+  .write_byte FUNCTION(@ARG:value BYTE) MUT
   {
     .bytes[.used] := value;
     .used++;
@@ -70,8 +66,7 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
   }
 
   DOC <$ Appends the bytes of a string constant. $>
-  .write
-    FUNCTION(@ARG:text STRING_CONSTANT) MUT
+  .write FUNCTION(@ARG:text STRING_CONSTANT) MUT
   {
     LOOP INIT { VAR cursor CONST=>>BYTE := text.BEGIN(); }
       WHILE (cursor != text.END()) STEP { cursor++; } DO
@@ -79,15 +74,13 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
   }
 
   DOC <$ Appends a dynamic array of bytes. $>
-  .write
-    FUNCTION(@ARG:text CONST& dynarr#BYTE) MUT
+  .write FUNCTION(@ARG:text CONST& dynarr#BYTE) MUT
   {
     LOOP ITEM(value) IN(text) DO { .write_byte(value); }
   }
 
   DOC <$ Flushes pending bytes and writes a byte range, completing partial transfers or throwing on failure. $>
-  .write
-    FUNCTION(@ARG:bytes CONST& buffer_ref) MUT
+  .write FUNCTION(@ARG:bytes CONST& buffer_ref) MUT
   {
     .flush();
     LOOP INIT { VAR offset SZ := 0; } WHILE (offset < bytes.size) DO
@@ -101,8 +94,7 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
   }
 
   DOC <$ Appends the decimal representation of an unsigned integer. $>
-  .write_unsigned
-    FUNCTION(@ARG:value U64) MUT
+  .write_unsigned FUNCTION(@ARG:value U64) MUT
   {
     VAR digits [20]BYTE;
     VAR begin SZ := 20;
@@ -117,8 +109,7 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
   }
 
   DOC <$ Appends the decimal representation of a signed integer, including its minimum value. $>
-  .write_signed
-    FUNCTION(@ARG:value I64) MUT
+  .write_signed FUNCTION(@ARG:value I64) MUT
   {
     IF (value < 0)
     {
@@ -129,8 +120,7 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
   }
 
   DOC <$ Formats a finite value of magnitude below 2^64 with up to eighteen fractional digits, rounding halfway values away from zero. $>
-  .write_fixed
-    FUNCTION(@value F64, @precision SZ) MUT
+  .write_fixed FUNCTION(@value F64, @precision SZ) MUT
   {
     IF (precision > 18 || value != value) { THROW (1 AS I32); }
     VAR remainder F64 := value;
@@ -158,8 +148,7 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
 }
 
 DOC <$ Reads bytes and lines from a borrowed file using bounded read-ahead storage. $>
-::buffered_reader
-  STRUCT MOVE_ONLY
+::buffered_reader STRUCT MOVE_ONLY
 {
   PRIVATE(CLASS)
   {
@@ -170,12 +159,10 @@ DOC <$ Reads bytes and lines from a borrowed file using bounded read-ahead stora
   }
 
   DOC <$ Borrows file without assuming responsibility for closing it. $>
-  .CONSTRUCTOR
-    FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
+  .CONSTRUCTOR FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
 
   DOC <$ Supplies the next byte and returns true, or supplies zero and returns false at end of file. Read failures throw. $>
-  .read_byte
-    FUNCTION(@ARG:value WRITE& BYTE) MUT: BOOL
+  .read_byte FUNCTION(@ARG:value WRITE& BYTE) MUT: BOOL
   {
     IF (.position == .available)
     {
@@ -193,8 +180,7 @@ DOC <$ Reads bytes and lines from a borrowed file using bounded read-ahead stora
   }
 
   DOC <$ Replaces line with bytes preceding the next linefeed. Returns false only when end of file precedes any bytes. $>
-  .read_line
-    FUNCTION(@ARG:line MUT& dynarr#BYTE) MUT: BOOL
+  .read_line FUNCTION(@ARG:line MUT& dynarr#BYTE) MUT: BOOL
   {
     line.clear();
     LOOP DO
@@ -229,19 +215,16 @@ PRIVATE(MODULE)
     .stream VAR ~> RUNTIME_MODULE::java_print_stream;
 
     DOC <$ Captures the current Java standard output stream. $>
-    .CONSTRUCTOR
-      FUNCTION() { .stream := RUNTIME_MODULE::jvm_system_out(); }
+    .CONSTRUCTOR FUNCTION() { .stream := RUNTIME_MODULE::jvm_system_out(); }
 
     DOC <$ Writes one byte without character-set conversion. $>
-    .write_byte
-      FUNCTION(@ARG:value BYTE) MUT
+    .write_byte FUNCTION(@ARG:value BYTE) MUT
     {
       RUNTIME_MODULE::jvm_printstream_write(@THIS .stream, @VALUE (value AS U8 AS I32));
     }
 
     DOC <$ Flushes output and throws I32(1) when the stream reports an error. $>
-    .flush
-      FUNCTION() MUT
+    .flush FUNCTION() MUT
     {
       RUNTIME_MODULE::jvm_printstream_flush(@THIS .stream);
       IF (jvm_output_error(@THIS .stream)) { THROW (1 AS I32); }

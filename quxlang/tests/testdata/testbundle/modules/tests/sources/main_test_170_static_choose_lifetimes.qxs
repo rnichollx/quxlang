@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::static_choose_lifetime_tests NAMESPACE
 {
   DOC <$ STATIC_CHOOSE constructs only the selected owned operand and retains it through the consuming call before statement cleanup. $>
-  ::selected_temporary
-    DUAL_TEST
+  ::selected_temporary DUAL_TEST
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;
@@ -22,8 +21,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A selected owned operand is destroyed before enclosing locals when its consuming call throws. $>
-  ::throw_selected
-    TEMPLATE(@first VALUE BOOL) FUNCTION(@events MUT& I32, @alive MUT& I32)
+  ::throw_selected TEMPLATE(@first VALUE BOOL) FUNCTION(@events MUT& I32, @alive MUT& I32)
   {
     VAR enclosing control_flow_tests::exit_record :(@events events, @digit 9);
     short_circuit_tests::throw_value(@object STATIC_CHOOSE(first,
@@ -32,8 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Both static selections clean exactly one temporary and the enclosing local before reaching the exception handler. $>
-  ::throwing_consumer
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::throwing_consumer DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;

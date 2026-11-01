@@ -5,30 +5,26 @@ DOC <$
   Owns a sequence of elements in individually allocated doubly linked nodes.
   Insertion and erasure preserve iterators to every element not erased.
   $>
-::list
-  TEMPLATE(@T TYPE AUTO) STRUCT
+::list TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(MODULE, RUNTIME_MODULE)
   {
     DOC <$
       Stores one list element and the links joining it to adjacent nodes.
       $>
-    ::node
-      STRUCT MOVE_ONLY
+    ::node STRUCT MOVE_ONLY
     {
       .previous VAR MUT->list#(T)::node;
       .next VAR MUT->list#(T)::node;
       .value VAR T;
 
       DOC <$ Copy-constructs the element stored by this node. $>
-      .CONSTRUCTOR
-        FUNCTION(@value CONST& T) :> .value:(@OTHER FORWARD(value))
+      .CONSTRUCTOR FUNCTION(@value CONST& T) :> .value:(@OTHER FORWARD(value))
       {
       }
 
       DOC <$ Move-constructs the element stored by this node. $>
-      .CONSTRUCTOR
-        FUNCTION(@value TEMP& T) :> .value:(@OTHER FORWARD(value))
+      .CONSTRUCTOR FUNCTION(@value TEMP& T) :> .value:(@OTHER FORWARD(value))
       {
       }
     }
@@ -37,8 +33,7 @@ DOC <$
   DOC <$
     Provides mutable bidirectional traversal over the elements of list#(T).
     $>
-  ::iterator
-    STRUCT
+  ::iterator STRUCT
   {
     PRIVATE(MODULE)
     {
@@ -46,8 +41,7 @@ DOC <$
       .node VAR MUT->list#(T)::node;
 
       DOC <$ Creates an iterator at node within owner. $>
-      .CONSTRUCTOR
-        FUNCTION(@owner MUT->list#(T), @node MUT->list#(T)::node)
+      .CONSTRUCTOR FUNCTION(@owner MUT->list#(T), @node MUT->list#(T)::node)
       {
         .owner := owner;
         .node := node;
@@ -55,21 +49,18 @@ DOC <$
     }
 
     DOC <$ Creates an iterator that is not associated with a list. $>
-    .CONSTRUCTOR
-      FUNCTION()
+    .CONSTRUCTOR FUNCTION()
     {
     }
 
     DOC <$ Reports whether both iterators identify the same position. $>
-    .OPERATOR==
-      FUNCTION(@OTHER CONST& list#(T)::iterator) CONST: BOOL
+    .OPERATOR== FUNCTION(@OTHER CONST& list#(T)::iterator) CONST: BOOL
     {
       RETURN (.owner == OTHER.owner) && (.node == OTHER.node);
     }
 
     DOC <$ Advances to the next element and returns the previous position. $>
-    .OPERATOR++
-      FUNCTION() MUT: list#(T)::iterator
+    .OPERATOR++ FUNCTION() MUT: list#(T)::iterator
     {
       ASSERT(.node??, "Cannot advance a past-the-end list iterator.");
       VAR previous list#(T)::iterator := THIS;
@@ -78,8 +69,7 @@ DOC <$
     }
 
     DOC <$ Retreats to the previous element and returns the previous position. $>
-    .OPERATOR--
-      FUNCTION() MUT: list#(T)::iterator
+    .OPERATOR-- FUNCTION() MUT: list#(T)::iterator
     {
       ASSERT(.owner??, "Cannot retreat an unassociated list iterator.");
       VAR previous list#(T)::iterator := THIS;
@@ -96,8 +86,7 @@ DOC <$
     }
 
     DOC <$ Returns a mutable reference to the current element. $>
-    .OPERATOR->
-      FUNCTION() CONST: MUT& T
+    .OPERATOR-> FUNCTION() CONST: MUT& T
     {
       ASSERT(.node??, "Cannot dereference a past-the-end list iterator.");
       RETURN .node->.value;
@@ -108,8 +97,7 @@ DOC <$
   DOC <$
     Provides read-only bidirectional traversal over the elements of list#(T).
     $>
-  ::const_iterator
-    STRUCT
+  ::const_iterator STRUCT
   {
     PRIVATE(MODULE)
     {
@@ -117,8 +105,7 @@ DOC <$
       .node VAR MUT->list#(T)::node;
 
       DOC <$ Creates a constant iterator at node within owner. $>
-      .CONSTRUCTOR
-        FUNCTION(@owner CONST->list#(T), @node MUT->list#(T)::node)
+      .CONSTRUCTOR FUNCTION(@owner CONST->list#(T), @node MUT->list#(T)::node)
       {
         .owner := owner;
         .node := node;
@@ -126,29 +113,25 @@ DOC <$
     }
 
     DOC <$ Creates an iterator that is not associated with a list. $>
-    .CONSTRUCTOR
-      FUNCTION()
+    .CONSTRUCTOR FUNCTION()
     {
     }
 
     DOC <$ Converts a mutable iterator to a read-only iterator. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER CONST& list#(T)::iterator)
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& list#(T)::iterator)
     {
       .owner := OTHER.owner;
       .node := OTHER.node;
     }
 
     DOC <$ Reports whether both iterators identify the same position. $>
-    .OPERATOR==
-      FUNCTION(@OTHER CONST& list#(T)::const_iterator) CONST: BOOL
+    .OPERATOR== FUNCTION(@OTHER CONST& list#(T)::const_iterator) CONST: BOOL
     {
       RETURN (.owner == OTHER.owner) && (.node == OTHER.node);
     }
 
     DOC <$ Advances to the next element and returns the previous position. $>
-    .OPERATOR++
-      FUNCTION() MUT: list#(T)::const_iterator
+    .OPERATOR++ FUNCTION() MUT: list#(T)::const_iterator
     {
       ASSERT(.node??, "Cannot advance a past-the-end list iterator.");
       VAR previous list#(T)::const_iterator := THIS;
@@ -157,8 +140,7 @@ DOC <$
     }
 
     DOC <$ Retreats to the previous element and returns the previous position. $>
-    .OPERATOR--
-      FUNCTION() MUT: list#(T)::const_iterator
+    .OPERATOR-- FUNCTION() MUT: list#(T)::const_iterator
     {
       ASSERT(.owner??, "Cannot retreat an unassociated list iterator.");
       VAR previous list#(T)::const_iterator := THIS;
@@ -175,8 +157,7 @@ DOC <$
     }
 
     DOC <$ Returns a constant reference to the current element. $>
-    .OPERATOR->
-      FUNCTION() CONST: CONST& T
+    .OPERATOR-> FUNCTION() CONST: CONST& T
     {
       ASSERT(.node??, "Cannot dereference a past-the-end list iterator.");
       RETURN .node->.value AS CONST& T;
@@ -191,14 +172,12 @@ DOC <$
   }
 
   DOC <$ Creates an empty list. $>
-  .CONSTRUCTOR
-    FUNCTION()
+  .CONSTRUCTOR FUNCTION()
   {
   }
 
   DOC <$ Copy-constructs each element from OTHER in sequence order. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER CONST& list#(T))
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& list#(T))
   {
     VAR source MUT->list#(T)::node := OTHER.head;
     LOOP WHILE (source??) DO
@@ -209,8 +188,7 @@ DOC <$
   }
 
   DOC <$ Transfers all nodes from OTHER in constant time. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER TEMP& list#(T))
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& list#(T))
   {
     VAR empty_head MUT->list#(T)::node;
     VAR empty_tail MUT->list#(T)::node;
@@ -229,29 +207,25 @@ DOC <$
   }
 
   DOC <$ Destroys every remaining element and releases every node. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     .clear();
   }
 
   DOC <$ Returns the number of elements in this list. $>
-  .size
-    FUNCTION() CONST: SZ
+  .size FUNCTION() CONST: SZ
   {
     RETURN .length;
   }
 
   DOC <$ Reports whether this list contains no elements. $>
-  .empty
-    FUNCTION() CONST: BOOL
+  .empty FUNCTION() CONST: BOOL
   {
     RETURN .length == 0;
   }
 
   DOC <$ Destroys every element and leaves this list empty. $>
-  .clear
-    FUNCTION() MUT
+  .clear FUNCTION() MUT
   {
     LOOP WHILE (.head??) DO
     {
@@ -260,8 +234,7 @@ DOC <$
   }
 
   DOC <$ Copy-constructs value at the beginning of this list. $>
-  .push_front
-    FUNCTION(@ARG:value CONST& T) MUT
+  .push_front FUNCTION(@ARG:value CONST& T) MUT
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list#(T)::node := NEW list#(T)::node :(@value value);
@@ -279,8 +252,7 @@ DOC <$
   }
 
   DOC <$ Move-constructs value at the beginning of this list. $>
-  .push_front
-    FUNCTION(@ARG:value TEMP& T) MUT
+  .push_front FUNCTION(@ARG:value TEMP& T) MUT
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list#(T)::node :=
@@ -299,8 +271,7 @@ DOC <$
   }
 
   DOC <$ Copy-constructs value at the end of this list. $>
-  .push_back
-    FUNCTION(@ARG:value CONST& T) MUT
+  .push_back FUNCTION(@ARG:value CONST& T) MUT
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list#(T)::node := NEW list#(T)::node :(@value value);
@@ -318,8 +289,7 @@ DOC <$
   }
 
   DOC <$ Move-constructs value at the end of this list. $>
-  .push_back
-    FUNCTION(@ARG:value TEMP& T) MUT
+  .push_back FUNCTION(@ARG:value TEMP& T) MUT
   {
     ASSERT(.length != ((0 AS SZ) #!!), "List size overflow.");
     VAR added MUT->list#(T)::node :=
@@ -338,8 +308,7 @@ DOC <$
   }
 
   DOC <$ Removes and destroys the first element. $>
-  .pop_front
-    FUNCTION() MUT
+  .pop_front FUNCTION() MUT
   {
     ASSERT(.head??, "Cannot pop_front from an empty list.");
     VAR removed MUT->list#(T)::node := .head;
@@ -357,8 +326,7 @@ DOC <$
   }
 
   DOC <$ Removes and destroys the final element. $>
-  .pop_back
-    FUNCTION() MUT
+  .pop_back FUNCTION() MUT
   {
     ASSERT(.tail??, "Cannot pop_back from an empty list.");
     VAR removed MUT->list#(T)::node := .tail;
@@ -376,40 +344,35 @@ DOC <$
   }
 
   DOC <$ Returns a mutable reference to the first element. $>
-  .front
-    FUNCTION() MUT: MUT& T
+  .front FUNCTION() MUT: MUT& T
   {
     ASSERT(.head??, "Cannot access the front of an empty list.");
     RETURN .head->.value;
   }
 
   DOC <$ Returns a constant reference to the first element. $>
-  .front
-    FUNCTION() CONST: CONST& T
+  .front FUNCTION() CONST: CONST& T
   {
     ASSERT(.head??, "Cannot access the front of an empty list.");
     RETURN .head->.value AS CONST& T;
   }
 
   DOC <$ Returns a mutable reference to the final element. $>
-  .back
-    FUNCTION() MUT: MUT& T
+  .back FUNCTION() MUT: MUT& T
   {
     ASSERT(.tail??, "Cannot access the back of an empty list.");
     RETURN .tail->.value;
   }
 
   DOC <$ Returns a constant reference to the final element. $>
-  .back
-    FUNCTION() CONST: CONST& T
+  .back FUNCTION() CONST: CONST& T
   {
     ASSERT(.tail??, "Cannot access the back of an empty list.");
     RETURN .tail->.value AS CONST& T;
   }
 
   DOC <$ Copy-constructs value immediately before position. $>
-  .insert
-    FUNCTION(
+  .insert FUNCTION(
       @position CONST& list#(T)::const_iterator,
       @value CONST& T
     ) MUT: list#(T)::iterator
@@ -441,8 +404,7 @@ DOC <$
   }
 
   DOC <$ Move-constructs value immediately before position. $>
-  .insert
-    FUNCTION(
+  .insert FUNCTION(
       @position CONST& list#(T)::const_iterator,
       @value TEMP& T
     ) MUT: list#(T)::iterator
@@ -475,8 +437,7 @@ DOC <$
   }
 
   DOC <$ Removes position and returns an iterator to its successor. $>
-  .erase
-    FUNCTION(@position CONST& list#(T)::const_iterator) MUT: list#(T)::iterator
+  .erase FUNCTION(@position CONST& list#(T)::const_iterator) MUT: list#(T)::iterator
   {
     ASSERT(position.owner == THIS<-, "List erasure requires an iterator from this list.");
     ASSERT(position.node??, "Cannot erase the past-the-end list position.");
@@ -505,45 +466,39 @@ DOC <$
   }
 
   DOC <$ Returns a mutable iterator to the first element. $>
-  .BEGIN
-    FUNCTION() MUT: list#(T)::iterator
+  .BEGIN FUNCTION() MUT: list#(T)::iterator
   {
     RETURN list#(T)::iterator(@owner THIS<-, @node .head);
   }
 
   DOC <$ Returns a constant iterator to the first element. $>
-  .BEGIN
-    FUNCTION() CONST: list#(T)::const_iterator
+  .BEGIN FUNCTION() CONST: list#(T)::const_iterator
   {
     RETURN list#(T)::const_iterator(@owner THIS<-, @node .head);
   }
 
   DOC <$ Returns a mutable past-the-end iterator. $>
-  .END
-    FUNCTION() MUT: list#(T)::iterator
+  .END FUNCTION() MUT: list#(T)::iterator
   {
     VAR end_node MUT->list#(T)::node;
     RETURN list#(T)::iterator(@owner THIS<-, @node end_node);
   }
 
   DOC <$ Returns a constant past-the-end iterator. $>
-  .END
-    FUNCTION() CONST: list#(T)::const_iterator
+  .END FUNCTION() CONST: list#(T)::const_iterator
   {
     VAR end_node MUT->list#(T)::node;
     RETURN list#(T)::const_iterator(@owner THIS<-, @node end_node);
   }
 
   DOC <$ Returns this list as a mutable element range. $>
-  .VALUES
-    FUNCTION() MUT: MUT& list#(T)
+  .VALUES FUNCTION() MUT: MUT& list#(T)
   {
     RETURN THIS;
   }
 
   DOC <$ Returns this list as a constant element range. $>
-  .VALUES
-    FUNCTION() CONST: CONST& list#(T)
+  .VALUES FUNCTION() CONST: CONST& list#(T)
   {
     RETURN THIS;
   }

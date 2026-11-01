@@ -4,12 +4,10 @@ IMPORT std;
 ::stringlike_byte_tests NAMESPACE
 {
   DOC <$ Serializes a length-prefixed string with embedded zeros and a two-byte UTF-8 character. $>
-  ::encoded_text
-    STRUCT STRINGLIKE
+  ::encoded_text STRUCT STRINGLIKE
   {
     DOC <$ Writes 130 payload bytes, requiring a multi-byte length prefix. $>
-    .SERIALIZE
-      FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(iterator_type))
+    .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(iterator_type))
     {
       VAR length U64 := 130;
       output := SERIALIZE_UINTANY(@VALUE length, @OUTPUT_ITERATOR output);
@@ -28,12 +26,10 @@ IMPORT std;
   }
 
   DOC <$ Stores the exact decoded payload independently of its serialized length prefix. $>
-  ::text
-    STATIC STRING_CONSTANT := encoded_text();
+  ::text STATIC STRING_CONSTANT := encoded_text();
 
   DOC <$ Iteration covers every payload byte, including leading, interior and trailing zeros. $>
-  ::length_and_bytes
-    DUAL_TEST
+  ::length_and_bytes DUAL_TEST
   {
     VAR cursor CONST=>>BYTE := text.BEGIN();
     VAR index SZ := 0;
@@ -51,8 +47,7 @@ IMPORT std;
   }
 
   DOC <$ Owned copies retain the explicit byte length and do not modify constant storage when changed. $>
-  ::owned_copy
-    DUAL_TEST
+  ::owned_copy DUAL_TEST
   {
     VAR first std::string := text;
     VAR second std::string := first;

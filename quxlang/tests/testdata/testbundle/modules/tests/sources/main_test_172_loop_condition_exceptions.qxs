@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::loop_condition_exception_tests NAMESPACE
 {
   DOC <$ A throwing iterator filter destroys its operand and enclosing local before handling the exception without entering the body. $>
-  ::throwing_filter
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::throwing_filter DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;
@@ -32,8 +31,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A throwing loop entry test releases its temporary before enclosing cleanup and suppresses both body and step. $>
-  ::throwing_test
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::throwing_test DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;
@@ -57,8 +55,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ CONTINUE cleans the body before a throwing posttest; its temporary and enclosing local then unwind without executing STEP. $>
-  ::throwing_posttest
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::throwing_posttest DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;

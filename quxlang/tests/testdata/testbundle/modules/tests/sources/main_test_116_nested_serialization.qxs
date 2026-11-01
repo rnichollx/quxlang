@@ -3,11 +3,9 @@ LANGUAGE QUXLANG EN 0.0;
 ::nested_serialization_tests NAMESPACE
 {
   DOC <$ Contains a non-byte-width integer followed by a Boolean. $>
-  ::inner
-    STRUCT { .number VAR U12; .enabled VAR BOOL; }
+  ::inner STRUCT { .number VAR U12; .enabled VAR BOOL; }
   DOC <$ Combines nested fields, a fixed array and an integer wider than a machine word. $>
-  ::record
-    STRUCT
+  ::record STRUCT
   {
     .marker VAR BYTE;
     .payload VAR inner;
@@ -16,8 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Serialization follows declaration and element order without layout padding, preserving adjacent guards and returned iterators. $>
-  ::exact_bytes_and_independent_roundtrip
-    DUAL_TEST
+  ::exact_bytes_and_independent_roundtrip DUAL_TEST
   {
     VAR source record;
     source.marker := 90;
@@ -66,8 +63,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A U128 value serializes exactly sixteen little-endian bytes and round-trips. $>
-  ::wide_integer_bytes
-    DUAL_TEST
+  ::wide_integer_bytes DUAL_TEST
   {
     VAR value U128 := 18446744073709551617;
     VAR bytes [18]BYTE;
@@ -90,8 +86,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Fixed arrays serialize each element in index order. $>
-  ::array_element_bytes
-    DUAL_TEST
+  ::array_element_bytes DUAL_TEST
   {
     VAR value [2]U16;
     value[0] := 4660;
@@ -114,8 +109,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Empty arrays preserve the iterator and surrounding bytes in both directions. $>
-  ::empty_array_bytes
-    DUAL_TEST
+  ::empty_array_bytes DUAL_TEST
   {
     VAR value [0]U16 :[];
     VAR bytes [1]BYTE;
@@ -127,8 +121,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested arrays serialize in outer then inner index order. $>
-  ::multidimensional_array_bytes
-    DUAL_TEST
+  ::multidimensional_array_bytes DUAL_TEST
   {
     VAR value [2][2]U16;
     value[0][0] := 1;
@@ -157,12 +150,10 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Places a nested record between scalar fields. $>
-  ::scalar_record
-    STRUCT { .marker VAR BYTE; .payload VAR inner; .tail VAR U16; }
+  ::scalar_record STRUCT { .marker VAR BYTE; .payload VAR inner; .tail VAR U16; }
 
   DOC <$ Nested records concatenate their fields without alignment padding. $>
-  ::nested_field_bytes
-    DUAL_TEST
+  ::nested_field_bytes DUAL_TEST
   {
     VAR value scalar_record;
     value.marker := 90;

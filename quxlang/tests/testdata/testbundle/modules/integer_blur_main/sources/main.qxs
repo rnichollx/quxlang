@@ -17,8 +17,7 @@ IMPORT syscall;
 }
 
 DOC <$ Opens one input file for reading on the target operating system. $>
-::open_input_file
-  FUNCTION(@path CONST=>>BYTE): I32
+::open_input_file FUNCTION(@path CONST=>>BYTE): I32
 {
   VAR descriptor I32 := 0 - 1;
   STATIC_IF(OS_LINUX)
@@ -45,8 +44,7 @@ DOC <$ Opens one input file for reading on the target operating system. $>
 }
 
 DOC <$ Opens one output file for replacement on the target operating system. $>
-::open_output_file
-  FUNCTION(@path CONST=>>BYTE): I32
+::open_output_file FUNCTION(@path CONST=>>BYTE): I32
 {
   VAR descriptor I32 := 0 - 1;
   STATIC_IF(OS_LINUX)
@@ -79,8 +77,7 @@ DOC <$ Opens one output file for replacement on the target operating system. $>
 }
 
 DOC <$ Seeks one descriptor to its end and returns the resulting offset. $>
-::seek_file_end
-  FUNCTION(@fd I32): SZ
+::seek_file_end FUNCTION(@fd I32): SZ
 {
   VAR result SZ := (0 AS SZ) #!!;
   STATIC_IF(OS_LINUX)
@@ -111,8 +108,7 @@ DOC <$ Seeks one descriptor to its end and returns the resulting offset. $>
 }
 
 DOC <$ Seeks one descriptor to its beginning and returns the resulting offset. $>
-::seek_file_start
-  FUNCTION(@fd I32): SZ
+::seek_file_start FUNCTION(@fd I32): SZ
 {
   VAR result SZ := (0 AS SZ) #!!;
   STATIC_IF(OS_LINUX)
@@ -143,8 +139,7 @@ DOC <$ Seeks one descriptor to its beginning and returns the resulting offset. $
 }
 
 DOC <$ Maps anonymous storage for one complete image file. $>
-::map_file_storage
-  FUNCTION(@size SZ): ADDRESS
+::map_file_storage FUNCTION(@size SZ): ADDRESS
 {
   VAR result ADDRESS;
   STATIC_IF(OS_LINUX)
@@ -163,8 +158,7 @@ DOC <$ Maps anonymous storage for one complete image file. $>
 }
 
 DOC <$ Unmaps storage previously returned by map_file_storage. $>
-::unmap_file_storage
-  FUNCTION(@address ADDRESS, @size SZ): I32
+::unmap_file_storage FUNCTION(@address ADDRESS, @size SZ): I32
 {
   VAR result I32 := 0 - 1;
   STATIC_IF(OS_LINUX)
@@ -183,8 +177,7 @@ DOC <$ Unmaps storage previously returned by map_file_storage. $>
 }
 
 DOC <$ Returns whether a null-terminated argument equals one string constant. $>
-::argument_equals
-  FUNCTION(@argument IBC CONST=>>BYTE, @expected STRING_CONSTANT): BOOL
+::argument_equals FUNCTION(@argument IBC CONST=>>BYTE, @expected STRING_CONSTANT): BOOL
 {
   VAR index SZ := 0;
   VAR expected_size SZ := (expected.END() - expected.BEGIN()) AS ASSUME SZ;
@@ -200,8 +193,7 @@ DOC <$ Returns whether a null-terminated argument equals one string constant. $>
 }
 
 DOC <$ Prints the selected benchmark stepping. $>
-::report_active_stepping
-  FUNCTION(): I32
+::report_active_stepping FUNCTION(): I32
 {
   VAR stepping SZ := ACTIVE_STEPPING;
   STATIC_IF(ARCH_IS_JVM)
@@ -250,8 +242,7 @@ DOC <$ Prints the selected benchmark stepping. $>
 }
 
 DOC <$ Writes one benchmark diagnostic and returns the failure exit code. $>
-::fail
-  FUNCTION(@message STRING_CONSTANT): I32
+::fail FUNCTION(@message STRING_CONSTANT): I32
 {
   RUNTIME_MODULE::write(@fd 2, @msg "integer_blur: ");
   RUNTIME_MODULE::write(@fd 2, @msg message);
@@ -260,8 +251,7 @@ DOC <$ Writes one benchmark diagnostic and returns the failure exit code. $>
 }
 
 DOC <$ Reads exactly count bytes and rejects an error or early end of file. $>
-::read_complete
-  FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
+::read_complete FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
   LOOP WHILE (offset != count) DO
@@ -283,8 +273,7 @@ DOC <$ Reads exactly count bytes and rejects an error or early end of file. $>
 }
 
 DOC <$ Writes exactly count bytes and rejects an error or stalled write. $>
-::write_complete
-  FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
+::write_complete FUNCTION(@file MUT& std::file, @buffer MUT=>>BYTE, @count SZ): BOOL
 {
   VAR offset SZ := 0;
   LOOP WHILE (offset != count) DO
@@ -306,8 +295,7 @@ DOC <$ Writes exactly count bytes and rejects an error or stalled write. $>
 }
 
 DOC <$ Decodes one little-endian 32-bit integer. $>
-::decode_u32
-  FUNCTION(@bytes CONST=>>BYTE): U32
+::decode_u32 FUNCTION(@bytes CONST=>>BYTE): U32
 {
   VAR result U32 := bytes[0] AS U8 AS U32;
   result #||= bytes[1] AS U8 AS U32 #++ 8;
@@ -317,8 +305,7 @@ DOC <$ Decodes one little-endian 32-bit integer. $>
 }
 
 DOC <$ Encodes one 32-bit integer in little-endian byte order. $>
-::encode_u32
-  FUNCTION(@bytes MUT=>>BYTE, @value U32)
+::encode_u32 FUNCTION(@bytes MUT=>>BYTE, @value U32)
 {
   bytes[0] := value AS PARTIAL U8 AS BYTE;
   bytes[1] := value #-- 8 AS PARTIAL U8 AS BYTE;
@@ -327,16 +314,14 @@ DOC <$ Encodes one 32-bit integer in little-endian byte order. $>
 }
 
 DOC <$ Returns whether a byte buffer starts with the QIMG16LE signature. $>
-::header_is_valid
-  FUNCTION(@bytes CONST=>>BYTE): BOOL
+::header_is_valid FUNCTION(@bytes CONST=>>BYTE): BOOL
 {
   RETURN bytes[0] == 81 && bytes[1] == 73 && bytes[2] == 77 && bytes[3] == 71 &&
          bytes[4] == 49 && bytes[5] == 54 && bytes[6] == 76 && bytes[7] == 69;
 }
 
 DOC <$ Loads one source pixel with horizontal edge clamping. $>
-::horizontal_border_pixel
-  FUNCTION(
+::horizontal_border_pixel FUNCTION(
     @source CONST=>>TYPED_STORAGE(U16),
     @width SZ,
     @row SZ,
@@ -356,8 +341,7 @@ DOC <$ Loads one source pixel with horizontal edge clamping. $>
 }
 
 DOC <$ Loads one source pixel with vertical edge clamping. $>
-::vertical_border_pixel
-  FUNCTION(
+::vertical_border_pixel FUNCTION(
     @source CONST=>>TYPED_STORAGE(U16),
     @width SZ,
     @height SZ,
@@ -378,8 +362,7 @@ DOC <$ Loads one source pixel with vertical edge clamping. $>
 }
 
 DOC <$ Applies one horizontal seven-tap integer convolution pass. $>
-::horizontal_pass
-  FUNCTION(
+::horizontal_pass FUNCTION(
     @source CONST=>>TYPED_STORAGE(U16),
     @destination =>>TYPED_STORAGE(U16),
     @width SZ,
@@ -431,8 +414,7 @@ DOC <$ Applies one horizontal seven-tap integer convolution pass. $>
 }
 
 DOC <$ Applies one vertical seven-tap integer convolution pass. $>
-::vertical_pass
-  FUNCTION(
+::vertical_pass FUNCTION(
     @source CONST=>>TYPED_STORAGE(U16),
     @destination =>>TYPED_STORAGE(U16),
     @width SZ,
@@ -490,8 +472,7 @@ DOC <$ Applies one vertical seven-tap integer convolution pass. $>
 }
 
 DOC <$ Ends the lifetime of every constructed pixel in one buffer. $>
-::destroy_pixels
-  FUNCTION(@pixels =>>TYPED_STORAGE(U16), @count SZ)
+::destroy_pixels FUNCTION(@pixels =>>TYPED_STORAGE(U16), @count SZ)
 {
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(count) DO
   {
@@ -500,8 +481,7 @@ DOC <$ Ends the lifetime of every constructed pixel in one buffer. $>
 }
 
 DOC <$ Executes the complete fixed integer-blur workload. $>
-::blur
-  FUNCTION(@value MUT& image_data)
+::blur FUNCTION(@value MUT& image_data)
 {
   VAR temporary =>>TYPED_STORAGE(U16) :=
     RUNTIME_MODULE::DEFAULT_ALLOCATOR#(U16)::MULTI_ALLOC(@COUNT value.pixel_count);

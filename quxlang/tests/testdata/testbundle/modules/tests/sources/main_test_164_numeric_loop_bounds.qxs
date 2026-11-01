@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::numeric_loop_bound_tests NAMESPACE
 {
   DOC <$ Inclusive and exclusive numeric loops distinguish equal endpoints and both skip reversed positive-step ranges. $>
-  ::equal_and_reversed
-    DUAL_TEST
+  ::equal_and_reversed DUAL_TEST
   {
     VAR visits I32 := 0;
     LOOP VALUE(value) FROM(7 AS I32) TO(7) DO
@@ -17,8 +16,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Stepped ranges stop after crossing an endpoint and include only exactly reached inclusive endpoints. $>
-  ::nondividing_steps
-    DUAL_TEST
+  ::nondividing_steps DUAL_TEST
   {
     VAR inclusive I32 := 0;
     VAR exclusive I32 := 0;
@@ -39,8 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Numeric loops capture their start, endpoint and stride before body mutations of the original variables. $>
-  ::captured_bounds
-    DUAL_TEST
+  ::captured_bounds DUAL_TEST
   {
     VAR start I32 := 1;
     VAR end I32 := 9;
@@ -59,8 +56,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(step == 1);
   }
   DOC <$ Explicit binding types determine sequence arithmetic and iterator storage. $>
-  ::typed_bindings
-    DUAL_TEST
+  ::typed_bindings DUAL_TEST
   {
     VAR count SZ := 4;
     VAR total SZ := 0;

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::active_test VAR STRING_CONSTANT;
 
 DOC <$ Lists or executes selected tests, with compiled known failures requiring an explicit opt-in. $>
-::UNIT_TEST_MAIN
-  FUNCTION(): I32
+::UNIT_TEST_MAIN FUNCTION(): I32
 {
   VAR arguments test_command_arguments;
   VAR list_only BOOL := FALSE;

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::variant_selection_tests NAMESPACE
 {
   DOC <$ Nested VISIT dispatch covers every pair of alternatives and preserves mutable projections of both subjects. $>
-  ::nested_visit_all_alternatives
-    DUAL_TEST
+  ::nested_visit_all_alternatives DUAL_TEST
   {
     VAR outer_kind I32 := 1;
     LOOP WHILE (outer_kind <= 2) DO
@@ -43,8 +42,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Guards for mismatched types are skipped, and the first successful matching guard suppresses later guards. $>
-  ::match_guard_selection_order
-    DUAL_TEST
+  ::match_guard_selection_order DUAL_TEST
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO
@@ -75,8 +73,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Replacing a variant alternative updates subsequent matching and unwraps without retaining a stale tag or payload. $>
-  ::repeated_tag_changes
-    DUAL_TEST
+  ::repeated_tag_changes DUAL_TEST
   {
     VAR value visit_inline_variant;
     VAR iteration I32 := 0;
@@ -107,8 +104,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Only the selected match arm constructs a local, which is destroyed before following statements execute. $>
-  ::match_branch_cleanup
-    DUAL_TEST
+  ::match_branch_cleanup DUAL_TEST
   {
     VAR value visit_inline_variant := 7 AS U32;
     VAR events I32 := 0;

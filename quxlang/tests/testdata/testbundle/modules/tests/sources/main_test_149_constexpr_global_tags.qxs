@@ -3,40 +3,29 @@ LANGUAGE QUXLANG EN 0.0;
 ::constexpr_global_tag_tests NAMESPACE
 {
   DOC <$ Requires native execution to obtain a reference. $>
-  ::runtime_only
-    VAR I32 := 11;
+  ::runtime_only VAR I32 := 11;
   DOC <$ Uninitialized runtime globals also require constexpr permission. $>
-  ::zero_runtime_only
-    VAR I32;
+  ::zero_runtime_only VAR I32;
   DOC <$ Requires native execution to obtain a thread-local reference. $>
-  ::thread_runtime_only
-    VAR PER_THREAD I32 := 13;
+  ::thread_runtime_only VAR PER_THREAD I32 := 13;
   DOC <$ Allows constexpr reference access to thread-local storage. $>
-  ::thread_allowed
-    VAR PER_THREAD CONSTEXPR_OK I32 := 19;
+  ::thread_allowed VAR PER_THREAD CONSTEXPR_OK I32 := 19;
   DOC <$ Static declarations remain accessible without an opt-in modifier. $>
-  ::fixed
-    STATIC I32 := 23;
+  ::fixed STATIC I32 := 23;
 
   DOC <$ Reading an unmarked runtime global panics during constexpr execution. $>
-  ::reject_runtime_read
-    STATIC_TEST EXPECT_FAIL { TEST_ASSERT(runtime_only == 11); }
+  ::reject_runtime_read STATIC_TEST EXPECT_FAIL { TEST_ASSERT(runtime_only == 11); }
   DOC <$ Merely obtaining a reference requires permission, even without a read or write. $>
-  ::reject_runtime_reference
-    STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := runtime_only; }
+  ::reject_runtime_reference STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := runtime_only; }
   DOC <$ Taking an unmarked global address panics during constexpr execution. $>
-  ::reject_runtime_address
-    STATIC_TEST EXPECT_FAIL { VAR pointer CONST->I32 := runtime_only<-; }
+  ::reject_runtime_address STATIC_TEST EXPECT_FAIL { VAR pointer CONST->I32 := runtime_only<-; }
   DOC <$ Zero initialization does not implicitly permit constexpr reference access. $>
-  ::reject_zero_reference
-    STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := zero_runtime_only; }
+  ::reject_zero_reference STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := zero_runtime_only; }
   DOC <$ Thread-local runtime globals also require constexpr permission. $>
-  ::reject_thread_reference
-    STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := thread_runtime_only; }
+  ::reject_thread_reference STATIC_TEST EXPECT_FAIL { VAR reference CONST& I32 := thread_runtime_only; }
 
   DOC <$ Unmarked globals remain readable and writable in native execution. $>
-  ::native_unmarked_access
-    UNIT_TEST
+  ::native_unmarked_access UNIT_TEST
   {
     TEST_ASSERT(runtime_only == 11);
     runtime_only := 31;
@@ -45,22 +34,19 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Static values are accessible during constexpr execution without an opt-in modifier. $>
-  ::static_access
-    DUAL_TEST
+  ::static_access DUAL_TEST
   {
     TEST_ASSERT(fixed == 23);
   }
 
   DOC <$ Unmarked thread-local globals remain accessible in native execution. $>
-  ::native_thread_access
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::native_thread_access UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     TEST_ASSERT(thread_runtime_only == 13);
   }
 
   DOC <$ Explicitly permitted thread-local variables are accessible during constexpr execution. $>
-  ::thread_access
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::thread_access DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     TEST_ASSERT(thread_allowed == 19);
     thread_allowed := 29;
@@ -69,15 +55,12 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Supplies a tagged global value for compile-time and native reads. $>
-  ::readable
-    VAR CONSTEXPR_OK I32 := 17;
+  ::readable VAR CONSTEXPR_OK I32 := 17;
   DOC <$ Supplies tagged mutable storage for compile-time and native updates. $>
-  ::writable
-    VAR CONSTEXPR_OK I32 := 29;
+  ::writable VAR CONSTEXPR_OK I32 := 29;
 
   DOC <$ Tagged readable globals preserve their initialized value across direct and reference-based reads. $>
-  ::read_tagged_global
-    DUAL_TEST
+  ::read_tagged_global DUAL_TEST
   {
     TEST_ASSERT(readable == 17);
     VAR view CONST& I32 := readable;
@@ -86,8 +69,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Tagged read-write globals expose persistent mutable storage and restore their baseline after observation. $>
-  ::mutate_tagged_global
-    DUAL_TEST
+  ::mutate_tagged_global DUAL_TEST
   {
     TEST_ASSERT(writable == 29);
     VAR reference MUT& I32 := writable;

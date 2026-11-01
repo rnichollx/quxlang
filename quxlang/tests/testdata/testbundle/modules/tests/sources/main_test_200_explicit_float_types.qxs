@@ -3,22 +3,17 @@ LANGUAGE QUXLANG EN 0.0;
 ::explicit_float_type_tests NAMESPACE
 {
   DOC <$ Names the explicit standard single-precision format. $>
-  ::single
-    ALIAS F32E8;
+  ::single ALIAS F32E8;
   DOC <$ Names the explicit standard double-precision format. $>
-  ::wide
-    ALIAS F64E11;
+  ::wide ALIAS F64E11;
 
   DOC <$ Doubles a single-precision value across equivalent signature spellings. $>
-  ::scale_single
-    FUNCTION(%value F32): F32E8 { RETURN value * 2; }
+  ::scale_single FUNCTION(%value F32): F32E8 { RETURN value * 2; }
   DOC <$ Triples a double-precision value across equivalent signature spellings. $>
-  ::scale_wide
-    FUNCTION(%value F64E11): F64 { RETURN value * 3; }
+  ::scale_wide FUNCTION(%value F64E11): F64 { RETURN value * 3; }
 
   DOC <$ Explicit standard formats equal their shorthands while differing exponent widths remain distinct types. $>
-  ::format_identity
-    DUAL_TEST
+  ::format_identity DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(F32E8, F32));
     TEST_ASSERT(SAME_TYPES(F64E11, F64));
@@ -32,8 +27,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Explicit formats preserve arithmetic, copied values and mutable aliases across their shorthand equivalents. $>
-  ::values_and_aliases
-    DUAL_TEST
+  ::values_and_aliases DUAL_TEST
   {
     VAR narrow single := 1.5;
     VAR narrow_copy F32 := narrow;
@@ -54,8 +48,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Equivalent float spellings preserve signatures for direct calls and copied procedure pointers. $>
-  ::callable_signatures
-    DUAL_TEST
+  ::callable_signatures DUAL_TEST
   {
     VAR narrow F32E8 := 1.5;
     VAR large F64E11 := 1.5;

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::pointer_value_tests NAMESPACE
 {
   DOC <$ Pointer arithmetic counts elements, including one-past endpoints and signed differences within an array. $>
-  ::array_offsets
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::array_offsets TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR values [4]T;
     values[0] := 2;
@@ -32,8 +31,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checks array offsets and differences for element sizes of one, four, and eight bytes. $>
-  ::element_scaled_arithmetic
-    DUAL_TEST
+  ::element_scaled_arithmetic DUAL_TEST
   {
     array_offsets#(U8)();
     array_offsets#(I32)();
@@ -41,8 +39,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Pointer offsets preserve distinct magnitude bytes in both directions. $>
-  ::multibyte_offsets
-    DUAL_TEST
+  ::multibyte_offsets DUAL_TEST
   {
     VAR values [514]U8;
     values[513] := 7;
@@ -55,8 +52,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Decrementing a one-past pointer returns its previous position before visiting the last live element. $>
-  ::reverse_iteration_from_endpoint
-    DUAL_TEST
+  ::reverse_iteration_from_endpoint DUAL_TEST
   {
     VAR values [3]I32;
     values[0] := 2;
@@ -84,8 +80,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Binding a reference through a pointer retains the original referent after the pointer is reassigned. $>
-  ::reference_survives_pointer_reassignment
-    DUAL_TEST
+  ::reference_survives_pointer_reassignment DUAL_TEST
   {
     VAR first I32 := 3;
     VAR second I32 := 7;
@@ -103,8 +98,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A pointer to a pointer slot remains non-null while the slot changes between null and a live object. $>
-  ::pointer_slot_and_null_referent
-    DUAL_TEST
+  ::pointer_slot_and_null_referent DUAL_TEST
   {
     VAR value I32 := 5;
     VAR pointer MUT->I32;

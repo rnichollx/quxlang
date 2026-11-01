@@ -10,8 +10,7 @@ PRIVATE(MODULE) ::layer2_plate_owner TEMPLATE(@count VALUE SZ)
   RETURN region->.class_control;
 }
 
-PRIVATE(MODULE) ::layer2_seeded_random
-  FUNCTION(@seed U32): U32
+PRIVATE(MODULE) ::layer2_seeded_random FUNCTION(@seed U32): U32
 {
   VAR word U32 := seed;
   VAR second U32;
@@ -60,8 +59,7 @@ PRIVATE(MODULE) ::layer2_seeded_random_test DUAL_TEST
 }
 
 DOC <$ The store retains independent growing queues in storage sized for the running host. $>
-PRIVATE(MODULE) ::layer2_home_plate_store
-  TEMPLATE(@count VALUE SZ, @slot_count VALUE SZ, @empty_metadata VALUE BOOL) STRUCT
+PRIVATE(MODULE) ::layer2_home_plate_store TEMPLATE(@count VALUE SZ, @slot_count VALUE SZ, @empty_metadata VALUE BOOL) STRUCT
 {
   .ready VAR ATOMIC#BOOL;
   .mtx VAR mutex;

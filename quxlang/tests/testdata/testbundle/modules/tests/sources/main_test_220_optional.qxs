@@ -68,8 +68,7 @@ IMPORT std;
   }
 
   DOC <$ Forwards a null argument into an empty optional return value. $>
-  ::from_null
-    FUNCTION(@ARG NULL_TYPE): std::optional#I32
+  ::from_null FUNCTION(@ARG NULL_TYPE): std::optional#I32
   {
     RETURN ARG;
   }

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::union_lifetime_tests NAMESPACE
 {
   DOC <$ Boxed alternatives own payloads that record copying and destruction. $>
-  ::boxed
-    UNION
+  ::boxed UNION
   {
     .empty OPTION DEFAULT VOID;
     .first OPTION array_lifetime_tests::element;
@@ -12,8 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Inline alternatives own payloads that record copying and destruction. $>
-  ::inlined
-    INLINE_UNION
+  ::inlined INLINE_UNION
   {
     .empty OPTION DEFAULT VOID;
     .first OPTION array_lifetime_tests::element;
@@ -21,8 +19,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Replacing an owned alternative destroys its old payload exactly once, including replacement by VOID. $>
-  ::replacement
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::replacement TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -52,8 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A throwing match arm destroys its local before the union payload and preserves the exception value. $>
-  ::match_unwinding
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::match_unwinding TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -90,8 +86,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A failed union copy leaves its source alive and never destroys an incomplete payload. $>
-  ::failed_payload_copy
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::failed_payload_copy TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -127,43 +122,37 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checks boxed union owned alternative replacement in constexpr and native execution. $>
-  ::boxed_replacement
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::boxed_replacement DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     replacement#(boxed)();
   }
 
   DOC <$ Checks boxed union match exception cleanup in constexpr and native execution. $>
-  ::boxed_match_unwinding
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::boxed_match_unwinding DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     match_unwinding#(boxed)();
   }
 
   DOC <$ Checks boxed union failed payload construction in constexpr and native execution. $>
-  ::boxed_failed_payload_copy
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::boxed_failed_payload_copy DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     failed_payload_copy#(boxed)();
   }
 
   DOC <$ Checks inline union owned alternative replacement in constexpr and native execution. $>
-  ::inline_replacement
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::inline_replacement DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     replacement#(inlined)();
   }
 
   DOC <$ Checks inline union match exception cleanup in constexpr and native execution. $>
-  ::inline_match_unwinding
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::inline_match_unwinding DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     match_unwinding#(inlined)();
   }
 
   DOC <$ Checks inline union failed payload construction in constexpr and native execution. $>
-  ::inline_failed_payload_copy
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::inline_failed_payload_copy DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     failed_payload_copy#(inlined)();
   }

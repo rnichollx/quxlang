@@ -27,8 +27,7 @@ PRIVATE(MODULE) ::layer2_generation_wrap_test INCLUDE_IF(ARCH_IS_LAYOUTLESS == F
 }
 
 DOC <$ The helper verifies that a returned node identifies one constructed test slot. $>
-PRIVATE(MODULE) ::layer2_generation_test_identity
-  FUNCTION(@node MUT->addr_cache_node#(@count 2), @base ADDRESS, @limit SZ): SZ
+PRIVATE(MODULE) ::layer2_generation_test_identity FUNCTION(@node MUT->addr_cache_node#(@count 2), @base ADDRESS, @limit SZ): SZ
 {
   VAR address ADDRESS := IBC_GETADDR(@PTR node);
   VAR stride SZ := CELLSIZEOF(addr_cache_node#(@count 2));

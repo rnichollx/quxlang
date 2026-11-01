@@ -47,8 +47,7 @@ ASM_PROCEDURE X64
 }
 
 DOC <$ Saves the calling frame register state for native stack walking. $>
-PRIVATE(MODULE) ::unwind_capture
-ASM_PROCEDURE X86
+PRIVATE(MODULE) ::unwind_capture ASM_PROCEDURE X86
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR)
 {
   MOV EAX, [ESP+4]
@@ -66,8 +65,7 @@ ASM_PROCEDURE X86
 }
 
 DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
-PRIVATE(MODULE) ::unwind_restore
-ASM_PROCEDURE X86
+PRIVATE(MODULE) ::unwind_restore ASM_PROCEDURE X86
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR, @ip UINTPTR)
 {
   MOV EAX, [ESP+4]
@@ -83,8 +81,7 @@ ASM_PROCEDURE X86
 }
 
 DOC <$ Saves the calling frame register state for native stack walking. $>
-PRIVATE(MODULE) ::unwind_capture
-ASM_PROCEDURE ARM64
+PRIVATE(MODULE) ::unwind_capture ASM_PROCEDURE ARM64
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR)
 {
   STR X19, [X0, 152]
@@ -114,8 +111,7 @@ ASM_PROCEDURE ARM64
 }
 
 DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
-PRIVATE(MODULE) ::unwind_restore
-ASM_PROCEDURE ARM64
+PRIVATE(MODULE) ::unwind_restore ASM_PROCEDURE ARM64
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR, @ip UINTPTR)
 {
   MOV X16, X0
@@ -148,8 +144,7 @@ ASM_PROCEDURE ARM64
 }
 
 DOC <$ Saves the calling frame register state for native stack walking. $>
-PRIVATE(MODULE) ::unwind_capture
-ASM_PROCEDURE Z_ARCH
+PRIVATE(MODULE) ::unwind_capture ASM_PROCEDURE Z_ARCH
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR)
 {
   STG %r6, 48(%r2)
@@ -175,8 +170,7 @@ ASM_PROCEDURE Z_ARCH
 }
 
 DOC <$ Restores preserved registers and transfers execution to a landing pad. $>
-PRIVATE(MODULE) ::unwind_restore
-ASM_PROCEDURE Z_ARCH
+PRIVATE(MODULE) ::unwind_restore ASM_PROCEDURE Z_ARCH
   CALLABLE CALLCONV CCALL NOEXCEPT(@registers MUT -> [256]UINTPTR, @ip UINTPTR)
 {
   LGR %r1, %r2

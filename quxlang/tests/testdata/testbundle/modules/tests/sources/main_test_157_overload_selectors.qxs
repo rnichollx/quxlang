@@ -3,12 +3,9 @@ LANGUAGE QUXLANG EN 0.0;
 ::overload_selector_tests NAMESPACE
 {
   DOC <$ Supplies the first declared overload with a narrow result. $>
-  ::select
-    FUNCTION(@value I32): I32 { RETURN value + 17; }
+  ::select FUNCTION(@value I32): I32 { RETURN value + 17; }
   DOC <$ Supplies the second declared overload with a wide result. $>
-  ::select
-    FUNCTION(@value I64): I64 { RETURN value + 29; }
+  ::select FUNCTION(@value I64): I64 { RETURN value + 29; }
   DOC <$ Supplies a single candidate for empty-bracket selection. $>
-  ::unique
-    FUNCTION(@value I32): I32 { RETURN value * 3; }
+  ::unique FUNCTION(@value I32): I32 { RETURN value * 3; }
 }

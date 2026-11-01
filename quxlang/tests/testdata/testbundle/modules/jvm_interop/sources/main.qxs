@@ -5,48 +5,37 @@ IMPORT std;
 ::java_object EXTERN_TYPE["java.base":"java/lang/Object"];
 ::java_point EXTERN_TYPE["java.desktop":"java/awt/Point"];
 
-::system_out
-  EXTERN_PROCEDURE["java/lang/System":"out"]
+::system_out EXTERN_PROCEDURE["java/lang/System":"out"]
   CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> RUNTIME_MODULE::java_print_stream);
 
-::print_line
-  EXTERN_PROCEDURE["java/io/PrintStream":"println"]
+::print_line EXTERN_PROCEDURE["java/io/PrintStream":"println"]
   CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> RUNTIME_MODULE::java_print_stream, @VALUE ~> RUNTIME_MODULE::java_string);
 
-::system_in
-  EXTERN_PROCEDURE["java/lang/System":"in"]
+::system_in EXTERN_PROCEDURE["java/lang/System":"in"]
   CALLABLE CALLCONV JVM_GETSTATIC(; RETURN ~> RUNTIME_MODULE::java_input_stream);
 
-::system_put_out
-  EXTERN_PROCEDURE["java/lang/System":"out"]
+::system_put_out EXTERN_PROCEDURE["java/lang/System":"out"]
   CALLABLE CALLCONV JVM_PUTSTATIC(@VALUE ~> RUNTIME_MODULE::java_print_stream);
 
-::parse_integer
-  EXTERN_PROCEDURE["java/lang/Integer":"parseInt"]
+::parse_integer EXTERN_PROCEDURE["java/lang/Integer":"parseInt"]
   CALLABLE CALLCONV JVM_STATIC(@VALUE ~> RUNTIME_MODULE::java_string; RETURN I32);
 
-::character_sequence_length
-  EXTERN_PROCEDURE["java/lang/CharSequence":"length"]
+::character_sequence_length EXTERN_PROCEDURE["java/lang/CharSequence":"length"]
   CALLABLE CALLCONV JVM_INTERFACE(@THIS ~> RUNTIME_MODULE::java_char_sequence; RETURN I32);
 
-::scanner_constructor
-  EXTERN_PROCEDURE["java/util/Scanner":"<init>"]
+::scanner_constructor EXTERN_PROCEDURE["java/util/Scanner":"<init>"]
   CALLABLE CALLCONV JVM_CONSTRUCTOR(@input ~> RUNTIME_MODULE::java_input_stream; RETURN ~> RUNTIME_MODULE::java_scanner);
 
-::scanner_next_line
-  EXTERN_PROCEDURE["java/util/Scanner":"nextLine"]
+::scanner_next_line EXTERN_PROCEDURE["java/util/Scanner":"nextLine"]
   CALLABLE CALLCONV JVM_VIRTUAL(@THIS ~> RUNTIME_MODULE::java_scanner; RETURN ~> RUNTIME_MODULE::java_string);
 
-::point_constructor
-  EXTERN_PROCEDURE["java/awt/Point":"<init>"]
+::point_constructor EXTERN_PROCEDURE["java/awt/Point":"<init>"]
   CALLABLE CALLCONV JVM_CONSTRUCTOR(@x I32, @y I32; RETURN ~> java_point);
 
-::point_get_x
-  EXTERN_PROCEDURE["java/awt/Point":"x"]
+::point_get_x EXTERN_PROCEDURE["java/awt/Point":"x"]
   CALLABLE CALLCONV JVM_GETFIELD(@THIS ~> java_point; RETURN I32);
 
-::point_put_x
-  EXTERN_PROCEDURE["java/awt/Point":"x"]
+::point_put_x EXTERN_PROCEDURE["java/awt/Point":"x"]
   CALLABLE CALLCONV JVM_PUTFIELD(@THIS ~> java_point, @VALUE I32);
 
 ::main FUNCTION(): I32

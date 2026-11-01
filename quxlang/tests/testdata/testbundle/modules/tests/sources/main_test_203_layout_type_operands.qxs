@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::layout_type_operand_tests NAMESPACE
 {
   DOC <$ Fixed arrays retain element alignment and multiply element cell size at each dimension. $>
-  ::check_array_layout
-    TEMPLATE(@T TYPE AUTO)
+  ::check_array_layout TEMPLATE(@T TYPE AUTO)
     FUNCTION()
   {
     TEST_ASSERT(SIZEOF([1]T) == CELLSIZEOF(T));

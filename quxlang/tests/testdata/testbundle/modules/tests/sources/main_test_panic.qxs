@@ -26,16 +26,14 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 DOC <$ Terminates a standalone native process through PANIC without an explicit message. $>
-::panic_default_native_main
-  FUNCTION(): I32
+::panic_default_native_main FUNCTION(): I32
 {
   PANIC;
   RETURN 0;
 }
 
 DOC <$ Terminates a standalone native process when an active assertion fails. $>
-::assert_false_native_main
-  FUNCTION(): I32
+::assert_false_native_main FUNCTION(): I32
 {
   TEST_ASSERT(FALSE);
   RETURN 0;

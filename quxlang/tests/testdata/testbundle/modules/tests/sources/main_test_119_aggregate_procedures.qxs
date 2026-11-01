@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::aggregate_procedure_tests NAMESPACE
 {
   DOC <$ Combines differently sized scalar fields and a three-element array. $>
-  ::record
-    STRUCT
+  ::record STRUCT
   {
     .tag VAR U8;
     .number VAR I32;
@@ -13,8 +12,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Mutates its private argument copy and returns the complete record by value. $>
-  ::transform
-    FUNCTION(@value record, @amount I32): record
+  ::transform FUNCTION(@value record, @amount I32): record
   {
     value.tag := 9;
     value.number += amount;
@@ -26,8 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Indirect aggregate argument and result passing preserve every field and independent nested-array storage. $>
-  ::mixed_record_value_roundtrip
-    DUAL_TEST
+  ::mixed_record_value_roundtrip DUAL_TEST
   {
     VAR pointer CONST->PROCEDURE(@value record, @amount I32: record) := transform<-;
     VAR source record;
@@ -60,12 +57,10 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Contains three floating-point fields passed and returned as one value. $>
-  ::floating_record
-    STRUCT { .first VAR F64; .second VAR F64; .third VAR F64; }
+  ::floating_record STRUCT { .first VAR F64; .second VAR F64; .third VAR F64; }
 
   DOC <$ Permutes three floating-point fields without changing their values. $>
-  ::rotate
-    FUNCTION(@value floating_record): floating_record
+  ::rotate FUNCTION(@value floating_record): floating_record
   {
     VAR result floating_record;
     result.first := value.third;
@@ -75,8 +70,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Indirect calls preserve all fields of a homogeneous floating-point aggregate. $>
-  ::floating_record_roundtrip
-    DUAL_TEST
+  ::floating_record_roundtrip DUAL_TEST
   {
     VAR pointer CONST->PROCEDURE(@value floating_record: floating_record) := rotate<-;
     VAR source floating_record;

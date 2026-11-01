@@ -13,16 +13,14 @@ DOC <$
     .negative VAR BOOL;
 
     DOC <$ Removes high zero limbs and canonicalizes zero's sign. $>
-    .normalize
-      FUNCTION() MUT
+    .normalize FUNCTION() MUT
     {
       LOOP WHILE (.limbs.size() != 0 && .limbs.back() == 0) DO { .limbs.pop_back(); }
       IF (.limbs.size() == 0) { .negative := FALSE; }
     }
 
     DOC <$ Compares unsigned magnitudes independently of signs. $>
-    .compare_magnitude
-      FUNCTION(@ARG:other CONST& big_integer) CONST: ORDER
+    .compare_magnitude FUNCTION(@ARG:other CONST& big_integer) CONST: ORDER
     {
       VAR order ORDER := .limbs.size() <=> other.limbs.size();
       IF (order != ORDER::EQUAL) { RETURN order; }
@@ -36,8 +34,7 @@ DOC <$
     }
 
     DOC <$ Adds an unsigned magnitude while retaining this integer's sign. $>
-    .add_magnitude
-      FUNCTION(@ARG:other CONST& big_integer) MUT
+    .add_magnitude FUNCTION(@ARG:other CONST& big_integer) MUT
     {
       VAR count SZ := other.limbs.size();
       IF (.limbs.size() > count) { count := .limbs.size(); }
@@ -54,8 +51,7 @@ DOC <$
     }
 
     DOC <$ Subtracts a magnitude no greater than this integer's magnitude. $>
-    .subtract_magnitude
-      FUNCTION(@ARG:other CONST& big_integer) MUT
+    .subtract_magnitude FUNCTION(@ARG:other CONST& big_integer) MUT
     {
       VAR borrow U64 := 0;
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.limbs.size()) DO
@@ -71,8 +67,7 @@ DOC <$
     }
 
     DOC <$ Adds other's magnitude with the supplied sign. $>
-    .combine
-      FUNCTION(@other CONST& big_integer, @negative BOOL) MUT
+    .combine FUNCTION(@other CONST& big_integer, @negative BOOL) MUT
     {
       IF (.negative == negative) { .add_magnitude(other); RETURN; }
       VAR order ORDER := .compare_magnitude(other);
@@ -87,8 +82,7 @@ DOC <$
   DOC <$ Constructs zero. $>
   .CONSTRUCTOR FUNCTION() { }
   DOC <$ Constructs an exact signed machine integer, including I64's minimum value. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER I64)
+  .CONSTRUCTOR FUNCTION(@OTHER I64)
   {
     .negative := OTHER < 0;
     VAR magnitude U64 := OTHER AS PARTIAL U64;
@@ -101,18 +95,15 @@ DOC <$
   }
 
   DOC <$ Adds other. Self-addition doubles the value. $>
-  .add
-    FUNCTION(@ARG:other CONST& big_integer) MUT
+  .add FUNCTION(@ARG:other CONST& big_integer) MUT
   { .combine(@other other, @negative other.negative); }
 
   DOC <$ Subtracts other. Self-subtraction produces zero. $>
-  .subtract
-    FUNCTION(@ARG:other CONST& big_integer) MUT
+  .subtract FUNCTION(@ARG:other CONST& big_integer) MUT
   { .combine(@other other, @negative other.negative == FALSE); }
 
   DOC <$ Multiplies by a nonnegative machine factor with exact carry propagation. $>
-  .multiply
-    FUNCTION(@ARG:factor U32) MUT
+  .multiply FUNCTION(@ARG:factor U32) MUT
   {
     IF (factor == 0) { .limbs.clear(); .negative := FALSE; RETURN; }
     VAR carry U64 := 0;
@@ -130,8 +121,7 @@ DOC <$
   }
 
   DOC <$ Returns floor(THIS / divisor). Throws I32 for a zero divisor or an out-of-range quotient. $>
-  .quotient_i32
-    FUNCTION(@ARG:divisor CONST& big_integer) CONST: I32
+  .quotient_i32 FUNCTION(@ARG:divisor CONST& big_integer) CONST: I32
   {
     IF (divisor.limbs.size() == 0) { THROW (1 AS I32); }
     VAR negative BOOL := .negative != divisor.negative;

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::serialization_boundary_tests NAMESPACE
 {
   DOC <$ Checks a known LEB128 byte sequence, iterator endpoints, roundtrip value, and surrounding guards. $>
-  ::leb_case
-    FUNCTION(@value U64, @size SZ, @first BYTE, @second BYTE, @third BYTE)
+  ::leb_case FUNCTION(@value U64, @size SZ, @first BYTE, @second BYTE, @third BYTE)
   {
     VAR bytes [5]BYTE;
     VAR index SZ := 0;
@@ -23,8 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ LEB128 expands exactly at powers of 128 and writes no bytes past its returned endpoint. $>
-  ::leb128_size_boundaries
-    DUAL_TEST
+  ::leb128_size_boundaries DUAL_TEST
   {
     leb_case(@value 0, @size 1, @first 0, @second 170, @third 170);
     leb_case(@value 127, @size 1, @first 127, @second 170, @third 170);
@@ -34,8 +32,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checks known UINTANY bytes and exact iterator advancement without relying only on a roundtrip. $>
-  ::uintany_case
-    FUNCTION(@value U64, @size SZ, @first BYTE, @second BYTE, @third BYTE)
+  ::uintany_case FUNCTION(@value U64, @size SZ, @first BYTE, @second BYTE, @third BYTE)
   {
     VAR bytes [5]BYTE;
     VAR index SZ := 0;
@@ -54,8 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ UINTANY's biased continuation encoding is checked at its one-, two-, and three-byte boundaries. $>
-  ::uintany_size_boundaries
-    DUAL_TEST
+  ::uintany_size_boundaries DUAL_TEST
   {
     uintany_case(@value 0, @size 1, @first 0, @second 170, @third 170);
     uintany_case(@value 127, @size 1, @first 127, @second 170, @third 170);
@@ -66,8 +62,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ The largest U64 uses ten LEB128 bytes with a final payload of one and preserves surrounding bytes. $>
-  ::leb128_maximum_u64
-    DUAL_TEST
+  ::leb128_maximum_u64 DUAL_TEST
   {
     VAR bytes [12]BYTE;
     bytes[0] := 170;
@@ -87,8 +82,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Twelve-bit integer serialization uses two little-endian bytes with signed extension and exact iterator advancement. $>
-  ::nonbyte_signed_and_unsigned_storage
-    DUAL_TEST
+  ::nonbyte_signed_and_unsigned_storage DUAL_TEST
   {
     VAR bytes [6]BYTE;
     bytes[0] := 170;

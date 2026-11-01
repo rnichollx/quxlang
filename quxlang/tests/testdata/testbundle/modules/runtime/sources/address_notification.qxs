@@ -12,8 +12,7 @@ DOC <$
   macOS and Windows use process-local address waits.
   The caller must publish the new atomic value before notifying.
   $>
-::notify_all_at_address
-  FUNCTION(@address ADDRESS, @size SZ): BOOL
+::notify_all_at_address FUNCTION(@address ADDRESS, @size SZ): BOOL
 {
   STATIC_IF(OS_LINUX)
   {
@@ -66,8 +65,7 @@ DOC <$
   macOS and Windows use process-local address waits.
   The caller must publish the new atomic value before notifying.
   $>
-::notify_one_at_address
-  FUNCTION(@address ADDRESS, @size SZ): BOOL
+::notify_one_at_address FUNCTION(@address ADDRESS, @size SZ): BOOL
 {
   STATIC_IF(OS_LINUX)
   {
@@ -139,8 +137,7 @@ DOC <$
 }
 
 DOC <$ Gives runnable threads an opportunity to complete contended operations. $>
-::yield_thread_execution
-  FUNCTION()
+::yield_thread_execution FUNCTION()
 {
   STATIC_IF(OS_LINUX) { syscall::linux::sched_yield(); }
   STATIC_ELSE STATIC_IF(OS_MACOS) { posix::sched_yield(); }

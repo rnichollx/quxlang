@@ -7,8 +7,7 @@ DOC <$
   Returns the historical public bucket size used by runtime clients that need
   the 8, 16, 24, 32, 48, ... progression.
   $>
-::memory_bucket_size
-  FUNCTION(@size SZ): SZ
+::memory_bucket_size FUNCTION(@size SZ): SZ
 {
   VAR bucket SZ := 8;
   VAR step SZ := 8;
@@ -37,8 +36,7 @@ DOC <$
 DOC <$
   Rounds an OS mapping request up to a nonzero whole number of 4096-byte pages.
   $>
-PRIVATE(MODULE) ::layer5_mapping_size
-  FUNCTION(@size SZ): SZ
+PRIVATE(MODULE) ::layer5_mapping_size FUNCTION(@size SZ): SZ
 {
   IF (size <= 4096)
   {
@@ -65,8 +63,7 @@ DOC <$
   cache roots and shared queues. The mutex remains at a stable address until
   all users have left.
   $>
-::mutex
-  STRUCT ROOTED
+::mutex STRUCT ROOTED
 {
   PRIVATE(CLASS) .state VAR ATOMIC#I32;
 
@@ -80,8 +77,7 @@ DOC <$
   }
 
   DOC <$ Acquires the mutex, blocking or yielding while another thread owns it. $>
-  .lock
-    FUNCTION()
+  .lock FUNCTION()
   {
     VAR expected I32 := 0;
     IF (.state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(@EXPECTED expected, @DESIRED 1))
@@ -135,8 +131,7 @@ DOC <$
   }
 
   DOC <$ Releases the mutex and notifies one sleeping contender. $>
-  .unlock
-    FUNCTION()
+  .unlock FUNCTION()
   {
     VAR expected_uncontended I32 := 1;
     IF (.state.COMPARE_EXCHANGE#(
@@ -172,8 +167,7 @@ DOC <$
   Native configurations require at least twelve bits and enough address bits
   for a mapping twice the region size. Bitmap storage scales with the region.
   $>
-::allocator_allocation_region_bits
-  OPTION NUMBER DEFAULT_VALUE(16);
+::allocator_allocation_region_bits OPTION NUMBER DEFAULT_VALUE(16);
 
 PRIVATE(MODULE) ::allocator_slab_region_size STATIC SZ :=
   (1 AS SZ) #++ allocator_allocation_region_bits;
@@ -200,8 +194,7 @@ DOC <$
   The byte ceiling permits the target entry count for allocations through
   8 KiB; the default target retains at most 512 KiB of payload per cache.
   $>
-::allocator_thread_cache_refill_maximum_bytes
-  OPTION NUMBER DEFAULT_VALUE(524288);
+::allocator_thread_cache_refill_maximum_bytes OPTION NUMBER DEFAULT_VALUE(524288);
 
 ::allocator_thread_cache_refill_minimum_bytes OPTION NUMBER DEFAULT_VALUE(32768);
 
@@ -215,8 +208,7 @@ DOC <$
 DOC <$
   Multiplies element size and count, terminating instead of wrapping.
   $>
-PRIVATE(MODULE) ::allocator_checked_bytes
-  FUNCTION(@size SZ, @count SZ): SZ
+PRIVATE(MODULE) ::allocator_checked_bytes FUNCTION(@size SZ, @count SZ): SZ
 {
   IF (count == 0 || size == 0)
   {
@@ -233,8 +225,7 @@ PRIVATE(MODULE) ::allocator_checked_bytes
 DOC <$
   Validates an alignment supported by page-aligned slab and direct mappings.
   $>
-PRIVATE(MODULE) ::allocator_validate_alignment
-  FUNCTION(@align SZ)
+PRIVATE(MODULE) ::allocator_validate_alignment FUNCTION(@align SZ)
 {
   IF (align == 0 || (align #&& (align - 1)) != 0)
   {
@@ -247,8 +238,7 @@ PRIVATE(MODULE) ::allocator_validate_alignment
 }
 
 DOC <$ Maps a page-rounded region or returns a null address on failure. $>
-PRIVATE(MODULE) ::layer5_map_region
-  FUNCTION(@bytes SZ) NOEXCEPT: ADDRESS
+PRIVATE(MODULE) ::layer5_map_region FUNCTION(@bytes SZ) NOEXCEPT: ADDRESS
 {
   VAR maximum_size SZ := (0 AS SZ) #!!;
   IF (bytes > maximum_size - (allocator_page_size - 1)) { RETURN NULL; }
@@ -276,8 +266,7 @@ PRIVATE(MODULE) ::layer5_map_region
 }
 
 DOC <$ Releases one page-rounded direct allocation. $>
-PRIVATE(MODULE) ::layer5_unmap_region
-  FUNCTION(@address ADDRESS, @bytes SZ)
+PRIVATE(MODULE) ::layer5_unmap_region FUNCTION(@address ADDRESS, @bytes SZ)
 {
   VAR mapping_size SZ := layer5_mapping_size(@size bytes);
   VAR succeeded BOOL := FALSE;
@@ -302,8 +291,7 @@ PRIVATE(MODULE) ::layer5_unmap_region
 DOC <$
   Computes an even address-cache capacity for one slab block size.
   $>
-PRIVATE(MODULE) ::allocator_address_cache_entry_count
-  FUNCTION(@block_size SZ): SZ
+PRIVATE(MODULE) ::allocator_address_cache_entry_count FUNCTION(@block_size SZ): SZ
 {
   VAR entry_size SZ := block_size;
   VAR target_max_entries SZ  := allocator_thread_cache_refill_maximum_bytes / block_size;
@@ -334,15 +322,13 @@ DOC <$
   prefix with its thread-local cursor and synchronizes used before operations
   on the cache object.
   $>
-PRIVATE(MODULE) ::addr_cache
-  TEMPLATE(@count VALUE SZ) STRUCT
+PRIVATE(MODULE) ::addr_cache TEMPLATE(@count VALUE SZ) STRUCT
 {
   .entries VAR [count]TYPED_STORAGE(ADDRESS) ALIGN(64);
   .used VAR SZ;
 
   DOC <$ Adds one address to the top of the cache. $>
-  .push
-    FUNCTION(@ARG:entry ADDRESS)
+  .push FUNCTION(@ARG:entry ADDRESS)
   {
     ASSERT(.used < count, "An address cache cannot exceed its capacity.");
     PLACE AT(.entries[.used]) ADDRESS := entry;
@@ -350,8 +336,7 @@ PRIVATE(MODULE) ::addr_cache
   }
 
   DOC <$ Removes and returns the address at the top of the cache. $>
-  .pop
-    FUNCTION(): ADDRESS
+  .pop FUNCTION(): ADDRESS
   {
     ASSERT(.used > 0, "An empty address cache cannot be popped.");
     .used--;
@@ -361,8 +346,7 @@ PRIVATE(MODULE) ::addr_cache
   }
 
   DOC <$ Moves the requested top entries into another cache while preserving their array order. $>
-  .move_entries_to
-    FUNCTION(@destination MUT& addr_cache#(@count count), @entry_count SZ)
+  .move_entries_to FUNCTION(@destination MUT& addr_cache#(@count count), @entry_count SZ)
   {
     ASSERT(.used >= entry_count, "An address-cache transfer exceeds the source size.");
     ASSERT(destination.used <= count, "An address cache has an invalid used count.");
@@ -380,8 +364,7 @@ PRIVATE(MODULE) ::addr_cache
   }
 
   DOC <$ The grouping function partitions an address prefix by region using only varying region-address bytes. $>
-  .group_regions
-    FUNCTION()
+  .group_regions FUNCTION()
   {
     IF (.used > 32)
     {
@@ -430,8 +413,7 @@ PRIVATE(MODULE) ::addr_cache
   }
 
   DOC <$ Restores a maximum heap after replacing its root within the supplied prefix. $>
-  .sift_down
-    FUNCTION(@root SZ, @length SZ)
+  .sift_down FUNCTION(@root SZ, @length SZ)
   {
     VAR current SZ := root;
     VAR value ADDRESS := PUN .entries[current] AS ADDRESS;
@@ -454,8 +436,7 @@ PRIVATE(MODULE) ::addr_cache
   }
 
   DOC <$ Orders the live address prefix in place using an O(n log n) heap sort. $>
-  .sort
-    FUNCTION()
+  .sort FUNCTION()
   {
     VAR root SZ := .used / 2;
     LOOP WHILE (root > 0) DO { root--; .sift_down(@root root, @length .used); }
@@ -488,16 +469,14 @@ PRIVATE(MODULE) ::layer2_metadata_region STRUCT
 DOC <$
   Owns one address cache and retains its metadata mapping.
   $>
-PRIVATE(MODULE) ::addr_cache_node
-  TEMPLATE(@count VALUE SZ) STRUCT
+PRIVATE(MODULE) ::addr_cache_node TEMPLATE(@count VALUE SZ) STRUCT
 {
   .cache VAR addr_cache#(@count count);
   .metadata VAR MUT->layer2_metadata_region;
 }
 
 DOC <$ The slab root owns independent full and partial transfer stores for one plate capacity. $>
-PRIVATE(MODULE) ::layer2_slab_root
-  TEMPLATE(@count VALUE SZ) STRUCT
+PRIVATE(MODULE) ::layer2_slab_root TEMPLATE(@count VALUE SZ) STRUCT
 {
   .full VAR layer2_home_plate_store#(@count count, @slot_count layer2_full_plate_slot_count, @empty_metadata FALSE);
   .partial VAR layer2_home_plate_store#(@count count, @slot_count layer2_partial_plate_slot_count, @empty_metadata FALSE);
@@ -506,34 +485,28 @@ PRIVATE(MODULE) ::layer2_slab_root
 DOC <$
   Registers allocator cache cleanup with the thread runtime on first use.
   $>
-PRIVATE(MODULE) ::allocator_thread_cache_lifetime
-STRUCT
+PRIVATE(MODULE) ::allocator_thread_cache_lifetime STRUCT
 {
   DOC <$ Keeps the thread-runtime cleanup registration nontrivial. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
   }
 }
 
-PRIVATE(MODULE) ::layer2_empty_cache_root_for
-  TEMPLATE(@count VALUE SZ)
+PRIVATE(MODULE) ::layer2_empty_cache_root_for TEMPLATE(@count VALUE SZ)
   VAR layer2_home_plate_store#(@count count, @slot_count layer2_plate_slot_count, @empty_metadata TRUE);
 
-PRIVATE(MODULE) ::layer2_slab_root_for
-  TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
+PRIVATE(MODULE) ::layer2_slab_root_for TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ, @cache_count VALUE SZ)
   VAR layer2_slab_root#(@count cache_count);
 
 PRIVATE(MODULE) ::allocator_thread_caches_disabled VAR PER_THREAD BOOL;
-PRIVATE(MODULE) ::allocator_thread_cache_lifetime_state
-  VAR PER_THREAD allocator_thread_cache_lifetime;
+PRIVATE(MODULE) ::allocator_thread_cache_lifetime_state VAR PER_THREAD allocator_thread_cache_lifetime;
 
 DOC <$
   Publishes an empty plate or discards it when the bounded store has no slot.
   Metadata mappings remain alive until every constructed plate is discarded.
   $>
-PRIVATE(MODULE) ::layer2_release_empty_cache_node
-  TEMPLATE(@count VALUE SZ)
+PRIVATE(MODULE) ::layer2_release_empty_cache_node TEMPLATE(@count VALUE SZ)
   FUNCTION(@node MUT->addr_cache_node#(@count count))
 {
   ASSERT(node->.cache.used == 0, "Only an empty cache can enter the empty-cache store.");
@@ -548,8 +521,7 @@ DOC <$
   Constructs a batch of plate objects outside shared state. One plate is
   returned directly and the others are offered to the bounded empty store.
   $>
-PRIVATE(MODULE) ::layer2_refill_empty_cache_nodes
-  TEMPLATE(@count VALUE SZ)
+PRIVATE(MODULE) ::layer2_refill_empty_cache_nodes TEMPLATE(@count VALUE SZ)
   FUNCTION(): MUT->addr_cache_node#(@count count)
 {
   VAR node_size SZ := CELLSIZEOF(addr_cache_node#(@count count));
@@ -584,8 +556,7 @@ PRIVATE(MODULE) ::layer2_refill_empty_cache_nodes
 DOC <$
   Claims an empty plate or constructs a metadata batch after an unsuccessful scan.
   $>
-PRIVATE(MODULE) ::layer2_acquire_empty_cache_node
-  TEMPLATE(@count VALUE SZ)
+PRIVATE(MODULE) ::layer2_acquire_empty_cache_node TEMPLATE(@count VALUE SZ)
   FUNCTION(): MUT->addr_cache_node#(@count count)
 {
   VAR result MUT->addr_cache_node#(@count count) := layer2_empty_cache_root_for#(@count count).try_pop();
@@ -609,12 +580,10 @@ PRIVATE(MODULE) ::layer2_drain_cache TEMPLATE(@count VALUE SZ)
 DOC <$
   Handles allocations above the slab limit with page-rounded direct mappings.
   $>
-PRIVATE(MODULE) ::large_allocator
-  STRUCT
+PRIVATE(MODULE) ::large_allocator STRUCT
 {
   DOC <$ Maps one allocation with the requested layout. $>
-  PRIVATE(MODULE) ::allocate
-    FUNCTION(@size SZ, @align SZ): ADDRESS
+  PRIVATE(MODULE) ::allocate FUNCTION(@size SZ, @align SZ): ADDRESS
   {
     allocator_validate_alignment(@align align);
     VAR bytes SZ := size;
@@ -626,8 +595,7 @@ PRIVATE(MODULE) ::large_allocator
   }
 
   DOC <$ Unmaps one allocation with the original layout. $>
-  PRIVATE(MODULE) ::deallocate
-    FUNCTION(@size SZ, @align SZ, @ptr ADDRESS)
+  PRIVATE(MODULE) ::deallocate FUNCTION(@size SZ, @align SZ, @ptr ADDRESS)
   {
     ASSERT(ptr??);
     allocator_validate_alignment(@align align);
@@ -644,8 +612,7 @@ DOC <$
   Implements one fixed block-size and alignment allocator with whole-cache
   transfers between thread-local and global state.
   $>
-PRIVATE(MODULE) ::slab_allocator
-  TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ) STRUCT
+PRIVATE(MODULE) ::slab_allocator TEMPLATE(@block_size VALUE SZ, @block_align VALUE SZ) STRUCT
 {
   PRIVATE(MODULE) ::address_cache_count STATIC SZ :=
     allocator_address_cache_entry_count(@block_size block_size);
@@ -656,20 +623,15 @@ PRIVATE(MODULE) ::slab_allocator
   PRIVATE(MODULE) ::layer1_cache_control_state STRUCT
   {
     DOC <$ Points to the first unused address slot in the active cache. $>
-    .entry
-      VAR =>>TYPED_STORAGE(ADDRESS);
+    .entry VAR =>>TYPED_STORAGE(ADDRESS);
     DOC <$ Points one slot past the active cache storage capacity. $>
-    .top
-      VAR =>>TYPED_STORAGE(ADDRESS);
+    .top VAR =>>TYPED_STORAGE(ADDRESS);
     DOC <$ Points to the first address slot, or null before initialization. $>
-    .bottom
-      VAR =>>TYPED_STORAGE(ADDRESS);
+    .bottom VAR =>>TYPED_STORAGE(ADDRESS);
     DOC <$ Owns the active cache object whose used count is synchronized before transfers. $>
-    .node
-      VAR MUT->addr_cache_node#(@count address_cache_count);
+    .node VAR MUT->addr_cache_node#(@count address_cache_count);
     DOC <$ Owns the secondary cache, accessed during slow-path transfers. $>
-    .secondary_node
-      VAR MUT->addr_cache_node#(@count address_cache_count);
+    .secondary_node VAR MUT->addr_cache_node#(@count address_cache_count);
     .home VAR SZ;
     .home_assigned VAR BOOL;
   }
@@ -680,8 +642,7 @@ PRIVATE(MODULE) ::slab_allocator
   PRIVATE(MODULE) ::layer1_cache_control VAR PER_THREAD layer1_cache_control_state ALIGN(64);
 
   DOC <$ Owns the stable control lists for this slab class. $>
-  PRIVATE(MODULE) ::layer3_regions
-    VAR layer2_region_bank;
+  PRIVATE(MODULE) ::layer3_regions VAR layer2_region_bank;
 
   PRIVATE(MODULE) ::layer2_next_home VAR ATOMIC#SZ ALIGN(64);
 
@@ -700,8 +661,7 @@ PRIVATE(MODULE) ::slab_allocator
     Claims a full plate or aggregates privately claimed partial plates before
     refilling the remaining capacity from layer 3.
     $>
-  PRIVATE(MODULE) ::layer2_acquire_full_cache
-    FUNCTION(): MUT->addr_cache_node#(@count address_cache_count)
+  PRIVATE(MODULE) ::layer2_acquire_full_cache FUNCTION(): MUT->addr_cache_node#(@count address_cache_count)
   {
     VAR root MUT& layer2_slab_root#(@count address_cache_count) := layer2_slab_root_for#(
       @block_size block_size, @block_align block_align, @cache_count address_cache_count
@@ -758,8 +718,7 @@ PRIVATE(MODULE) ::slab_allocator
     Aggregates partial plates under private ownership and publishes full plates.
     A plate that cannot be retained returns its slots to layer 3 in region batches.
     $>
-  PRIVATE(MODULE) ::layer2_release_cache
-    FUNCTION(@node MUT->addr_cache_node#(@count address_cache_count))
+  PRIVATE(MODULE) ::layer2_release_cache FUNCTION(@node MUT->addr_cache_node#(@count address_cache_count))
   {
     IF (node->.cache.used == 0)
     {
@@ -802,8 +761,7 @@ PRIVATE(MODULE) ::slab_allocator
   DOC <$
     Acquires and activates both empty cache objects, returning false if either allocation fails.
     $>
-  PRIVATE(MODULE) ::layer1_initialize_thread_cache
-    FUNCTION(): BOOL
+  PRIVATE(MODULE) ::layer1_initialize_thread_cache FUNCTION(): BOOL
   {
     allocator_thread_cache_lifetime_state;
     ASSERT((layer1_cache_control.node??) == FALSE, "A thread cache already has an active cache object.");
@@ -826,8 +784,7 @@ PRIVATE(MODULE) ::slab_allocator
     Establishes the thread-local cursor and bounds from the active cache node
     after a slow-path transfer.
     $>
-  PRIVATE(MODULE) ::layer1_activate_thread_cache
-    FUNCTION()
+  PRIVATE(MODULE) ::layer1_activate_thread_cache FUNCTION()
   {
     layer1_cache_control.bottom := layer1_cache_control.node->.cache.entries[&0];
     layer1_cache_control.entry := layer1_cache_control.bottom + layer1_cache_control.node->.cache.used;
@@ -853,8 +810,7 @@ PRIVATE(MODULE) ::slab_allocator
   { layer3_region_return(@address ptr); }
 
   DOC <$ Allocates one block from this slab allocator or returns null on allocation failure. $>
-  PRIVATE(MODULE) ::layer0_allocate
-    FUNCTION(): ADDRESS
+  PRIVATE(MODULE) ::layer0_allocate FUNCTION(): ADDRESS
   {
     VAR entry =>>TYPED_STORAGE(ADDRESS) := layer1_cache_control.entry;
     IF LIKELY (entry != layer1_cache_control.bottom)
@@ -873,8 +829,7 @@ PRIVATE(MODULE) ::slab_allocator
   DOC <$
     Refills an empty active cache or allocates while thread caches are disabled.
     $>
-  PRIVATE(MODULE) ::layer1_allocate
-    FUNCTION(): ADDRESS
+  PRIVATE(MODULE) ::layer1_allocate FUNCTION(): ADDRESS
   {
     IF UNLIKELY (allocator_thread_caches_disabled)
     {
@@ -929,8 +884,7 @@ PRIVATE(MODULE) ::slab_allocator
   }
 
   DOC <$ Returns one block to this slab allocator. $>
-  PRIVATE(MODULE) ::layer0_deallocate
-    FUNCTION(@ptr ADDRESS)
+  PRIVATE(MODULE) ::layer0_deallocate FUNCTION(@ptr ADDRESS)
   {
     VAR entry =>>TYPED_STORAGE(ADDRESS) := layer1_cache_control.entry;
     IF LIKELY (entry != layer1_cache_control.top)
@@ -947,8 +901,7 @@ PRIVATE(MODULE) ::slab_allocator
   DOC <$
     Returns a block after a full active cache requires transfer or initialization.
     $>
-  PRIVATE(MODULE) ::layer1_deallocate
-    FUNCTION(@ptr ADDRESS)
+  PRIVATE(MODULE) ::layer1_deallocate FUNCTION(@ptr ADDRESS)
   {
     INVARIANT(ptr??, "freeing nullptr is undefined");
     IF UNLIKELY (allocator_thread_caches_disabled)
@@ -1009,8 +962,7 @@ PRIVATE(MODULE) ::slab_allocator
   DOC <$
     Returns both cache objects owned by this thread to global allocator state.
     $>
-  PRIVATE(MODULE) ::layer1_release_thread_cache
-    FUNCTION()
+  PRIVATE(MODULE) ::layer1_release_thread_cache FUNCTION()
   {
     IF ((layer1_cache_control.node??) == FALSE)
     {
@@ -1035,8 +987,7 @@ PRIVATE(MODULE) ::slab_allocator
   DOC <$
     Reports this thread's block count for allocator validation.
     $>
-  PRIVATE(MODULE) ::thread_cached_block_count
-    FUNCTION(): SZ
+  PRIVATE(MODULE) ::thread_cached_block_count FUNCTION(): SZ
   {
     IF ((layer1_cache_control.node??) == FALSE)
     {
@@ -1050,8 +1001,7 @@ PRIVATE(MODULE) ::slab_allocator
 DOC <$
   Routes a compile-time layout through the generated slab size classes.
   $>
-PRIVATE(MODULE) ::allocator_allocate_static
-  TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ADDRESS
+PRIVATE(MODULE) ::allocator_allocate_static TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ADDRESS
 {
   allocator_validate_alignment(@align align);
   STATIC_VAR block_size SZ := 8;
@@ -1075,8 +1025,7 @@ PRIVATE(MODULE) ::allocator_allocate_static
 DOC <$
   Returns a compile-time layout through the generated slab size classes.
   $>
-PRIVATE(MODULE) ::allocator_deallocate_static
-  TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS)
+PRIVATE(MODULE) ::allocator_deallocate_static TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr ADDRESS)
 {
   allocator_validate_alignment(@align align);
   STATIC_VAR block_size SZ := 8;
@@ -1101,8 +1050,7 @@ PRIVATE(MODULE) ::allocator_deallocate_static
 DOC <$
   Routes a runtime layout through the generated slab size classes.
   $>
-PRIVATE(MODULE) ::allocator_allocate_dynamic
-  FUNCTION(@bytes SZ, @align SZ): ADDRESS
+PRIVATE(MODULE) ::allocator_allocate_dynamic FUNCTION(@bytes SZ, @align SZ): ADDRESS
 {
   allocator_validate_alignment(@align align);
   STATIC_VAR block_size SZ := 8;
@@ -1127,8 +1075,7 @@ PRIVATE(MODULE) ::allocator_allocate_dynamic
 DOC <$
   Returns a runtime layout through the generated slab size classes.
   $>
-PRIVATE(MODULE) ::allocator_deallocate_dynamic
-  FUNCTION(@bytes SZ, @align SZ, @ptr ADDRESS)
+PRIVATE(MODULE) ::allocator_deallocate_dynamic FUNCTION(@bytes SZ, @align SZ, @ptr ADDRESS)
 {
   allocator_validate_alignment(@align align);
   STATIC_VAR block_size SZ := 8;
@@ -1153,8 +1100,7 @@ PRIVATE(MODULE) ::allocator_deallocate_dynamic
 DOC <$
   Uses a slab allocator for a runtime count whenever the total layout is eligible.
   $>
-PRIVATE(MODULE) ::allocator_allocate_multiple
-  FUNCTION(@size SZ, @align SZ, @count SZ): ADDRESS
+PRIVATE(MODULE) ::allocator_allocate_multiple FUNCTION(@size SZ, @align SZ, @count SZ): ADDRESS
 {
   IF (count != 0 && size > ((0 AS SZ) #!!) / count) { RETURN NULL; }
   VAR bytes SZ := size * count;
@@ -1164,8 +1110,7 @@ PRIVATE(MODULE) ::allocator_allocate_multiple
 DOC <$
   Reconstructs the multi allocation's slab-or-large routing from its count.
   $>
-PRIVATE(MODULE) ::allocator_deallocate_multiple
-  FUNCTION(@size SZ, @align SZ, @ptr ADDRESS, @count SZ)
+PRIVATE(MODULE) ::allocator_deallocate_multiple FUNCTION(@size SZ, @align SZ, @ptr ADDRESS, @count SZ)
 {
   IF ((ptr??) == FALSE)
   {
@@ -1178,8 +1123,7 @@ PRIVATE(MODULE) ::allocator_deallocate_multiple
 DOC <$
   Flushes every generated slab specialization used by the default allocator.
   $>
-PRIVATE(MODULE) ::allocator_release_all_thread_caches
-  FUNCTION()
+PRIVATE(MODULE) ::allocator_release_all_thread_caches FUNCTION()
 {
   STATIC_VAR block_size SZ := 8;
   STATIC_VAR step SZ := 4;
@@ -1200,8 +1144,7 @@ DOC <$
   Releasing the caches clears their cursors and bounds, so subsequent
   allocations and deallocations enter the slow path during thread teardown.
   $>
-PRIVATE(MODULE) ::allocator_thread_cache_shutdown_begin
-  FUNCTION()
+PRIVATE(MODULE) ::allocator_thread_cache_shutdown_begin FUNCTION()
 {
   allocator_thread_caches_disabled := TRUE;
   allocator_release_all_thread_caches();
@@ -1211,8 +1154,7 @@ DOC <$
   Returns this thread's remaining full, partial, and empty cache objects after
   every registered thread-local destructor has run.
   $>
-PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish
-  FUNCTION()
+PRIVATE(MODULE) ::allocator_thread_cache_shutdown_finish FUNCTION()
 {
   allocator_release_all_thread_caches();
 }
@@ -1221,8 +1163,7 @@ DOC <$
   Provides the standard typed allocator interfaces for `T`. The `VOID`
   specialization provides the typeless Size-Align and Virtual Allocator APIs.
   $>
-::DEFAULT_ALLOCATOR
-  TEMPLATE(@T TYPE AUTO) STRUCT
+::DEFAULT_ALLOCATOR TEMPLATE(@T TYPE AUTO) STRUCT
 {
   DOC <$ Allocates storage for one object of `T`. $>
   ::ALLOC INCLUDE_IF(SAME_TYPES(T, VOID) == FALSE)

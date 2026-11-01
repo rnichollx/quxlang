@@ -45,8 +45,7 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$
     Opens a file, passing the creation mode in Darwin ARM64's variadic stack slot.
     $>
-  ::open
-    ASM_PROCEDURE ARM64
+  ::open ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(@path CONST=>>BYTE, @flags open_flags, @mode file_mode; RETURN I32)
   {
     SUB SP, SP, 32
@@ -62,8 +61,7 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$
     Opens a file, marking the x64 variadic call as having no vector arguments.
     $>
-  ::open
-    ASM_PROCEDURE X64
+  ::open ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(@path CONST=>>BYTE, @flags open_flags, @mode file_mode; RETURN I32)
   {
     XOR EAX, EAX
@@ -112,8 +110,7 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$
     Maps writable private anonymous storage and converts MAP_FAILED to null.
     $>
-  ::mmap_anonymous_private
-    FUNCTION(@size SZ): ADDRESS
+  ::mmap_anonymous_private FUNCTION(@size SZ): ADDRESS
   {
     VAR requested_address ADDRESS;
     VAR mapping ADDRESS := mmap(

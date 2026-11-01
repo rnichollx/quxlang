@@ -358,43 +358,37 @@ LANGUAGE QUXLANG EN 0.0;
   }
 }
 
-::whole_template_type_binding
-  TEMPLATE(@arg TYPE MUT& AUTO)
+::whole_template_type_binding TEMPLATE(@arg TYPE MUT& AUTO)
   FUNCTION(): BOOL
 {
   RETURN SAME_TYPES(arg, MUT& I32);
 }
 
-::nested_template_type_capture
-  TEMPLATE(@arg TYPE MUT& AUTO(captured_type))
+::nested_template_type_capture TEMPLATE(@arg TYPE MUT& AUTO(captured_type))
   FUNCTION(): BOOL
 {
   RETURN SAME_TYPES(arg, MUT& I32) && SAME_TYPES(captured_type, I32);
 }
 
-::exact_reference_template_parameter
-  TEMPLATE(@T TYPE)
+::exact_reference_template_parameter TEMPLATE(@T TYPE)
   FUNCTION(): BOOL
 {
   RETURN SAME_TYPES(T, MUT& I32);
 }
 
-::class_template_parameter
-  TEMPLATE(@T CLASS)
+::class_template_parameter TEMPLATE(@T CLASS)
   FUNCTION(): BOOL
 {
   RETURN SAME_TYPES(T, I32);
 }
 
-::auto_class_template_parameter
-  TEMPLATE(@T TYPE AUTO)
+::auto_class_template_parameter TEMPLATE(@T TYPE AUTO)
   FUNCTION(): BOOL
 {
   RETURN SAME_TYPES(T, I32);
 }
 
-::function_auto_parameter_accepts_reference
-  FUNCTION(@ARG:value AUTO(value_type)): BOOL
+::function_auto_parameter_accepts_reference FUNCTION(@ARG:value AUTO(value_type)): BOOL
 {
   RETURN SAME_TYPES(value_type, I32);
 }

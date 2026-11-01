@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::atomic_value_tests NAMESPACE
 {
   DOC <$ Atomic integers do not support the swap operator. $>
-  ::integer_swap_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::integer_swap_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
@@ -12,8 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic booleans do not support the swap operator. $>
-  ::boolean_swap_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::boolean_swap_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#BOOL;
     VAR right ATOMIC#BOOL;
@@ -21,8 +19,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic pointers do not support the swap operator. $>
-  ::pointer_swap_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::pointer_swap_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#(MUT->I32);
     VAR right ATOMIC#(MUT->I32);
@@ -30,8 +27,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic values require named member operations for assignment. $>
-  ::assignment_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::assignment_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
@@ -39,8 +35,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic values require named member operations for value assignment. $>
-  ::value_assignment_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::value_assignment_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
@@ -48,8 +43,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic values require named member operations for compound assignment. $>
-  ::compound_assignment_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::compound_assignment_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
@@ -57,8 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic values require named member operations for increment. $>
-  ::increment_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::increment_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
@@ -66,8 +59,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic values require named member operations for arithmetic. $>
-  ::arithmetic_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::arithmetic_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
@@ -75,8 +67,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic values require named member operations for equality. $>
-  ::equality_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::equality_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
@@ -84,8 +75,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic values require named member operations for comparison. $>
-  ::comparison_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::comparison_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
@@ -93,8 +83,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Atomic values require named member operations for implicit load. $>
-  ::implicit_load_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::implicit_load_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR left ATOMIC#I32;
     VAR right ATOMIC#I32;
@@ -102,8 +91,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Each named operation preserves its fetch result and stores the expected eight-bit value. $>
-  ::extended_rmw_values
-    TEMPLATE(@mode TYPE AUTO) FUNCTION()
+  ::extended_rmw_values TEMPLATE(@mode TYPE AUTO) FUNCTION()
   {
     VAR value ATOMIC#U8;
     value.STORE#NONATOMIC(12);
@@ -211,8 +199,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Named operations agree during constant evaluation and native execution. $>
-  ::extended_rmw_constant_values
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::extended_rmw_constant_values DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     extended_rmw_values#(@mode NONATOMIC)();
     extended_rmw_values#(@mode ATOMIC_SEQCST)();
@@ -246,8 +233,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Named RMW operations accept every supported atomic ordering. $>
-  ::extended_rmw_orderings
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::extended_rmw_orderings UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     extended_rmw_values#(@mode ATOMIC_RELAXED)();
     extended_rmw_values#(@mode ATOMIC_ACQUIRE)();
@@ -256,8 +242,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checks the previous value returned by each fetch operation and the resulting atomic state. $>
-  ::rmw_values
-    TEMPLATE(@T TYPE AUTO, @mode TYPE AUTO) FUNCTION()
+  ::rmw_values TEMPLATE(@T TYPE AUTO, @mode TYPE AUTO) FUNCTION()
   {
     VAR value ATOMIC#T;
     value.STORE#ATOMIC_RELEASE(7);
@@ -286,8 +271,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Applies value assertions to every supported read-modify-write ordering mode. $>
-  ::rmw_modes
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::rmw_modes TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     rmw_values#(@T T, @mode ATOMIC_RELAXED)();
     rmw_values#(@T T, @mode ATOMIC_ACQUIRE)();
@@ -297,24 +281,21 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Native atomic operations preserve return and stored values for signed and unsigned 32-bit operands. $>
-  ::read_modify_write_widths
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::read_modify_write_widths UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     rmw_modes#(I32)();
     rmw_modes#(U32)();
   }
 
   DOC <$ Atomic operations preserve return and stored values for signed and unsigned 64-bit operands. $>
-  ::read_modify_write_wide_widths
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_X86 || ARCH_IS_JVM)
+  ::read_modify_write_wide_widths UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_X86 || ARCH_IS_JVM)
   {
     rmw_modes#(I64)();
     rmw_modes#(U64)();
   }
 
   DOC <$ Failed compare-exchange updates expected, while success preserves expected and replaces the stored value. $>
-  ::compare_exchange_values
-    TEMPLATE(@success TYPE AUTO, @failure TYPE AUTO) FUNCTION()
+  ::compare_exchange_values TEMPLATE(@success TYPE AUTO, @failure TYPE AUTO) FUNCTION()
   {
     VAR value ATOMIC#I32;
     value.STORE#ATOMIC_RELAXED(17);
@@ -333,8 +314,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Exercises success and failure for every supported pairing of atomic comparison orderings. $>
-  ::compare_exchange_modes
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::compare_exchange_modes UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     compare_exchange_values#(@success ATOMIC_RELAXED, @failure ATOMIC_RELAXED)();
     compare_exchange_values#(@success ATOMIC_ACQUIRE, @failure ATOMIC_RELAXED)();
@@ -348,8 +328,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Boolean compare-exchange writes back observed false and true values and preserves expected on success. $>
-  ::boolean_compare_exchange
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::boolean_compare_exchange UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value ATOMIC#BOOL;
     value.STORE#ATOMIC_SEQCST(FALSE);
@@ -365,8 +344,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value.LOAD#ATOMIC_SEQCST());
   }
   DOC <$ Exchange returns the previous value and updates integer and boolean storage during constant evaluation and native execution. $>
-  ::exchange_constant_values
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::exchange_constant_values DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value ATOMIC#I24;
     value.STORE#NONATOMIC(-7);
@@ -380,8 +358,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(flag.LOAD#NONATOMIC() == FALSE);
   }
   DOC <$ Compare-exchange rejects positional expected and desired operands. $>
-  ::compare_exchange_requires_names
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::compare_exchange_requires_names STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value ATOMIC#I32;
     VAR expected I32 := 0;

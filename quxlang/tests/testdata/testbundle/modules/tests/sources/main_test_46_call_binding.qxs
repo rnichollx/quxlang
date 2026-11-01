@@ -3,36 +3,31 @@ LANGUAGE QUXLANG EN 0.0;
 ::call_binding_tests NAMESPACE
 {
   DOC <$ Appends an argument evaluation digit and returns that digit. $>
-  ::record
-    FUNCTION(@events MUT& I32, @digit I32): I32
+  ::record FUNCTION(@events MUT& I32, @digit I32): I32
   {
     events := events * 10 + digit;
     RETURN digit;
   }
 
   DOC <$ Encodes named parameters to distinguish binding order from evaluation order. $>
-  ::target
-    STRUCT
+  ::target STRUCT
   {
     DOC <$ Places the first parameter in the tens position. $>
-    .encode
-      FUNCTION(@first I32, @second I32) CONST: I32
+    .encode FUNCTION(@first I32, @second I32) CONST: I32
     {
       RETURN first * 10 + second;
     }
   }
 
   DOC <$ Records receiver evaluation and returns the original object by reference. $>
-  ::receiver
-    FUNCTION(@events MUT& I32, @object MUT& target): MUT& target
+  ::receiver FUNCTION(@events MUT& I32, @object MUT& target): MUT& target
   {
     events := events * 10 + 1;
     RETURN object;
   }
 
   DOC <$ Receiver and explicit arguments execute once in source order while named values bind by name. $>
-  ::receiver_and_named_argument_order
-    DUAL_TEST
+  ::receiver_and_named_argument_order DUAL_TEST
   {
     VAR object target;
     VAR events I32 := 0;
@@ -47,23 +42,20 @@ LANGUAGE QUXLANG EN 0.0;
   ::default_calls VAR CONSTEXPR_OK I32;
 
   DOC <$ Produces a new observable default value for each omitted argument. $>
-  ::next_default
-    FUNCTION(): I32
+  ::next_default FUNCTION(): I32
   {
     default_calls++;
     RETURN default_calls * 10;
   }
 
   DOC <$ Adds an explicitly required argument to a declaration-context default. $>
-  ::with_default
-    FUNCTION(@value I32 DEFAULT(next_default()), @extra I32): I32
+  ::with_default FUNCTION(@value I32 DEFAULT(next_default()), @extra I32): I32
   {
     RETURN value + extra;
   }
 
   DOC <$ Defaults execute per call, explicit values suppress them, and caller locals do not change declaration lookup. $>
-  ::defaults_run_only_when_omitted
-    DUAL_TEST
+  ::defaults_run_only_when_omitted DUAL_TEST
   {
     call_binding_tests::default_calls := 0;
     VAR default_calls I32 := 99;
@@ -76,15 +68,13 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Supplies a trailing positional value when it is omitted. $>
-  ::positional_default
-    FUNCTION(%first I32, %second I32 DEFAULT(7)): I32
+  ::positional_default FUNCTION(%first I32, %second I32 DEFAULT(7)): I32
   {
     RETURN first * 10 + second;
   }
 
   DOC <$ Missing trailing positional parameters receive defaults without replacing explicitly supplied values. $>
-  ::trailing_positional_default
-    DUAL_TEST
+  ::trailing_positional_default DUAL_TEST
   {
     TEST_ASSERT(positional_default(% [2]) == 27);
     TEST_ASSERT(positional_default(% [2, 4]) == 24);
@@ -92,8 +82,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Encodes pack values in their positional order, including an empty pack. $>
-  ::pack_digits
-    FUNCTION(%...values I32): I32
+  ::pack_digits FUNCTION(%...values I32): I32
   {
     VAR result I32 := 0;
     STATIC_VAR index U64 := 0;
@@ -106,8 +95,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Multiple positional groups form one ordered pack and evaluate each source expression once. $>
-  ::pack_source_order
-    DUAL_TEST
+  ::pack_source_order DUAL_TEST
   {
     TEST_ASSERT(pack_digits() == 0);
     VAR events I32 := 0;
@@ -121,8 +109,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Mutates each referenced pack element in order without copying the referents. $>
-  ::increment_pack
-    FUNCTION(%...values MUT& I32)
+  ::increment_pack FUNCTION(%...values MUT& I32)
   {
     STATIC_VAR index U64 := 0;
     STATIC_WHILE (index < PACK_SIZE(values))
@@ -133,8 +120,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Repeated references in a pack mutate the same object, while separate references retain their identity. $>
-  ::reference_pack_aliases
-    DUAL_TEST
+  ::reference_pack_aliases DUAL_TEST
   {
     VAR first I32 := 2;
     VAR second I32 := 8;
@@ -145,23 +131,20 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Throws while evaluating an explicit argument after recording its position. $>
-  ::throw_argument
-    FUNCTION(@events MUT& I32): I32
+  ::throw_argument FUNCTION(@events MUT& I32): I32
   {
     events := events * 10 + 2;
     THROW I32(@OTHER 7);
   }
 
   DOC <$ Detects an erroneous call after argument evaluation throws. $>
-  ::unreached_call
-    FUNCTION(@first CONST& short_circuit_tests::temporary, @second I32, @third I32)
+  ::unreached_call FUNCTION(@first CONST& short_circuit_tests::temporary, @second I32, @third I32)
   {
     TEST_ASSERT(FALSE);
   }
 
   DOC <$ A throwing argument skips later expressions and destroys previously constructed argument temporaries. $>
-  ::argument_exception_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::argument_exception_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR alive I32 := 0;

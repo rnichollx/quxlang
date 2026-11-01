@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::boolean_nested_exception_tests NAMESPACE
 {
   DOC <$ Nested throwing right operands of && are skipped or unwound before handler entry with enclosing scope cleanup. $>
-  ::and_nested_rhs
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::and_nested_rhs DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR expected_order [4]I32;
     VAR expected_caught [4]BOOL;
@@ -46,8 +45,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested throwing right operands of !& are skipped or unwound before handler entry with enclosing scope cleanup. $>
-  ::nand_nested_rhs
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::nand_nested_rhs DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR expected_order [4]I32;
     VAR expected_caught [4]BOOL;
@@ -89,8 +87,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested throwing right operands of ^^ are skipped or unwound before handler entry with enclosing scope cleanup. $>
-  ::xor_nested_rhs
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::xor_nested_rhs DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR expected_order [4]I32;
     VAR expected_caught [4]BOOL;
@@ -132,8 +129,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested throwing right operands of !| are skipped or unwound before handler entry with enclosing scope cleanup. $>
-  ::nor_nested_rhs
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::nor_nested_rhs DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR expected_order [4]I32;
     VAR expected_caught [4]BOOL;
@@ -175,8 +171,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested throwing right operands of || are skipped or unwound before handler entry with enclosing scope cleanup. $>
-  ::or_nested_rhs
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::or_nested_rhs DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR expected_order [4]I32;
     VAR expected_caught [4]BOOL;
@@ -218,8 +213,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested throwing right operands of ^> are skipped or unwound before handler entry with enclosing scope cleanup. $>
-  ::implies_nested_rhs
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::implies_nested_rhs DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR expected_order [4]I32;
     VAR expected_caught [4]BOOL;
@@ -261,8 +255,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested throwing right operands of ^< are skipped or unwound before handler entry with enclosing scope cleanup. $>
-  ::implied_nested_rhs
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::implied_nested_rhs DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR expected_order [4]I32;
     VAR expected_caught [4]BOOL;
@@ -304,8 +297,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested throwing right operands of !^ are skipped or unwound before handler entry with enclosing scope cleanup. $>
-  ::equivalent_nested_rhs
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::equivalent_nested_rhs DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR expected_order [4]I32;
     VAR expected_caught [4]BOOL;

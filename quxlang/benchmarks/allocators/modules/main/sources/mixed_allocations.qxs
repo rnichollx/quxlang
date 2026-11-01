@@ -3,17 +3,14 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT std;
 
 DOC <$ Owns the pointer slots for one allocation size. $>
-::mixed_slots
-  TEMPLATE(@bytes VALUE SZ) STRUCT
+::mixed_slots TEMPLATE(@bytes VALUE SZ) STRUCT
 {
   DOC <$ Provides uninitialized storage aligned to eight bytes. $>
-  ::block
-    STRUCT { .words VAR [bytes / 8]U64; }
+  ::block STRUCT { .words VAR [bytes / 8]U64; }
   .pointers VAR std::dynarr#(->TYPED_STORAGE(block));
 
   DOC <$ Allocates an empty slot or releases an occupied slot. $>
-  .toggle
-    FUNCTION(@index SZ) MUT
+  .toggle FUNCTION(@index SZ) MUT
   {
     VAR pointer MUT& ->TYPED_STORAGE(block) := .pointers[index];
     IF (pointer == NULL)
@@ -29,8 +26,7 @@ DOC <$ Owns the pointer slots for one allocation size. $>
   }
 
   DOC <$ Releases remaining allocations after timing and returns their count. $>
-  .release
-    FUNCTION() MUT: SZ
+  .release FUNCTION() MUT: SZ
   {
     VAR live SZ := 0;
     LOOP ITEM(pointer) IN(.pointers) DO
@@ -93,8 +89,7 @@ DOC <$ Borrows stable worker state for the lifetime of a native thread. $>
 }
 
 DOC <$ Times creation and joining of workers with pre-generated operations. $>
-::mixed_allocations
-  BENCHMARK(@n SZ, @slots SZ, @threads SZ, @passes SZ) ONESHOT
+::mixed_allocations BENCHMARK(@n SZ, @slots SZ, @threads SZ, @passes SZ) ONESHOT
 {
   IF (n == 0 || passes == 0 || slots == 0 || slots > 536870912 || threads == 0 || threads > slots)
   { THROW (1 AS I32); }

@@ -35,8 +35,7 @@ PRIVATE(MODULE)
     .completion_mutex VAR ordering_mutex;
 
     DOC <$ Creates empty state that owns no io_uring descriptor or mappings. $>
-    .CONSTRUCTOR
-      FUNCTION()
+    .CONSTRUCTOR FUNCTION()
     {
       .descriptor := 0 - 1;
     }

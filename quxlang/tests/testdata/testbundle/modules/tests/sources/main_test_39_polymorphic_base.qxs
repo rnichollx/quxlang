@@ -14,8 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ The built-in view shares complete-object identity while lowercase methods remain user-defined. $>
-  ::canonical_builtin
-  DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::canonical_builtin DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object complete;
     VAR first MUT->POLYMORPHIC_BASE := object.left<-;
@@ -34,8 +33,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ The compiler view does not introduce a lowercase dynamic_type method. $>
-  ::lowercase_is_not_builtin
-  STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::lowercase_is_not_builtin STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object complete;
     VAR view CONST->POLYMORPHIC_BASE := object<-;
@@ -43,16 +41,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Counts evaluation of a polymorphic reference operand. $>
-  ::read_reference
-  FUNCTION(@object CONST& left, @calls MUT& I32): CONST& left
+  ::read_reference FUNCTION(@object CONST& left, @calls MUT& I32): CONST& left
   {
     calls := calls + 1;
     RETURN object;
   }
 
   DOC <$ A reference expression is evaluated once and preserves the complete object identity. $>
-  ::reference_evaluated_once
-  DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::reference_evaluated_once DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR object complete;
     VAR calls I32 := 0;
@@ -62,8 +58,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Ordinary object references cannot report a dynamic type. $>
-  ::nonpolymorphic_reference
-  STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::nonpolymorphic_reference STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object I32 := 1;
     DYNAMIC_TYPE_OF(object);

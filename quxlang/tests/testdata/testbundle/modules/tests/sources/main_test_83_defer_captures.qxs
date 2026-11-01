@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::defer_capture_tests NAMESPACE
 {
   DOC <$ A deferred owned capture is invoked before destruction on both normal and exceptional scope exit. $>
-  ::owned_capture_exit
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::owned_capture_exit DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO
@@ -38,8 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Moving a closure into DEFER CALL transfers its owned capture without copying it or invoking the moved-from closure. $>
-  ::move_captured_callable
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::move_captured_callable DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -68,8 +66,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A throwing capture constructor leaves no registered action and unwinds previously registered actions normally. $>
-  ::failed_capture_registration
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::failed_capture_registration DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;

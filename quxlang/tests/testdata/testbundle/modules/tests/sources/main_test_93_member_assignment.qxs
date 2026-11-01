@@ -3,22 +3,19 @@ LANGUAGE QUXLANG EN 0.0;
 ::member_assignment_tests NAMESPACE
 {
   DOC <$ Observable user assignment and swap distinguish member dispatch from generated field operations. $>
-  ::number
-    STRUCT
+  ::number STRUCT
   {
     .value VAR I32;
     .assignments VAR MUT->I32;
     .swaps VAR MUT->I32;
     DOC <$ Stores one more than the source value and records every invocation, including self-assignment. $>
-    .OPERATOR:=
-      FUNCTION(@OTHER CONST& number)
+    .OPERATOR:= FUNCTION(@OTHER CONST& number)
     {
       .assignments-> ++;
       .value := OTHER.value + 1;
     }
     DOC <$ Swaps payloads and records invocation even when both operands identify the same object. $>
-    .OPERATOR<->
-      FUNCTION(@OTHER MUT& number)
+    .OPERATOR<-> FUNCTION(@OTHER MUT& number)
     {
       .swaps-> ++;
       .value <-> OTHER.value;
@@ -26,16 +23,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returns a mutable operand while recording its source position. $>
-  ::receiver
-    FUNCTION(@value MUT& number, @events MUT& I32, @digit I32): MUT& number
+  ::receiver FUNCTION(@value MUT& number, @events MUT& I32, @digit I32): MUT& number
   {
     events := events * 10 + digit;
     RETURN value;
   }
 
   DOC <$ Assignment evaluates both operands once, calls the custom member, and preserves self-assignment effects. $>
-  ::assignment_dispatch
-    DUAL_TEST
+  ::assignment_dispatch DUAL_TEST
   {
     VAR calls I32 := 0;
     VAR events I32 := 0;
@@ -56,8 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Swap evaluates both operands once and invokes custom behavior for distinct and identical receivers. $>
-  ::swap_dispatch
-    DUAL_TEST
+  ::swap_dispatch DUAL_TEST
   {
     VAR calls I32 := 0;
     VAR events I32 := 0;

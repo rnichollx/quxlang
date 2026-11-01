@@ -5,8 +5,7 @@ IMPORT std;
 ::benchmark_barrier NAMESPACE
 {
   DOC <$ Writes one payload word without exposing the implementation to optimization. $>
-  ::write_word
-    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@address ADDRESS, @value U64)
+  ::write_word ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@address ADDRESS, @value U64)
   {
     STR X1, [X0]
     RET
@@ -18,16 +17,14 @@ IMPORT std;
     RET
   }
   DOC <$ Writes one byte at the allocation address and makes it observable. $>
-  ::write_byte
-    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
+  ::write_byte ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
   {
     MOV W1, 1
     STRB W1, [X0]
     RET
   }
   DOC <$ Reads the architecture timer with instruction ordering barriers. $>
-  ::ticks
-    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN U64)
+  ::ticks ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN U64)
   {
     ISB
     MRS X0, CNTVCT_EL0
@@ -35,20 +32,17 @@ IMPORT std;
     RET
   }
   // Keeps an allocation address observable to the optimizer.
-  ::do_not_optimize
-    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
+  ::do_not_optimize ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
   {
     RET
   }
-  ::do_not_optimize
-    ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
+  ::do_not_optimize ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL(@ARG ADDRESS)
   {
     RET
   }
 
   DOC <$ Returns the architecture timer frequency in ticks per second. $>
-  ::frequency
-    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN U64)
+  ::frequency ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN U64)
   {
     MRS X0, CNTFRQ_EL0
     RET
@@ -147,8 +141,7 @@ IMPORT std;
   }
 
   DOC <$ The parallel workload measures the requested warmed workers through the final allocation batch. $>
-  ::run_parallel
-    FUNCTION(@n SZ, @batch SZ, @threads SZ): U64
+  ::run_parallel FUNCTION(@n SZ, @batch SZ, @threads SZ): U64
   {
     VAR state parallel_state;
     state.n := n;

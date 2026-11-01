@@ -4,12 +4,10 @@ IMPORT std;
 ::global_identity_tests NAMESPACE
 {
   DOC <$ Supplies immutable storage for value-copy tests. $>
-  ::constant_number
-    STATIC U64 := 17;
+  ::constant_number STATIC U64 := 17;
 
   DOC <$ Copies of a static value have independently mutable local storage without changing the static source. $>
-  ::mutable_local_copies
-    DUAL_TEST
+  ::mutable_local_copies DUAL_TEST
   {
     VAR explicit_copy U64 := constant_number;
     AUTO inferred_copy := constant_number;
@@ -23,23 +21,19 @@ IMPORT std;
   }
 
   DOC <$ Names the same type used by the signed global instantiation. $>
-  ::signed_alias
-    ALIAS I32;
+  ::signed_alias ALIAS I32;
 
   DOC <$ Owns independent mutable text for each template type argument. $>
-  ::text
-    TEMPLATE(@T TYPE AUTO) VAR CONSTEXPR_OK std::string := "seed";
+  ::text TEMPLATE(@T TYPE AUTO) VAR CONSTEXPR_OK std::string := "seed";
 
   DOC <$ Returns the persistent signed instantiation by reference. $>
-  ::signed_text
-    FUNCTION(): MUT& std::string
+  ::signed_text FUNCTION(): MUT& std::string
   {
     RETURN text#(I32);
   }
 
   DOC <$ Same-width distinct types have independent globals while aliases resolve to the same object. $>
-  ::type_argument_storage
-    DUAL_TEST
+  ::type_argument_storage DUAL_TEST
   {
     TEST_ASSERT(text#(I32) == "seed");
     TEST_ASSERT(text#(U32) == "seed");
@@ -55,8 +49,7 @@ IMPORT std;
   }
 
   DOC <$ Calls returning a global reference preserve identity and mutations across subsequent calls. $>
-  ::repeated_reference_access
-    DUAL_TEST
+  ::repeated_reference_access DUAL_TEST
   {
     TEST_ASSERT(signed_text() == "seed");
     VAR first MUT& std::string := signed_text();

@@ -26,8 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
     .event VAR ADDRESS;
   }
 
-  ::get_logical_processor_information_ex
-    EXTERN_PROCEDURE["kernel32":"GetLogicalProcessorInformationEx"]
+  ::get_logical_processor_information_ex EXTERN_PROCEDURE["kernel32":"GetLogicalProcessorInformationEx"]
     CALLABLE CALLCONV CCALL(@relationship U32, @buffer ADDRESS, @length MUT->U32; RETURN I32);
 
   ::global_memory_status_ex EXTERN_PROCEDURE["kernel32":"GlobalMemoryStatusEx"]

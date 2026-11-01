@@ -6,8 +6,7 @@ DOC <$
     Transfers page-aligned allocations between threads while allocation and
     return batches concurrently traverse the region and plate layers.
     $>
-::allocator_regions_concurrent_returns
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+::allocator_regions_concurrent_returns INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR slots [128]->ALIGNED_STORAGE(8192, 4096);
   VAR ready [128]ATOMIC#BOOL;
@@ -43,8 +42,7 @@ DOC <$
 DOC <$
     A wait whose complete comparison value differs must return without a notification.
     $>
-::address_wait_changed_value
-  INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
+::address_wait_changed_value INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE) UNIT_TEST
 {
   VAR state ATOMIC#U32;
   state.STORE#ATOMIC_RELEASE(2147483648);
@@ -58,15 +56,13 @@ DOC <$
 ::atomic_shared_allocation_slots TEMPLATE(@bytes VALUE SZ) STRUCT
 {
   DOC <$ Stores publication values throughout the allocation. $>
-  ::payload
-    STRUCT { .words VAR [bytes / 8]U64; }
+  ::payload STRUCT { .words VAR [bytes / 8]U64; }
   .cells VAR [16]ATOMIC#(MUT->payload);
   .returned VAR ATOMIC#U32;
   .identity_sum VAR ATOMIC#U64;
 
   DOC <$ Allocates a payload, publishes it with acquire-release ordering, and deletes the removed payload. $>
-  .replace
-    FUNCTION(@slot SZ, @identity U64) MUT
+  .replace FUNCTION(@slot SZ, @identity U64) MUT
   {
     VAR replacement MUT->payload := NEW payload;
     LOOP ITEM(word) IN(replacement->.words) DO { word := identity; }
@@ -76,8 +72,7 @@ DOC <$
   }
 
   DOC <$ Validates the published payload and records its identity before deletion. $>
-  .return_pointer
-    FUNCTION(@pointer MUT->payload) MUT
+  .return_pointer FUNCTION(@pointer MUT->payload) MUT
   {
     VAR identity U64 := pointer->.words[0];
     TEST_ASSERT(identity > 0 && identity <= 4096);
@@ -88,8 +83,7 @@ DOC <$
   }
 
   DOC <$ Atomically takes ownership of every remaining pointer after workers join. $>
-  .drain
-    FUNCTION() MUT
+  .drain FUNCTION() MUT
   {
     LOOP ITEM(cell) IN(.cells) DO
     {

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::test_selection_tests NAMESPACE
 {
   DOC <$ Exercises the runner's filter matcher using constant text instead of process arguments. $>
-  ::matches
-    FUNCTION(@name STRING_CONSTANT, @filter STRING_CONSTANT): BOOL
+  ::matches FUNCTION(@name STRING_CONSTANT, @filter STRING_CONSTANT): BOOL
   {
     VAR pattern test_text;
     pattern.literal := filter;
@@ -12,8 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Plain filters are case-sensitive substrings, including empty names and filters. $>
-  ::plain_filters
-    UNIT_TEST
+  ::plain_filters UNIT_TEST
   {
     TEST_ASSERT(matches(@name "alpha::beta", @filter ""));
     TEST_ASSERT(matches(@name "alpha::beta", @filter "alpha"));
@@ -26,8 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Wildcard filters match whole names with backtracking and zero-length star matches. $>
-  ::wildcard_filters
-    UNIT_TEST
+  ::wildcard_filters UNIT_TEST
   {
     TEST_ASSERT(matches(@name "alpha::beta", @filter "*::b?ta"));
     TEST_ASSERT(matches(@name "alpha::beta", @filter "alpha*beta"));
@@ -45,8 +42,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Option matching distinguishes exact names from prefixes and sliced filters. $>
-  ::option_boundaries
-    UNIT_TEST
+  ::option_boundaries UNIT_TEST
   {
     VAR option test_text;
     option.literal := "--list-tests";
@@ -60,8 +56,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(test_name_matches(@name "alpha::beta", @pattern option));
   }
   DOC <$ Retains the compilable constant-text matcher regression that currently fails in constexpr interpretation. $>
-  ::option_boundaries_constexpr
-    STATIC_TEST KNOWN_FAILING
+  ::option_boundaries_constexpr STATIC_TEST KNOWN_FAILING
   {
     VAR option test_text;
     option.literal := "--list-tests";

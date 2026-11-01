@@ -76,8 +76,7 @@ PRIVATE(MODULE)
 DOC <$
   A compact non-recursive mutex optimized to minimize object size.
   $>
-::thin_mutex
-  STRUCT ROOTED
+::thin_mutex STRUCT ROOTED
 {
   PRIVATE(MODULE)
   {
@@ -85,8 +84,7 @@ DOC <$
   }
 
   DOC <$ Creates an unlocked thin mutex. $>
-  .CONSTRUCTOR
-    FUNCTION()
+  .CONSTRUCTOR FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     {
@@ -98,8 +96,7 @@ DOC <$
   }
 
   DOC <$ Destroys a thin mutex after all users leave. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     {
@@ -111,8 +108,7 @@ DOC <$
   }
 
   DOC <$ Blocks until the current thread acquires this thin mutex. $>
-  .lock
-    FUNCTION()
+  .lock FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS)
     {
@@ -162,8 +158,7 @@ DOC <$
   }
 
   DOC <$ Attempts to acquire this thin mutex without blocking. $>
-  .try_lock
-    FUNCTION(): BOOL
+  .try_lock FUNCTION(): BOOL
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS)
     {
@@ -184,8 +179,7 @@ DOC <$
   }
 
   DOC <$ Releases this thin mutex owned by the current thread. $>
-  .unlock
-    FUNCTION()
+  .unlock FUNCTION()
   {
     STATIC_IF(OS_LINUX || OS_WINDOWS)
     {
@@ -216,8 +210,7 @@ DOC <$
 DOC <$
   A non-recursive mutex optimized for traditional throughput-oriented locking.
   $>
-::ordering_mutex
-  STRUCT ROOTED
+::ordering_mutex STRUCT ROOTED
 {
   PRIVATE(MODULE)
   {
@@ -228,8 +221,7 @@ DOC <$
   }
 
   DOC <$ Creates an unlocked ordering mutex. $>
-  .CONSTRUCTOR
-    FUNCTION()
+  .CONSTRUCTOR FUNCTION()
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
     {
@@ -269,8 +261,7 @@ DOC <$
   }
 
   DOC <$ Releases an ordering mutex after all users leave. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
     {
@@ -306,8 +297,7 @@ DOC <$
   }
 
   DOC <$ Blocks until the current thread acquires this ordering mutex. $>
-  .lock
-    FUNCTION()
+  .lock FUNCTION()
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
     {
@@ -344,8 +334,7 @@ DOC <$
   }
 
   DOC <$ Attempts to acquire this ordering mutex without blocking. $>
-  .try_lock
-    FUNCTION(): BOOL
+  .try_lock FUNCTION(): BOOL
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
     {
@@ -386,8 +375,7 @@ DOC <$
   }
 
   DOC <$ Releases this ordering mutex owned by the current thread. $>
-  .unlock
-    FUNCTION()
+  .unlock FUNCTION()
   {
     STATIC_IF(OS_LINUX && ENVIRONMENT_IS_STATIC)
     {
@@ -488,8 +476,7 @@ DOC <$
   A process-local counting semaphore. acquire consumes one permit, try_acquire
   never blocks, and release publishes one or more permits.
   $>
-::semaphore
-  STRUCT ROOTED
+::semaphore STRUCT ROOTED
 {
   PRIVATE(CLASS)
   {
@@ -499,15 +486,13 @@ DOC <$
   }
 
   DOC <$ Creates a semaphore containing initial_count permits. $>
-  .CONSTRUCTOR
-    FUNCTION(@initial_count SZ DEFAULT(0))
+  .CONSTRUCTOR FUNCTION(@initial_count SZ DEFAULT(0))
   {
     .count := initial_count;
   }
 
   DOC <$ Blocks until one permit is available and consumes it. $>
-  .acquire
-    FUNCTION()
+  .acquire FUNCTION()
   {
     .mtx.lock();
     LOOP WHILE (.count == 0) DO
@@ -519,8 +504,7 @@ DOC <$
   }
 
   DOC <$ Consumes one available permit without blocking. $>
-  .try_acquire
-    FUNCTION(): BOOL
+  .try_acquire FUNCTION(): BOOL
   {
     .mtx.lock();
     IF (.count == 0)
@@ -534,8 +518,7 @@ DOC <$
   }
 
   DOC <$ Adds count permits and wakes blocked acquirers. $>
-  .release
-    FUNCTION(@count SZ DEFAULT(1))
+  .release FUNCTION(@count SZ DEFAULT(1))
   {
     ASSERT(count != 0, "Semaphore release count must be nonzero.");
     .mtx.lock();

@@ -3,31 +3,26 @@ LANGUAGE QUXLANG EN 0.0;
 ::macos_aggregate_return_tests INCLUDE_IF(OS_MACOS && ARCH_IS_ARM64) NAMESPACE
 {
   DOC <$ Matches the macOS div_t field order and integer widths. $>
-  ::division32
-    IBC_STRUCT TRIVIALLY_RELOCATABLE
+  ::division32 IBC_STRUCT TRIVIALLY_RELOCATABLE
   {
     .quotient VAR I32;
     .remainder VAR I32;
   }
   DOC <$ Matches the macOS lldiv_t field order and long-long widths. $>
-  ::division64
-    IBC_STRUCT TRIVIALLY_RELOCATABLE
+  ::division64 IBC_STRUCT TRIVIALLY_RELOCATABLE
   {
     .quotient VAR I64;
     .remainder VAR I64;
   }
   DOC <$ Returns the system quotient/remainder pair in a C aggregate. $>
-  ::divide32
-    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"div"]
+  ::divide32 EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"div"]
     CALLABLE CALLCONV CCALL(@numerator I32, @denominator I32; RETURN division32);
   DOC <$ Returns a two-register system quotient/remainder aggregate. $>
-  ::divide64
-    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"lldiv"]
+  ::divide64 EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"lldiv"]
     CALLABLE CALLCONV CCALL(@numerator I64, @denominator I64; RETURN division64);
 
   DOC <$ Both halves of an eight-byte C aggregate survive positive and negative quotient/remainder returns. $>
-  ::packed_integer_return
-    UNIT_TEST
+  ::packed_integer_return UNIT_TEST
   {
     TEST_ASSERT(SIZEOF(division32) == 8);
     VAR positive division32 := divide32(@denominator 7, @numerator 100);
@@ -44,8 +39,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A sixteen-byte C aggregate preserves full-width quotient and remainder values in both returned registers. $>
-  ::two_register_return
-    UNIT_TEST
+  ::two_register_return UNIT_TEST
   {
     TEST_ASSERT(SIZEOF(division64) == 16);
     VAR numerator I64 := (1073741825 AS I64) * 4294967296 + 17;
@@ -63,15 +57,12 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Exposes a eight-byte trivially relocatable integer wrapper. $>
-  ::signed_value
-    IBC_STRUCT TRIVIALLY_RELOCATABLE { .value VAR I64; }
+  ::signed_value IBC_STRUCT TRIVIALLY_RELOCATABLE { .value VAR I64; }
   DOC <$ Passes and returns the integer wrapper through the system C ABI. $>
-  ::absolute
-    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"labs"]
+  ::absolute EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"labs"]
     CALLABLE CALLCONV CCALL(@value signed_value; RETURN signed_value);
   DOC <$ A user struct crosses an external parameter and return boundary in an integer register. $>
-  ::integer_wrapper_argument
-    UNIT_TEST
+  ::integer_wrapper_argument UNIT_TEST
   {
     VAR input signed_value;
     input.value := 0 - 37;

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT std;
 
 DOC <$ Measures insertion and deletion using the same per-sample container. $>
-::insert_delete
-  BENCHMARK [ insertion_time, deletion_time, unused ] (@size SZ)
+::insert_delete BENCHMARK [ insertion_time, deletion_time, unused ] (@size SZ)
   CASE("small", @size 4)
   CASE("large", @size 16)
 BODY
@@ -27,8 +26,7 @@ BODY
 }
 
 DOC <$ Runs once per sample and defers unavailable CLI parsing during suite compilation. $>
-::oneshot
-  BENCHMARK(@size U64)
+::oneshot BENCHMARK(@size U64)
   CASE("three", @size 3)
   CLI_PARSER(unavailable_parser)
 ONESHOT
@@ -37,8 +35,7 @@ ONESHOT
 }
 
 DOC <$ Accumulates separate regions into the same channel. $>
-::repeated_channel
-  BENCHMARK()
+::repeated_channel BENCHMARK()
 ONESHOT
 {
   MEASURE COUNT(2) { VAR value U64 := 2; TEST_ASSERT(value == 2); }
@@ -48,8 +45,7 @@ ONESHOT
 ::namespace_case NAMESPACE
 {
   DOC <$ Parses standalone numbers while retaining suite case execution. $>
-  ::numeric
-    BENCHMARK(@size SZ, @enabled BOOL)
+  ::numeric BENCHMARK(@size SZ, @enabled BOOL)
     CASE("default", @size 7, @enabled TRUE)
   ONESHOT
   {
@@ -62,8 +58,7 @@ ONESHOT
 }
 
 DOC <$ Counts live objects in a benchmark sample. $>
-::lifetime_probe
-  STRUCT
+::lifetime_probe STRUCT
 {
   .counter VAR MUT->I32;
   .CONSTRUCTOR FUNCTION(@counter MUT& I32)

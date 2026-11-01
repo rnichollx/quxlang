@@ -1,8 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Module import aliases declared in another source file remain available to declarations in this file. $>
-::module_import_scope_test
-DUAL_TEST
+::module_import_scope_test DUAL_TEST
 {
   VAR text containers::string := "module scope";
   TEST_ASSERT(text == "module scope");

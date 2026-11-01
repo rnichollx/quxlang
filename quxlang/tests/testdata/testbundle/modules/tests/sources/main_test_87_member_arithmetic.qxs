@@ -3,40 +3,34 @@ LANGUAGE QUXLANG EN 0.0;
 ::member_arithmetic_tests NAMESPACE
 {
   DOC <$ Distinct operator results expose normal and right-hand-side dispatch. $>
-  ::number
-    STRUCT
+  ::number STRUCT
   {
     .value VAR I32;
     DOC <$ Encodes this operand before the other operand. $>
-    .OPERATOR+
-      FUNCTION(@OTHER I32) CONST: I32 { RETURN .value * 10 + OTHER; }
+    .OPERATOR+ FUNCTION(@OTHER I32) CONST: I32 { RETURN .value * 10 + OTHER; }
     DOC <$ Encodes the left operand before this right-hand operand. $>
     .OPERATOR+RHS
       FUNCTION(@OTHER I32) CONST: I32 { RETURN OTHER * 10 + .value; }
     DOC <$ Mutates the receiver and returns its original storage. $>
-    .OPERATOR+=
-      FUNCTION(@OTHER I32): MUT& number { .value += OTHER; RETURN THIS; }
+    .OPERATOR+= FUNCTION(@OTHER I32): MUT& number { .value += OTHER; RETURN THIS; }
   }
 
   DOC <$ Records evaluation of a reference-valued operator receiver. $>
-  ::receiver
-    FUNCTION(@value MUT& number, @events MUT& I32): MUT& number
+  ::receiver FUNCTION(@value MUT& number, @events MUT& I32): MUT& number
   {
     events := events * 10 + 1;
     RETURN value;
   }
 
   DOC <$ Records evaluation of the scalar operand. $>
-  ::operand
-    FUNCTION(@events MUT& I32): I32
+  ::operand FUNCTION(@events MUT& I32): I32
   {
     events := events * 10 + 2;
     RETURN 3;
   }
 
   DOC <$ Normal and RHS operator dispatch preserve written operand order and evaluate each expression once. $>
-  ::binary_dispatch
-    DUAL_TEST
+  ::binary_dispatch DUAL_TEST
   {
     VAR value number;
     value.value := 4;
@@ -51,8 +45,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Compound assignment invokes the user member on the original receiver after one evaluation of each operand. $>
-  ::compound_receiver
-    DUAL_TEST
+  ::compound_receiver DUAL_TEST
   {
     VAR value number;
     value.value := 4;

@@ -3,27 +3,21 @@ LANGUAGE QUXLANG EN 0.0;
 ::struct_modifier_tests NAMESPACE
 {
   DOC <$ Supplies explicit value operations while suppressing generated counterparts. $>
-  ::explicit_value
-    STRUCT NO_IMPLICIT_CONSTRUCTORS NO_IMPLICIT_ASSIGNMENT NO_DEFAULT_SWAP
+  ::explicit_value STRUCT NO_IMPLICIT_CONSTRUCTORS NO_IMPLICIT_ASSIGNMENT NO_DEFAULT_SWAP
   {
     .value VAR I32;
     DOC <$ Initializes a value from the named input. $>
-    .CONSTRUCTOR
-      FUNCTION(@value I32) { .value := value; }
+    .CONSTRUCTOR FUNCTION(@value I32) { .value := value; }
     DOC <$ Makes the explicit copy operation observable. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 1; }
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 1; }
     DOC <$ Makes the explicit assignment operation observable. $>
-    .OPERATOR:=
-      FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 2; }
+    .OPERATOR:= FUNCTION(@OTHER CONST& explicit_value) { .value := OTHER.value + 2; }
     DOC <$ Exchanges values through the explicitly declared swap. $>
-    .OPERATOR<->
-      FUNCTION(@OTHER MUT& explicit_value) { .value <-> OTHER.value; }
+    .OPERATOR<-> FUNCTION(@OTHER MUT& explicit_value) { .value <-> OTHER.value; }
   }
 
   DOC <$ Suppressing generated operations does not suppress the corresponding user declarations. $>
-  ::explicit_operations_remain_available
-    DUAL_TEST
+  ::explicit_operations_remain_available DUAL_TEST
   {
     VAR first explicit_value :(@value 5);
     VAR copied explicit_value := first;
@@ -39,23 +33,20 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Retains the address of its own field until destruction. $>
-  ::stable
-    STRUCT ROOTED
+  ::stable STRUCT ROOTED
   {
     .value VAR I32;
     .identity VAR MUT->I32;
     .deaths VAR MUT->I32;
     DOC <$ Captures a field address after its initialization. $>
-    .CONSTRUCTOR
-      FUNCTION(@deaths MUT& I32)
+    .CONSTRUCTOR FUNCTION(@deaths MUT& I32)
     {
       .value := 17;
       .identity := .value<-;
       .deaths := deaths<-;
     }
     DOC <$ Verifies stable storage before recording destruction. $>
-    .DESTRUCTOR
-      FUNCTION()
+    .DESTRUCTOR FUNCTION()
     {
       TEST_ASSERT(.identity == .value<-);
       TEST_ASSERT(.identity-> == .value);
@@ -64,8 +55,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Rooted local storage retains field identity through reference mutation and exceptional cleanup. $>
-  ::rooted_scope_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::rooted_scope_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR deaths I32 := 0;
     TRY

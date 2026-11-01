@@ -7,13 +7,11 @@ PRIVATE(MODULE)
   {
     .text VAR string;
     DOC <$ Appends one byte to the formatted result. $>
-    .write_byte
-      FUNCTION(@ARG:value BYTE) MUT { .text.push_back(value); }
+    .write_byte FUNCTION(@ARG:value BYTE) MUT { .text.push_back(value); }
   }
 
   DOC <$ Writes a constant byte sequence through a byte writer. $>
-  ::format_value
-    FUNCTION(@output MUT& AUTO, @value STRING_CONSTANT)
+  ::format_value FUNCTION(@output MUT& AUTO, @value STRING_CONSTANT)
   {
     LOOP INIT { VAR cursor CONST=>>BYTE := value.BEGIN(); }
       WHILE (cursor != value.END()) STEP { cursor++; } DO
@@ -21,24 +19,21 @@ PRIVATE(MODULE)
   }
 
   DOC <$ Writes an owned string through a byte writer. $>
-  ::format_value
-    FUNCTION(@output MUT& AUTO, @value CONST& AUTO(text_type)) ENABLE_IF(SAME_TYPES(text_type, string))
+  ::format_value FUNCTION(@output MUT& AUTO, @value CONST& AUTO(text_type)) ENABLE_IF(SAME_TYPES(text_type, string))
   {
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(value.size()) DO
     { output.write_byte(value[index]); }
   }
 
   DOC <$ Formats Boolean values as true or false. $>
-  ::format_value
-    FUNCTION(@output MUT& AUTO, @value BOOL)
+  ::format_value FUNCTION(@output MUT& AUTO, @value BOOL)
   {
     IF (value) { format_value(@output output, @value "true"); }
     ELSE { format_value(@output output, @value "false"); }
   }
 
   DOC <$ Writes an integer in the selected radix, including the minimum signed value. $>
-  ::format_integer
-    TEMPLATE(@radix VALUE U8, @uppercase VALUE BOOL)
+  ::format_integer TEMPLATE(@radix VALUE U8, @uppercase VALUE BOOL)
     FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
   {
     STATIC_IF(BITS(integer_type) < 8)
@@ -71,13 +66,11 @@ PRIVATE(MODULE)
   }
 
   DOC <$ Writes the exact decimal spelling of a numeric constant. $>
-  ::format_value
-    FUNCTION(@output MUT& AUTO, @value NUMERIC_CONSTANT)
+  ::format_value FUNCTION(@output MUT& AUTO, @value NUMERIC_CONSTANT)
   { format_value(@output output, @value (value AS STRING_CONSTANT)); }
 
   DOC <$ Writes an integer in decimal. $>
-  ::format_value
-    FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
+  ::format_value FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
   { format_integer#(@radix 10, @uppercase FALSE)(@output output, @value value); }
 
   DOC <$
@@ -88,8 +81,7 @@ PRIVATE(MODULE)
     fractional digits. Uppercase styles capitalize the exponent and nonfinite
     values. Style zero selects scientific notation outside [0.0001, 10^16).
     $>
-  ::format_float
-    TEMPLATE(@style VALUE BYTE, @precision VALUE SZ)
+  ::format_float TEMPLATE(@style VALUE BYTE, @precision VALUE SZ)
     FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
     ENABLE_IF(SAME_TYPES(float_type, F32) || SAME_TYPES(float_type, F64))
   {
@@ -165,18 +157,15 @@ PRIVATE(MODULE)
   }
 
   DOC <$ Formats binary floating values with six fractional digits and automatic scientific notation. $>
-  ::format_value
-    FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
+  ::format_value FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
     ENABLE_IF(SAME_TYPES(float_type, F32) || SAME_TYPES(float_type, F64))
   { format_float#(@style 0, @precision 6)(@output output, @value value); }
 
   DOC <$ Dispatches typed arguments for one compile-time numeric format specification. $>
-  ::format_specification
-    TEMPLATE(@style VALUE BYTE, @precision VALUE SZ) STRUCT
+  ::format_specification TEMPLATE(@style VALUE BYTE, @precision VALUE SZ) STRUCT
   {
     DOC <$ Validates and applies a numeric modifier to a typed integer. $>
-    ::write
-      FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
+    ::write FUNCTION(@output MUT& AUTO, @value AUTO(integer_type)) ENABLE_IF(IS_INTEGRAL(integer_type))
     {
       STATIC_IF(style != 'd' && style != 'b' && style != 'B' && style != 'o' && style != 'x' && style != 'X')
       { COMPILATION_ERROR "Integer format arguments require d, b, B, o, x or X."; }
@@ -186,8 +175,7 @@ PRIVATE(MODULE)
     }
 
     DOC <$ Validates and applies fixed or scientific formatting to a binary floating value. $>
-    ::write
-      FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
+    ::write FUNCTION(@output MUT& AUTO, @value AUTO(float_type))
       ENABLE_IF(SAME_TYPES(float_type, F32) || SAME_TYPES(float_type, F64))
     {
       STATIC_IF(style != 'f' && style != 'F' && style != 'e' && style != 'E')
@@ -199,8 +187,7 @@ PRIVATE(MODULE)
       Formats numeric literals using exact decimal digit division for integer
       radices. Floating modifiers convert literals to binary64 before formatting.
       $>
-    ::write
-      FUNCTION(@output MUT& AUTO, @value NUMERIC_LITERAL_ANY(literal_type))
+    ::write FUNCTION(@output MUT& AUTO, @value NUMERIC_LITERAL_ANY(literal_type))
     {
       STATIC_IF(style == 'f' || style == 'F' || style == 'e' || style == 'E')
       { format_float#(@style style, @precision precision)(@output output, @value (value AS APPROXIMATE F64)); }
@@ -254,8 +241,7 @@ PRIVATE(MODULE)
   }
 
   DOC <$ Dispatches an unmodified or explicitly modified field after compile-time parsing. $>
-  ::format_selected_value
-    TEMPLATE(@style VALUE BYTE, @precision VALUE SZ)
+  ::format_selected_value TEMPLATE(@style VALUE BYTE, @precision VALUE SZ)
     FUNCTION(@output MUT& AUTO, @value CONST& AUTO)
   {
     STATIC_IF(style == 0) { format_value(@output output, @value value); }
@@ -271,8 +257,7 @@ PRIVATE(MODULE)
     cause compilation errors. Numeric modifiers follow a colon; floating modifiers
     accept a fractional precision from zero through eighteen.
     $>
-  ::format_arguments
-    TEMPLATE(@T:text VALUE STRING_CONSTANT)
+  ::format_arguments TEMPLATE(@T:text VALUE STRING_CONSTANT)
     FUNCTION(@output MUT& AUTO, @positional CONST& AUTO(positional_type), @named CONST& AUTO(named_type))
   {
     STATIC_VAR cursor SZ := 0;
@@ -440,8 +425,7 @@ DOC <$
   Numeric rounding uses nearest values with ties away from zero. Uppercase
   modifiers capitalize digits, exponent markers and nonfinite values.
   $>
-::fmt
-  TEMPLATE(@T:text VALUE STRING_CONSTANT)
+::fmt TEMPLATE(@T:text VALUE STRING_CONSTANT)
   FUNCTION(%...args CONST& AUTO, @KWARGS ...): string
 {
   VAR output format_string_writer;
@@ -454,8 +438,7 @@ DOC <$
   before returning. The positional pack and KWARGS must match the format fields.
   Output failures throw. No newline is appended.
   $>
-::printf
-  TEMPLATE(@T:text VALUE STRING_CONSTANT)
+::printf TEMPLATE(@T:text VALUE STRING_CONSTANT)
   FUNCTION(%...args CONST& AUTO, @KWARGS ...)
 {
   AUTO output := open_standard_output_writer();
@@ -464,8 +447,7 @@ DOC <$
 }
 
 DOC <$ Writes a string constant to standard output without appending a newline. Output failures throw. $>
-::print
-  FUNCTION(@ARG:text STRING_CONSTANT)
+::print FUNCTION(@ARG:text STRING_CONSTANT)
 {
   AUTO output := open_standard_output_writer();
   format_value(@output output, @value text);
@@ -473,8 +455,7 @@ DOC <$ Writes a string constant to standard output without appending a newline. 
 }
 
 DOC <$ Writes an owned string to standard output without appending a newline. Output failures throw. $>
-::print
-  FUNCTION(@ARG:text CONST& AUTO(text_type)) ENABLE_IF(SAME_TYPES(text_type, string))
+::print FUNCTION(@ARG:text CONST& AUTO(text_type)) ENABLE_IF(SAME_TYPES(text_type, string))
 {
   AUTO output := open_standard_output_writer();
   format_value(@output output, @value text);

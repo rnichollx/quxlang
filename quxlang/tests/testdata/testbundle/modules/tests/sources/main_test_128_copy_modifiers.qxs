@@ -3,15 +3,12 @@ LANGUAGE QUXLANG EN 0.0;
 ::copy_modifier_tests NAMESPACE
 {
   DOC <$ Suppresses generated copy construction and assignment while permitting movement. $>
-  ::noncopyable
-    STRUCT NOT_COPYABLE { .value VAR I32; }
+  ::noncopyable STRUCT NOT_COPYABLE { .value VAR I32; }
   DOC <$ Requests suppression of an implicit copy constructor. $>
-  ::no_implicit_copy
-    STRUCT NO_IMPLICIT_COPY { .value VAR I32; }
+  ::no_implicit_copy STRUCT NO_IMPLICIT_COPY { .value VAR I32; }
 
   DOC <$ A noncopyable value can transfer its scalar state through generated move construction. $>
-  ::noncopyable_move
-    DUAL_TEST
+  ::noncopyable_move DUAL_TEST
   {
     VAR source noncopyable;
     source.value := 17;
@@ -22,16 +19,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A plain copy cannot bypass the structure's copy restriction. $>
-  ::noncopyable_rejects_copy
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::noncopyable_rejects_copy STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR source noncopyable;
     VAR copied noncopyable := source;
   }
 
   DOC <$ Generated assignment cannot copy a noncopyable value. $>
-  ::noncopyable_rejects_assignment
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::noncopyable_rejects_assignment STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR source noncopyable;
     VAR target noncopyable;
@@ -39,8 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ NO_IMPLICIT_COPY prevents ordinary copy initialization without a declared copy constructor. $>
-  ::implicit_copy_rejected
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::implicit_copy_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR source no_implicit_copy;
     VAR copied no_implicit_copy := source;

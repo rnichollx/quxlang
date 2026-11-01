@@ -3,20 +3,17 @@ LANGUAGE QUXLANG EN 0.0;
 ::global_initialization_tests NAMESPACE
 {
   DOC <$ Records the dependency order of three global initializers. $>
-  ::events
-    VAR CONSTEXPR_OK I32;
+  ::events VAR CONSTEXPR_OK I32;
 
   DOC <$ Supplies the first dependency exactly once. $>
-  ::initialize_base
-    FUNCTION(): I32
+  ::initialize_base FUNCTION(): I32
   {
     events := events * 10 + 1;
     RETURN 7;
   }
 
   DOC <$ Reads the base before completing its own initialization. $>
-  ::initialize_middle
-    FUNCTION(): I32
+  ::initialize_middle FUNCTION(): I32
   {
     VAR value I32 := base * 3;
     events := events * 10 + 2;
@@ -24,8 +21,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Reuses the initialized base through a second dependency path. $>
-  ::initialize_final
-    FUNCTION(): I32
+  ::initialize_final FUNCTION(): I32
   {
     VAR value I32 := middle + base;
     events := events * 10 + 3;
@@ -33,22 +29,17 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Depends on both the middle and base globals. $>
-  ::final_value
-    VAR CONSTEXPR_OK I32 := initialize_final();
+  ::final_value VAR CONSTEXPR_OK I32 := initialize_final();
   DOC <$ Depends on the later-declared base global. $>
-  ::middle
-    VAR CONSTEXPR_OK I32 := initialize_middle();
+  ::middle VAR CONSTEXPR_OK I32 := initialize_middle();
   DOC <$ Initializes through a function with an observable side effect. $>
-  ::base
-    VAR CONSTEXPR_OK I32 := initialize_base();
+  ::base VAR CONSTEXPR_OK I32 := initialize_base();
 
   DOC <$ Returns the same final global through repeated function calls. $>
-  ::read_final
-    FUNCTION(): MUT& I32 { RETURN final_value; }
+  ::read_final FUNCTION(): MUT& I32 { RETURN final_value; }
 
   DOC <$ Dependencies initialize before their consumers, and repeated reads and mutation never rerun initializers. $>
-  ::dependent_initialization_once
-    DUAL_TEST
+  ::dependent_initialization_once DUAL_TEST
   {
     TEST_ASSERT(read_final() == 28);
     TEST_ASSERT(middle == 21);
@@ -73,15 +64,12 @@ LANGUAGE QUXLANG EN 0.0;
 ::global_retry_tests NAMESPACE
 {
   DOC <$ Counts attempts to initialize a global whose first attempt throws. $>
-  ::attempts
-    VAR CONSTEXPR_OK I32;
+  ::attempts VAR CONSTEXPR_OK I32;
   DOC <$ Records temporary cleanup during each initialization attempt. $>
-  ::events
-    VAR CONSTEXPR_OK I32;
+  ::events VAR CONSTEXPR_OK I32;
 
   DOC <$ Fails once after constructing a local and succeeds on the next attempt. $>
-  ::initialize
-    FUNCTION(): I32
+  ::initialize FUNCTION(): I32
   {
     attempts++;
     VAR record control_flow_tests::exit_record :(@events events, @digit attempts);
@@ -90,12 +78,10 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Publishes its value only after successful initialization. $>
-  ::value
-    VAR CONSTEXPR_OK I32 := initialize();
+  ::value VAR CONSTEXPR_OK I32 := initialize();
 
   DOC <$ Failed initialization cleans up and releases its guard, while success suppresses later retries. $>
-  ::retry_after_exception
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::retry_after_exception DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
     TRY

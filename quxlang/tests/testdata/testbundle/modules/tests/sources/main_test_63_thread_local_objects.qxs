@@ -4,37 +4,31 @@ IMPORT std;
 ::thread_local_object_tests NAMESPACE
 {
   DOC <$ Owns a string and optionally reports destruction to the joining thread. $>
-  ::state
-    STRUCT
+  ::state STRUCT
   {
     .text VAR std::string;
     .destructions VAR MUT->I32;
     DOC <$ Gives every thread an independently constructed owned string. $>
-    .CONSTRUCTOR
-      FUNCTION() { .text := "seed"; }
+    .CONSTRUCTOR FUNCTION() { .text := "seed"; }
     DOC <$ Reports destruction before the owning thread completes its join. $>
-    .DESTRUCTOR
-      FUNCTION()
+    .DESTRUCTOR FUNCTION()
     {
       IF (.destructions??) { .destructions-> ++; }
     }
   }
 
   DOC <$ Stores a distinct owned object in each thread. $>
-  ::local_state
-    VAR PER_THREAD state;
+  ::local_state VAR PER_THREAD state;
 
   DOC <$ Mutates thread-local storage and optionally waits for a second worker to overlap its lifetime. $>
-  ::entry
-    STRUCT
+  ::entry STRUCT
   {
     .destructions VAR MUT->I32;
     .arrived VAR MUT->ATOMIC#I32;
     .letter VAR BYTE;
     .expected VAR STRING_CONSTANT;
     DOC <$ Checks initialization, isolation during overlap, and persistent access to the same thread-local object. $>
-    .OPERATOR()
-      FUNCTION()
+    .OPERATOR() FUNCTION()
     {
       TEST_ASSERT(local_state.text == "seed");
       local_state.destructions := .destructions;

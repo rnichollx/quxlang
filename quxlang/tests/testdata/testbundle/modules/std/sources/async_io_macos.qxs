@@ -59,8 +59,7 @@ PRIVATE(MODULE)
     .queue_descriptor VAR I32;
 
     DOC <$ Creates empty state that owns no kqueue descriptor. $>
-    .CONSTRUCTOR
-      FUNCTION()
+    .CONSTRUCTOR FUNCTION()
     {
       .queue_descriptor := 0 - 1;
     }

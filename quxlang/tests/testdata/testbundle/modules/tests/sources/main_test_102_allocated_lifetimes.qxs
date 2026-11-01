@@ -3,12 +3,10 @@ LANGUAGE QUXLANG EN 0.0;
 ::allocated_lifetime_tests NAMESPACE
 {
   DOC <$ Uses the shared throwing-copy payload for allocated storage. $>
-  ::item
-    ALIAS array_lifetime_tests::element;
+  ::item ALIAS array_lifetime_tests::element;
 
   DOC <$ Allocated storage permits partial construction, reverse destruction of the completed prefix, and reuse before deallocation. $>
-  ::partial_construction_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::partial_construction_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 0;
     LOOP WHILE (failure <= 3) DO

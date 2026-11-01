@@ -35,14 +35,11 @@ LANGUAGE QUXLANG EN 0.0;
 ::conditional_declaration_tests NAMESPACE
 {
   DOC <$ Supplies an enabled Boolean option when the bundle does not override it. $>
-  ::enabled
-    OPTION BOOL DEFAULT_VALUE(TRUE);
+  ::enabled OPTION BOOL DEFAULT_VALUE(TRUE);
   DOC <$ Supplies a disabled Boolean option when the bundle does not override it. $>
-  ::disabled
-    OPTION BOOL DEFAULT_VALUE(FALSE);
+  ::disabled OPTION BOOL DEFAULT_VALUE(FALSE);
   DOC <$ Supplies a numeric option used in declaration conditions. $>
-  ::amount
-    OPTION NUMBER DEFAULT_VALUE(17);
+  ::amount OPTION NUMBER DEFAULT_VALUE(17);
 
   DOC <$ An inactive overload must not compete with the active declaration. $>
   ::selected INCLUDE_IF(disabled)
@@ -55,8 +52,7 @@ LANGUAGE QUXLANG EN 0.0;
     FUNCTION(@value I64): I64 { RETURN value + 2; }
 
   DOC <$ Default option values control overload participation without creating an ambiguity with inactive declarations. $>
-  ::option_defaults_and_overloads
-    DUAL_TEST
+  ::option_defaults_and_overloads DUAL_TEST
   {
     TEST_ASSERT(enabled);
     TEST_ASSERT(disabled == FALSE);
@@ -66,8 +62,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Selects field storage, a nested alias, and a member function per template instantiation. $>
-  ::record
-    TEMPLATE(@wide VALUE BOOL) STRUCT
+  ::record TEMPLATE(@wide VALUE BOOL) STRUCT
   {
     .small INCLUDE_IF(wide == FALSE) VAR BYTE;
     .large INCLUDE_IF(wide) VAR U64;
@@ -82,8 +77,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Different Boolean template arguments select separate fields, aliases, and same-named member functions. $>
-  ::template_conditions_are_independent
-    DUAL_TEST
+  ::template_conditions_are_independent DUAL_TEST
   {
     VAR narrow record#(@wide FALSE);
     VAR wide record#(@wide TRUE);
@@ -115,8 +109,7 @@ LANGUAGE QUXLANG EN 0.0;
     NAMESPACE { ::number STATIC I32 := 23; }
 
   DOC <$ Namespace lookup resolves the enabled declaration without merging members from the disabled namespace. $>
-  ::conditional_namespace_lookup
-    DUAL_TEST
+  ::conditional_namespace_lookup DUAL_TEST
   {
     TEST_ASSERT(branch::number == 23);
   }

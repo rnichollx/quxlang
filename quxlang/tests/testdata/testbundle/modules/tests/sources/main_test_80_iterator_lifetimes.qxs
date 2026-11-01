@@ -51,8 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ The final range survives traversal, intermediate temporaries expire before the body, and loop exit destroys the range. $>
-  ::range_operand_lifetime
-    DUAL_TEST
+  ::range_operand_lifetime DUAL_TEST
   {
     VAR mode I32 := 0;
     LOOP WHILE(mode < 3) DO
@@ -105,8 +104,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Built-in arrays expose their zero-based indexes through the range protocol. $>
-  ::builtin_array_indexes
-    DUAL_TEST
+  ::builtin_array_indexes DUAL_TEST
   {
     VAR values [4]I32 :[10, 20, 30, 40];
     VAR visits SZ := 0;
@@ -158,8 +156,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ The index range remains valid after a temporary built-in array expires. $>
-  ::temporary_array_indexes
-    DUAL_TEST
+  ::temporary_array_indexes DUAL_TEST
   {
     VAR temporary_visits SZ := 0;
     VAR indexes AUTO := [2]I32(% [7, 8]).INDEXES();
@@ -172,8 +169,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A temporary array used directly as a loop range survives through index and item iteration. $>
-  ::temporary_array_loop_range
-    DUAL_TEST
+  ::temporary_array_loop_range DUAL_TEST
   {
     VAR visits SZ := 0;
     LOOP INDEX(index) IN([2]I32(% [7, 8])) DO
@@ -188,8 +184,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Index iteration retains temporary array elements until loop exit and destroys them in reverse order. $>
-  ::temporary_array_element_lifetime
-    DUAL_TEST
+  ::temporary_array_element_lifetime DUAL_TEST
   {
     VAR events I32 := 0;
     VAR visits SZ := 0;
@@ -206,8 +201,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Index iteration accepts IBC-qualified built-in arrays. $>
-  ::ibc_array_indexes
-    DUAL_TEST
+  ::ibc_array_indexes DUAL_TEST
   {
     VAR values [4]I32;
     VAR ibc_values IBC MUT& [4]I32 := values AS IBC MUT& [4]I32;
@@ -217,8 +211,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Filter temporaries expire before the body, mutable items alias array storage, and CONTINUE advances rejected and accepted iterations. $>
-  ::filtered_mutation
-    DUAL_TEST
+  ::filtered_mutation DUAL_TEST
   {
     VAR values [4]I32 :[1, 2, 3, 4];
     VAR events I32 := 0;
@@ -247,8 +240,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An explicit iterator step runs once after CONTINUE and is skipped after BREAK. $>
-  ::explicit_step_and_break
-    DUAL_TEST
+  ::explicit_step_and_break DUAL_TEST
   {
     VAR values [4]I32 :[1, 2, 3, 4];
     VAR steps I32 := 0;
@@ -278,8 +270,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Indexed container projections refer to the same element, including filtered mutations. $>
-  ::indexed_value_aliases
-    DUAL_TEST
+  ::indexed_value_aliases DUAL_TEST
   {
     VAR values std::dynarr#(I32);
     values.push_back(4);
@@ -300,8 +291,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(values[3] == 7);
   }
   DOC <$ Typed item references retain aliases and typed value objects have independent storage. $>
-  ::typed_projections
-    DUAL_TEST
+  ::typed_projections DUAL_TEST
   {
     VAR values std::dynarr#I32;
     values.push_back(4);

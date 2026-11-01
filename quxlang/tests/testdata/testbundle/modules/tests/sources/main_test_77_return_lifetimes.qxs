@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::return_lifetime_tests NAMESPACE
 {
   DOC <$ Moves one of two local objects into the return value and destroys the unselected local before returning. $>
-  ::select_owned
-    FUNCTION(@source CONST& array_lifetime_tests::element, @first BOOL): array_lifetime_tests::element
+  ::select_owned FUNCTION(@source CONST& array_lifetime_tests::element, @first BOOL): array_lifetime_tests::element
   {
     VAR one array_lifetime_tests::element := source;
     one.number := 1;
@@ -15,8 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Both early and trailing returns retain one owner until the caller destroys the result. $>
-  ::selected_return
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::selected_return DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO
@@ -43,8 +41,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Constructs a return value from a local while two owned locals remain live. $>
-  ::copy_return
-    FUNCTION(@source CONST& array_lifetime_tests::element): array_lifetime_tests::element
+  ::copy_return FUNCTION(@source CONST& array_lifetime_tests::element): array_lifetime_tests::element
   {
     VAR one array_lifetime_tests::element := source;
     one.number := 1;
@@ -54,8 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Successful return construction precedes reverse local cleanup and gives the caller independent ownership. $>
-  ::copied_return_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::copied_return_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -75,8 +71,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Failure while constructing the return value destroys both completed locals and never destroys the incomplete result. $>
-  ::failed_return_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::failed_return_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;

@@ -3,16 +3,14 @@ LANGUAGE QUXLANG EN 0.0;
 ::scalar_operation_tests NAMESPACE
 {
   DOC <$ Records evaluation order before returning a Boolean operand. $>
-  ::record_boolean
-    FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
+  ::record_boolean FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
   {
     events := events * 10 + digit;
     RETURN value;
   }
 
   DOC <$ Evaluates both operands exactly once for every XOR and equivalence truth-table entry. $>
-  ::eager_boolean_truth_tables
-    DUAL_TEST
+  ::eager_boolean_truth_tables DUAL_TEST
   {
     VAR index I32 := 0;
     LOOP WHILE (index < 4) DO
@@ -34,8 +32,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checks division signs, signed remainders, and matching compound-assignment results. $>
-  ::signed_arithmetic
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::signed_arithmetic TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR positive T := 7;
     VAR negative T := (0 AS T) - positive;
@@ -61,8 +58,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Applies the same signed arithmetic contract to 8-, 16-, 32-, and 64-bit values. $>
-  ::signed_arithmetic_widths
-    DUAL_TEST
+  ::signed_arithmetic_widths DUAL_TEST
   {
     signed_arithmetic#(I8)();
     signed_arithmetic#(I16)();
@@ -71,16 +67,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Counts evaluations of an assignment's indexed receiver. $>
-  ::record_index
-    FUNCTION(@calls MUT& I32): SZ
+  ::record_index FUNCTION(@calls MUT& I32): SZ
   {
     calls++;
     RETURN 1;
   }
 
   DOC <$ Evaluates each indexed mutation receiver once and leaves adjacent elements unchanged. $>
-  ::compound_assignment_receiver_once
-    DUAL_TEST
+  ::compound_assignment_receiver_once DUAL_TEST
   {
     VAR values [3]I32;
     values[0] := 17;
@@ -107,8 +101,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checks all bitwise truth functions and their assignment forms at the selected width. $>
-  ::unsigned_bitwise
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::unsigned_bitwise TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR left T := 10;
     VAR right T := 12;
@@ -148,8 +141,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Preserves width-limited complements and truth-function results across unsigned integer widths. $>
-  ::unsigned_bitwise_widths
-    DUAL_TEST
+  ::unsigned_bitwise_widths DUAL_TEST
   {
     unsigned_bitwise#(U8)();
     unsigned_bitwise#(U16)();
@@ -158,8 +150,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checks zero and highest in-range counts, dropped bits, wraparound, and mutation forms. $>
-  ::unsigned_shift_rotate
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::unsigned_shift_rotate TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR one T := 1;
     VAR last SZ := (SIZEOF(T) * 8) - 1;
@@ -187,8 +178,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Sign-magnitude arithmetic normalizes cancellation and zero products or quotients across storage widths. $>
-  ::signed_zero_results
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::signed_zero_results TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR zero T := 0;
     VAR positive T := 6;
@@ -214,8 +204,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Exact zero and crossings are preserved for odd, byte-sized and multiword signed integers. $>
-  ::signed_cancellation_widths
-    DUAL_TEST
+  ::signed_cancellation_widths DUAL_TEST
   {
     signed_zero_results#(I5)();
     signed_zero_results#(I8)();
@@ -227,8 +216,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Opposite signed operands cancel exactly and may produce a positive result without overflow. $>
-  ::signed_addition_crosses_zero
-    DUAL_TEST
+  ::signed_addition_crosses_zero DUAL_TEST
   {
     VAR negative I32 := (0 AS I32) - 6;
     VAR zero I32 := negative + 6;
@@ -238,8 +226,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Compound signed additions preserve negative intermediate values and cancellation to zero. $>
-  ::signed_compound_addition_crosses_zero
-    DUAL_TEST
+  ::signed_compound_addition_crosses_zero DUAL_TEST
   {
     VAR value I32 := (0 AS I32) - 6;
     value += 1;
@@ -253,8 +240,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Applies shift and rotate edge cases to 8-, 16-, 32-, and 64-bit values. $>
-  ::unsigned_shift_rotate_widths
-    DUAL_TEST
+  ::unsigned_shift_rotate_widths DUAL_TEST
   {
     unsigned_shift_rotate#(U8)();
     unsigned_shift_rotate#(U16)();

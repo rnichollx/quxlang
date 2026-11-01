@@ -3,28 +3,23 @@ LANGUAGE QUXLANG EN 0.0;
 ::procedure_call_tests NAMESPACE
 {
   DOC <$ Describes a procedure pointer with distinct named integer parameters. $>
-  ::binary
-    ALIAS CONST->PROCEDURE(@left I32, @right I32: I32);
+  ::binary ALIAS CONST->PROCEDURE(@left I32, @right I32: I32);
 
   DOC <$ Places the left operand in the tens position. $>
-  ::encode
-    FUNCTION(@left I32, @right I32): I32 { RETURN left * 10 + right; }
+  ::encode FUNCTION(@left I32, @right I32): I32 { RETURN left * 10 + right; }
 
   DOC <$ Places the right operand in the tens position. $>
-  ::reverse_encode
-    FUNCTION(@left I32, @right I32): I32 { RETURN right * 10 + left; }
+  ::reverse_encode FUNCTION(@left I32, @right I32): I32 { RETURN right * 10 + left; }
 
   DOC <$ Returns either callable using the same named procedure signature. $>
-  ::select_binary
-    FUNCTION(@reverse BOOL): binary
+  ::select_binary FUNCTION(@reverse BOOL): binary
   {
     IF (reverse) { RETURN reverse_encode<-; }
     RETURN encode<-;
   }
 
   DOC <$ Indirect calls preserve selected targets, named binding and source-order argument evaluation. $>
-  ::selected_target_and_argument_order
-    DUAL_TEST
+  ::selected_target_and_argument_order DUAL_TEST
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO
@@ -43,8 +38,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Mutates a reference parameter and returns its previous value. $>
-  ::increment
-    FUNCTION(@value MUT& I32, @amount I32): I32
+  ::increment FUNCTION(@value MUT& I32, @amount I32): I32
   {
     VAR previous I32 := value;
     value += amount;
@@ -52,8 +46,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Procedure-pointer calls write to the caller's storage and preserve scalar return values. $>
-  ::reference_parameter
-    DUAL_TEST
+  ::reference_parameter DUAL_TEST
   {
     VAR pointer CONST->PROCEDURE(@value MUT& I32, @amount I32: I32) := increment<-;
     VAR value I32 := 11;
@@ -64,12 +57,10 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returns a mutable reference to the supplied integer. $>
-  ::identity
-    FUNCTION(@value MUT& I32): MUT& I32 { RETURN value; }
+  ::identity FUNCTION(@value MUT& I32): MUT& I32 { RETURN value; }
 
   DOC <$ An indirect reference return preserves storage identity and can be used for mutation. $>
-  ::reference_return
-    DUAL_TEST
+  ::reference_return DUAL_TEST
   {
     VAR pointer CONST->PROCEDURE(@value MUT& I32: MUT& I32) := identity<-;
     VAR value I32 := 17;
@@ -82,12 +73,10 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Throws the supplied integer through a procedure-call boundary. $>
-  ::throw_number
-    FUNCTION(@value I32): I32 { THROW I32(@OTHER value); }
+  ::throw_number FUNCTION(@value I32): I32 { THROW I32(@OTHER value); }
 
   DOC <$ Exceptions from indirect calls preserve the payload and unwind the caller's completed locals. $>
-  ::indirect_exception_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::indirect_exception_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR pointer CONST->PROCEDURE(@value I32: I32) := throw_number<-;
     VAR events I32 := 0;
@@ -109,20 +98,16 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Describes a procedure pointer taking two positional integer operands. $>
-  ::positional_binary
-    ALIAS CONST->PROCEDURE(I32, I32: I32);
+  ::positional_binary ALIAS CONST->PROCEDURE(I32, I32: I32);
 
   DOC <$ Encodes positional operands in their declared order. $>
-  ::positional_encode
-    FUNCTION(%left I32, %right I32): I32 { RETURN left * 10 + right; }
+  ::positional_encode FUNCTION(%left I32, %right I32): I32 { RETURN left * 10 + right; }
 
   DOC <$ Encodes positional operands with reversed significance. $>
-  ::positional_reverse
-    FUNCTION(%left I32, %right I32): I32 { RETURN right * 10 + left; }
+  ::positional_reverse FUNCTION(%left I32, %right I32): I32 { RETURN right * 10 + left; }
 
   DOC <$ Indexed procedure-pointer calls evaluate positional arguments in source order and preserve each array entry's target. $>
-  ::positional_pointer_array
-    DUAL_TEST
+  ::positional_pointer_array DUAL_TEST
   {
     VAR targets [2]positional_binary;
     targets[0] := positional_encode<-;
@@ -146,8 +131,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Reassigning or swapping procedure pointers does not retroactively change independent copies. $>
-  ::copied_pointer_retains_target
-    DUAL_TEST
+  ::copied_pointer_retains_target DUAL_TEST
   {
     VAR original positional_binary := positional_encode<-;
     VAR copy positional_binary := original;

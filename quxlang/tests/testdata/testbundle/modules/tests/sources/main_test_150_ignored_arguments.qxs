@@ -3,29 +3,25 @@ LANGUAGE QUXLANG EN 0.0;
 ::ignored_argument_tests NAMESPACE
 {
   DOC <$ Records evaluation order and supplies a positional value. $>
-  ::record
-    FUNCTION(@events MUT& I32, @digit I32): I32
+  ::record FUNCTION(@events MUT& I32, @digit I32): I32
   {
     events := events * 10 + digit;
     RETURN digit;
   }
 
   DOC <$ Consumes ignored positions without shifting the named positional binding. $>
-  ::select_middle
-    FUNCTION(%IGNORED I32, %middle I32, %IGNORED I32): I32
+  ::select_middle FUNCTION(%IGNORED I32, %middle I32, %IGNORED I32): I32
   { RETURN middle; }
 
   DOC <$ Records declaration-context default evaluation. $>
   ::default_events VAR CONSTEXPR_OK I32;
 
   DOC <$ Evaluates an omitted ignored parameter's default in its declaration context. $>
-  ::accept_default
-    FUNCTION(%IGNORED I32 DEFAULT(record(@events default_events, @digit 4)))
+  ::accept_default FUNCTION(%IGNORED I32 DEFAULT(record(@events default_events, @digit 4)))
   { }
 
   DOC <$ Unnamed positional parameters retain source evaluation order and do not shift intervening named positions. $>
-  ::positions_and_evaluation
-    DUAL_TEST
+  ::positions_and_evaluation DUAL_TEST
   {
     VAR events I32 := 0;
     TEST_ASSERT(select_middle(% [record(@events events, @digit 1),
@@ -34,8 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An omitted ignored argument evaluates its default once and an explicit argument suppresses it. $>
-  ::ignored_default
-    DUAL_TEST
+  ::ignored_default DUAL_TEST
   {
     VAR events I32 := 0;
     default_events := 0;
@@ -48,16 +43,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Keeps an unnamed owned pack alive through the body and allows exception propagation. $>
-  ::accept_owned
-    FUNCTION(@fail BOOL, @events CONST& I32, %...IGNORED AUTO)
+  ::accept_owned FUNCTION(@fail BOOL, @events CONST& I32, %...IGNORED AUTO)
   {
     TEST_ASSERT(events == 0);
     IF (fail) { THROW I32(@OTHER 73); }
   }
 
   DOC <$ Empty and heterogeneous ignored packs preserve owned argument cleanup on normal and exceptional exits. $>
-  ::owned_pack_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::owned_pack_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO

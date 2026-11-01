@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::defer_tests NAMESPACE
 {
   DOC <$ Appends a digit when its lifetime ends. $>
-  ::recorded_object
-    STRUCT
+  ::recorded_object STRUCT
   {
     .events VAR MUT->I32;
     .digit VAR I32;
@@ -15,8 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Copies callable state independently and records invocation. $>
-  ::callable_value
-    STRUCT
+  ::callable_value STRUCT
   {
     .events VAR MUT->I32;
     .digit VAR I32;
@@ -28,8 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Transfers an owned callable and records its final destruction. $>
-  ::owned_callable
-    STRUCT MOVE_ONLY
+  ::owned_callable STRUCT MOVE_ONLY
   {
     .events VAR MUT->I32;
     .CONSTRUCTOR FUNCTION(@events MUT->I32) { .events := events; }
@@ -46,8 +43,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Records factory evaluation before returning a callable. $>
-  ::create_callable
-    FUNCTION(@events MUT& I32): callable_value
+  ::create_callable FUNCTION(@events MUT& I32): callable_value
   {
     events := events * 10 + 1;
     VAR result callable_value;
@@ -57,16 +53,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Materializes the returned value before deferred mutation. $>
-  ::deferred_return
-    FUNCTION(@value MUT& I32): I32
+  ::deferred_return FUNCTION(@value MUT& I32): I32
   {
     DEFER value := 9;
     RETURN value;
   }
 
   DOC <$ Exercises reverse local cleanup on an explicit return edge. $>
-  ::recorded_return
-    FUNCTION(@events MUT& I32): I32
+  ::recorded_return FUNCTION(@events MUT& I32): I32
   {
     VAR first recorded_object;
     first.events := events<-;
@@ -78,22 +72,19 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Requires an explicit argument and cannot be a deferred callable. $>
-  ::argument_callable
-    STRUCT
+  ::argument_callable STRUCT
   {
     .OPERATOR() FUNCTION(@value I32) {}
   }
 
   DOC <$ Cannot be called through an owned mutable receiver. $>
-  ::temporary_only_callable
-    STRUCT
+  ::temporary_only_callable STRUCT
   {
     .OPERATOR() FUNCTION() TEMP {}
   }
 
   DOC <$ Deferred expressions and blocks observe the final referenced state. $>
-  ::expression_and_block
-    DUAL_TEST
+  ::expression_and_block DUAL_TEST
   {
     VAR source I32 := 1;
     VAR events I32 := 0;
@@ -107,8 +98,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ DEFER CALL evaluates a factory immediately and calls its result later. $>
-  ::eager_factory
-    DUAL_TEST
+  ::eager_factory DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -120,8 +110,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Ordinary DEFER evaluates the factory at exit and discards its callable result. $>
-  ::late_factory
-    DUAL_TEST
+  ::late_factory DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -132,8 +121,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An eager callable is copied from its source lvalue. $>
-  ::owned_lvalue_snapshot
-    DUAL_TEST
+  ::owned_lvalue_snapshot DUAL_TEST
   {
     VAR events I32 := 0;
     VAR callable callable_value;
@@ -153,8 +141,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A moved callable runs once and is then destroyed once. $>
-  ::temporary_ownership
-    DUAL_TEST
+  ::temporary_ownership DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -165,8 +152,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A naked break exits the action through normal local cleanup. $>
-  ::naked_break
-    DUAL_TEST
+  ::naked_break DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -184,8 +170,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A defer label exits from inside a runtime loop. $>
-  ::labelled_break
-    DUAL_TEST
+  ::labelled_break DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -201,8 +186,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Naked breaks in inner loops preserve loop semantics. $>
-  ::loop_break_precedence
-    DUAL_TEST
+  ::loop_break_precedence DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -218,8 +202,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nearer labelled blocks and loops shadow the defer label. $>
-  ::label_shadowing
-    DUAL_TEST
+  ::label_shadowing DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -235,8 +218,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Ordinary automatic objects are destroyed in reverse declaration order. $>
-  ::ordinary_local_order
-    DUAL_TEST
+  ::ordinary_local_order DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -251,8 +233,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Deferred guards are interleaved with ordinary local destruction. $>
-  ::captured_object_lifetime
-    DUAL_TEST
+  ::captured_object_lifetime DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -269,8 +250,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Continue and break execute each iteration's registered action. $>
-  ::loop_scope_exits
-    DUAL_TEST
+  ::loop_scope_exits DUAL_TEST
   {
     VAR events I32 := 0;
     VAR i I32 := 0;
@@ -284,8 +264,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An outward jump cleans up the source scope's guard. $>
-  ::outward_goto
-    DUAL_TEST
+  ::outward_goto DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -297,8 +276,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Deferred writes happen after the return value is evaluated. $>
-  ::return_value_order
-    DUAL_TEST
+  ::return_value_order DUAL_TEST
   {
     VAR value I32 := 3;
     VAR result I32 := deferred_return(@value value);
@@ -307,8 +285,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Explicit callable boundaries allow their own return statements. $>
-  ::explicit_lambda_returns
-    DUAL_TEST
+  ::explicit_lambda_returns DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -322,8 +299,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Ordinary locals are destroyed in reverse order on return. $>
-  ::ordinary_return_order
-    DUAL_TEST
+  ::ordinary_return_order DUAL_TEST
   {
     VAR events I32 := 0;
     TEST_ASSERT(recorded_return(@events events) == 42);
@@ -331,8 +307,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Deferred actions retain local goto and loop continue targets. $>
-  ::internal_goto_and_continue
-    DUAL_TEST
+  ::internal_goto_and_continue DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -353,8 +328,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Captures used only by a deferred action bubble through enclosing lambdas. $>
-  ::nested_capture_discovery
-    DUAL_TEST
+  ::nested_capture_discovery DUAL_TEST
   {
     VAR events I32 := 0;
     (-< { DEFER events := 4; })();

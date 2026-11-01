@@ -3,16 +3,14 @@ LANGUAGE QUXLANG EN 0.0;
 ::storage_active_lifetime_tests NAMESPACE
 {
   DOC <$ Constexpr cannot project an object from storage whose first lifetime has not begun. $>
-  ::pun_before_construction
-    STATIC_TEST EXPECT_FAIL
+  ::pun_before_construction STATIC_TEST EXPECT_FAIL
   {
     VAR slot TYPED_STORAGE(I32, U32);
     VAR value I32 := PUN slot AS I32;
   }
 
   DOC <$ Starting an allowed alternative requires ending the previous active lifetime first. $>
-  ::construction_over_live_object
-    STATIC_TEST EXPECT_FAIL
+  ::construction_over_live_object STATIC_TEST EXPECT_FAIL
   {
     VAR slot TYPED_STORAGE(I32, U32);
     PLACE AT(slot) I32 := 17;
@@ -20,16 +18,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Destruction cannot begin in empty storage even when its nominal type is allowed. $>
-  ::destroy_before_construction
-    STATIC_TEST EXPECT_FAIL
+  ::destroy_before_construction STATIC_TEST EXPECT_FAIL
   {
     VAR slot TYPED_STORAGE(I32, U32);
     DESTROY AT(slot) I32;
   }
 
   DOC <$ An allowed storage alternative cannot be destroyed while a different type is active. $>
-  ::destroy_inactive_alternative
-    STATIC_TEST EXPECT_FAIL
+  ::destroy_inactive_alternative STATIC_TEST EXPECT_FAIL
   {
     VAR slot TYPED_STORAGE(I32, U32);
     PLACE AT(slot) I32 := 17;
@@ -37,8 +33,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An allowed equal-width alternative cannot be read through PUN while another type is active. $>
-  ::pun_inactive_alternative
-    STATIC_TEST EXPECT_FAIL
+  ::pun_inactive_alternative STATIC_TEST EXPECT_FAIL
   {
     VAR slot TYPED_STORAGE(I32, U32);
     PLACE AT(slot) I32 := 17;
@@ -46,8 +41,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A second destruction cannot reuse a lifetime that has already ended. $>
-  ::double_destruction
-    STATIC_TEST EXPECT_FAIL
+  ::double_destruction STATIC_TEST EXPECT_FAIL
   {
     VAR slot TYPED_STORAGE(I32, U32);
     PLACE AT(slot) I32 := 17;
@@ -56,8 +50,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ The original storage becomes empty after explicit destruction and cannot still project the old object. $>
-  ::pun_after_destruction
-    STATIC_TEST EXPECT_FAIL
+  ::pun_after_destruction STATIC_TEST EXPECT_FAIL
   {
     VAR slot TYPED_STORAGE(I32, U32);
     PLACE AT(slot) I32 := 17;
@@ -71,8 +64,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Ending a storage field's owning object still requires destruction of its active payload. $>
-  ::active_member_storage_destruction
-    STATIC_TEST EXPECT_FAIL
+  ::active_member_storage_destruction STATIC_TEST EXPECT_FAIL
   {
     VAR owner unreleased_storage_owner;
   }

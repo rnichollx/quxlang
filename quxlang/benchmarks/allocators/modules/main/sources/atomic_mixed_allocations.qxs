@@ -3,18 +3,15 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT std;
 
 DOC <$ Owns the pointer slots for one allocation size. $>
-::atomic_mixed_slots
-  TEMPLATE(@bytes VALUE SZ) STRUCT
+::atomic_mixed_slots TEMPLATE(@bytes VALUE SZ) STRUCT
 {
   DOC <$ Provides uninitialized storage aligned to eight bytes. $>
-  ::block
-    STRUCT { .words VAR [bytes / 8]U64; }
+  ::block STRUCT { .words VAR [bytes / 8]U64; }
   .pointers VAR =>>TYPED_STORAGE(ATOMIC#(->TYPED_STORAGE(block)));
   .count VAR SZ;
 
   DOC <$ Creates null atomic slots before any worker starts. $>
-  .initialize
-    FUNCTION(@count SZ) MUT
+  .initialize FUNCTION(@count SZ) MUT
   {
     .count := count;
     .pointers := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(ATOMIC#(->TYPED_STORAGE(block)))::MULTI_ALLOC(@COUNT count);
@@ -23,8 +20,7 @@ DOC <$ Owns the pointer slots for one allocation size. $>
   }
 
   DOC <$ Publishes a new allocation and frees the pointer removed by an acquire-release swap. $>
-  .replace
-    FUNCTION(@index SZ) MUT
+  .replace FUNCTION(@index SZ) MUT
   {
     VAR replacement ->TYPED_STORAGE(block) := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(block)::ALLOC();
     benchmark_barrier::write_byte(IBC_GETADDR(@PTR replacement));
@@ -36,8 +32,7 @@ DOC <$ Owns the pointer slots for one allocation size. $>
   }
 
   DOC <$ Removes and releases every remaining allocation after all workers join. $>
-  .release
-    FUNCTION() MUT: SZ
+  .release FUNCTION() MUT: SZ
   {
     VAR live SZ := 0;
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.count) DO
@@ -112,8 +107,7 @@ DOC <$ Borrows stable worker state for the lifetime of a native thread. $>
 }
 
 DOC <$ Times creation and joining of workers with pre-generated operations. $>
-::atomic_mixed_allocations
-  BENCHMARK(@n SZ, @slots SZ, @threads SZ, @passes SZ) ONESHOT
+::atomic_mixed_allocations BENCHMARK(@n SZ, @slots SZ, @threads SZ, @passes SZ) ONESHOT
 {
   IF (n == 0 || passes == 0 || slots == 0 || slots > 536870912 || threads == 0)
   { THROW (1 AS I32); }

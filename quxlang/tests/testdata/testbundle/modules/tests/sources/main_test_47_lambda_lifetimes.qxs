@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::lambda_lifetime_tests NAMESPACE
 {
   DOC <$ Value captures freeze their source while reference captures observe later mutations and can update the source. $>
-  ::mixed_capture_observation
-    DUAL_TEST
+  ::mixed_capture_observation DUAL_TEST
   {
     VAR frozen I32 := 3;
     VAR shared I32 := 5;
@@ -23,8 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Copying a closure copies its current captured value and subsequent calls mutate the copies independently. $>
-  ::copied_value_capture_state
-    DUAL_TEST
+  ::copied_value_capture_state DUAL_TEST
   {
     VAR seed I32 := 1;
     AUTO original := -< [=seed]: I32
@@ -42,8 +40,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Copies of a reference-capturing closure continue to share the same external variable. $>
-  ::copied_reference_capture_identity
-    DUAL_TEST
+  ::copied_reference_capture_identity DUAL_TEST
   {
     VAR count I32 := 0;
     AUTO original := -< [count]: I32
@@ -59,8 +56,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An escaping closure retains its copied string after the factory's local source has been destroyed. $>
-  ::returned_owned_capture
-    DUAL_TEST
+  ::returned_owned_capture DUAL_TEST
   {
     AUTO factory := -< []
     {
@@ -75,8 +71,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Closure construction and copying own distinct captured objects, each released at its scope boundary. $>
-  ::owned_capture_destruction
-    DUAL_TEST
+  ::owned_capture_destruction DUAL_TEST
   {
     VAR alive I32 := 0;
     {
@@ -99,8 +94,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested closures reference the outer closure's frozen value and preserve the external reference capture. $>
-  ::nested_capture_modes
-    DUAL_TEST
+  ::nested_capture_modes DUAL_TEST
   {
     VAR base I32 := 4;
     VAR count I32 := 0;

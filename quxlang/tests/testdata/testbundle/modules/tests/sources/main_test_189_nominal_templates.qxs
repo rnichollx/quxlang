@@ -3,17 +3,14 @@ LANGUAGE QUXLANG EN 0.0;
 ::nominal_template_tests NAMESPACE
 {
   DOC <$ Preserves an integer while testing enclosing-scope lookup in enum expressions. $>
-  ::identity
-    FUNCTION(@value U32): U32 { RETURN value; }
+  ::identity FUNCTION(@value U32): U32 { RETURN value; }
 
   DOC <$ Parameterizes an enum's representation width and highest declared value. $>
-  ::code
-    TEMPLATE(@width VALUE U32, @maximum VALUE U32)
+  ::code TEMPLATE(@width VALUE U32, @maximum VALUE U32)
     ENUM BITS(identity(@value width)) [zero DEFAULT = 0, high = identity(@value maximum)];
 
   DOC <$ Parameterizes flag storage width while retaining the same three logical flags. $>
-  ::permissions
-    TEMPLATE(@width VALUE U32)
+  ::permissions TEMPLATE(@width VALUE U32)
     FLAGSET BITS(width) [read = 1, write = 2, execute = 4];
 
   DOC <$ Selects a five-bit enum instantiation. $>
@@ -26,8 +23,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::broad_flags ALIAS permissions#(@width 8);
 
   DOC <$ Enum templates retain value arguments in nominal identity and evaluate width and enumerator values in their instantiation context. $>
-  ::enum_instantiations
-    DUAL_TEST
+  ::enum_instantiations DUAL_TEST
   {
     VAR first narrow_code;
     VAR second broad_code;
@@ -40,8 +36,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Flagset templates preserve generated operations and remain distinct across representation widths. $>
-  ::flagset_instantiations
-    DUAL_TEST
+  ::flagset_instantiations DUAL_TEST
   {
     VAR first narrow_flags := narrow_flags::read #|| narrow_flags::execute;
     VAR second broad_flags := broad_flags::write;
@@ -56,12 +51,10 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Gives identical fixed enum values distinct nominal identities through a type parameter. $>
-  ::tagged
-    TEMPLATE(@T:tag_type TYPE) ENUM [zero DEFAULT = 0, one = 1];
+  ::tagged TEMPLATE(@T:tag_type TYPE) ENUM [zero DEFAULT = 0, one = 1];
 
   DOC <$ Enum type parameters distinguish instantiations even when no enumerator expression depends on them. $>
-  ::type_parameter_identity
-    DUAL_TEST
+  ::type_parameter_identity DUAL_TEST
   {
     VAR first tagged#I32;
     VAR second tagged#I64;

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::checked_conversion_tests NAMESPACE
 {
   DOC <$ Checked conversions preserve both endpoints of an unsigned destination. $>
-  ::unsigned_limits
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum U64)
+  ::unsigned_limits TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum U64)
   {
     VAR zero U64 := 0;
     VAR low T := zero AS CHECKED T;
@@ -14,8 +13,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checks exact narrowing endpoints across standard and non-byte unsigned widths. $>
-  ::unsigned_endpoints
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::unsigned_endpoints DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     unsigned_limits#(U5)(@maximum 31);
     unsigned_limits#(U8)(@maximum 255);
@@ -25,8 +23,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked conversions preserve signed endpoints and valid signedness changes. $>
-  ::signed_endpoints
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::signed_endpoints DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR low I16 := (0 AS I16) - 128;
     VAR high I16 := 127;
@@ -45,8 +42,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked signed narrowing rejects the first value above the positive bound. $>
-  ::signed_byte_above_maximum
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::signed_byte_above_maximum DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -60,8 +56,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked signed narrowing rejects the first value below the negative bound. $>
-  ::signed_byte_below_minimum
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::signed_byte_below_minimum DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -75,8 +70,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked conversion rejects a negative source even when its bit width fits the unsigned destination. $>
-  ::negative_to_unsigned
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::negative_to_unsigned DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -90,8 +84,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked unsigned narrowing rejects the first value that loses a high bit. $>
-  ::unsigned_byte_above_maximum
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::unsigned_byte_above_maximum DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -105,8 +98,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked narrowing enforces a non-byte signed range rather than its storage-byte range. $>
-  ::nonbyte_signed_above_maximum
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::nonbyte_signed_above_maximum DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -120,8 +112,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked narrowing enforces a non-byte unsigned range rather than its storage-byte range. $>
-  ::nonbyte_unsigned_above_maximum
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::nonbyte_unsigned_above_maximum DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -135,8 +126,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked conversions reject values outside the range after a signedness change. $>
-  ::same_width_signedness
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::same_width_signedness DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught U32 := 0;
     TRY { VAR value U8 := 128; VAR result I8 := value AS CHECKED I8; TEST_ASSERT(FALSE); }
@@ -149,8 +139,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Conversion failure unwinds deferred actions before entering the handler. $>
-  ::conversion_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::conversion_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR cleaned U32 := 0;
     VAR caught BOOL := FALSE;

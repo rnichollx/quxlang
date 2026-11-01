@@ -3,52 +3,42 @@ LANGUAGE QUXLANG EN 0.0;
 ::default_constructor_modifier_tests NAMESPACE
 {
   DOC <$ Requires an explicit value while retaining generated copy, move and assignment operations. $>
-  ::required
-    STRUCT NO_IMPLICIT_DEFAULT_CONSTRUCTOR
+  ::required STRUCT NO_IMPLICIT_DEFAULT_CONSTRUCTOR
   {
     .value VAR I32;
     DOC <$ Initializes the stored value from its required argument. $>
-    .CONSTRUCTOR
-      FUNCTION(@value I32) { .value := value; }
+    .CONSTRUCTOR FUNCTION(@value I32) { .value := value; }
   }
 
   DOC <$ Supplies a user default constructor despite suppressing an implicit one. $>
-  ::declared_default
-    STRUCT NO_IMPLICIT_DEFAULT_CONSTRUCTOR
+  ::declared_default STRUCT NO_IMPLICIT_DEFAULT_CONSTRUCTOR
   {
     .value VAR I32;
     DOC <$ Records invocation of the explicitly declared default constructor. $>
-    .CONSTRUCTOR
-      FUNCTION() { .value := 17; }
+    .CONSTRUCTOR FUNCTION() { .value := 17; }
   }
 
   DOC <$ Supplies a default call through a user constructor's optional argument. $>
-  ::default_argument
-    STRUCT NO_IMPLICIT_DEFAULT_CONSTRUCTOR
+  ::default_argument STRUCT NO_IMPLICIT_DEFAULT_CONSTRUCTOR
   {
     .value VAR I32;
     DOC <$ Preserves the supplied value or its declared default. $>
-    .CONSTRUCTOR
-      FUNCTION(@value I32 DEFAULT(23)) { .value := value; }
+    .CONSTRUCTOR FUNCTION(@value I32 DEFAULT(23)) { .value := value; }
   }
 
   DOC <$ Explicitly initializes a member that has no default constructor. $>
-  ::owner
-    STRUCT
+  ::owner STRUCT
   {
     .member VAR required;
     DOC <$ Delegates the required member argument before entering the owner body. $>
-    .CONSTRUCTOR
-      FUNCTION(@value I32) :> .member:(@value value) { }
+    .CONSTRUCTOR FUNCTION(@value I32) :> .member:(@value value) { }
   }
 
   DOC <$ Has a member that prevents implicit default construction. $>
-  ::implicit_owner
-    STRUCT { .member VAR required; }
+  ::implicit_owner STRUCT { .member VAR required; }
 
   DOC <$ Suppressing implicit default construction preserves independent generated copy, move and assignment behavior. $>
-  ::remaining_generated_operations
-    DUAL_TEST
+  ::remaining_generated_operations DUAL_TEST
   {
     VAR source required :(@value 11);
     VAR copied required := source;
@@ -64,8 +54,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Explicit defaults and defaulted user arguments remain callable when implicit default synthesis is disabled. $>
-  ::user_default_constructors
-    DUAL_TEST
+  ::user_default_constructors DUAL_TEST
   {
     VAR first declared_default;
     VAR second declared_default := declared_default();
@@ -80,8 +69,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A containing object can supply its member's required constructor argument and preserve independent copied member storage. $>
-  ::explicit_member_delegate
-    DUAL_TEST
+  ::explicit_member_delegate DUAL_TEST
   {
     VAR original owner :(@value 43);
     VAR copied owner := original;
@@ -93,22 +81,19 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A local declaration cannot synthesize a suppressed default constructor. $>
-  ::missing_local_argument
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::missing_local_argument STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object required;
   }
 
   DOC <$ Construction expressions cannot bypass the required constructor argument. $>
-  ::missing_expression_argument
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::missing_expression_argument STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     required();
   }
 
   DOC <$ A containing object's implicit default cannot bypass its member's required argument. $>
-  ::implicit_member_default
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::implicit_member_default STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object implicit_owner;
   }

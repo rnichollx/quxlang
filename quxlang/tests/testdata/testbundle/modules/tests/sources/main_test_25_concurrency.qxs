@@ -14,16 +14,14 @@ PRIVATE(MODULE)
     EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"unlink"]
     CALLABLE CALLCONV CCALL(@path CONST=>>BYTE; RETURN I32);
 
-  ::shared_ptr_move_transfer_probe
-    FUNCTION(@source TEMP& std::shared_ptr#(I32)): BOOL
+  ::shared_ptr_move_transfer_probe FUNCTION(@source TEMP& std::shared_ptr#(I32)): BOOL
   {
     VAR moved std::shared_ptr#(I32) := FORWARD(source);
     RETURN source.has_value() == FALSE && moved.has_value() &&
       moved-> == 73 && moved.use_count() == 1;
   }
 
-  ::strong_ptr_move_transfer_probe
-    FUNCTION(@source TEMP& std::strong_ptr#(I32)): BOOL
+  ::strong_ptr_move_transfer_probe FUNCTION(@source TEMP& std::strong_ptr#(I32)): BOOL
   {
     VAR moved std::strong_ptr#(I32) := FORWARD(source);
     RETURN source.has_value() == FALSE && moved.has_value() &&
@@ -47,8 +45,7 @@ PRIVATE(MODULE)
 }
 
 
-::strong_ptr_strong_and_weak_lifetimes
-  UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+::strong_ptr_strong_and_weak_lifetimes UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   VAR destructions I32 := 0;
   VAR owner std::strong_ptr#(shared_lifetime_probe) :=
@@ -80,8 +77,7 @@ PRIVATE(MODULE)
 }
 
 
-::shared_ptr_move_transfers_ownership
-  UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+::shared_ptr_move_transfers_ownership UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
 {
   TEST_ASSERT(shared_ptr_move_transfer_probe(
     @source std::make_shared_value#I32(73 AS I32)
@@ -149,8 +145,7 @@ PRIVATE(MODULE)
 
 
 DOC <$ Copies ownership repeatedly on a worker thread. $>
-::pointer_copy_entry
-  TEMPLATE(@T TYPE AUTO) STRUCT
+::pointer_copy_entry TEMPLATE(@T TYPE AUTO) STRUCT
 {
   .owner VAR T;
 
@@ -329,8 +324,7 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
 }
 
 
-::condition_variable_releases_and_reacquires_mutex
-  UNIT_TEST KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+::condition_variable_releases_and_reacquires_mutex UNIT_TEST KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR mtx std::ordering_mutex;
   VAR condition std::condition_variable;
@@ -375,40 +369,35 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
 }
 
 
-::thin_mutex_move_is_rejected
-  STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+::thin_mutex_move_is_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR source std::thin_mutex;
   VAR moved std::thin_mutex := MOVE(source);
 }
 
 
-::ordering_mutex_move_is_rejected
-  STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+::ordering_mutex_move_is_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR source std::ordering_mutex;
   VAR moved std::ordering_mutex := MOVE(source);
 }
 
 
-::condition_variable_move_is_rejected
-  STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+::condition_variable_move_is_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR source std::condition_variable;
   VAR moved std::condition_variable := MOVE(source);
 }
 
 
-::semaphore_move_is_rejected
-  STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+::semaphore_move_is_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE KNOWN_BROKEN_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
 {
   VAR source std::semaphore;
   VAR moved std::semaphore := MOVE(source);
 }
 
 
-::thin_mutex_is_unimplemented_on_unsupported_platforms
-  INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+::thin_mutex_is_unimplemented_on_unsupported_platforms INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
   STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR mtx std::thin_mutex;
@@ -416,8 +405,7 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
 }
 
 
-::ordering_mutex_is_unimplemented_on_unsupported_platforms
-  INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+::ordering_mutex_is_unimplemented_on_unsupported_platforms INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
   STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR mtx std::ordering_mutex;
@@ -425,8 +413,7 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
 }
 
 
-::condition_variable_is_unimplemented_on_unsupported_platforms
-  INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+::condition_variable_is_unimplemented_on_unsupported_platforms INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
   STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR condition std::condition_variable;
@@ -434,8 +421,7 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
 }
 
 
-::semaphore_is_unimplemented_on_unsupported_platforms
-  INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
+::semaphore_is_unimplemented_on_unsupported_platforms INCLUDE_IF((OS_LINUX || OS_WINDOWS || OS_MACOS) == FALSE)
   STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR gate std::semaphore;

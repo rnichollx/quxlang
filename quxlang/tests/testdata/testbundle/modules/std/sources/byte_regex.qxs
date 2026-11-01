@@ -52,8 +52,7 @@ DOC <$
         .active.clear();
       }
       DOC <$ Follows forward epsilon transitions while recording the earliest start. $>
-      .activate
-        FUNCTION(@program CONST& dynarr#token, @index SZ, @start SZ) MUT
+      .activate FUNCTION(@program CONST& dynarr#token, @index SZ, @start SZ) MUT
       {
         LOOP INIT { VAR position SZ := index; } STEP { position++; } DO
         {
@@ -75,8 +74,7 @@ DOC <$
     .alternatives VAR dynarr#SZ;
 
     DOC <$ Consumes one literal or escaped byte from the pattern. $>
-    ::decode
-      FUNCTION(@pattern CONST& string, @index MUT& SZ): BYTE
+    ::decode FUNCTION(@pattern CONST& string, @index MUT& SZ): BYTE
     {
       IF UNLIKELY (index == pattern.size()) { THROW error::invalid_pattern; }
       VAR value BYTE := pattern[index];
@@ -94,8 +92,7 @@ DOC <$
     }
 
     DOC <$ Searches from offset, retaining earlier starts and extending the winning match greedily. $>
-    .find
-      FUNCTION(@input CONST& dynarr#BYTE, @offset SZ, @current MUT& state,
+    .find FUNCTION(@input CONST& dynarr#BYTE, @offset SZ, @current MUT& state,
                @next MUT& state, @result MUT& match) CONST: BOOL
     {
       current.clear();
@@ -137,8 +134,7 @@ DOC <$
   }
 
   DOC <$ Compiles pattern, throwing byte_regex::error for invalid syntax. $>
-  .CONSTRUCTOR
-    FUNCTION(@EXPLICIT:pattern CONST& string)
+  .CONSTRUCTOR FUNCTION(@EXPLICIT:pattern CONST& string)
   {
     .alternatives.push_back(0);
     LOOP INIT { VAR index SZ := 0; } WHILE (index < pattern.size()) DO
@@ -201,8 +197,7 @@ DOC <$
   }
 
   DOC <$ Counts nonoverlapping matches. An empty match advances by one byte, including one possible match at the input end. $>
-  .count
-    FUNCTION(@ARG:input CONST& dynarr#BYTE) CONST: SZ
+  .count FUNCTION(@ARG:input CONST& dynarr#BYTE) CONST: SZ
   {
     VAR current state :(@EXPLICIT .program.size());
     VAR next state :(@EXPLICIT .program.size());
@@ -220,8 +215,7 @@ DOC <$
   }
 
   DOC <$ Replaces nonoverlapping matches with literal replacement bytes. Empty matches advance by one byte. $>
-  .replace
-    FUNCTION(@input CONST& dynarr#BYTE, @replacement STRING_CONSTANT) CONST: dynarr#BYTE
+  .replace FUNCTION(@input CONST& dynarr#BYTE, @replacement STRING_CONSTANT) CONST: dynarr#BYTE
   {
     VAR output dynarr#BYTE;
     output.reserve(input.size());

@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::integer_bit_count_tests NAMESPACE
 {
   DOC <$ BITS reports the declared integer width independently of signedness or physical storage rounding. $>
-  ::width
-    TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO, @count VALUE SZ)
+  ::width TEMPLATE(@signed_type TYPE AUTO, @unsigned_type TYPE AUTO, @count VALUE SZ)
     FUNCTION()
   {
     TEST_ASSERT(BITS(signed_type) == count);
@@ -16,8 +15,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Integer bit counts span byte and machine-word boundaries without relying on SIZEOF or constructing wide values. $>
-  ::declared_widths
-    DUAL_TEST
+  ::declared_widths DUAL_TEST
   {
     width#(@signed_type I1, @unsigned_type U1, @count 1)();
     width#(@signed_type I7, @unsigned_type U7, @count 7)();
@@ -41,8 +39,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ BITS through TYPEOF leaves a mutating call unevaluated and DECLTYPE supplies a local integer type. $>
-  ::unevaluated_operand
-    DUAL_TEST
+  ::unevaluated_operand DUAL_TEST
   {
     VAR value I32 := 29;
     TEST_ASSERT(BITS(DECLTYPE(value)) == 32);
@@ -51,24 +48,21 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A visible mutation detects accidental execution inside a type operand. $>
-  ::change
-    FUNCTION(@value MUT& I32): I32
+  ::change FUNCTION(@value MUT& I32): I32
   {
     value := 41;
     RETURN value;
   }
 
   DOC <$ BITS requires a type operand rather than a local object name. $>
-  ::reject_object
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::reject_object STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 17;
     VAR count SZ := BITS(value);
   }
 
   DOC <$ BITS rejects a reference variable as its type operand. $>
-  ::reject_reference
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::reject_reference STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR value I32 := 17;
     VAR alias MUT& I32 := value;
@@ -76,29 +70,25 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Boolean types are not integer-width operands. $>
-  ::reject_boolean
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::reject_boolean STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR count SZ := BITS(BOOL);
   }
 
   DOC <$ Floating storage width does not make a floating type an integer-width operand. $>
-  ::reject_floating
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::reject_floating STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR count SZ := BITS(F32);
   }
 
   DOC <$ Pointer representation width is not an integer type width. $>
-  ::reject_pointer
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::reject_pointer STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR count SZ := BITS(MUT->I32);
   }
 
   DOC <$ A record containing an integer does not acquire an integer bit count. $>
-  ::reject_record
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::reject_record STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR count SZ := BITS(integer_type_query_tests::record);
   }

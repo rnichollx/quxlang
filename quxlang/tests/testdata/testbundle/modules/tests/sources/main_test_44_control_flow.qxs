@@ -3,45 +3,39 @@ LANGUAGE QUXLANG EN 0.0;
 ::control_flow_tests NAMESPACE
 {
   DOC <$ Records a condition evaluation and returns its supplied value. $>
-  ::condition
-    FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
+  ::condition FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
   {
     events := events * 10 + digit;
     RETURN value;
   }
 
   DOC <$ Records destruction of a local on a control-flow exit. $>
-  ::exit_record
-    STRUCT MOVE_ONLY
+  ::exit_record STRUCT MOVE_ONLY
   {
     .events VAR MUT->I32;
     .digit VAR I32;
     DOC <$ Stores the destination and digit for the lifetime record. $>
-    .CONSTRUCTOR
-      FUNCTION(@events MUT& I32, @digit I32)
+    .CONSTRUCTOR FUNCTION(@events MUT& I32, @digit I32)
     {
       .events := events<-;
       .digit := digit;
     }
     DOC <$ Transfers the lifetime record without recording destruction of the moved-from value. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER TEMP& exit_record)
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& exit_record)
     {
       VAR source MUT& exit_record := OTHER AS MUT& exit_record;
       .events <-> source.events;
       .digit := source.digit;
     }
     DOC <$ Appends the digit when this local leaves scope. $>
-    .DESTRUCTOR
-      FUNCTION()
+    .DESTRUCTOR FUNCTION()
     {
       IF (.events??) { .events-> := .events-> * 10 + .digit; }
     }
   }
 
   DOC <$ Only conditions preceding the selected branch execute, and branch locals die before continuation. $>
-  ::conditional_chain_order
-    DUAL_TEST
+  ::conditional_chain_order DUAL_TEST
   {
     VAR selection I32 := 0;
     LOOP WHILE (selection < 4) DO
@@ -72,8 +66,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Likelihood hints preserve both outcomes and evaluate each condition exactly once. $>
-  ::likelihood_outcomes
-    DUAL_TEST
+  ::likelihood_outcomes DUAL_TEST
   {
     VAR selection I32 := 0;
     LOOP WHILE (selection < 2) DO
@@ -92,8 +85,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Hinted chains stop evaluating at the selected arm and destroy branch locals before continuation. $>
-  ::likelihood_chain_order
-    DUAL_TEST
+  ::likelihood_chain_order DUAL_TEST
   {
     VAR selection I32 := 0;
     LOOP WHILE (selection < 5) DO
@@ -126,8 +118,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ WHILE tests zero and multiple iterations, with local cleanup preceding the next condition. $>
-  ::while_condition_and_cleanup
-    DUAL_TEST
+  ::while_condition_and_cleanup DUAL_TEST
   {
     VAR events I32 := 0;
     LOOP WHILE (condition(@events events, @digit 1, @value FALSE)) DO
@@ -150,8 +141,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ INIT and EVAL execute once; POSTTEST precedes STEP on both normal completion and CONTINUE. $>
-  ::loop_clause_order
-    DUAL_TEST
+  ::loop_clause_order DUAL_TEST
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 2) DO
@@ -176,8 +166,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An initial false test skips the body, and BREAK skips POSTTEST and STEP after cleaning body locals. $>
-  ::loop_zero_and_break_clauses
-    DUAL_TEST
+  ::loop_zero_and_break_clauses DUAL_TEST
   {
     VAR enter BOOL := FALSE;
     VAR mode I32 := 0;
@@ -203,8 +192,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Rejected iterations still run POSTTEST and STEP without constructing body locals. $>
-  ::loop_filter_progress
-    DUAL_TEST
+  ::loop_filter_progress DUAL_TEST
   {
     VAR index I32 := 0;
     VAR events I32 := 0;
@@ -225,8 +213,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Named CONTINUE and BREAK unwind inner and outer body locals but preserve the enclosing scope. $>
-  ::named_loop_exit_cleanup
-    DUAL_TEST
+  ::named_loop_exit_cleanup DUAL_TEST
   {
     VAR events I32 := 0;
     VAR count I32 := 0;
@@ -253,8 +240,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Backward and forward GOTO destroy each entered scope once, in reverse local order. $>
-  ::goto_repeated_scope_cleanup
-    DUAL_TEST
+  ::goto_repeated_scope_cleanup DUAL_TEST
   {
     VAR events I32 := 0;
     VAR count I32 := 0;
@@ -273,8 +259,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ TO includes an equal endpoint while UNTIL excludes it; ascending empty ranges execute no body. $>
-  ::sequence_endpoint_boundaries
-    DUAL_TEST
+  ::sequence_endpoint_boundaries DUAL_TEST
   {
     VAR count I32 := 0;
     LOOP FROM(3 AS I32) TO(3) VALUE(value) DO
@@ -299,16 +284,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Records one RETURN_UNEQUAL operand evaluation. $>
-  ::comparison_operand
-    FUNCTION(@events MUT& I32, @digit I32, @value I32): I32
+  ::comparison_operand FUNCTION(@events MUT& I32, @digit I32, @value I32): I32
   {
     events := events * 10 + digit;
     RETURN value;
   }
 
   DOC <$ Compares operands once and records local cleanup on equal and unequal paths. $>
-  ::ordered_return
-    FUNCTION(@events MUT& I32, @left I32, @right I32): ORDER
+  ::ordered_return FUNCTION(@events MUT& I32, @left I32, @right I32): ORDER
   {
     VAR first exit_record := exit_record(@events events, @digit 4);
     VAR second exit_record := exit_record(@events events, @digit 5);
@@ -319,8 +302,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Unequal comparisons return early, while equal comparisons continue before reverse local destruction. $>
-  ::return_unequal_evaluation_and_cleanup
-    DUAL_TEST
+  ::return_unequal_evaluation_and_cleanup DUAL_TEST
   {
     VAR events I32 := 0;
     TEST_ASSERT(ordered_return(@events events, @left 1, @right 2) == ORDER::LESS);

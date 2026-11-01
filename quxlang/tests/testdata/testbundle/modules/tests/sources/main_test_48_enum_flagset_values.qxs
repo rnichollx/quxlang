@@ -3,24 +3,19 @@ LANGUAGE QUXLANG EN 0.0;
 ::enum_flagset_value_tests NAMESPACE
 {
   DOC <$ Exercises implicit enum allocation around explicit values and reserved ranges. $>
-  ::allocated
-    ENUM BITS(4) [late = 9, zero DEFAULT, RESERVED FROM(1) TO(3), first, second];
+  ::allocated ENUM BITS(4) [late = 9, zero DEFAULT, RESERVED FROM(1) TO(3), first, second];
 
   DOC <$ Represents every four-bit value, including unnamed and reserved values. $>
-  ::open_code
-    ENUM BITS(4) [zero DEFAULT = 0, RESERVED FROM(4) TO(7), last = 15] ALLOW_UNKNOWN;
+  ::open_code ENUM BITS(4) [zero DEFAULT = 0, RESERVED FROM(4) TO(7), last = 15] ALLOW_UNKNOWN;
 
   DOC <$ Provides three independently addressable bits. $>
-  ::permissions
-    FLAGSET BITS(3) [read = 1, write = 2, execute = 4];
+  ::permissions FLAGSET BITS(3) [read = 1, write = 2, execute = 4];
 
   DOC <$ Groups the first two bits into a composite membership query. $>
-  ::composite_permissions
-    FLAGSET BITS(3) [both = 3, execute = 4];
+  ::composite_permissions FLAGSET BITS(3) [both = 3, execute = 4];
 
   DOC <$ Serializes a one-byte enum value for assertions about its assigned representation. $>
-  ::serialized_byte
-    FUNCTION(@value AUTO): BYTE
+  ::serialized_byte FUNCTION(@value AUTO): BYTE
   {
     VAR output [1]BYTE;
     value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
@@ -28,8 +23,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Explicit and reserved enum values are skipped when assigning implicit cases. $>
-  ::implicit_enum_allocation
-    DUAL_TEST
+  ::implicit_enum_allocation DUAL_TEST
   {
     VAR initial allocated;
     TEST_ASSERT(initial == allocated::zero);
@@ -43,8 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Every input byte decodes to its low four bits when unknown enum values are allowed. $>
-  ::unknown_enum_padding_and_roundtrip
-    DUAL_TEST
+  ::unknown_enum_padding_and_roundtrip DUAL_TEST
   {
     VAR raw U16 := 0;
     LOOP WHILE (raw < 256) DO
@@ -63,8 +56,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Composite flags require every constituent bit, while zero remains false in Boolean conversion. $>
-  ::composite_membership_truth_table
-    DUAL_TEST
+  ::composite_membership_truth_table DUAL_TEST
   {
     VAR raw U8 := 0;
     LOOP WHILE (raw < 8) DO
@@ -83,8 +75,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ All bitwise flagset operators match their integer truth functions within the declared three-bit width. $>
-  ::flagset_binary_truth_tables
-    DUAL_TEST
+  ::flagset_binary_truth_tables DUAL_TEST
   {
     VAR left U8 := 0;
     LOOP WHILE (left < 8) DO
@@ -109,8 +100,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Compound bitwise assignments preserve the destination flagset width for every pair of three-bit inputs. $>
-  ::flagset_compound_truth_tables
-    DUAL_TEST
+  ::flagset_compound_truth_tables DUAL_TEST
   {
     VAR left U8 := 0;
     LOOP WHILE (left < 8) DO

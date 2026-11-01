@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::static_generation_tests NAMESPACE
 {
   DOC <$ Nested STATIC_WHILE loops restart inner state and freeze each emitted value at its generation point. $>
-  ::nested_expansion_values
-    DUAL_TEST
+  ::nested_expansion_values DUAL_TEST
   {
     VAR events I32 := 0;
     STATIC_VAR outer I32 := 0;
@@ -25,16 +24,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Records a generation-time condition and returns its supplied truth value. $>
-  ::record_condition
-    FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
+  ::record_condition FUNCTION(@events MUT& I32, @digit I32, @value BOOL): BOOL
   {
     events := events * 10 + digit;
     RETURN value;
   }
 
   DOC <$ STATIC_ELSE chains evaluate conditions in order and emit only the selected branch. $>
-  ::static_branch_chain
-    DUAL_TEST
+  ::static_branch_chain DUAL_TEST
   {
     STATIC_VAR events I32 := 0;
     VAR selected I32 := 0;
@@ -59,8 +56,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Snapshots preserve earlier array contents while later STATIC_EVAL mutations affect only subsequent snapshots. $>
-  ::snapshot_array_mutation
-    DUAL_TEST
+  ::snapshot_array_mutation DUAL_TEST
   {
     STATIC_VAR items [3]I32;
     STATIC_EVAL items[0] := 2;
@@ -80,8 +76,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Each expanded block owns distinct locals and destroys them before the next expanded block begins. $>
-  ::generated_local_lifetimes
-    DUAL_TEST
+  ::generated_local_lifetimes DUAL_TEST
   {
     VAR events I32 := 0;
     STATIC_VAR digit I32 := 1;
@@ -97,8 +92,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Emits three additions whose frozen operands are reused on every call. $>
-  ::generated_sum
-    FUNCTION(@value I32): I32
+  ::generated_sum FUNCTION(@value I32): I32
   {
     VAR result I32 := value;
     STATIC_VAR increment I32 := 1;
@@ -112,8 +106,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Repeated runtime invocations do not share mutable local state or rerun generation mutations. $>
-  ::generation_is_independent_of_calls
-    DUAL_TEST
+  ::generation_is_independent_of_calls DUAL_TEST
   {
     TEST_ASSERT(generated_sum(@value 10) == 16);
     TEST_ASSERT(generated_sum(@value 0) == 6);
@@ -121,8 +114,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ STATIC_CHOOSE preserves a selected mutable reference and leaves the other operand unchanged. $>
-  ::static_choose_reference_identity
-    DUAL_TEST
+  ::static_choose_reference_identity DUAL_TEST
   {
     VAR left I32 := 2;
     VAR right I32 := 7;

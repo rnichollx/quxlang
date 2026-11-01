@@ -6,8 +6,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
   ::binary64 STRUCT
   {
     DOC <$ Returns the canonical binary64 encoding emitted by Quxlang serialization. $>
-    ::encode
-      FUNCTION(@ARG:value F64): U64
+    ::encode FUNCTION(@ARG:value F64): U64
     {
       VAR bytes [8]BYTE;
       value.SERIALIZE(@OUTPUT_ITERATOR bytes[& 0]);
@@ -18,8 +17,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
 
     DOC <$ Decodes an IEEE binary64 encoding through Quxlang deserialization. $>
-    ::decode
-      FUNCTION(@ARG:encoding U64): F64
+    ::decode FUNCTION(@ARG:encoding U64): F64
     {
       VAR bytes [8]BYTE;
       LOOP VALUE(index) FROM(0 AS SZ) UNTIL(8) DO
@@ -39,8 +37,7 @@ DOC <$
   exact integer squares and remainders determine the final rounded significand.
   No system math routine, assembly or floating-point environment is used.
   $>
-::sqrt
-  FUNCTION(@ARG:value F64): F64
+::sqrt FUNCTION(@ARG:value F64): F64
 {
   VAR encoding U64 := binary64::encode(value);
   VAR magnitude U64 := encoding #&& 9223372036854775807;

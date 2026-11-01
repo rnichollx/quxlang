@@ -3,28 +3,23 @@ LANGUAGE QUXLANG EN 0.0;
 ::storage_constraint_tests NAMESPACE
 {
   DOC <$ Placement statements require storage rather than an ordinary live scalar. $>
-  ::nonstorage_statement
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::nonstorage_statement STATIC_TEST EXPECT_COMPILATION_FAILURE
   { VAR value I32; PLACE AT(value) I32 := 17; }
 
   DOC <$ Placement expressions reject ordinary scalar destinations before producing an object pointer. $>
-  ::nonstorage_expression
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::nonstorage_expression STATIC_TEST EXPECT_COMPILATION_FAILURE
   { VAR value I32; VAR pointer ->I32 := PLACE AT(value) I32 := 17; }
 
   DOC <$ Equal-width scalar types remain distinct in typed storage. $>
-  ::wrong_nominal_type
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::wrong_nominal_type STATIC_TEST EXPECT_COMPILATION_FAILURE
   { VAR slot TYPED_STORAGE(I32); PLACE AT(slot) U32 := 17; }
 
   DOC <$ Explicit destruction must select a type permitted by the storage declaration. $>
-  ::wrong_destroy_type
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::wrong_destroy_type STATIC_TEST EXPECT_COMPILATION_FAILURE
   { VAR slot TYPED_STORAGE(I32); PLACE AT(slot) I32 := 17; DESTROY AT(slot) U32; }
 
   DOC <$ A constant storage view cannot initialize an object. $>
-  ::const_initialization
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::const_initialization STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR slot TYPED_STORAGE(I32);
     VAR view CONST& TYPED_STORAGE(I32) := slot;
@@ -32,8 +27,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A constant storage view cannot end a live object's lifetime. $>
-  ::const_destruction
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::const_destruction STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR slot TYPED_STORAGE(I32);
     PLACE AT(slot) I32 := 17;
@@ -52,13 +46,11 @@ LANGUAGE QUXLANG EN 0.0;
   { VAR slot ALIGNED_STORAGE(16, 1); PLACE AT(slot) I32 := 17; }
 
   DOC <$ WRITE storage references permit beginning an object lifetime in caller-owned storage. $>
-  ::initialize_output
-    FUNCTION(@slot WRITE& TYPED_STORAGE(I32)): MUT->I32
+  ::initialize_output FUNCTION(@slot WRITE& TYPED_STORAGE(I32)): MUT->I32
   { RETURN PLACE AT(slot) I32 := 29; }
 
   DOC <$ Initialization through WRITE storage returns a live object that can be mutated and destroyed through the original slot. $>
-  ::write_initialization
-    DUAL_TEST
+  ::write_initialization DUAL_TEST
   {
     VAR slot TYPED_STORAGE(I32);
     VAR value MUT->I32 := initialize_output(@slot slot);

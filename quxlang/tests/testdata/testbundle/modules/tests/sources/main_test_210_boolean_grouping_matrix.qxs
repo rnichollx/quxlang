@@ -3,13 +3,11 @@ LANGUAGE QUXLANG EN 0.0;
 ::boolean_grouping_matrix_tests NAMESPACE
 {
   DOC <$ Records evaluated Boolean operands to observe grouping and short-circuit decisions. $>
-  ::operand
-    FUNCTION(@value BOOL, @digit I32, @events MUT& I32): BOOL
+  ::operand FUNCTION(@value BOOL, @digit I32, @events MUT& I32): BOOL
   { events := events * 10 + digit; RETURN value; }
 
   DOC <$ All Boolean operators after && retain explicit left grouping in value and operand evaluation for every input combination. $>
-  ::and_first
-    DUAL_TEST
+  ::and_first DUAL_TEST
   {
     VAR mask U8 := 0;
     LOOP WHILE (mask < 8) DO
@@ -95,8 +93,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ All Boolean operators after !& retain explicit left grouping in value and operand evaluation for every input combination. $>
-  ::nand_first
-    DUAL_TEST
+  ::nand_first DUAL_TEST
   {
     VAR mask U8 := 0;
     LOOP WHILE (mask < 8) DO
@@ -182,8 +179,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ All Boolean operators after ^^ retain explicit left grouping in value and operand evaluation for every input combination. $>
-  ::xor_first
-    DUAL_TEST
+  ::xor_first DUAL_TEST
   {
     VAR mask U8 := 0;
     LOOP WHILE (mask < 8) DO
@@ -269,8 +265,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ All Boolean operators after !| retain explicit left grouping in value and operand evaluation for every input combination. $>
-  ::nor_first
-    DUAL_TEST
+  ::nor_first DUAL_TEST
   {
     VAR mask U8 := 0;
     LOOP WHILE (mask < 8) DO
@@ -356,8 +351,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ All Boolean operators after || retain explicit left grouping in value and operand evaluation for every input combination. $>
-  ::or_first
-    DUAL_TEST
+  ::or_first DUAL_TEST
   {
     VAR mask U8 := 0;
     LOOP WHILE (mask < 8) DO
@@ -443,8 +437,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ All Boolean operators after ^> retain explicit left grouping in value and operand evaluation for every input combination. $>
-  ::implies_first
-    DUAL_TEST
+  ::implies_first DUAL_TEST
   {
     VAR mask U8 := 0;
     LOOP WHILE (mask < 8) DO
@@ -530,8 +523,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ All Boolean operators after ^< retain explicit left grouping in value and operand evaluation for every input combination. $>
-  ::implied_first
-    DUAL_TEST
+  ::implied_first DUAL_TEST
   {
     VAR mask U8 := 0;
     LOOP WHILE (mask < 8) DO
@@ -617,8 +609,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ All Boolean operators after !^ retain explicit left grouping in value and operand evaluation for every input combination. $>
-  ::equivalent_first
-    DUAL_TEST
+  ::equivalent_first DUAL_TEST
   {
     VAR mask U8 := 0;
     LOOP WHILE (mask < 8) DO

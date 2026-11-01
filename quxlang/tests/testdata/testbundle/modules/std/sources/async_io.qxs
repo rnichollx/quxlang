@@ -34,8 +34,7 @@ PRIVATE(MODULE)
     .pending VAR ATOMIC#SZ;
 
     DOC <$ Creates stable async-file state for one context and native file. $>
-    .CONSTRUCTOR
-      FUNCTION(%native_ref file_ref, %context_identity MUT->async_context_control)
+    .CONSTRUCTOR FUNCTION(%native_ref file_ref, %context_identity MUT->async_context_control)
       :> .owned_file:(@native_ref native_ref)
     {
       .context_identity := context_identity;
@@ -164,15 +163,13 @@ DOC <$
   }
 
   DOC <$ Binds one worker entry to stable async-context state. $>
-  .CONSTRUCTOR
-    FUNCTION(@control MUT->async_context_control)
+  .CONSTRUCTOR FUNCTION(@control MUT->async_context_control)
   {
     .control := control;
   }
 
   DOC <$ Processes completions until the context receives a stop packet. $>
-  .OPERATOR()
-    FUNCTION()
+  .OPERATOR() FUNCTION()
   {
     LOOP WHILE (wait_for_async_completion(@control .control)) DO
     {
@@ -196,8 +193,7 @@ DOC <$
   }
 
   DOC <$ Creates a completion queue with room for entries in flight. $>
-  .CONSTRUCTOR
-    FUNCTION(@entries SZ)
+  .CONSTRUCTOR FUNCTION(@entries SZ)
   {
     ASSERT(entries != 0, "An async context requires at least one entry.");
     ASSERT(entries <= ((0 AS U32) #!!) AS SZ,
@@ -225,8 +221,7 @@ DOC <$
   }
 
   DOC <$ Transfers ownership of another context without moving native queue state. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER TEMP& async_context)
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& async_context)
   {
     VAR empty_control MUT->async_context_control;
     .control := empty_control;
@@ -236,8 +231,7 @@ DOC <$
   }
 
   DOC <$ Releases the native queue after all requests have completed. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     IF (.control??)
     {
@@ -256,8 +250,7 @@ DOC <$
   }
 
   DOC <$ Reports whether the platform completion queue was created. $>
-  .valid
-    FUNCTION(): BOOL
+  .valid FUNCTION(): BOOL
   {
     IF ((.control??) == FALSE)
     {
@@ -267,8 +260,7 @@ DOC <$
   }
 
   DOC <$ Returns the number of operations whose callbacks have not returned. $>
-  .outstanding
-    FUNCTION(): SZ
+  .outstanding FUNCTION(): SZ
   {
     IF ((.control??) == FALSE)
     {
@@ -278,8 +270,7 @@ DOC <$
   }
 
   DOC <$ Waits for one completion and executes its callback on this thread. $>
-  .wait_one
-    FUNCTION(): BOOL
+  .wait_one FUNCTION(): BOOL
   {
     ASSERT(.valid(), "Cannot wait on an unavailable async context.");
     .control->.drain_mutex.lock();
@@ -312,8 +303,7 @@ DOC <$
     .control VAR MUT->async_file_control;
 
     DOC <$ Rejects use with a context other than the construction context. $>
-    .assert_context
-      FUNCTION(@context MUT& async_context)
+    .assert_context FUNCTION(@context MUT& async_context)
     {
       ASSERT(context.valid(), "Cannot use an unavailable async context.");
       ASSERT(.control??, "Cannot use a moved-from async file.");
@@ -326,8 +316,7 @@ DOC <$
     Takes ownership of native_ref and binds it to context. Windows handles must
     have been opened with FILE_FLAG_OVERLAPPED.
     $>
-  .CONSTRUCTOR
-    FUNCTION(@context MUT& async_context, @native_ref file_ref)
+  .CONSTRUCTOR FUNCTION(@context MUT& async_context, @native_ref file_ref)
   {
     ASSERT(context.valid(), "Cannot create an async file for an unavailable context.");
     NEW TO(.control) :[
@@ -347,8 +336,7 @@ DOC <$
   }
 
   DOC <$ Transfers stable file state, including operations already in flight. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER TEMP& async_file)
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& async_file)
   {
     VAR empty_control MUT->async_file_control;
     .control := empty_control;
@@ -358,8 +346,7 @@ DOC <$
   }
 
   DOC <$ Closes and releases the file after every operation has completed. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     IF (.control??)
     {
@@ -373,8 +360,7 @@ DOC <$
     Starts a positioned read. Submission failures invoke callback immediately
     with succeeded set to false.
     $>
-  .read
-    FUNCTION(
+  .read FUNCTION(
       @context MUT& async_context,
       @buffer CONST& buffer_ref,
       @offset U64,
@@ -404,8 +390,7 @@ DOC <$
     Starts a positioned write. Submission failures invoke callback immediately
     with succeeded set to false.
     $>
-  .write
-    FUNCTION(
+  .write FUNCTION(
       @context MUT& async_context,
       @buffer CONST& buffer_ref,
       @offset U64,
@@ -432,32 +417,28 @@ DOC <$
   }
 
   DOC <$ Returns this file's number of unfinished transfers. $>
-  .pending
-    FUNCTION(@context MUT& async_context): SZ
+  .pending FUNCTION(@context MUT& async_context): SZ
   {
     .assert_context(@context context);
     RETURN .control->.pending.LOAD#ATOMIC_ACQUIRE();
   }
 
   DOC <$ Reports whether this object still owns its native file. $>
-  .is_open
-    FUNCTION(@context MUT& async_context): BOOL
+  .is_open FUNCTION(@context MUT& async_context): BOOL
   {
     .assert_context(@context context);
     RETURN .control->.owned_file.is_open();
   }
 
   DOC <$ Returns a non-owning native reference after validating context identity. $>
-  .reference
-    FUNCTION(@context MUT& async_context): file_ref
+  .reference FUNCTION(@context MUT& async_context): file_ref
   {
     .assert_context(@context context);
     RETURN .control->.owned_file.reference();
   }
 
   DOC <$ Closes the file after all of its asynchronous transfers have completed. $>
-  .close
-    FUNCTION(@context MUT& async_context): BOOL
+  .close FUNCTION(@context MUT& async_context): BOOL
   {
     .assert_context(@context context);
     ASSERT(.control->.pending.LOAD#ATOMIC_ACQUIRE() == 0,
@@ -483,8 +464,7 @@ DOC <$
   }
 
   DOC <$ Starts worker_count completion workers for context. $>
-  .CONSTRUCTOR
-    FUNCTION(@context MUT& async_context, @worker_count SZ)
+  .CONSTRUCTOR FUNCTION(@context MUT& async_context, @worker_count SZ)
   {
     ASSERT(context.valid(), "Cannot start a thread pool for an unavailable async context.");
     ASSERT(worker_count != 0, "A thread pool requires at least one worker.");
@@ -511,8 +491,7 @@ DOC <$
   }
 
   DOC <$ Transfers worker ownership without changing their context state. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER TEMP& thread_pool)
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& thread_pool)
   {
     VAR empty_workers MUT=>>TYPED_STORAGE(thread);
     VAR empty_context MUT->async_context_control;
@@ -530,8 +509,7 @@ DOC <$
   }
 
   DOC <$ Drains outstanding callbacks and joins every worker. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     IF (.joinable())
     {
@@ -540,8 +518,7 @@ DOC <$
   }
 
   DOC <$ Reports whether this object still owns worker threads. $>
-  .joinable
-    FUNCTION(): BOOL
+  .joinable FUNCTION(): BOOL
   {
     RETURN .workers??;
   }
@@ -551,8 +528,7 @@ DOC <$
     thread may start a new operation on the context after join begins, and a
     completion callback must not call join on its own pool.
     $>
-  .join
-    FUNCTION()
+  .join FUNCTION()
   {
     ASSERT(.joinable(), "Cannot join a non-joinable thread pool.");
     .context_control->.drain_mutex.lock();

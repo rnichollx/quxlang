@@ -7,19 +7,16 @@ LANGUAGE QUXLANG EN 0.0;
   {
     .calls VAR I32;
     DOC <$ Uses a named type-template argument while mutating the receiver. $>
-    .explicit_value
-      TEMPLATE(@T:element_type TYPE)
+    .explicit_value TEMPLATE(@T:element_type TYPE)
       FUNCTION(@value element_type): element_type
     { .calls++; RETURN value; }
     DOC <$ Deduces the argument type while retaining receiver identity. $>
-    .deduced_value
-      FUNCTION(@value DECAY(element_type)): element_type
+    .deduced_value FUNCTION(@value DECAY(element_type)): element_type
     { .calls++; RETURN value; }
   }
 
   DOC <$ Ordinary named template arguments preserve the member receiver across distinct instantiations. $>
-  ::explicit_named_type
-    DUAL_TEST
+  ::explicit_named_type DUAL_TEST
   {
     VAR object receiver;
     TEST_ASSERT(object.explicit_value#(@T I32)(@value 17) == 17);
@@ -28,8 +25,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Implicit generic member calls deduce distinct scalar types without copying the receiver. $>
-  ::deduced_type
-    DUAL_TEST
+  ::deduced_type DUAL_TEST
   {
     VAR object receiver;
     AUTO first := object.deduced_value(@value 17 AS I32);

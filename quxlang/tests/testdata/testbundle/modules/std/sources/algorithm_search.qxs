@@ -16,8 +16,7 @@ DOC <$ Tests projected elements in order and stops when the result is determined
 
 DOC <$ Tests projected elements in order and stops when the result is determined. $>
 PRIVATE(MODULE)
-::all_of_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
+::all_of_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
 {
   LOOP WHILE (first != last) DO
   {
@@ -43,8 +42,7 @@ DOC <$ Tests projected elements in order and stops when the result is determined
 
 DOC <$ Tests projected elements in order and stops when the result is determined. $>
 PRIVATE(MODULE)
-::any_of_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
+::any_of_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
 {
   LOOP WHILE (first != last) DO
   {
@@ -70,8 +68,7 @@ DOC <$ Tests projected elements in order and stops when the result is determined
 
 DOC <$ Tests projected elements in order and stops when the result is determined. $>
 PRIVATE(MODULE)
-::none_of_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
+::none_of_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
 {
   LOOP WHILE (first != last) DO
   {
@@ -102,8 +99,7 @@ DOC <$ Counts elements satisfying the selected projected relation. $>
 
 DOC <$ Counts elements satisfying the selected projected relation. $>
 PRIVATE(MODULE)
-::count_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): SZ
+::count_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): SZ
 {
   VAR result SZ := 0;
   LOOP WHILE (first != last) DO
@@ -127,8 +123,7 @@ DOC <$ Counts elements satisfying the selected projected relation. $>
 
 DOC <$ Counts elements satisfying the selected projected relation. $>
 PRIVATE(MODULE)
-::count_if_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): SZ
+::count_if_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): SZ
 {
   VAR result SZ := 0;
   LOOP WHILE (first != last) DO
@@ -157,8 +152,7 @@ DOC <$ Returns the first matching iterator, or the input end. $>
 
 DOC <$ Returns the first matching iterator, or the input end. $>
 PRIVATE(MODULE)
-::find_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): input_iterator
+::find_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): input_iterator
 {
   LOOP WHILE (first != last) DO
   { IF (equal(@left projection(first->), @right value)) { BREAK; } first++; }
@@ -181,8 +175,7 @@ DOC <$ Returns the first matching iterator, or the input end. $>
 
 DOC <$ Returns the first matching iterator, or the input end. $>
 PRIVATE(MODULE)
-::find_if_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+::find_if_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
 {
   LOOP WHILE (first != last) DO
   { IF (predicate(projection(first->))) { BREAK; } first++; }
@@ -205,8 +198,7 @@ DOC <$ Returns the first matching iterator, or the input end. $>
 
 DOC <$ Returns the first matching iterator, or the input end. $>
 PRIVATE(MODULE)
-::find_if_not_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+::find_if_not_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
 {
   LOOP WHILE (first != last) DO
   { IF (predicate(projection(first->)) == FALSE) { BREAK; } first++; }
@@ -214,8 +206,7 @@ PRIVATE(MODULE)
 }
 
 DOC <$ Invokes action once for each element in traversal order. $>
-::for_each
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @action TT(action_type))
+::for_each FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @action TT(action_type))
 {
   LOOP WHILE (first != last) DO
   { action(first->); first++; }
@@ -247,8 +238,7 @@ DOC <$ Returns the first input element equivalent to an element of the second fo
 
 DOC <$ Returns the first input element equivalent to an element of the second forward range. $>
 PRIVATE(MODULE)
-::find_first_of_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): iterator1
+::find_first_of_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): iterator1
 {
   LOOP WHILE (first1 != last1) DO
   {
@@ -284,8 +274,7 @@ DOC <$ Returns the first iterator of an equivalent adjacent pair, or the end. $>
 
 DOC <$ Returns the first iterator of an equivalent adjacent pair, or the end. $>
 PRIVATE(MODULE)
-::adjacent_find_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @equal TT(equal_type), @projection TT(projection_type)): input_iterator
+::adjacent_find_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @equal TT(equal_type), @projection TT(projection_type)): input_iterator
 {
   IF (first == last) { RETURN first; }
   VAR next input_iterator := first;
@@ -324,8 +313,7 @@ DOC <$ Returns the first matching subsequence. $>
 
 DOC <$ Returns the first matching subsequence. $>
 PRIVATE(MODULE)
-::search_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+::search_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
 {
   IF (first2 == last2) { RETURN subrange(@first first1, @last first1); }
   VAR result_first iterator1 := first1;
@@ -377,8 +365,7 @@ DOC <$ Returns the last matching subsequence; an empty pattern matches the input
 
 DOC <$ Returns the last matching subsequence; an empty pattern matches the input end. $>
 PRIVATE(MODULE)
-::find_end_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+::find_end_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
 {
   VAR result_first iterator1 := first1;
   VAR result_last iterator1 := first1;
@@ -423,8 +410,7 @@ DOC <$ Finds the first run of count equivalent projected elements in linear time
 
 DOC <$ Finds the first run of count equivalent projected elements in linear time. $>
 PRIVATE(MODULE)
-::search_n_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @count SZ, @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): AUTO
+::search_n_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @count SZ, @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): AUTO
 {
   IF (count == 0) { RETURN subrange(@first first, @last first); }
   VAR begin input_iterator := first;
@@ -469,8 +455,7 @@ DOC <$ Tests equivalent elements and equal input lengths. $>
 
 DOC <$ Tests equivalent elements and equal input lengths. $>
 PRIVATE(MODULE)
-::equal_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): BOOL
+::equal_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): BOOL
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   { IF (equal(@left projection1(first1->), @right projection2(first2->)) == FALSE) { RETURN FALSE; } first1++; first2++; }
@@ -503,8 +488,7 @@ DOC <$ Returns the first differing or exhausted positions in both inputs. $>
 
 DOC <$ Returns the first differing or exhausted positions in both inputs. $>
 PRIVATE(MODULE)
-::mismatch_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+::mismatch_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   { IF (equal(@left projection1(first1->), @right projection2(first2->)) == FALSE) { BREAK; } first1++; first2++; }
@@ -537,8 +521,7 @@ DOC <$ Returns the lexicographical three-way order of two finite inputs. $>
 
 DOC <$ Returns the lexicographical three-way order of two finite inputs. $>
 PRIVATE(MODULE)
-::lexicographical_compare_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): ORDER
+::lexicographical_compare_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): ORDER
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   {
@@ -577,8 +560,7 @@ DOC <$ Tests equality-class multiplicities using forward traversal and constant 
 
 DOC <$ Tests equality-class multiplicities using forward traversal and constant storage. $>
 PRIVATE(MODULE)
-::is_permutation_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): BOOL
+::is_permutation_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @equal TT(equal_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): BOOL
 {
   VAR size1 SZ := 0;
   VAR size2 SZ := 0;
@@ -634,8 +616,7 @@ DOC <$ Returns the first equivalent extremum, or the input end. $>
 
 DOC <$ Returns the first equivalent extremum, or the input end. $>
 PRIVATE(MODULE)
-::min_element_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+::min_element_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
 {
   IF (first == last) { RETURN first; }
   VAR result input_iterator := first;
@@ -669,8 +650,7 @@ DOC <$ Returns the first equivalent extremum, or the input end. $>
 
 DOC <$ Returns the first equivalent extremum, or the input end. $>
 PRIVATE(MODULE)
-::max_element_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+::max_element_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
 {
   IF (first == last) { RETURN first; }
   VAR result input_iterator := first;
@@ -704,8 +684,7 @@ DOC <$ Returns the first minimum and first maximum positions. $>
 
 DOC <$ Returns the first minimum and first maximum positions. $>
 PRIVATE(MODULE)
-::minmax_element_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): AUTO
+::minmax_element_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): AUTO
 {
   VAR minimum input_iterator := first;
   VAR maximum input_iterator := first;
@@ -720,8 +699,7 @@ PRIVATE(MODULE)
 }
 
 DOC <$ Folds elements in the specified traversal order with the supplied accumulator. $>
-::fold_left
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @initial AUTO(accumulator_type), @operation TT(operation_type)): accumulator_type
+::fold_left FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @initial AUTO(accumulator_type), @operation TT(operation_type)): accumulator_type
 {
   LOOP WHILE (first != last) DO
   { initial := operation(@accumulator MOVE(initial), @value first->); first++; }
@@ -729,8 +707,7 @@ DOC <$ Folds elements in the specified traversal order with the supplied accumul
 }
 
 DOC <$ Folds elements in the specified traversal order with the supplied accumulator. $>
-::fold_right
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @initial AUTO(accumulator_type), @operation TT(operation_type)): accumulator_type
+::fold_right FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @initial AUTO(accumulator_type), @operation TT(operation_type)): accumulator_type
 {
   LOOP WHILE (first != last) DO
   { last--; initial := operation(@accumulator MOVE(initial), @value last->); }

@@ -3,35 +3,30 @@ LANGUAGE QUXLANG EN 0.0;
 ::unary_postfix_exception_tests NAMESPACE
 {
   DOC <$ An owned receiver throws from each custom unary operator. $>
-  ::throwing_probe
-    STRUCT MOVE_ONLY
+  ::throwing_probe STRUCT MOVE_ONLY
   {
     .state VAR custom_unary_postfix_tests::probe;
     DOC <$ Starts the shared lifetime recorder before operator dispatch. $>
-    .CONSTRUCTOR
-      FUNCTION(@events MUT& I32, @alive MUT& I32)
+    .CONSTRUCTOR FUNCTION(@events MUT& I32, @alive MUT& I32)
       :> .state:(@events events, @alive alive, @truth TRUE)
     {
     }
     DOC <$ Throws from presence testing while the receiver remains alive. $>
-    .OPERATOR??
-      FUNCTION() CONST: BOOL
+    .OPERATOR?? FUNCTION() CONST: BOOL
     {
       TEST_ASSERT(.state.alive-> == 1);
       .state.events-> := .state.events-> * 10 + 2;
       THROW I32(@OTHER 42);
     }
     DOC <$ Throws from logical negation while the receiver remains alive. $>
-    .OPERATOR!!
-      FUNCTION() CONST: BOOL
+    .OPERATOR!! FUNCTION() CONST: BOOL
     {
       TEST_ASSERT(.state.alive-> == 1);
       .state.events-> := .state.events-> * 10 + 4;
       THROW I32(@OTHER 42);
     }
     DOC <$ Throws from bitwise negation while the receiver remains alive. $>
-    .OPERATOR#!!
-      FUNCTION() CONST: U8
+    .OPERATOR#!! FUNCTION() CONST: U8
     {
       TEST_ASSERT(.state.alive-> == 1);
       .state.events-> := .state.events-> * 10 + 5;
@@ -40,8 +35,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Each throwing unary operator destroys its temporary receiver before enclosing scope cleanup and handler entry. $>
-  ::receiver_unwinding
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::receiver_unwinding DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 4) DO

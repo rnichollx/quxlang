@@ -17,8 +17,7 @@ PRIVATE(MODULE) ::allocator_payload_credit STRUCT
 PRIVATE(MODULE) ::allocator_payload_credits VAR MUT=>>allocator_payload_credit;
 
 DOC <$ The parser converts the MemTotal field to bytes without allocating temporary storage. $>
-PRIVATE(MODULE) ::allocator_memtotal_bytes
-  FUNCTION(@text CONST=>>BYTE, @size SZ): U64
+PRIVATE(MODULE) ::allocator_memtotal_bytes FUNCTION(@text CONST=>>BYTE, @size SZ): U64
 {
   VAR prefix STRING_CONSTANT := "MemTotal:";
   VAR cursor SZ := (prefix.END() - prefix.BEGIN()) AS ASSUME SZ;
@@ -78,15 +77,13 @@ PRIVATE(MODULE) ::allocator_detect_memory_bytes INCLUDE_IF(OS_WINDOWS) FUNCTION(
   RETURN 0;
 }
 
-PRIVATE(MODULE) ::allocator_detect_memory_bytes
-  INCLUDE_IF(OS_LINUX == FALSE && OS_MACOS == FALSE && OS_WINDOWS == FALSE) FUNCTION(): U64
+PRIVATE(MODULE) ::allocator_detect_memory_bytes INCLUDE_IF(OS_LINUX == FALSE && OS_MACOS == FALSE && OS_WINDOWS == FALSE) FUNCTION(): U64
 {
   RETURN 0;
 }
 
 DOC <$ The sizing function computes each shard's payload budget with a bounded fallback when memory detection fails. $>
-PRIVATE(MODULE) ::allocator_payload_budget
-  FUNCTION(@memory_bytes U64, @shards SZ): SZ
+PRIVATE(MODULE) ::allocator_payload_budget FUNCTION(@memory_bytes U64, @shards SZ): SZ
 {
   VAR budget U64 := 16777216;
   IF (memory_bytes > 0)

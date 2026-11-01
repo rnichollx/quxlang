@@ -8,15 +8,13 @@ LANGUAGE QUXLANG EN 0.0;
     .allocations VAR I32;
     .deallocations VAR I32;
     DOC <$ Allocates storage for the selected payload type. $>
-    .ALLOCATE
-      TEMPLATE(@T TYPE) FUNCTION(): ->TYPED_STORAGE(T)
+    .ALLOCATE TEMPLATE(@T TYPE) FUNCTION(): ->TYPED_STORAGE(T)
     {
       .allocations++;
       RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(T)::ALLOC();
     }
     DOC <$ Releases storage for the selected payload type. $>
-    .DEALLOCATE
-      TEMPLATE(@T TYPE) FUNCTION(@PTR:ptr ->TYPED_STORAGE(T))
+    .DEALLOCATE TEMPLATE(@T TYPE) FUNCTION(@PTR:ptr ->TYPED_STORAGE(T))
     {
       TEST_ASSERT(ptr??);
       .deallocations++;
@@ -28,12 +26,10 @@ LANGUAGE QUXLANG EN 0.0;
   ::allocator_class STRUCT
   {
     DOC <$ Allocates storage for the selected payload type. $>
-    ::ALLOCATE
-      TEMPLATE(@T:payload TYPE) FUNCTION(): ->TYPED_STORAGE(payload)
+    ::ALLOCATE TEMPLATE(@T:payload TYPE) FUNCTION(): ->TYPED_STORAGE(payload)
     { RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(payload)::ALLOC(); }
     DOC <$ Releases storage for the selected payload type. $>
-    ::DEALLOCATE
-      TEMPLATE(@T:payload TYPE) FUNCTION(@PTR:ptr ->TYPED_STORAGE(payload))
+    ::DEALLOCATE TEMPLATE(@T:payload TYPE) FUNCTION(@PTR:ptr ->TYPED_STORAGE(payload))
     { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(payload)::DEALLOC(@PTR ptr); }
   }
 
@@ -42,8 +38,7 @@ LANGUAGE QUXLANG EN 0.0;
   { count++; RETURN 37; }
 
   DOC <$ Counts evaluation of a pointer-slot operand. $>
-  ::select_slot
-    FUNCTION(@slot MUT& MUT->I32, @count MUT& I32): MUT& MUT->I32
+  ::select_slot FUNCTION(@slot MUT& MUT->I32, @count MUT& I32): MUT& MUT->I32
   { count++; RETURN slot; }
 
   DOC <$ Optional operations evaluate each slot once and skip allocation, initializer, and deallocation calls when the slot already has the requested state. $>
@@ -127,12 +122,10 @@ LANGUAGE QUXLANG EN 0.0;
   ::virtual_allocator STRUCT
   {
     DOC <$ Allocates complete-object storage with the payload's layout. $>
-    ::ALLOCATE
-      TEMPLATE(@T:payload TYPE) FUNCTION(): ->VIRTUAL_STORAGE
+    ::ALLOCATE TEMPLATE(@T:payload TYPE) FUNCTION(): ->VIRTUAL_STORAGE
     { RETURN RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_ALLOC(@SIZE SIZEOF(payload), @ALIGN ALIGNOF(payload)); }
     DOC <$ Releases complete-object storage with the payload's layout. $>
-    ::DEALLOCATE
-      TEMPLATE(@T:payload TYPE) FUNCTION(@PTR:ptr ->VIRTUAL_STORAGE)
+    ::DEALLOCATE TEMPLATE(@T:payload TYPE) FUNCTION(@PTR:ptr ->VIRTUAL_STORAGE)
     { RUNTIME_MODULE::DEFAULT_ALLOCATOR#(VOID)::VIRTUAL_DEALLOC(@PTR ptr, @SIZE SIZEOF(payload), @ALIGN ALIGNOF(payload)); }
   }
 

@@ -3,21 +3,16 @@ LANGUAGE QUXLANG EN 0.0;
 ::ibc_enum_value_tests NAMESPACE
 {
   DOC <$ Declares byte-sized interoperation values in a different order from their numeric ordering. $>
-  ::code
-    IBC_ENUM BITS(8) [high = 255, zero DEFAULT = 0, low = 1];
+  ::code IBC_ENUM BITS(8) [high = 255, zero DEFAULT = 0, low = 1];
   DOC <$ Permits unnamed byte representations for interoperation round trips. $>
-  ::open_code
-    IBC_ENUM BITS(8) [zero DEFAULT = 0, high = 255] ALLOW_UNKNOWN;
+  ::open_code IBC_ENUM BITS(8) [zero DEFAULT = 0, high = 255] ALLOW_UNKNOWN;
   DOC <$ Uses the implicit enum width without declaring a default value. $>
-  ::default_width
-    IBC_ENUM [zero = 0, one = 1, two = 2];
+  ::default_width IBC_ENUM [zero = 0, one = 1, two = 2];
   DOC <$ Provides an ordinary nominal enum with the same declared values. $>
-  ::ordinary
-    ENUM BITS(8) [high = 255, zero DEFAULT = 0, low = 1];
+  ::ordinary ENUM BITS(8) [high = 255, zero DEFAULT = 0, low = 1];
 
   DOC <$ IBC_ENUM retains default selection, numeric ordering, byte representation and nominal distinction. $>
-  ::declared_values
-    DUAL_TEST
+  ::declared_values DUAL_TEST
   {
     VAR value code;
     TEST_ASSERT(value == code::zero);
@@ -35,8 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Every byte representation survives IBC_ENUM deserialization and serialization when unknown values are allowed. $>
-  ::unknown_representations
-    DUAL_TEST
+  ::unknown_representations DUAL_TEST
   {
     VAR raw U16 := 0;
     LOOP WHILE (raw < 256) DO
@@ -53,7 +47,6 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An IBC_ENUM without a declared default requires explicit initialization. $>
-  ::missing_default
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::missing_default STATIC_TEST EXPECT_COMPILATION_FAILURE
   { VAR value default_width; }
 }

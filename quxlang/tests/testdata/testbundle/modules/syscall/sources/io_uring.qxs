@@ -7,8 +7,7 @@ LANGUAGE QUXLANG EN 0.0;
     Stores one native address in an eight-byte io_uring ABI field. The trailing
     word is present on 32-bit targets so the field retains its kernel ABI size.
     $>
-  ::io_uring_address
-    IBC_STRUCT
+  ::io_uring_address IBC_STRUCT
   {
     .value VAR ADDRESS;
     .padding INCLUDE_IF(BITS(SZ) == BITS(U32)) VAR U32;
@@ -18,8 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
     Matches Linux io_sqring_offsets. The kernel fills these byte offsets during
     io_uring_setup.
     $>
-  ::io_uring_submission_offsets
-    IBC_STRUCT
+  ::io_uring_submission_offsets IBC_STRUCT
   {
     .head VAR U32;
     .tail VAR U32;
@@ -36,8 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
     Matches Linux io_cqring_offsets. The kernel fills these byte offsets during
     io_uring_setup.
     $>
-  ::io_uring_completion_offsets
-    IBC_STRUCT
+  ::io_uring_completion_offsets IBC_STRUCT
   {
     .head VAR U32;
     .tail VAR U32;
@@ -51,8 +48,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Matches the Linux io_uring_params setup ABI. $>
-  ::io_uring_parameters
-    IBC_STRUCT
+  ::io_uring_parameters IBC_STRUCT
   {
     .submission_entries VAR U32;
     .completion_entries VAR U32;
@@ -70,8 +66,7 @@ LANGUAGE QUXLANG EN 0.0;
     Matches the 64-byte Linux io_uring_sqe layout for ordinary read, write, and
     no-op submissions.
     $>
-  ::io_uring_submission_entry
-    IBC_STRUCT
+  ::io_uring_submission_entry IBC_STRUCT
   {
     .opcode VAR U8;
     .flags VAR U8;
@@ -90,8 +85,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Matches the 16-byte Linux io_uring_cqe layout. $>
-  ::io_uring_completion_entry
-    IBC_STRUCT
+  ::io_uring_completion_entry IBC_STRUCT
   {
     .user_data VAR io_uring_address;
     .result VAR I32;
@@ -99,8 +93,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Creates one Linux io_uring instance. $>
-  ::io_uring_setup
-    ASM_PROCEDURE X64
+  ::io_uring_setup ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(
       @entries U32,
       @parameters MUT->io_uring_parameters;
@@ -113,8 +106,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Creates one Linux io_uring instance. $>
-  ::io_uring_setup
-    ASM_PROCEDURE X86
+  ::io_uring_setup ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(
       @entries U32,
       @parameters MUT->io_uring_parameters;
@@ -131,8 +123,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Creates one Linux io_uring instance. $>
-  ::io_uring_setup
-    ASM_PROCEDURE ARM64
+  ::io_uring_setup ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(
       @entries U32,
       @parameters MUT->io_uring_parameters;
@@ -145,8 +136,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Creates one Linux io_uring instance. $>
-  ::io_uring_setup
-    ASM_PROCEDURE Z_ARCH
+  ::io_uring_setup ASM_PROCEDURE Z_ARCH
     CALLABLE CALLCONV CCALL(
       @entries U32,
       @parameters MUT->io_uring_parameters;
@@ -161,8 +151,7 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$
     Submits entries and optionally waits for Linux io_uring completions.
     $>
-  ::io_uring_enter
-    ASM_PROCEDURE X64
+  ::io_uring_enter ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(
       @descriptor I32,
       @submission_count U32,
@@ -182,8 +171,7 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$
     Submits entries and optionally waits for Linux io_uring completions.
     $>
-  ::io_uring_enter
-    ASM_PROCEDURE X86
+  ::io_uring_enter ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(
       @descriptor I32,
       @submission_count U32,
@@ -216,8 +204,7 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$
     Submits entries and optionally waits for Linux io_uring completions.
     $>
-  ::io_uring_enter
-    ASM_PROCEDURE ARM64
+  ::io_uring_enter ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(
       @descriptor I32,
       @submission_count U32,
@@ -236,8 +223,7 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$
     Submits entries and optionally waits for Linux io_uring completions.
     $>
-  ::io_uring_enter
-    ASM_PROCEDURE Z_ARCH
+  ::io_uring_enter ASM_PROCEDURE Z_ARCH
     CALLABLE CALLCONV CCALL(
       @descriptor I32,
       @submission_count U32,

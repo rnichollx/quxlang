@@ -186,15 +186,13 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 DOC <$ Records its destruction order in a shared decimal sequence. $>
-::generated_destructor_field
-  STRUCT
+::generated_destructor_field STRUCT
 {
   .order VAR MUT->I32;
   .digit VAR I32;
 
   DOC <$ Appends digit to the shared destruction sequence. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     IF (.order??)
     {
@@ -204,16 +202,14 @@ DOC <$ Records its destruction order in a shared decimal sequence. $>
 }
 
 DOC <$ Holds two fields that require generated reverse-order destruction. $>
-::generated_destructor_inner
-  STRUCT
+::generated_destructor_inner STRUCT
 {
   .first VAR generated_destructor_field;
   .second VAR generated_destructor_field;
 }
 
 DOC <$ Exercises recursive generation of default struct destructors. $>
-::generated_destructor_outer
-  STRUCT
+::generated_destructor_outer STRUCT
 {
   .inner VAR generated_destructor_inner;
 }
@@ -305,16 +301,14 @@ DOC <$ Exercises recursive generation of default struct destructors. $>
 
 
 DOC <$ Stores one field used to verify recursive generated swap. $>
-::default_swap_leaf
-  STRUCT
+::default_swap_leaf STRUCT
 {
   .value VAR I32;
 }
 
 
 DOC <$ Verifies that MOVE_ONLY structs retain generated swap. $>
-::default_swap_owner
-  STRUCT MOVE_ONLY
+::default_swap_owner STRUCT MOVE_ONLY
 {
   .leaf VAR default_swap_leaf;
   .other VAR I32;
@@ -322,8 +316,7 @@ DOC <$ Verifies that MOVE_ONLY structs retain generated swap. $>
 
 
 DOC <$ Suppresses generated swap for opt-out validation. $>
-::no_default_swap_record
-  STRUCT NO_DEFAULT_SWAP
+::no_default_swap_record STRUCT NO_DEFAULT_SWAP
 {
   .value VAR I32;
 }

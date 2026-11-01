@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::array_lifetime_tests NAMESPACE
 {
   DOC <$ Records array copy order, optional construction failure, and reverse destruction of completed copies. $>
-  ::element
-    STRUCT
+  ::element STRUCT
   {
     .attempts VAR MUT->I32;
     .events VAR MUT->I32;
@@ -13,11 +12,9 @@ LANGUAGE QUXLANG EN 0.0;
     .copied VAR BOOL;
     .complete VAR BOOL;
     DOC <$ Creates a source element that does not contribute copy-destruction events. $>
-    .CONSTRUCTOR
-      FUNCTION() { .complete := TRUE; }
+    .CONSTRUCTOR FUNCTION() { .complete := TRUE; }
     DOC <$ Throws at the requested copy attempt before the element becomes fully constructed. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER CONST& element)
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& element)
     {
       .attempts := OTHER.attempts;
       .events := OTHER.events;
@@ -29,8 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
       .complete := TRUE;
     }
     DOC <$ Transfers copy ownership while leaving the moved-from element fully constructed and inert. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER TEMP& element)
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& element)
     {
       VAR source MUT& element := OTHER AS MUT& element;
       .attempts := source.attempts;
@@ -41,8 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
       .complete := TRUE;
     }
     DOC <$ Rejects destruction of an incomplete object and logs completed copied elements. $>
-    .DESTRUCTOR
-      FUNCTION()
+    .DESTRUCTOR FUNCTION()
     {
       TEST_ASSERT(.complete);
       IF (.copied) { .events-> := .events-> * 10 + .number; }
@@ -50,8 +45,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Failure at the first, middle, or last element destroys exactly the completed prefix in reverse order. $>
-  ::copy_failure_at_each_position
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::copy_failure_at_each_position DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR failure I32 := 1;
     LOOP WHILE (failure <= 3) DO
@@ -94,8 +88,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A complete copied array owns separate elements and destroys them from last to first. $>
-  ::successful_copy_reverse_destruction
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::successful_copy_reverse_destruction DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -123,8 +116,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Empty arrays require no element construction or destruction even for nontrivial element types. $>
-  ::empty_array_copy
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::empty_array_copy DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR source [0]element;
     {
@@ -137,8 +129,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Failure in the second inner array cleans the completed first inner array without destroying unconstructed elements. $>
-  ::nested_array_partial_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::nested_array_partial_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -174,8 +165,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A failed array copy destroys its completed prefix before enclosing locals and preserves the handler's outer lifetime. $>
-  ::partial_array_before_enclosing_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::partial_array_before_enclosing_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;

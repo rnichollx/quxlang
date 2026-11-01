@@ -7,8 +7,7 @@ LANGUAGE QUXLANG EN 0.0;
     Waiters points to count Linux futex_waitv records; timeout is null or points
     to an absolute kernel timespec with two signed 64-bit fields.
     $>
-  ::futex_waitv
-    ASM_PROCEDURE X64
+  ::futex_waitv ASM_PROCEDURE X64
     CALLABLE CALLCONV CCALL(
       @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
       RETURN I32
@@ -25,8 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
     Waiters points to count Linux futex_waitv records; timeout is null or points
     to an absolute kernel timespec with two signed 64-bit fields.
     $>
-  ::futex_waitv
-    ASM_PROCEDURE X86
+  ::futex_waitv ASM_PROCEDURE X86
     CALLABLE CALLCONV CCALL(
       @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
       RETURN I32
@@ -53,8 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
     Waiters points to count Linux futex_waitv records; timeout is null or points
     to an absolute kernel timespec with two signed 64-bit fields.
     $>
-  ::futex_waitv
-    ASM_PROCEDURE ARM64
+  ::futex_waitv ASM_PROCEDURE ARM64
     CALLABLE CALLCONV CCALL(
       @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
       RETURN I32
@@ -70,8 +67,7 @@ LANGUAGE QUXLANG EN 0.0;
     Waiters points to count Linux futex_waitv records; timeout is null or points
     to an absolute kernel timespec with two signed 64-bit fields.
     $>
-  ::futex_waitv
-    ASM_PROCEDURE Z_ARCH
+  ::futex_waitv ASM_PROCEDURE Z_ARCH
     CALLABLE CALLCONV CCALL(
       @waiters ADDRESS, @count U32, @flags U32, @timeout ADDRESS, @clock I32;
       RETURN I32

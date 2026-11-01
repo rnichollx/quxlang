@@ -19,8 +19,7 @@ DOC <$
   }
 
   DOC <$ Publishes a pointer after waiting for an available slot. $>
-  .push
-    FUNCTION(@ARG:value MUT->T) MUT
+  .push FUNCTION(@ARG:value MUT->T) MUT
   {
     .mutex.lock();
     LOOP WHILE (.count == capacity) DO { .writable.wait(@locked_mutex .mutex); }
@@ -31,8 +30,7 @@ DOC <$
   }
 
   DOC <$ Removes the oldest pointer after waiting for an entry. $>
-  .pop
-    FUNCTION() MUT: MUT->T
+  .pop FUNCTION() MUT: MUT->T
   {
     .mutex.lock();
     LOOP WHILE (.count == 0) DO { .readable.wait(@locked_mutex .mutex); }

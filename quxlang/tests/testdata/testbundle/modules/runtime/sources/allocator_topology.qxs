@@ -18,8 +18,7 @@ PRIVATE(MODULE) ::allocator_shards_for_cores FUNCTION(@cores SZ): SZ
 }
 
 DOC <$ The parser reads one decimal CPU identifier or inclusive range from a Linux CPU list. $>
-PRIVATE(MODULE) ::allocator_cpu_list_next
-  FUNCTION(@text CONST=>>BYTE, @size SZ, @cursor MUT& SZ, @first MUT& SZ, @last MUT& SZ): BOOL
+PRIVATE(MODULE) ::allocator_cpu_list_next FUNCTION(@text CONST=>>BYTE, @size SZ, @cursor MUT& SZ, @first MUT& SZ, @last MUT& SZ): BOOL
 {
   LOOP WHILE (cursor < size && (text[cursor] == 44 || text[cursor] == 32
     || text[cursor] == 9 || text[cursor] == 10 || text[cursor] == 13)) DO { cursor++; }
@@ -48,8 +47,7 @@ PRIVATE(MODULE) ::allocator_cpu_list_next
 }
 
 DOC <$ The membership function searches a comma-separated Linux CPU list. $>
-PRIVATE(MODULE) ::allocator_cpu_list_contains
-  FUNCTION(@text CONST=>>BYTE, @size SZ, @cpu SZ): BOOL
+PRIVATE(MODULE) ::allocator_cpu_list_contains FUNCTION(@text CONST=>>BYTE, @size SZ, @cpu SZ): BOOL
 {
   VAR cursor SZ := 0;
   VAR first SZ;
@@ -194,8 +192,7 @@ PRIVATE(MODULE) ::allocator_detect_core_count INCLUDE_IF(OS_WINDOWS) FUNCTION():
   RETURN 1;
 }
 
-PRIVATE(MODULE) ::allocator_detect_core_count
-  INCLUDE_IF(OS_LINUX == FALSE && OS_MACOS == FALSE && OS_WINDOWS == FALSE) FUNCTION(): SZ
+PRIVATE(MODULE) ::allocator_detect_core_count INCLUDE_IF(OS_LINUX == FALSE && OS_MACOS == FALSE && OS_WINDOWS == FALSE) FUNCTION(): SZ
 {
   RETURN 1;
 }

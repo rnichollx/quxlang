@@ -10,8 +10,7 @@ IMPORT std;
 }
 
 DOC <$ Loads input_data from a file and delegates other argument types to the default parser. $>
-::file_parser
-  STRUCT
+::file_parser STRUCT
 {
   .order VAR U32;
   .alive VAR BOOL;
@@ -54,8 +53,7 @@ DOC <$ Loads input_data from a file and delegates other argument types to the de
 }
 
 DOC <$ Fails if standalone lowering evaluates measurement accounting. $>
-::forbidden_count
-  FUNCTION(): U64
+::forbidden_count FUNCTION(): U64
 {
   PANIC "Standalone COUNT was evaluated";
 }

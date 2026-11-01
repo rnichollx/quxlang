@@ -9,8 +9,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     track_subtree_size selects the optional rank metadata. Algorithms select the metadata they
     require explicitly; cached-height operations use track_height TRUE.
     $>
-  ::avl_node
-  TEMPLATE(@T TYPE AUTO, @track_parent VALUE BOOL, @track_height VALUE BOOL, @track_subtree_size VALUE BOOL) STRUCT MOVE_ONLY
+  ::avl_node TEMPLATE(@T TYPE AUTO, @track_parent VALUE BOOL, @track_height VALUE BOOL, @track_subtree_size VALUE BOOL) STRUCT MOVE_ONLY
   {
     .parent INCLUDE_IF(track_parent) VAR MUT->avl_node#(@T T, @track_parent track_parent, @track_height track_height, @track_subtree_size track_subtree_size);
     .left VAR MUT->avl_node#(@T T, @track_parent track_parent, @track_height track_height, @track_subtree_size track_subtree_size);
@@ -21,8 +20,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     .balance INCLUDE_IF(track_height == FALSE) VAR ORDER;
 
     DOC <$ Copy-constructs a detached leaf containing entry. $>
-    .CONSTRUCTOR
-      FUNCTION(%entry CONST& T) :> .entry:(@OTHER FORWARD(entry))
+    .CONSTRUCTOR FUNCTION(%entry CONST& T) :> .entry:(@OTHER FORWARD(entry))
     {
       STATIC_IF (track_height) { .height := 1; }
       STATIC_ELSE { .balance := ORDER::EQUAL; }
@@ -30,8 +28,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
 
     DOC <$ Move-constructs a detached leaf containing entry. $>
-    .CONSTRUCTOR
-      FUNCTION(%entry TEMP& T) :> .entry:(@OTHER FORWARD(entry))
+    .CONSTRUCTOR FUNCTION(%entry TEMP& T) :> .entry:(@OTHER FORWARD(entry))
     {
       STATIC_IF (track_height) { .height := 1; }
       STATIC_ELSE { .balance := ORDER::EQUAL; }
@@ -261,8 +258,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
 
     DOC <$ Returns the leftmost node in a nonempty subtree. $>
-    ::minimum
-      FUNCTION(@ARG:node MUT->avl_node#(@T T, @track_parent track_parent, @track_height track_height, @track_subtree_size track_subtree_size)): MUT->avl_node#(@T T, @track_parent track_parent, @track_height track_height, @track_subtree_size track_subtree_size)
+    ::minimum FUNCTION(@ARG:node MUT->avl_node#(@T T, @track_parent track_parent, @track_height track_height, @track_subtree_size track_subtree_size)): MUT->avl_node#(@T T, @track_parent track_parent, @track_height track_height, @track_subtree_size track_subtree_size)
     {
       INVARIANT(node??, "A nonempty subtree is required.");
       VAR result MUT->avl_node#(@T T, @track_parent track_parent, @track_height track_height, @track_subtree_size track_subtree_size) := node;
@@ -297,8 +293,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     }
 
     DOC <$ Destroys every node in one subtree in postorder. $>
-    ::destroy_subtree
-      FUNCTION(@ARG:node MUT->avl_node#(@T T, @track_parent track_parent, @track_height track_height, @track_subtree_size track_subtree_size))
+    ::destroy_subtree FUNCTION(@ARG:node MUT->avl_node#(@T T, @track_parent track_parent, @track_height track_height, @track_subtree_size track_subtree_size))
     {
       IF (node??)
       {
@@ -357,12 +352,10 @@ DOC <$
   Move operations leave the source empty. Unrepresentable combined sizes throw
   container_error::size_overflow. Element destructors must not throw.
   $>
-::avl_tree
-  TEMPLATE(@T TYPE AUTO) STRUCT
+::avl_tree TEMPLATE(@T TYPE AUTO) STRUCT
 {
   DOC <$ Traverses mut elements in avl_tree. Erasure invalidates the erased position; ownership transfer may invalidate the iterator. $>
-  ::iterator
-    STRUCT
+  ::iterator STRUCT
   {
     PRIVATE(MODULE)
     {
@@ -370,20 +363,16 @@ DOC <$
       .CONSTRUCTOR FUNCTION(@EXPLICIT:node MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)) { .node := node; }
     }
     DOC <$ Compares iterator positions. $>
-    .OPERATOR==
-      FUNCTION(@OTHER CONST& avl_tree#(T)::iterator) CONST: BOOL { RETURN .node == OTHER.node; }
+    .OPERATOR== FUNCTION(@OTHER CONST& avl_tree#(T)::iterator) CONST: BOOL { RETURN .node == OTHER.node; }
     DOC <$ Advances and returns the previous position. $>
-    .OPERATOR++
-      FUNCTION() MUT: avl_tree#(T)::iterator
+    .OPERATOR++ FUNCTION() MUT: avl_tree#(T)::iterator
     { VAR previous avl_tree#(T)::iterator := THIS; INVARIANT(.node??, "Cannot advance an AVL end iterator."); .node := avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node); RETURN previous; }
     DOC <$ Returns the current element with the iterator's access qualification. $>
-    .OPERATOR->
-      FUNCTION() CONST: MUT& T { INVARIANT(.node??, "Cannot dereference an AVL end iterator."); RETURN .node->.entry; }
+    .OPERATOR-> FUNCTION() CONST: MUT& T { INVARIANT(.node??, "Cannot dereference an AVL end iterator."); RETURN .node->.entry; }
   }
 
   DOC <$ Traverses const elements in avl_tree. Erasure invalidates the erased position; ownership transfer may invalidate the iterator. $>
-  ::const_iterator
-    STRUCT
+  ::const_iterator STRUCT
   {
     PRIVATE(MODULE)
     {
@@ -391,15 +380,12 @@ DOC <$
       .CONSTRUCTOR FUNCTION(@EXPLICIT:node MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)) { .node := node; }
     }
     DOC <$ Compares iterator positions. $>
-    .OPERATOR==
-      FUNCTION(@OTHER CONST& avl_tree#(T)::const_iterator) CONST: BOOL { RETURN .node == OTHER.node; }
+    .OPERATOR== FUNCTION(@OTHER CONST& avl_tree#(T)::const_iterator) CONST: BOOL { RETURN .node == OTHER.node; }
     DOC <$ Advances and returns the previous position. $>
-    .OPERATOR++
-      FUNCTION() MUT: avl_tree#(T)::const_iterator
+    .OPERATOR++ FUNCTION() MUT: avl_tree#(T)::const_iterator
     { VAR previous avl_tree#(T)::const_iterator := THIS; INVARIANT(.node??, "Cannot advance an AVL end iterator."); .node := avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::successor(.node); RETURN previous; }
     DOC <$ Returns the current element with the iterator's access qualification. $>
-    .OPERATOR->
-      FUNCTION() CONST: CONST& T { INVARIANT(.node??, "Cannot dereference an AVL end iterator."); RETURN .node->.entry; }
+    .OPERATOR-> FUNCTION() CONST: CONST& T { INVARIANT(.node??, "Cannot dereference an AVL end iterator."); RETURN .node->.entry; }
   }
 
   PRIVATE(MODULE, RUNTIME_MODULE) { .root VAR MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE); }
@@ -407,43 +393,33 @@ DOC <$
   DOC <$ Creates an empty tree. $>
   .CONSTRUCTOR FUNCTION() { }
   DOC <$ Transfers nodes and leaves OTHER empty. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER TEMP& avl_tree#T) { .root <-> OTHER.root; }
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& avl_tree#T) { .root <-> OTHER.root; }
   DOC <$ Copies the sequence while preserving its balanced topology. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER CONST& avl_tree#T)
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& avl_tree#T)
   { .root := avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::clone_subtree(@source OTHER.root, @parent NULL); }
   DOC <$ Copies OTHER before committing replacement ownership. $>
-  .OPERATOR:=
-    FUNCTION(@OTHER CONST& avl_tree#T) MUT
+  .OPERATOR:= FUNCTION(@OTHER CONST& avl_tree#T) MUT
   { VAR replacement avl_tree#T := OTHER; THIS <-> replacement; }
   DOC <$ Destroys all elements and releases their nodes. $>
-  .DESTRUCTOR
-    FUNCTION() { .clear(); }
+  .DESTRUCTOR FUNCTION() { .clear(); }
   DOC <$ Exchanges root ownership. $>
-  .OPERATOR<->
-    FUNCTION(@OTHER MUT& avl_tree#T) MUT { .root <-> OTHER.root; }
+  .OPERATOR<-> FUNCTION(@OTHER MUT& avl_tree#T) MUT { .root <-> OTHER.root; }
   DOC <$ Transfers ownership after destroying the previous tree. Self-move preserves ownership. $>
-  .OPERATOR:=
-    FUNCTION(@OTHER TEMP& avl_tree#T) MUT
+  .OPERATOR:= FUNCTION(@OTHER TEMP& avl_tree#T) MUT
   {
     IF (THIS<- == OTHER<-) { RETURN; }
     VAR replacement avl_tree#T := MOVE(OTHER);
     THIS <-> replacement;
   }
   DOC <$ Returns the number of elements. $>
-  .size
-    FUNCTION() CONST: SZ { RETURN avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::size(.root); }
+  .size FUNCTION() CONST: SZ { RETURN avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::size(.root); }
   DOC <$ Reports whether the tree is empty. $>
-  .empty
-    FUNCTION() CONST: BOOL { RETURN .root!?; }
+  .empty FUNCTION() CONST: BOOL { RETURN .root!?; }
   DOC <$ Returns the cached AVL height, or zero for an empty tree. $>
-  .height
-    FUNCTION() CONST: SZ { RETURN avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::subtree_height(.root); }
+  .height FUNCTION() CONST: SZ { RETURN avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::subtree_height(.root); }
 
   DOC <$ Constructs a node before index, committing it only after successful construction. Requires index at most size. $>
-  .insert
-    FUNCTION(@index SZ, @value AUTO& T) MUT: MUT& T
+  .insert FUNCTION(@index SZ, @value AUTO& T) MUT: MUT& T
   {
     INVARIANT(index <= .size(), "AVL insertion index is out of range.");
     IF UNLIKELY (.size() == ((0 AS SZ) #!!)) { THROW container_error::size_overflow; }
@@ -453,8 +429,7 @@ DOC <$
   }
 
   DOC <$ Destroys the element at index and preserves the addresses of retained elements. $>
-  .erase
-    FUNCTION(@ARG:index SZ) MUT
+  .erase FUNCTION(@ARG:index SZ) MUT
   {
     INVARIANT(index < .size(), "AVL erasure index is out of range.");
     VAR removed MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE);
@@ -463,8 +438,7 @@ DOC <$
   }
 
   DOC <$ Transfers the suffix starting at index into the returned tree. Requires index at most size. $>
-  .split_off
-    FUNCTION(@ARG:index SZ) MUT: avl_tree#T
+  .split_off FUNCTION(@ARG:index SZ) MUT: avl_tree#T
   {
     INVARIANT(index <= .size(), "AVL split index is out of range.");
     VAR suffix avl_tree#T;
@@ -475,8 +449,7 @@ DOC <$
   }
 
   DOC <$ Transfers OTHER's sequence to this tree's end without allocation or value movement. OTHER must be a distinct tree. $>
-  .append
-    FUNCTION(@ARG:other MUT& avl_tree#T) MUT
+  .append FUNCTION(@ARG:other MUT& avl_tree#T) MUT
   {
     INVARIANT(THIS<- != other<-, "Cannot append an AVL tree to itself.");
     IF UNLIKELY (other.size() > (((0 AS SZ) #!!) - .size())) { THROW container_error::size_overflow; }
@@ -485,8 +458,7 @@ DOC <$
   }
 
   DOC <$ Destroys all nodes in linear time. $>
-  .clear
-    FUNCTION() MUT
+  .clear FUNCTION() MUT
   {
     VAR released MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .root;
     .root := NULL;
@@ -494,17 +466,14 @@ DOC <$
   }
 
   DOC <$ Returns a mutable element at index in logarithmic time. $>
-  .OPERATOR[]
-    FUNCTION(%index SZ) MUT: MUT& T
+  .OPERATOR[] FUNCTION(%index SZ) MUT: MUT& T
   { INVARIANT(index < .size(), "AVL index is out of range."); RETURN avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::select(@root .root, @index index)->.entry; }
   DOC <$ Returns a constant element at index in logarithmic time. $>
-  .OPERATOR[]
-    FUNCTION(%index SZ) CONST: CONST& T
+  .OPERATOR[] FUNCTION(%index SZ) CONST: CONST& T
   { INVARIANT(index < .size(), "AVL index is out of range."); RETURN avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::select(@root .root, @index index)->.entry; }
 
   DOC <$ Returns the first rank whose element is not less than key. Requires sorted elements and a consistent key-to-element comparison. $>
-  .lower_bound
-    FUNCTION(@ARG:key CONST& AUTO) CONST: SZ
+  .lower_bound FUNCTION(@ARG:key CONST& AUTO) CONST: SZ
   {
     VAR node MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .root;
     VAR rank SZ := 0;
@@ -518,22 +487,16 @@ DOC <$
   }
 
   DOC <$ Returns the first mut iterator. $>
-  .BEGIN
-    FUNCTION() MUT: avl_tree#(T)::iterator { VAR node MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .root; IF (node??) { node := avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(node); } RETURN avl_tree#(T)::iterator(@EXPLICIT node); }
+  .BEGIN FUNCTION() MUT: avl_tree#(T)::iterator { VAR node MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .root; IF (node??) { node := avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(node); } RETURN avl_tree#(T)::iterator(@EXPLICIT node); }
   DOC <$ Returns the past-the-end mut iterator. $>
-  .END
-    FUNCTION() MUT: avl_tree#(T)::iterator { RETURN avl_tree#(T)::iterator(@EXPLICIT NULL); }
+  .END FUNCTION() MUT: avl_tree#(T)::iterator { RETURN avl_tree#(T)::iterator(@EXPLICIT NULL); }
   DOC <$ Exposes mut element iteration. $>
-  .VALUES
-    FUNCTION() MUT: MUT& avl_tree#T { RETURN THIS; }
+  .VALUES FUNCTION() MUT: MUT& avl_tree#T { RETURN THIS; }
 
   DOC <$ Returns the first const iterator. $>
-  .BEGIN
-    FUNCTION() CONST: avl_tree#(T)::const_iterator { VAR node MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .root; IF (node??) { node := avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(node); } RETURN avl_tree#(T)::const_iterator(@EXPLICIT node); }
+  .BEGIN FUNCTION() CONST: avl_tree#(T)::const_iterator { VAR node MUT->avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE) := .root; IF (node??) { node := avl_node#(@T T, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)::minimum(node); } RETURN avl_tree#(T)::const_iterator(@EXPLICIT node); }
   DOC <$ Returns the past-the-end const iterator. $>
-  .END
-    FUNCTION() CONST: avl_tree#(T)::const_iterator { RETURN avl_tree#(T)::const_iterator(@EXPLICIT NULL); }
+  .END FUNCTION() CONST: avl_tree#(T)::const_iterator { RETURN avl_tree#(T)::const_iterator(@EXPLICIT NULL); }
   DOC <$ Exposes const element iteration. $>
-  .VALUES
-    FUNCTION() CONST: CONST& avl_tree#T { RETURN THIS; }
+  .VALUES FUNCTION() CONST: CONST& avl_tree#T { RETURN THIS; }
 }

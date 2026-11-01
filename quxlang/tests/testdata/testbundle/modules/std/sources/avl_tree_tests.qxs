@@ -9,8 +9,7 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     .count VAR SZ;
 
     DOC <$ Checks every parent link and independently verifies cached metadata and the AVL height-difference invariant. $>
-    ::check
-      FUNCTION(@node MUT->avl_node#(@T SZ, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE), @parent MUT->avl_node#(@T SZ, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)): avl_audit_result
+    ::check FUNCTION(@node MUT->avl_node#(@T SZ, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE), @parent MUT->avl_node#(@T SZ, @track_parent TRUE, @track_height TRUE, @track_subtree_size TRUE)): avl_audit_result
     {
       VAR result avl_audit_result;
       IF (node!?) { RETURN result; }

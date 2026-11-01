@@ -16,8 +16,7 @@ DOC <$ Stably partitions a forward range in linear work using N uninitialized sc
 
 DOC <$ Stably partitions a forward range in linear work using N uninitialized scratch slots. $>
 PRIVATE(MODULE)
-::stable_partition_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @scratch CONST& AUTO(scratch_type), @projection TT(projection_type)): input_iterator
+::stable_partition_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @scratch CONST& AUTO(scratch_type), @projection TT(projection_type)): input_iterator
 {
   VAR count SZ := 0;
   VAR cursor input_iterator := first;
@@ -73,8 +72,7 @@ DOC <$ Stably merges adjacent sorted bidirectional ranges using min(left_size, r
 
 DOC <$ Stably merges adjacent sorted bidirectional ranges using min(left_size, right_size) scratch slots. $>
 PRIVATE(MODULE)
-::inplace_merge_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator), @scratch CONST& AUTO(scratch_type), @compare TT(compare_type), @projection TT(projection_type))
+::inplace_merge_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator), @scratch CONST& AUTO(scratch_type), @compare TT(compare_type), @projection TT(projection_type))
 {
   VAR left_size SZ := 0;
   VAR right_size SZ := 0;
@@ -150,8 +148,7 @@ DOC <$ Stably sorts a random-access range with O(N log N) comparisons and N supp
 
 DOC <$ Stably sorts a random-access range with O(N log N) comparisons and N supplied scratch slots. $>
 PRIVATE(MODULE)
-::stable_sort_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @scratch CONST& AUTO(scratch_type), @compare TT(compare_type), @projection TT(projection_type))
+::stable_sort_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @scratch CONST& AUTO(scratch_type), @compare TT(compare_type), @projection TT(projection_type))
 {
   IF (first == last) { RETURN; }
   VAR count SZ := (last - first) AS ASSUME SZ;

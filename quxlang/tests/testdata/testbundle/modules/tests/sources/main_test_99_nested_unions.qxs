@@ -3,23 +3,20 @@ LANGUAGE QUXLANG EN 0.0;
 ::nested_union_tests NAMESPACE
 {
   DOC <$ A boxed outer union owns a selectable inner union. $>
-  ::boxed
-    TEMPLATE(@T TYPE AUTO) UNION
+  ::boxed TEMPLATE(@T TYPE AUTO) UNION
   {
     .empty OPTION DEFAULT VOID;
     .nested OPTION T;
   }
   DOC <$ An inline outer union owns a selectable inner union. $>
-  ::inlined
-    TEMPLATE(@T TYPE AUTO) INLINE_UNION
+  ::inlined TEMPLATE(@T TYPE AUTO) INLINE_UNION
   {
     .empty OPTION DEFAULT VOID;
     .nested OPTION T;
   }
 
   DOC <$ Nested union copies own independent payloads and outer replacement destroys exactly the old nested payload. $>
-  ::ownership
-    TEMPLATE(@inner_type TYPE AUTO, @outer_type TYPE AUTO) FUNCTION()
+  ::ownership TEMPLATE(@inner_type TYPE AUTO, @outer_type TYPE AUTO) FUNCTION()
   {
     VAR attempts I32 := 0;
     VAR events I32 := 0;
@@ -72,16 +69,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Boxed outer ownership works with both boxed and inline inner storage. $>
-  ::boxed_outer_combinations
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::boxed_outer_combinations DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     ownership#(@inner_type union_lifetime_tests::boxed, @outer_type boxed#(union_lifetime_tests::boxed))();
     ownership#(@inner_type union_lifetime_tests::inlined, @outer_type boxed#(union_lifetime_tests::inlined))();
   }
 
   DOC <$ Inline outer ownership works with both boxed and inline inner storage. $>
-  ::inline_outer_combinations
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::inline_outer_combinations DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     ownership#(@inner_type union_lifetime_tests::boxed, @outer_type inlined#(union_lifetime_tests::boxed))();
     ownership#(@inner_type union_lifetime_tests::inlined, @outer_type inlined#(union_lifetime_tests::inlined))();

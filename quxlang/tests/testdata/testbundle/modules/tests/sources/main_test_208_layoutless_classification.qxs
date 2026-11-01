@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::layoutless_classification_tests NAMESPACE
 {
   DOC <$ Target classification is checked during lowering even when a target disables static-test execution. $>
-  ::check
-    TEMPLATE(@T TYPE AUTO, @expected VALUE BOOL) FUNCTION()
+  ::check TEMPLATE(@T TYPE AUTO, @expected VALUE BOOL) FUNCTION()
   {
     STATIC_IF(TYPE_IS_LAYOUTLESS(T) != expected)
     {
@@ -15,8 +14,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Conventional integer carriers retain byte layout on all targets regardless of signedness. $>
-  ::integer_carriers
-    DUAL_TEST
+  ::integer_carriers DUAL_TEST
   {
     check#(@T I8, @expected FALSE)();
     check#(@T U8, @expected FALSE)();
@@ -29,8 +27,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nonconventional integers, nominal records and composite storage follow the target's layout model without constructing values. $>
-  ::target_dependent_types
-    DUAL_TEST
+  ::target_dependent_types DUAL_TEST
   {
     check#(@T I1, @expected ARCH_IS_LAYOUTLESS)();
     check#(@T U7, @expected ARCH_IS_LAYOUTLESS)();

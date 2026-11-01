@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::atomic_pointer_tests NAMESPACE
 {
   DOC <$ Pointer compare-exchange compares addresses and writes back the observed pointer after failure. $>
-  ::compare_exchange_identity
-    TEMPLATE(@success TYPE AUTO, @failure TYPE AUTO) FUNCTION()
+  ::compare_exchange_identity TEMPLATE(@success TYPE AUTO, @failure TYPE AUTO) FUNCTION()
   {
     VAR first I32 := 17;
     VAR second I32 := 17;
@@ -35,8 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Null and live pointer transitions obey the expected-value contract for all supported ordering pairs. $>
-  ::comparison_modes
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::comparison_modes DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     compare_exchange_identity#(@success ATOMIC_RELAXED, @failure ATOMIC_RELAXED)();
     compare_exchange_identity#(@success ATOMIC_ACQUIRE, @failure ATOMIC_RELAXED)();
@@ -50,12 +48,10 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Keeps two independent atomic counters in one record. $>
-  ::pair
-    STRUCT { .left VAR ATOMIC#I32; .right VAR ATOMIC#I32; }
+  ::pair STRUCT { .left VAR ATOMIC#I32; .right VAR ATOMIC#I32; }
 
   DOC <$ Operations on atomic fields in adjacent array elements affect only the selected storage. $>
-  ::nested_atomic_storage
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::nested_atomic_storage UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR values [2]pair;
     values[0].left.STORE#ATOMIC_RELAXED(11);
@@ -78,8 +74,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(selected.LOAD#ATOMIC_ACQUIRE() == 49);
   }
   DOC <$ Exchange returns the previous pointer and supports transitions to and from null. $>
-  ::exchange_identity
-    UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::exchange_identity UNIT_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR first I32 := 17;
     VAR value ATOMIC#(MUT->I32);

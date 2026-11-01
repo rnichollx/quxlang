@@ -3,16 +3,14 @@ LANGUAGE QUXLANG EN 0.0;
 ::generic_move_tests NAMESPACE
 {
   DOC <$ Records concrete object copies and destruction beneath an owning generic. $>
-  ::tracked
-    STRUCT
+  ::tracked STRUCT
   {
     .copies VAR MUT->I32;
     .deaths VAR MUT->I32;
     .value VAR I32;
 
     DOC <$ Copies concrete state and counts a new owned object. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER CONST& tracked)
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& tracked)
     {
       .copies := OTHER.copies;
       .deaths := OTHER.deaths;
@@ -21,8 +19,7 @@ LANGUAGE QUXLANG EN 0.0;
     }
 
     DOC <$ Transfers cleanup responsibility from a moved concrete object. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER TEMP& tracked)
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& tracked)
     {
       VAR source MUT& tracked := OTHER AS MUT& tracked;
       .copies <-> source.copies;
@@ -31,24 +28,19 @@ LANGUAGE QUXLANG EN 0.0;
     }
 
     DOC <$ Counts destruction once for each concrete owner. $>
-    .DESTRUCTOR
-      FUNCTION() { IF (.deaths??) { .deaths-> ++; } }
+    .DESTRUCTOR FUNCTION() { IF (.deaths??) { .deaths-> ++; } }
 
     DOC <$ Orders tracked objects by their stored value. $>
-    .OPERATOR<=>
-      FUNCTION(@OTHER CONST& tracked) CONST: ORDER { RETURN .value <=> OTHER.value; }
+    .OPERATOR<=> FUNCTION(@OTHER CONST& tracked) CONST: ORDER { RETURN .value <=> OTHER.value; }
 
     DOC <$ Exposes the stored value through generic dispatch. $>
-    .read
-      FUNCTION() CONST: I32 { RETURN .value; }
+    .read FUNCTION() CONST: I32 { RETURN .value; }
     DOC <$ Mutates only this concrete object's value. $>
-    .add
-      FUNCTION(@ARG:amount I32): I32 { .value += amount; RETURN .value; }
+    .add FUNCTION(@ARG:amount I32): I32 { .value += amount; RETURN .value; }
   }
 
   DOC <$ Moving an owning generic transfers its concrete object without another copy or duplicate destruction. $>
-  ::owning_move_lifetime
-    DUAL_TEST
+  ::owning_move_lifetime DUAL_TEST
   {
     VAR copies I32 := 0;
     VAR deaths I32 := 0;
@@ -77,8 +69,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A moved generic reference continues to address the original receiver when another copied reference is rebound. $>
-  ::reference_move_rebinding
-    DUAL_TEST
+  ::reference_move_rebinding DUAL_TEST
   {
     VAR first generic_counter := 3;
     VAR second generic_counter := 11;
@@ -94,8 +85,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Copying an owning generic creates an independent concrete owner with exactly one destruction per copy. $>
-  ::owning_copy_cleanup
-    DUAL_TEST
+  ::owning_copy_cleanup DUAL_TEST
   {
     VAR copies I32 := 0;
     VAR deaths I32 := 0;

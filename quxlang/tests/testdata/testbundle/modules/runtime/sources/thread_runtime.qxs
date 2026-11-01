@@ -10,8 +10,7 @@ IMPORT syscall;
 }
 
 DOC <$ Identifies one Quxlang-created thread without exposing its platform handle. $>
-::thread_identity
-  STRUCT
+::thread_identity STRUCT
 {
   .token VAR BYTE;
 }

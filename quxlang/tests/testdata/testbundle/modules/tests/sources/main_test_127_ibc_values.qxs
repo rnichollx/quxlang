@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::ibc_value_tests NAMESPACE
 {
   DOC <$ Declares fields in an order different from their lexical names. $>
-  ::record
-    IBC_STRUCT
+  ::record IBC_STRUCT
   {
     .z VAR U8;
     .a VAR U64;
@@ -12,8 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returns an independently modified IBC record passed by value. $>
-  ::transform
-    FUNCTION(@value record): record
+  ::transform FUNCTION(@value record): record
   {
     value.z += 1;
     value.a += 3;
@@ -22,8 +20,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ IBC records preserve values through copying, assignment, swap and indirect calls. $>
-  ::copy_assignment_and_call
-    DUAL_TEST
+  ::copy_assignment_and_call DUAL_TEST
   {
     VAR original record;
     original.z := 7;

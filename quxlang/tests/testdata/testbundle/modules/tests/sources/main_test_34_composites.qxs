@@ -1,8 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Structural records support reflected fields and named argument forwarding. $>
-::composite_tests
-NAMESPACE
+::composite_tests NAMESPACE
 {
   ::identity_and_metadata DUAL_TEST
   {
@@ -76,8 +75,7 @@ NAMESPACE
   }
 
   DOC <$ Same-typed bounds remain distinct named arguments when forwarded. $>
-  ::clamp
-  FUNCTION(@value I32, @minimum I32 DEFAULT(0), @maximum I32 DEFAULT(100)): I32
+  ::clamp FUNCTION(@value I32, @minimum I32 DEFAULT(0), @maximum I32 DEFAULT(100)): I32
   {
     IF (value < minimum) { RETURN minimum; }
     IF (value > maximum) { RETURN maximum; }
@@ -236,8 +234,7 @@ NAMESPACE
   }
 
   DOC <$ Tracks ordinary record field copies, moves, and destruction. $>
-  ::tracked
-  STRUCT
+  ::tracked STRUCT
   {
     .alive VAR MUT->I32;
     .CONSTRUCTOR FUNCTION(@alive MUT& I32)
@@ -327,8 +324,7 @@ NAMESPACE
   }
 
   DOC <$ APPLY evaluates its composite before its target, with field expressions evaluated in source order. $>
-  ::evaluation_order
-  DUAL_TEST
+  ::evaluation_order DUAL_TEST
   {
     VAR events I32 := 0;
     VAR result I32 := APPLY :{ .z = record_event(@events events, @digit 2); .a = record_event(@events events, @digit 3); }
@@ -415,8 +411,7 @@ NAMESPACE
   }
 
   DOC <$ Copying a composite duplicates owned fields while preserving the identity of borrowed fields. $>
-  ::mixed_copy_storage
-    DUAL_TEST
+  ::mixed_copy_storage DUAL_TEST
   {
     VAR external I32 := 3;
     AUTO original := :{ .owned = 7 AS I32; .borrowed = external; };
@@ -434,8 +429,7 @@ NAMESPACE
   }
 
   DOC <$ Splitting no fields or all fields produces empty complementary records, and joining an empty record preserves projections. $>
-  ::empty_partition_boundaries
-    DUAL_TEST
+  ::empty_partition_boundaries DUAL_TEST
   {
     AUTO original := :{ .a = 2 AS I32; .b = 4 AS I32; };
     AUTO none := COMPOSITE_SPLIT(COMPOSITE_TIE(original));

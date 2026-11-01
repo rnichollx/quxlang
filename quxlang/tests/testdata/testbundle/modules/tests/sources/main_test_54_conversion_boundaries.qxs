@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::conversion_boundary_tests NAMESPACE
 {
   DOC <$ Explicit conversion modes agree at both representable signed endpoints. $>
-  ::signed_limits
-    TEMPLATE(@T TYPE, @minimum VALUE I64, @maximum VALUE I64) FUNCTION()
+  ::signed_limits TEMPLATE(@T TYPE, @minimum VALUE I64, @maximum VALUE I64) FUNCTION()
   {
     VAR lower I64 := minimum;
     VAR upper I64 := maximum;
@@ -23,8 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ CHECKED, ASSUME, and PARTIAL preserve exact limits for 8-, 16-, and 32-bit signed destinations. $>
-  ::valid_narrowing_endpoints
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::valid_narrowing_endpoints DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     signed_limits#(@T I8, @minimum (0 - 128), @maximum 127)();
     signed_limits#(@T I16, @minimum (0 - 32768), @maximum 32767)();
@@ -32,8 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ PARTIAL narrowing retains low bits and interprets them using the destination signedness. $>
-  ::partial_low_bits
-    DUAL_TEST
+  ::partial_low_bits DUAL_TEST
   {
     VAR positive I16 := 128;
     VAR negative I16 := 0 - 129;
@@ -49,8 +46,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Widening sign-extends signed values and zero-extends unsigned values, including non-byte-width sources. $>
-  ::widening_signedness
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::widening_signedness DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR signed_byte I8 := 0 - 128;
     VAR unsigned_byte U8 := 255;
@@ -71,8 +67,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Integer types whose ranges fit the float significand convert exactly at their extreme values. $>
-  ::exact_integer_float_limits
-    DUAL_TEST
+  ::exact_integer_float_limits DUAL_TEST
   {
     VAR signed_high I25 := 16777215;
     VAR signed_low I25 := 0 - 16777216;
@@ -94,8 +89,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Subtracting exact fractional literals produces a value that can initialize a floating-point object. $>
-  ::fractional_literal_subtraction
-    DUAL_TEST
+  ::fractional_literal_subtraction DUAL_TEST
   {
     VAR value F32 := 0.0 - 1.0;
     VAR zero F32 := 0;

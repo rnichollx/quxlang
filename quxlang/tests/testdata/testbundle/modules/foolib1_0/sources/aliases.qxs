@@ -1,8 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Public aliases retain the original targets and their selection-time privacy. $>
-::alias_exports
-NAMESPACE
+::alias_exports NAMESPACE
 {
   PRIVATE(MODULE)
   {

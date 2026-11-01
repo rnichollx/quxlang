@@ -38,14 +38,12 @@ IMPORT std;
   }
 
   DOC <$ Accumulates atomic fetch-add results in a destination owned by one worker. $>
-  ::ticket_accumulator
-    STRUCT
+  ::ticket_accumulator STRUCT
   {
     .counter VAR MUT->ATOMIC#U64;
     .sum VAR MUT->U64;
     DOC <$ Adds one thousand uniquely allocated ticket values to this worker's sum. $>
-    .OPERATOR()
-      FUNCTION()
+    .OPERATOR() FUNCTION()
     {
       VAR count SZ := 0;
       VAR total U64 := 0;

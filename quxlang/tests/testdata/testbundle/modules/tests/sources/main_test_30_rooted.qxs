@@ -2,14 +2,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 DOC <$ Stores mutable state at a stable object address. $>
-::rooted_value
-  STRUCT ROOTED
+::rooted_value STRUCT ROOTED
 {
   .value VAR I32;
 
   DOC <$ Initializes the stored value without relocating another rooted object. $>
-  .CONSTRUCTOR
-    FUNCTION(@value I32)
+  .CONSTRUCTOR FUNCTION(@value I32)
   {
     .value := value;
   }
@@ -17,16 +15,14 @@ DOC <$ Stores mutable state at a stable object address. $>
 
 
 DOC <$ Mutates a rooted object through a reference. $>
-::set_rooted_value
-  FUNCTION(@object MUT& rooted_value, @value I32)
+::set_rooted_value FUNCTION(@object MUT& rooted_value, @value I32)
 {
   object.value := value;
 }
 
 
 DOC <$ Reads a rooted object through a constant reference. $>
-::read_rooted_value
-  FUNCTION(@object CONST& rooted_value): I32
+::read_rooted_value FUNCTION(@object CONST& rooted_value): I32
 {
   RETURN object.value;
 }
@@ -70,8 +66,7 @@ DOC <$ Reads a rooted object through a constant reference. $>
 
 
 DOC <$ Provides a by-value call surface used to verify copy rejection. $>
-::accept_rooted_value
-  FUNCTION(@object rooted_value): I32
+::accept_rooted_value FUNCTION(@object rooted_value): I32
 {
   RETURN object.value;
 }
@@ -85,8 +80,7 @@ DOC <$ Provides a by-value call surface used to verify copy rejection. $>
 
 
 DOC <$ Provides a named-local return path used to verify move rejection. $>
-::return_named_rooted_value
-  FUNCTION(): rooted_value
+::return_named_rooted_value FUNCTION(): rooted_value
 {
   VAR object rooted_value :(@value 41);
   RETURN MOVE(object);
@@ -100,8 +94,7 @@ DOC <$ Provides a named-local return path used to verify move rejection. $>
 
 
 DOC <$ Stores a rooted object inline. $>
-::rooted_wrapper
-  STRUCT
+::rooted_wrapper STRUCT
 {
   .object VAR rooted_value;
 }
@@ -123,8 +116,7 @@ DOC <$ Stores a rooted object inline. $>
 
 
 DOC <$ Preserves ROOTED lifecycle constraints through template instantiation. $>
-::rooted_template
-  TEMPLATE(@T TYPE AUTO) STRUCT ROOTED
+::rooted_template TEMPLATE(@T TYPE AUTO) STRUCT ROOTED
 {
   .value VAR T;
 }
@@ -138,8 +130,7 @@ DOC <$ Preserves ROOTED lifecycle constraints through template instantiation. $>
 
 
 DOC <$ Declares a forbidden copy constructor for validation. $>
-::rooted_with_copy_constructor
-  STRUCT ROOTED
+::rooted_with_copy_constructor STRUCT ROOTED
 {
   .value VAR I32;
 
@@ -158,8 +149,7 @@ DOC <$ Declares a forbidden copy constructor for validation. $>
 
 
 DOC <$ Declares a forbidden move constructor for validation. $>
-::rooted_with_move_constructor
-  STRUCT ROOTED
+::rooted_with_move_constructor STRUCT ROOTED
 {
   .value VAR I32;
 
@@ -178,8 +168,7 @@ DOC <$ Declares a forbidden move constructor for validation. $>
 
 
 DOC <$ Declares a forbidden swap operator for validation. $>
-::rooted_with_swap_operator
-  STRUCT ROOTED
+::rooted_with_swap_operator STRUCT ROOTED
 {
   .value VAR I32;
 
@@ -199,8 +188,7 @@ DOC <$ Declares a forbidden swap operator for validation. $>
 
 
 DOC <$ Declares a forbidden reverse swap operator for validation. $>
-::rooted_with_rhs_swap_operator
-  STRUCT ROOTED
+::rooted_with_rhs_swap_operator STRUCT ROOTED
 {
   .value VAR I32;
 

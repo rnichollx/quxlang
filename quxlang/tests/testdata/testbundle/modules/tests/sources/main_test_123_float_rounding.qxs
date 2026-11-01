@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::float_rounding_tests NAMESPACE
 {
   DOC <$ Integer conversion rounds halfway values to the even significand for both signs. $>
-  ::nearest_even
-    TEMPLATE(@T TYPE AUTO)
+  ::nearest_even TEMPLATE(@T TYPE AUTO)
     FUNCTION(@base I64, @rounded_base T)
   {
     VAR expected [5]T;
@@ -30,22 +29,19 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Values surrounding 2^24 exercise exact F32 results and both directions of tie rounding. $>
-  ::single_precision_ties
-    DUAL_TEST
+  ::single_precision_ties DUAL_TEST
   {
     nearest_even#(F32)(@base 16777216, @rounded_base 16777216.0);
   }
 
   DOC <$ Values surrounding 2^53 exercise exact F64 results and both directions of tie rounding. $>
-  ::double_precision_ties
-    DUAL_TEST
+  ::double_precision_ties DUAL_TEST
   {
     nearest_even#(F64)(@base 9007199254740992, @rounded_base 9007199254740992.0);
   }
 
   DOC <$ Approximate conversion handles the high unsigned bit and rounding carry beyond the source integer maximum. $>
-  ::unsigned_and_signed_high_values
-    DUAL_TEST
+  ::unsigned_and_signed_high_values DUAL_TEST
   {
     VAR unsigned_max U64 := 18446744073709551615;
     VAR signed_max I64 := 9223372036854775807;

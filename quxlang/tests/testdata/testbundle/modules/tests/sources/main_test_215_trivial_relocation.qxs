@@ -3,42 +3,35 @@ LANGUAGE QUXLANG EN 0.0;
 ::trivial_relocation_tests NAMESPACE
 {
   DOC <$ Transfers an owned lifetime across calls and records its final destruction. $>
-  ::owner
-    STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
+  ::owner STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
   {
     .deaths VAR MUT->I32;
     .value VAR I32;
     DOC <$ Initializes the one owned lifetime. $>
-    .CONSTRUCTOR
-      FUNCTION(@deaths MUT& I32, @value I32)
+    .CONSTRUCTOR FUNCTION(@deaths MUT& I32, @value I32)
     {
       .deaths := deaths<-;
       .value := value;
     }
     DOC <$ Transfers resource ownership during an ordinary move construction. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER TEMP& owner)
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& owner)
     {
       VAR source MUT& owner := OTHER AS MUT& owner;
       .deaths <-> source.deaths;
       .value := source.value;
     }
     DOC <$ Records the final release of the owned resource. $>
-    .DESTRUCTOR
-      FUNCTION() { IF (.deaths??) { .deaths-> ++; } }
+    .DESTRUCTOR FUNCTION() { IF (.deaths??) { .deaths-> ++; } }
   }
 
   DOC <$ Consumes an owner passed by value. $>
-  ::consume
-    FUNCTION(@value owner): I32 { RETURN value.value; }
+  ::consume FUNCTION(@value owner): I32 { RETURN value.value; }
 
   DOC <$ Constructs the result in the callee's return storage. $>
-  ::create
-    FUNCTION(@deaths MUT& I32): owner { RETURN owner(@deaths deaths, @value 73); }
+  ::create FUNCTION(@deaths MUT& I32): owner { RETURN owner(@deaths deaths, @value 73); }
 
   DOC <$ Relocation across return and argument boundaries preserves data and releases the owned resource exactly once. $>
-  ::call_lifetime
-    DUAL_TEST
+  ::call_lifetime DUAL_TEST
   {
     VAR deaths I32 := 0;
     TEST_ASSERT(consume(@value create(@deaths deaths)) == 73);
@@ -52,20 +45,16 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Selects relocation independently for each template instantiation. $>
-  ::conditional
-    TEMPLATE(@enabled VALUE BOOL) STRUCT TRIVIALLY_RELOCATABLE_IF(enabled)
+  ::conditional TEMPLATE(@enabled VALUE BOOL) STRUCT TRIVIALLY_RELOCATABLE_IF(enabled)
   {
     .value VAR I32;
   }
   DOC <$ Reads a conditionally relocatable parameter. $>
-  ::read_enabled
-    FUNCTION(@value conditional#(@enabled TRUE)): I32 { RETURN value.value; }
+  ::read_enabled FUNCTION(@value conditional#(@enabled TRUE)): I32 { RETURN value.value; }
   DOC <$ Reads a parameter with relocation disabled. $>
-  ::read_disabled
-    FUNCTION(@value conditional#(@enabled FALSE)): I32 { RETURN value.value; }
+  ::read_disabled FUNCTION(@value conditional#(@enabled FALSE)): I32 { RETURN value.value; }
   DOC <$ Both conditional property results support ordinary calls. $>
-  ::conditional_calls
-    DUAL_TEST
+  ::conditional_calls DUAL_TEST
   {
     VAR enabled conditional#(@enabled TRUE);
     enabled.value := 19;
@@ -76,11 +65,9 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Unwinds after accepting the relocated lifetime. $>
-  ::fail
-    FUNCTION(@value owner): I32 { THROW I32(@OTHER value.value); }
+  ::fail FUNCTION(@value owner): I32 { THROW I32(@OTHER value.value); }
   DOC <$ A relocated parameter releases its owned resource once when its callee throws. $>
-  ::exception_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::exception_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR deaths I32 := 0;
     TRY { fail(@value create(@deaths deaths)); }
@@ -89,20 +76,16 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Keeps ordinary copy construction observable despite relocation permission. $>
-  ::copy_counter
-    STRUCT TRIVIALLY_RELOCATABLE
+  ::copy_counter STRUCT TRIVIALLY_RELOCATABLE
   {
     .value VAR I32;
     DOC <$ Counts a normal lvalue copy in the stored value. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER CONST& copy_counter) { .value := OTHER.value + 1; }
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& copy_counter) { .value := OTHER.value + 1; }
   }
   DOC <$ Reads the explicitly copy-constructed argument. $>
-  ::read_copy
-    FUNCTION(@value copy_counter): I32 { RETURN value.value; }
+  ::read_copy FUNCTION(@value copy_counter): I32 { RETURN value.value; }
   DOC <$ Relocation permission preserves ordinary lvalue copy semantics. $>
-  ::ordinary_copy
-    DUAL_TEST
+  ::ordinary_copy DUAL_TEST
   {
     VAR value copy_counter;
     value.value := 41;
@@ -114,22 +97,19 @@ LANGUAGE QUXLANG EN 0.0;
 
 
   DOC <$ Exercises a three-byte representation without padding. $>
-  ::bytes
-    STRUCT TRIVIALLY_RELOCATABLE
+  ::bytes STRUCT TRIVIALLY_RELOCATABLE
   {
     .first VAR U8;
     .second VAR U8;
     .third VAR U8;
   }
   DOC <$ Reads every byte after a by-value transfer. $>
-  ::sum_bytes
-    FUNCTION(@value bytes): I32
+  ::sum_bytes FUNCTION(@value bytes): I32
   {
     RETURN (value.first AS I32) + (value.second AS I32) + (value.third AS I32);
   }
   DOC <$ Integer ABI transport preserves all fields of an odd-sized object. $>
-  ::odd_size
-    DUAL_TEST
+  ::odd_size DUAL_TEST
   {
     VAR value bytes;
     value.first := 17;
@@ -140,20 +120,16 @@ LANGUAGE QUXLANG EN 0.0;
 
 
   DOC <$ Transfers an object larger than the native register budget. $>
-  ::large
-    STRUCT TRIVIALLY_RELOCATABLE
+  ::large STRUCT TRIVIALLY_RELOCATABLE
   {
     .values VAR [32]I64;
   }
   DOC <$ Reads fields at both ends of a large by-value argument. $>
-  ::read_large
-    FUNCTION(@value large): I64 { RETURN value.values[0] + value.values[31]; }
+  ::read_large FUNCTION(@value large): I64 { RETURN value.values[0] + value.values[31]; }
   DOC <$ Returns a large object through the by-value LLVM interface. $>
-  ::return_large
-    FUNCTION(@value large): large { RETURN value; }
+  ::return_large FUNCTION(@value large): large { RETURN value; }
   DOC <$ LLVM selects machine-level passing for a large trivially relocatable struct. $>
-  ::large_value
-    DUAL_TEST
+  ::large_value DUAL_TEST
   {
     VAR value large;
     value.values[0] := 101;
@@ -162,8 +138,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Counts every construction and destruction, including moved-from objects. $>
-  ::construction_counts
-    STRUCT
+  ::construction_counts STRUCT
   {
     .initial VAR I32;
     .copies VAR I32;
@@ -171,45 +146,37 @@ LANGUAGE QUXLANG EN 0.0;
     .deaths VAR I32;
   }
   DOC <$ Exposes constructor calls and object lifetime ends at call boundaries. $>
-  ::counted_argument
-    STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
+  ::counted_argument STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
   {
     .counts VAR MUT->construction_counts;
     DOC <$ Begins one fresh object lifetime. $>
-    .CONSTRUCTOR
-      FUNCTION(@counts MUT& construction_counts)
+    .CONSTRUCTOR FUNCTION(@counts MUT& construction_counts)
     {
       .counts := counts<-;
       .counts->.initial ++;
     }
     DOC <$ Records an ordinary lvalue copy. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER CONST& counted_argument)
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& counted_argument)
     {
       .counts := OTHER.counts;
       .counts->.copies ++;
     }
     DOC <$ Records an ordinary TEMP reference move. $>
-    .CONSTRUCTOR
-      FUNCTION(@OTHER TEMP& counted_argument)
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& counted_argument)
     {
       .counts := OTHER.counts;
       .counts->.moves ++;
     }
     DOC <$ Records every object destruction without suppressing moved-from destruction. $>
-    .DESTRUCTOR
-      FUNCTION() { .counts->.deaths ++; }
+    .DESTRUCTOR FUNCTION() { .counts->.deaths ++; }
   }
   DOC <$ Reads a prvalue transferred into a by-value parameter. $>
-  ::consume_counted
-    FUNCTION(@value counted_argument): I32 { RETURN value.counts->.initial; }
+  ::consume_counted FUNCTION(@value counted_argument): I32 { RETURN value.counts->.initial; }
   DOC <$ Unwinds after accepting ownership of the argument lifetime. $>
-  ::fail_counted
-    FUNCTION(@value counted_argument) { THROW I32(@OTHER value.counts->.initial); }
+  ::fail_counted FUNCTION(@value counted_argument) { THROW I32(@OTHER value.counts->.initial); }
 
   DOC <$ A T prvalue passes directly into a T parameter without another constructor or an abandoned-object destructor. $>
-  ::direct_prvalue_contract
-    DUAL_TEST
+  ::direct_prvalue_contract DUAL_TEST
   {
     VAR counts construction_counts;
     TEST_ASSERT(consume_counted(@value counted_argument(@counts counts)) == 1);
@@ -219,8 +186,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(counts.deaths == 1);
   }
   DOC <$ Procedure-pointer calls preserve the same prvalue lifetime-transfer contract. $>
-  ::indirect_prvalue_contract
-    DUAL_TEST
+  ::indirect_prvalue_contract DUAL_TEST
   {
     VAR counts construction_counts;
     VAR callable CONST->PROCEDURE(@value counted_argument: I32) := consume_counted<-;
@@ -231,8 +197,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(counts.deaths == 1);
   }
   DOC <$ Unwinding destroys the one transferred object without an extra constructor or destructor. $>
-  ::prvalue_exception_contract
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::prvalue_exception_contract DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR counts construction_counts;
     VAR caught BOOL := FALSE;
@@ -245,8 +210,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(counts.deaths == 1);
   }
   DOC <$ Lvalues copy and TEMP references move into by-value parameters, with distinct source lifetimes. $>
-  ::reference_argument_construction
-    DUAL_TEST
+  ::reference_argument_construction DUAL_TEST
   {
     VAR counts construction_counts;
     {
@@ -266,21 +230,18 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returns a fresh prvalue into the caller's storage. $>
-  ::create_counted
-    FUNCTION(@counts MUT& construction_counts): counted_argument
+  ::create_counted FUNCTION(@counts MUT& construction_counts): counted_argument
   {
     RETURN counted_argument(@counts counts);
   }
   DOC <$ Returns a call result from either branch without a named return candidate. $>
-  ::relay_counted
-    FUNCTION(@counts MUT& construction_counts, @branch BOOL): counted_argument
+  ::relay_counted FUNCTION(@counts MUT& construction_counts, @branch BOOL): counted_argument
   {
     IF (branch) { RETURN create_counted(@counts counts); }
     RETURN counted_argument(@counts counts);
   }
   DOC <$ Prvalue return chains transfer one lifetime without copy or move construction. $>
-  ::return_prvalue_contract
-    DUAL_TEST
+  ::return_prvalue_contract DUAL_TEST
   {
     VAR counts construction_counts;
     TEST_ASSERT(consume_counted(@value relay_counted(@counts counts, @branch TRUE)) == 1);
@@ -293,8 +254,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(counts.deaths == 3);
   }
   DOC <$ Exception cleanup destroys each returned value exactly once. $>
-  ::return_prvalue_exception_contract
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::return_prvalue_exception_contract DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR counts construction_counts;
     VAR caught BOOL := FALSE;
@@ -307,11 +267,9 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(counts.deaths == 1);
   }
   DOC <$ Returning a TEMP reference performs ordinary move construction. $>
-  ::return_reference
-    FUNCTION(@source TEMP& counted_argument): counted_argument { RETURN MOVE(source); }
+  ::return_reference FUNCTION(@source TEMP& counted_argument): counted_argument { RETURN MOVE(source); }
   DOC <$ A reference return retains the distinct source lifetime. $>
-  ::return_reference_contract
-    DUAL_TEST
+  ::return_reference_contract DUAL_TEST
   {
     VAR counts construction_counts;
     {
@@ -325,8 +283,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(counts.deaths == 2);
   }
   DOC <$ Supports initial construction and destruction with no copy or move constructor. $>
-  ::immobile
-    STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
+  ::immobile STRUCT TRIVIALLY_RELOCATABLE NO_IMPLICIT_CONSTRUCTORS
   {
     .counts VAR MUT->construction_counts;
     .payload VAR [32]I64;
@@ -350,8 +307,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(value.payload[31] == 29);
   }
   DOC <$ Relocation from return storage requires no copy or move constructor. $>
-  ::return_without_move_constructor
-    DUAL_TEST
+  ::return_without_move_constructor DUAL_TEST
   {
     VAR counts construction_counts;
     consume_immobile(@value create_immobile(@counts counts));
@@ -360,8 +316,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Exposes return initialization for both values of the conditional property. $>
-  ::conditional_result
-    TEMPLATE(@enabled VALUE BOOL) STRUCT TRIVIALLY_RELOCATABLE_IF(enabled) NO_IMPLICIT_CONSTRUCTORS
+  ::conditional_result TEMPLATE(@enabled VALUE BOOL) STRUCT TRIVIALLY_RELOCATABLE_IF(enabled) NO_IMPLICIT_CONSTRUCTORS
   {
     .counts VAR MUT->construction_counts;
     .CONSTRUCTOR FUNCTION(@counts MUT& construction_counts)
@@ -387,8 +342,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::consume_enabled FUNCTION(@value conditional_result#(@enabled TRUE)) {}
   ::consume_disabled FUNCTION(@value conditional_result#(@enabled FALSE)) {}
   DOC <$ Disabled relocation retains move construction and destruction of the source prvalue. $>
-  ::conditional_return_contract
-    DUAL_TEST
+  ::conditional_return_contract DUAL_TEST
   {
     VAR enabled construction_counts;
     consume_enabled(@value create_enabled(@counts enabled));

@@ -3,18 +3,15 @@ LANGUAGE QUXLANG EN 0.0;
 ::optional_external_tests INCLUDE_IF(OS_MACOS) NAMESPACE
 {
   DOC <$ Binds a present libSystem integer function as an optional import using the default C calling convention. $>
-  ::magnitude
-    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"abs" OPTIONAL]
+  ::magnitude EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"abs" OPTIONAL]
     CALLABLE(@value I32; RETURN I32);
 
   DOC <$ Names an absent optional libSystem symbol for null-address validation. $>
-  ::missing
-    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"quxlang_test_absent_optional_symbol_152" OPTIONAL]
+  ::missing EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"quxlang_test_absent_optional_symbol_152" OPTIONAL]
     CALLABLE(@value I32; RETURN I32);
 
   DOC <$ Optional linkage preserves the default external calling convention and scalar results. $>
-  ::present_direct_call
-    UNIT_TEST
+  ::present_direct_call UNIT_TEST
   {
     TEST_ASSERT(magnitude(@value 0 - 37) == 37);
     TEST_ASSERT(magnitude(@value 19) == 19);
@@ -22,8 +19,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A present optional import has a callable nonnull address which survives copying. $>
-  ::present_function_address
-    UNIT_TEST
+  ::present_function_address UNIT_TEST
   {
     AUTO pointer := magnitude<-;
     TEST_ASSERT(pointer??);
@@ -33,8 +29,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A missing optional import permits loading and exposes a null address without being called. $>
-  ::absent_function_address
-    UNIT_TEST
+  ::absent_function_address UNIT_TEST
   {
     AUTO pointer := missing<-;
     TEST_ASSERT((pointer??) == FALSE);

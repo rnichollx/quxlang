@@ -1,8 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Owns one object allocated by NEW and deletes it when ownership ends. Moves leave the source empty. $>
-::unique_ptr
-  TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
+::unique_ptr TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
 {
   PRIVATE(CLASS)
   {
@@ -10,8 +9,7 @@ DOC <$ Owns one object allocated by NEW and deletes it when ownership ends. Move
   }
 
   DOC <$ Creates an empty owner. $>
-  .CONSTRUCTOR
-    FUNCTION()
+  .CONSTRUCTOR FUNCTION()
   {
   }
 
@@ -28,57 +26,49 @@ DOC <$ Owns one object allocated by NEW and deletes it when ownership ends. Move
   }
 
   DOC <$ Deletes the owned object, if present. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     .reset();
   }
 
   DOC <$ Deletes the previous object and transfers ownership from OTHER. Self-move preserves ownership. $>
-  .OPERATOR:=
-    FUNCTION(@OTHER TEMP& unique_ptr#T) MUT
+  .OPERATOR:= FUNCTION(@OTHER TEMP& unique_ptr#T) MUT
   {
     .reset(@pointer OTHER.release());
   }
 
   DOC <$ Exchanges ownership without constructing or destroying either object. $>
-  .OPERATOR<->
-    FUNCTION(@OTHER MUT& unique_ptr#T) MUT
+  .OPERATOR<-> FUNCTION(@OTHER MUT& unique_ptr#T) MUT
   {
     .pointer <-> OTHER.pointer;
   }
 
   DOC <$ Returns the owned pointer without transferring ownership. $>
-  .get
-    FUNCTION() CONST: MUT->T
+  .get FUNCTION() CONST: MUT->T
   {
     RETURN .pointer;
   }
 
   DOC <$ Reports whether this owner contains an object. $>
-  .has_value
-    FUNCTION() CONST: BOOL
+  .has_value FUNCTION() CONST: BOOL
   {
     RETURN .pointer??;
   }
 
   DOC <$ Reports whether this owner contains an object. $>
-  .OPERATOR??
-    FUNCTION() CONST: BOOL
+  .OPERATOR?? FUNCTION() CONST: BOOL
   {
     RETURN .has_value();
   }
 
   DOC <$ Returns a mutable reference to the owned object. Requires a nonempty owner. $>
-  .OPERATOR->
-    FUNCTION() CONST: MUT& T
+  .OPERATOR-> FUNCTION() CONST: MUT& T
   {
     RETURN .pointer->;
   }
 
   DOC <$ Relinquishes ownership without deleting the object and leaves this owner empty. $>
-  .release
-    FUNCTION() MUT: MUT->T
+  .release FUNCTION() MUT: MUT->T
   {
     VAR released MUT->T := .pointer;
     .pointer := NULL;
@@ -86,15 +76,13 @@ DOC <$ Owns one object allocated by NEW and deletes it when ownership ends. Move
   }
 
   DOC <$ Deletes the owned object and leaves this owner empty. $>
-  .reset
-    FUNCTION() MUT
+  .reset FUNCTION() MUT
   {
     .reset(@pointer NULL);
   }
 
   DOC <$ Replaces ownership with a pointer allocated by NEW T, or null. Passing the currently owned pointer preserves ownership. $>
-  .reset
-    FUNCTION(@pointer MUT->T) MUT
+  .reset FUNCTION(@pointer MUT->T) MUT
   {
     IF (.pointer == pointer)
     {
@@ -107,8 +95,7 @@ DOC <$ Owns one object allocated by NEW and deletes it when ownership ends. Move
 }
 
 DOC <$ Allocates a T with NEW, forwarding positional and named constructor arguments. $>
-::make_unique
-  TEMPLATE(@T TYPE AUTO) FUNCTION(%...values AUTO& AUTO, @KWARGS ...): unique_ptr#T
+::make_unique TEMPLATE(@T TYPE AUTO) FUNCTION(%...values AUTO& AUTO, @KWARGS ...): unique_ptr#T
 {
   RETURN unique_ptr#T(@pointer NEW T :(
     COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),

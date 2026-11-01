@@ -3,27 +3,23 @@ LANGUAGE QUXLANG EN 0.0;
 ::explicit_storage_call_tests NAMESPACE
 {
   DOC <$ Records positional construction and ordinary destruction. $>
-  ::record
-    STRUCT
+  ::record STRUCT
   {
     .events VAR MUT->I32;
     .value VAR I32;
     DOC <$ Preserves positional value binding and records completed initialization. $>
-    .CONSTRUCTOR
-      FUNCTION(%value I32, %events MUT& I32)
+    .CONSTRUCTOR FUNCTION(%value I32, %events MUT& I32)
     {
       .value := value;
       .events := events<-;
       events := events * 10 + 3;
     }
     DOC <$ Records ordinary destruction. $>
-    .DESTRUCTOR
-      FUNCTION() { .events-> := .events-> * 10 + 4; }
+    .DESTRUCTOR FUNCTION() { .events-> := .events-> * 10 + 4; }
   }
 
   DOC <$ Positional placement expression and statement arguments execute once and initialize reusable storage. $>
-  ::positional_placement
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::positional_placement DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR slot TYPED_STORAGE(record);

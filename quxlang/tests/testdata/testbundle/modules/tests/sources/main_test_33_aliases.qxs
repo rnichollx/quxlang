@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT foolib;
 
 DOC <$ Transparent aliases preserve identity, lexical lookup, and declaration privacy. $>
-::alias_tests
-NAMESPACE
+::alias_tests NAMESPACE
 {
   ::type_identity_test DUAL_TEST
   {
@@ -77,8 +76,7 @@ NAMESPACE
   }
 
   DOC <$ Templated and chained array aliases share the same storage through an explicitly bound reference. $>
-  ::aliased_array_reference_storage
-    DUAL_TEST
+  ::aliased_array_reference_storage DUAL_TEST
   {
     VAR values fixed_array#(@T integer_chain, @count 3);
     values[0] := 2;
@@ -95,8 +93,7 @@ NAMESPACE
   }
 
   DOC <$ A function alias preserves its primary argument name and overload selection for explicit and bare calls. $>
-  ::aliased_primary_argument_binding
-    DUAL_TEST
+  ::aliased_primary_argument_binding DUAL_TEST
   {
     VAR small I32 := 7;
     VAR wide I64 := 11;

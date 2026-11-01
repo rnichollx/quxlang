@@ -3,21 +3,16 @@ LANGUAGE QUXLANG EN 0.0;
 ::inherited_option_tests NAMESPACE
 {
   DOC <$ Inherits through a forward-declared intermediate option. $>
-  ::leaf
-    OPTION NUMBER DEFAULT_FROM(middle);
+  ::leaf OPTION NUMBER DEFAULT_FROM(middle);
   DOC <$ Shares the numeric source without creating mutable storage. $>
-  ::middle
-    OPTION NUMBER DEFAULT_FROM(base);
+  ::middle OPTION NUMBER DEFAULT_FROM(base);
   DOC <$ Supplies the terminal numeric default. $>
-  ::base
-    OPTION NUMBER DEFAULT(17);
+  ::base OPTION NUMBER DEFAULT(17);
   DOC <$ Inherits the existing target override instead of its source default of 42. $>
-  ::configured
-    OPTION NUMBER DEFAULT_FROM(::option_num);
+  ::configured OPTION NUMBER DEFAULT_FROM(::option_num);
 
   DOC <$ Forward references and repeated option resolution preserve defaults and configured source values. $>
-  ::numeric_chain_and_override
-    DUAL_TEST
+  ::numeric_chain_and_override DUAL_TEST
   {
     TEST_ASSERT(leaf == 17);
     TEST_ASSERT(middle == 17);
@@ -29,15 +24,12 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Allows a target override without changing the inherited source. $>
-  ::independent
-    OPTION NUMBER DEFAULT_FROM(base);
+  ::independent OPTION NUMBER DEFAULT_FROM(base);
   DOC <$ Supplies the expected value for configuration-isolation validation. $>
-  ::expected_independent
-    OPTION NUMBER DEFAULT(17);
+  ::expected_independent OPTION NUMBER DEFAULT(17);
 
   DOC <$ Resolving a configured derived option never modifies its source or sibling defaults. $>
-  ::derived_override_is_independent
-    DUAL_TEST
+  ::derived_override_is_independent DUAL_TEST
   {
     TEST_ASSERT(independent == expected_independent);
     TEST_ASSERT(base == 17);
@@ -50,8 +42,7 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$ Retains the Boolean kind through inheritance. $>
   ::inherited_truth OPTION BOOL DEFAULT_FROM(truth);
   DOC <$ Inherited Boolean values select static branches. $>
-  ::boolean_selection
-    DUAL_TEST
+  ::boolean_selection DUAL_TEST
   {
     TEST_ASSERT(inherited_truth);
     STATIC_IF(inherited_truth) { TEST_ASSERT(TRUE); }
@@ -68,8 +59,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Caller locals cannot shadow the source of an inherited default. $>
-  ::declaration_context
-    DUAL_TEST
+  ::declaration_context DUAL_TEST
   {
     VAR base I32 := 91;
     TEST_ASSERT(nested::value == 29);
@@ -97,21 +87,15 @@ LANGUAGE QUXLANG EN 0.0;
   ::inherited_required OPTION NUMBER DEFAULT_FROM(required);
 
   DOC <$ Direct default cycles are invalid. $>
-  ::reject_self_cycle
-    STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := self_cycle; }
+  ::reject_self_cycle STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := self_cycle; }
   DOC <$ Indirect default cycles are invalid. $>
-  ::reject_indirect_cycle
-    STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := cycle_first; }
+  ::reject_indirect_cycle STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := cycle_first; }
   DOC <$ Default inheritance preserves the declared option kind. $>
-  ::reject_kind_mismatch
-    STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := wrong_kind; }
+  ::reject_kind_mismatch STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := wrong_kind; }
   DOC <$ Ordinary constants cannot supply DEFAULT_FROM declarations. $>
-  ::reject_non_option
-    STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := non_option; }
+  ::reject_non_option STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := non_option; }
   DOC <$ Unresolved inherited default sources are invalid. $>
-  ::reject_missing_source
-    STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := missing; }
+  ::reject_missing_source STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := missing; }
   DOC <$ A chain ending at an unconfigured required option cannot supply a value. $>
-  ::reject_missing_value
-    STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := inherited_required; }
+  ::reject_missing_value STATIC_TEST EXPECT_COMPILATION_FAILURE { VAR value I32 := inherited_required; }
 }

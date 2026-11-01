@@ -3,40 +3,35 @@ LANGUAGE QUXLANG EN 0.0;
 ::index_constraint_tests NAMESPACE
 {
   DOC <$ Value indexing rejects a missing required second coordinate. $>
-  ::missing_value_coordinate
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::missing_value_coordinate STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object multidimensional_index_tests::table;
     object[1];
   }
 
   DOC <$ Value indexing rejects an extra coordinate when no positional pack exists. $>
-  ::extra_value_coordinate
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::extra_value_coordinate STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object multidimensional_index_tests::table;
     object[1, 2, 3];
   }
 
   DOC <$ Address indexing rejects a missing required second coordinate. $>
-  ::missing_address_coordinate
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::missing_address_coordinate STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object multidimensional_index_tests::table;
     object[&1];
   }
 
   DOC <$ Address indexing rejects extra coordinates independently of value indexing. $>
-  ::extra_address_coordinate
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::extra_address_coordinate STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object multidimensional_index_tests::table;
     object[&1, 2, 3];
   }
 
   DOC <$ A constant index result cannot be assigned through its returned reference. $>
-  ::constant_result_assignment
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::constant_result_assignment STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object multidimensional_index_tests::table;
     VAR view CONST& multidimensional_index_tests::table := object;
@@ -44,8 +39,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A constant receiver cannot invoke a mutable address-index operator. $>
-  ::constant_mutable_address
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::constant_mutable_address STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR object multidimensional_index_tests::table;
     VAR view CONST& multidimensional_index_tests::table := object;

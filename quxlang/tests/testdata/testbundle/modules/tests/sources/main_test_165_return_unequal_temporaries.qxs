@@ -10,8 +10,7 @@ LANGUAGE QUXLANG EN 0.0;
     .digit VAR I32;
     .fail VAR BOOL;
     DOC <$ Captures the event sink and records source-order construction. $>
-    .CONSTRUCTOR
-      FUNCTION(@events MUT& I32, @value I32, @digit I32, @fail BOOL)
+    .CONSTRUCTOR FUNCTION(@events MUT& I32, @value I32, @digit I32, @fail BOOL)
     {
       .events := events<-;
       .value := value;
@@ -20,11 +19,9 @@ LANGUAGE QUXLANG EN 0.0;
       events := events * 10 + digit;
     }
     DOC <$ Records reverse operand destruction. $>
-    .DESTRUCTOR
-      FUNCTION() { .events-> := .events-> * 10 + .digit + 3; }
+    .DESTRUCTOR FUNCTION() { .events-> := .events-> * 10 + .digit + 3; }
     DOC <$ Invokes the custom comparison once and optionally throws before producing an ordering. $>
-    .OPERATOR<=>
-      FUNCTION(@OTHER CONST& operand) CONST: ORDER
+    .OPERATOR<=> FUNCTION(@OTHER CONST& operand) CONST: ORDER
     {
       .events-> := .events-> * 10 + 3;
       IF (.fail) { THROW I32(@OTHER 73); }
@@ -33,8 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returns an unequal ordering or continues after destroying both equal operands. $>
-  ::compare
-    FUNCTION(@events MUT& I32, @left I32, @right I32, @fail BOOL): ORDER
+  ::compare FUNCTION(@events MUT& I32, @left I32, @right I32, @fail BOOL): ORDER
   {
     VAR outer control_flow_tests::exit_record :(@events events, @digit 7);
     RETURN_UNEQUAL operand(@events events, @value left, @digit 1, @fail fail),
@@ -44,8 +40,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Unequal comparisons destroy right then left before enclosing-scope cleanup. $>
-  ::unequal_paths
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::unequal_paths DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     TEST_ASSERT(compare(@events events, @left 1, @right 2, @fail FALSE) == ORDER::LESS);
@@ -56,8 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returns a comparison expression and destroys its operands before continuing or leaving the function. $>
-  ::compare_expression
-    FUNCTION(@events MUT& I32, @left I32, @right I32, @fail BOOL): ORDER
+  ::compare_expression FUNCTION(@events MUT& I32, @left I32, @right I32, @fail BOOL): ORDER
   {
     VAR outer control_flow_tests::exit_record :(@events events, @digit 7);
     RETURN_UNEQUAL operand(@events events, @value left, @digit 1, @fail fail) <=>
@@ -67,8 +61,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Comparison expressions evaluate once and preserve operand cleanup on equal, unequal and throwing paths. $>
-  ::ordering_expression_paths
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::ordering_expression_paths DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     TEST_ASSERT(compare_expression(@events events, @left 1, @right 2, @fail FALSE) == ORDER::LESS);
@@ -88,16 +81,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Reads an ordering through an implicit reference-to-value conversion and deduces the return type. $>
-  ::return_order
-    FUNCTION(@ordering CONST& ORDER): AUTO
+  ::return_order FUNCTION(@ordering CONST& ORDER): AUTO
   {
     RETURN_UNEQUAL ordering;
     RETURN ORDER::EQUAL;
   }
 
   DOC <$ Ordering values, mutable references and constant references support early return and equal continuation. $>
-  ::ordering_arguments
-    DUAL_TEST
+  ::ordering_arguments DUAL_TEST
   {
     TEST_ASSERT(return_order(@ordering ORDER::LESS) == ORDER::LESS);
     TEST_ASSERT(return_order(@ordering ORDER::GREATER) == ORDER::GREATER);
@@ -113,8 +104,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::boolean_argument STATIC_TEST EXPECT_COMPILATION_FAILURE { RETURN_UNEQUAL TRUE; }
 
   DOC <$ Equal operands are destroyed before the next statement executes. $>
-  ::equal_path
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::equal_path DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     TEST_ASSERT(compare(@events events, @left 2, @right 2, @fail FALSE) == ORDER::EQUAL);
@@ -122,8 +112,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A throwing comparison destroys both operands and enclosing locals without entering the equal continuation. $>
-  ::throwing_comparison
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::throwing_comparison DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR caught BOOL := FALSE;

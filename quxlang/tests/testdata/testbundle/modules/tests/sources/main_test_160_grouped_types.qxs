@@ -10,8 +10,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::pointer_array ALIAS [3](MUT->I32);
 
   DOC <$ Type grouping preserves nominal identity and permits subsequent qualified-name lookup. $>
-  ::identity_and_postfix_names
-    DUAL_TEST
+  ::identity_and_postfix_names DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(integer, I32));
     TEST_ASSERT(SAME_TYPES((CONST& I32), CONST& I32));
@@ -23,8 +22,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Grouped array and pointer types preserve the original storage and element identities. $>
-  ::array_pointer_storage
-    DUAL_TEST
+  ::array_pointer_storage DUAL_TEST
   {
     VAR values ([3]I32) :[17, 29, 41];
     VAR pointer array_pointer := values<-;
@@ -42,16 +40,13 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Supplies a concrete function for a parenthesized procedure type. $>
-  ::increment
-    FUNCTION(@value I32): I32 { RETURN value + 7; }
+  ::increment FUNCTION(@value I32): I32 { RETURN value + 7; }
 
   DOC <$ Groups a callable type without changing its parameter or return signature. $>
-  ::procedure_pointer
-    ALIAS CONST-> (PROCEDURE(@value I32: I32));
+  ::procedure_pointer ALIAS CONST-> (PROCEDURE(@value I32: I32));
 
   DOC <$ Grouped procedure types remain callable after aliasing and copying. $>
-  ::grouped_callable
-    DUAL_TEST
+  ::grouped_callable DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(procedure_pointer, CONST->PROCEDURE(@value I32: I32)));
     VAR pointer procedure_pointer := increment<-;

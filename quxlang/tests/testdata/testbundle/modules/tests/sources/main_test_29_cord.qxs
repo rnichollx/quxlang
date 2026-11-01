@@ -12,8 +12,7 @@ DOC <$
   .value VAR I32;
 
   DOC <$ Constructs a tracked value and increments alive. $>
-  .CONSTRUCTOR
-    FUNCTION(@alive MUT& I32, @value I32)
+  .CONSTRUCTOR FUNCTION(@alive MUT& I32, @value I32)
   {
     .alive := alive<-;
     .value := value;
@@ -21,8 +20,7 @@ DOC <$
   }
 
   DOC <$ Transfers tracking ownership and the stored integer from OTHER. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER TEMP& cord_move_only_value)
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& cord_move_only_value)
   {
     VAR source_alive MUT& MUT->I32 := OTHER.alive AS MUT& MUT->I32;
     .alive <-> source_alive;
@@ -32,8 +30,7 @@ DOC <$
   }
 
   DOC <$ Decrements alive when this object owns a tracked value. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     IF (.alive??)
     {
@@ -52,8 +49,7 @@ DOC <$
   .value VAR I32;
 
   DOC <$ Constructs a tracked value and increments alive. $>
-  .CONSTRUCTOR
-    FUNCTION(@alive MUT& I32, @value I32)
+  .CONSTRUCTOR FUNCTION(@alive MUT& I32, @value I32)
   {
     .alive := alive<-;
     .value := value;
@@ -61,8 +57,7 @@ DOC <$
   }
 
   DOC <$ Copies a tracked value and increments alive. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER CONST& cord_copyable_lifetime_value)
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& cord_copyable_lifetime_value)
   {
     .alive := OTHER.alive;
     .value := OTHER.value;
@@ -73,8 +68,7 @@ DOC <$
   }
 
   DOC <$ Transfers tracking ownership without changing alive. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER TEMP& cord_copyable_lifetime_value)
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& cord_copyable_lifetime_value)
   {
     .value := OTHER.value;
     VAR source_alive MUT& MUT->I32 := OTHER.alive AS MUT& MUT->I32;
@@ -82,8 +76,7 @@ DOC <$
   }
 
   DOC <$ Decrements alive when this object owns a tracked value. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     IF (.alive??)
     {

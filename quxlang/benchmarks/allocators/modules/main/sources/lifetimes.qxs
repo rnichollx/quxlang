@@ -131,8 +131,7 @@ DOC <$ The benchmark measures bulk FIFO, bulk LIFO, and rolling retained-set all
   }
 
   DOC <$ The parallel workload measures the requested warmed workers through the final allocation batch. $>
-  ::run_parallel
-    FUNCTION(@n SZ, @batch SZ, @threads SZ, @checksum MUT& U64): U64
+  ::run_parallel FUNCTION(@n SZ, @batch SZ, @threads SZ, @checksum MUT& U64): U64
   {
     VAR state parallel_state;
     state.n := n;

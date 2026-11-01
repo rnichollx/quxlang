@@ -9,8 +9,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ A single static evaluation publishes both changed array extents. $>
-  ::batched_mutations
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::batched_mutations DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     STATIC_VAR first SZ := 1;
     STATIC_VAR second SZ := 2;
@@ -25,8 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested publications preserve shadowing and surviving outer mutations. $>
-  ::scope_restoration
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::scope_restoration DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     STATIC_VAR extent SZ := 1;
     STATIC_VAR outer SZ := 2;
@@ -53,8 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Inferred complete types preserve reference qualifiers without invoking operands. $>
-  ::complete_expression_types
-    DUAL_TEST
+  ::complete_expression_types DUAL_TEST
   {
     VAR value I32 := 3;
     VAR constant CONST& I32 := value;
@@ -73,8 +70,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Lambdas retain the static values visible at creation across mutations and iterations. $>
-  ::creation_context
-    DUAL_TEST
+  ::creation_context DUAL_TEST
   {
     STATIC_VAR count I32 := 1;
     AUTO before := -< = SNAPSHOT(count);
@@ -94,8 +90,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Aliases retain storage identity while snapshots freeze their reachable objects. $>
-  ::pointer_aliases
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::pointer_aliases DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     STATIC_VAR extent SZ := 1;
     STATIC_VAR pointer -> SZ := extent<-;
@@ -108,8 +103,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Nested unevaluated operands and local type bindings use the same lexical publications. $>
-  ::nested_type_operands
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::nested_type_operands DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value I32 := 4;
     AUTO element := I32;
@@ -122,16 +116,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Missing-name lookup completes while the generating procedure is still active. $>
-  ::missing_name
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::missing_name STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     STATIC_VAR value SZ := 1;
     VAR values [missing_body_name]I32;
   }
 
   DOC <$ A runtime value cannot provide a constexpr array extent. $>
-  ::runtime_extent
-    STATIC_TEST EXPECT_COMPILATION_FAILURE
+  ::runtime_extent STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR extent SZ := 2;
     VAR values [extent]I32;
@@ -153,15 +145,13 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Pack indices and captured elements follow each expansion's body context. $>
-  ::pack_iteration
-    DUAL_TEST
+  ::pack_iteration DUAL_TEST
   {
     TEST_ASSERT(pack_types(% [2, 3, 4]) == 9);
   }
 
   DOC <$ Capture analysis and lambda generation both resolve statics declared inside a lambda. $>
-  ::lambda_static_loop
-    DUAL_TEST
+  ::lambda_static_loop DUAL_TEST
   {
     AUTO callable := -<
     {
@@ -176,8 +166,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Mutation through an alias updates a hidden outer object without changing the visible declaration. $>
-  ::shadowed_pointer_target
-    DUAL_TEST
+  ::shadowed_pointer_target DUAL_TEST
   {
     STATIC_VAR value SZ := 1;
     STATIC_VAR pointer ->SZ := value<-;
@@ -224,8 +213,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Member declared types retain their declaration qualifiers independently of receiver constness. $>
-  ::declared_receiver_type
-    DUAL_TEST
+  ::declared_receiver_type DUAL_TEST
   {
     VAR value I32 := 9;
     VAR object declared_receiver :(@value value);
@@ -233,16 +221,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Unevaluated field lookup preserves the enclosing receiver. $>
-  ::receiver_type
-    DUAL_TEST
+  ::receiver_type DUAL_TEST
   {
     VAR object receiver;
     TEST_ASSERT(object.check());
   }
 
   DOC <$ A lambda parameter's declared type takes precedence over its creation-time statics. $>
-  ::parameter_shadowing
-    DUAL_TEST
+  ::parameter_shadowing DUAL_TEST
   {
     STATIC_VAR value I32 := 1;
     AUTO callable := -< [] (@value BOOL): DECLTYPE(value) = value;

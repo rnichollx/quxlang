@@ -9,8 +9,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::native_mutex_storage INCLUDE_IF(ARCH_IS_X64)
     ALIAS ALIGNED_STORAGE(40, 8);
 
-  ::wait_on_address
-    EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WaitOnAddress"]
+  ::wait_on_address EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WaitOnAddress"]
     CALLABLE CALLCONV CCALL(
       @address ADDRESS,
       @compare_address CONST->I32,
@@ -19,12 +18,10 @@ LANGUAGE QUXLANG EN 0.0;
       RETURN BOOL
     );
 
-  ::wake_by_address_single
-    EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WakeByAddressSingle"]
+  ::wake_by_address_single EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WakeByAddressSingle"]
     CALLABLE CALLCONV CCALL(@address ADDRESS);
 
-  ::wake_by_address_all
-    EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WakeByAddressAll"]
+  ::wake_by_address_all EXTERN_PROCEDURE["api-ms-win-core-synch-l1-2-0":"WakeByAddressAll"]
     CALLABLE CALLCONV CCALL(@address ADDRESS);
 
   ::initialize_critical_section INCLUDE_IF(ARCH_IS_X64)
@@ -76,55 +73,47 @@ LANGUAGE QUXLANG EN 0.0;
 ::macos INCLUDE_IF(OS_MACOS) NAMESPACE
 {
   DOC <$ Atomically compares and waits on an address using macOS 14.4 or later. $>
-  ::wait_on_address
-    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wait_on_address"]
+  ::wait_on_address EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wait_on_address"]
     CALLABLE CALLCONV CCALL(@address ADDRESS, @value U64, @size SZ, @flags U32; RETURN I32);
 
   DOC <$ Wakes one address waiter using macOS 14.4 or later. $>
-  ::wake_by_address_any
-    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wake_by_address_any"]
+  ::wake_by_address_any EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wake_by_address_any"]
     CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @flags U32; RETURN I32);
 
   DOC <$ Wakes all address waiters using macOS 14.4 or later. $>
-  ::wake_by_address_all
-    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wake_by_address_all"]
+  ::wake_by_address_all EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"os_sync_wake_by_address_all"]
     CALLABLE CALLCONV CCALL(@address ADDRESS, @size SZ, @flags U32; RETURN I32);
 
   DOC <$ Returns the calling thread's errno storage. $>
-  ::error_number
-    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"__error"]
+  ::error_number EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"__error"]
     CALLABLE CALLCONV CCALL(; RETURN MUT->I32);
 }
 
 ::linux INCLUDE_IF(OS_LINUX) NAMESPACE
 {
   DOC <$ Yields execution to another runnable thread. $>
-  ::sched_yield
-    ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL(; RETURN I32)
+  ::sched_yield ASM_PROCEDURE X64 CALLABLE CALLCONV CCALL(; RETURN I32)
   {
     MOV RAX, 24
     SYSCALL
     RET
   }
   DOC <$ Yields execution to another runnable thread. $>
-  ::sched_yield
-    ASM_PROCEDURE X86 CALLABLE CALLCONV CCALL(; RETURN I32)
+  ::sched_yield ASM_PROCEDURE X86 CALLABLE CALLCONV CCALL(; RETURN I32)
   {
     MOV EAX, 158
     INT 0x80
     RET
   }
   DOC <$ Yields execution to another runnable thread. $>
-  ::sched_yield
-    ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN I32)
+  ::sched_yield ASM_PROCEDURE ARM64 CALLABLE CALLCONV CCALL(; RETURN I32)
   {
     MOV X8, 124
     SVC 0
     RET
   }
   DOC <$ Yields execution to another runnable thread. $>
-  ::sched_yield
-    ASM_PROCEDURE Z_ARCH CALLABLE CALLCONV CCALL(; RETURN I32)
+  ::sched_yield ASM_PROCEDURE Z_ARCH CALLABLE CALLCONV CCALL(; RETURN I32)
   {
     LGHI %r1, 158
     SVC 0
@@ -135,7 +124,6 @@ LANGUAGE QUXLANG EN 0.0;
 ::windows INCLUDE_IF(OS_WINDOWS) NAMESPACE
 {
   DOC <$ Yields execution to another runnable thread. $>
-  ::switch_to_thread
-    EXTERN_PROCEDURE["kernel32":"SwitchToThread"]
+  ::switch_to_thread EXTERN_PROCEDURE["kernel32":"SwitchToThread"]
     CALLABLE CALLCONV CCALL(; RETURN BOOL);
 }

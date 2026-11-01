@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::paired_template_tests NAMESPACE
 {
   DOC <$ Declares the public template names in reverse order to verify named shorthand binding. $>
-  ::pair
-    TEMPLATE(@VALUE:value_type TYPE, @INDEX:index_type TYPE) STRUCT
+  ::pair TEMPLATE(@VALUE:value_type TYPE, @INDEX:index_type TYPE) STRUCT
   {
     DOC <$ Exposes the bound INDEX type. $>
     ::index ALIAS index_type;
@@ -13,8 +12,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Paired shorthand is identical to explicit named arguments and preserves asymmetric and nested type roles. $>
-  ::type_identity
-    DUAL_TEST
+  ::type_identity DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(pair#[I32:I64], pair#(@VALUE I64, @INDEX I32)));
     TEST_ASSERT(SAME_TYPES(pair#[I32:I64]::index, I32));
@@ -25,8 +23,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Shorthand preserves complete reference and pointer qualifiers on both sides. $>
-  ::qualified_types
-    DUAL_TEST
+  ::qualified_types DUAL_TEST
   {
     TEST_ASSERT(SAME_TYPES(pair#[MUT& I32:CONST->I64]::index, MUT& I32));
     TEST_ASSERT(SAME_TYPES(pair#[MUT& I32:CONST->I64]::value, CONST->I64));
@@ -35,8 +32,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returns the INDEX argument through a free function with paired template bindings. $>
-  ::first
-    TEMPLATE(@VALUE:value_type TYPE, @INDEX:index_type TYPE)
+  ::first TEMPLATE(@VALUE:value_type TYPE, @INDEX:index_type TYPE)
     FUNCTION(@index index_type, @value value_type): index_type { RETURN index; }
 
   DOC <$ Exercises paired template arguments through member-expression parsing. $>
@@ -44,15 +40,13 @@ LANGUAGE QUXLANG EN 0.0;
   {
     .calls VAR I32;
     DOC <$ Records a member invocation and returns the INDEX argument unchanged. $>
-    .first
-      TEMPLATE(@VALUE:value_type TYPE, @INDEX:index_type TYPE)
+    .first TEMPLATE(@VALUE:value_type TYPE, @INDEX:index_type TYPE)
       FUNCTION(@index index_type, @value value_type): index_type
     { .calls++; RETURN index; }
   }
 
   DOC <$ Free paired calls agree with named template application and preserve mutable reference identity. $>
-  ::free_calls
-    DUAL_TEST
+  ::free_calls DUAL_TEST
   {
     TEST_ASSERT(first#[I32:I64](@index 17, @value 4294967313) == 17);
     TEST_ASSERT(first#(@INDEX I64, @VALUE I32)(@index 4294967313, @value 19) == 4294967313);
@@ -64,8 +58,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Member paired calls agree with explicit named templates and preserve mutable reference returns. $>
-  ::member_calls
-    DUAL_TEST
+  ::member_calls DUAL_TEST
   {
     VAR object receiver;
     TEST_ASSERT(object.first#[I64:I32](@value 19, @index 4294967313) == 4294967313);

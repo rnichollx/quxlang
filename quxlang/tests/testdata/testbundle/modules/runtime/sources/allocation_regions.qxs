@@ -28,8 +28,7 @@ PRIVATE(MODULE) ::layer3_region_control STRUCT
   .prev VAR MUT->layer3_region_control;
 
   DOC <$ Acquires one shared region use without waiting. $>
-  .try_shared
-    FUNCTION(): BOOL
+  .try_shared FUNCTION(): BOOL
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
     LOOP WHILE ((observed #&& layer3_region_exclusive) == 0
@@ -42,8 +41,7 @@ PRIVATE(MODULE) ::layer3_region_control STRUCT
   }
 
   DOC <$ Acquires shared access, registering notification before sleeping. $>
-  .shared
-    FUNCTION()
+  .shared FUNCTION()
   {
     LOOP WHILE (.try_shared() == FALSE) DO
     {
@@ -61,13 +59,11 @@ PRIVATE(MODULE) ::layer3_region_control STRUCT
   }
 
   DOC <$ Completes all region accesses before dropping the reader count. $>
-  .release_shared
-    FUNCTION()
+  .release_shared FUNCTION()
   { .semaphore.FETCH_SUBTRACT#ATOMIC_RELEASE(1); }
 
   DOC <$ Requests exclusive ownership and drains existing readers. $>
-  .try_exclusive
-    FUNCTION(): BOOL
+  .try_exclusive FUNCTION(): BOOL
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
     LOOP WHILE ((observed #&& layer3_region_exclusive) == 0) DO
@@ -82,8 +78,7 @@ PRIVATE(MODULE) ::layer3_region_control STRUCT
   }
 
   DOC <$ Clears ownership and fulfills registered notification obligations. $>
-  .release_exclusive
-    FUNCTION()
+  .release_exclusive FUNCTION()
   {
     VAR observed U32 := .semaphore.LOAD#ATOMIC_RELAXED();
     LOOP WHILE (.semaphore.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_RELEASE, @FAILURE ATOMIC_RELAXED)(@EXPECTED observed, @DESIRED 0) == FALSE) DO { }
@@ -92,8 +87,7 @@ PRIVATE(MODULE) ::layer3_region_control STRUCT
   }
 
   DOC <$ Removes a published control under its class mutex. $>
-  .unlink
-    FUNCTION()
+  .unlink FUNCTION()
   {
     .prev->.next := .next;
     .next->.prev := .prev;
@@ -131,8 +125,7 @@ PRIVATE(MODULE) ::layer3_region_class STRUCT
   .slot_count VAR SZ;
 
   DOC <$ Establishes sentinel links and immutable slot geometry once. $>
-  .initialize
-    FUNCTION(@size SZ, @align SZ)
+  .initialize FUNCTION(@size SZ, @align SZ)
   {
     IF (.block_size != 0) { RETURN; }
     .available.next := .available<-;
@@ -148,8 +141,7 @@ PRIVATE(MODULE) ::layer3_region_class STRUCT
 }
 
 DOC <$ Inserts a control before a circular-list position under its mutex. $>
-PRIVATE(MODULE) ::layer3_region_insert
-  FUNCTION(@node MUT->layer3_region_control, @before MUT->layer3_region_control)
+PRIVATE(MODULE) ::layer3_region_insert FUNCTION(@node MUT->layer3_region_control, @before MUT->layer3_region_control)
 {
   node->.next := before;
   node->.prev := before->.prev;
@@ -311,8 +303,7 @@ PRIVATE(MODULE) ::layer4_region_release FUNCTION(@region MUT->layer3_region)
 }
 
 DOC <$ Allocates a stable chunk of controls and publishes them on the detached list, returning false on allocation failure. $>
-PRIVATE(MODULE) ::layer3_region_controls
-  FUNCTION(@root MUT& layer3_region_class): BOOL
+PRIVATE(MODULE) ::layer3_region_controls FUNCTION(@root MUT& layer3_region_class): BOOL
 {
   VAR mapping ADDRESS := layer5_map_region(@bytes allocator_slab_region_size);
   IF (mapping!?) { RETURN FALSE; }
@@ -336,8 +327,7 @@ PRIVATE(MODULE) ::layer3_region_controls
 }
 
 DOC <$ Checks whether every payload slot has been returned while region access is held. $>
-PRIVATE(MODULE) ::layer3_region_empty
-  FUNCTION(@region MUT->layer3_region): BOOL
+PRIVATE(MODULE) ::layer3_region_empty FUNCTION(@region MUT->layer3_region): BOOL
 {
   VAR words SZ := (region->.class_control->.slot_count + layer3_bitmap_word_bits - 1) / layer3_bitmap_word_bits;
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL(words) DO
@@ -346,8 +336,7 @@ PRIVATE(MODULE) ::layer3_region_empty
 }
 
 DOC <$ Checks every valid slot while region access is held. $>
-PRIVATE(MODULE) ::layer3_region_full
-  FUNCTION(@region MUT->layer3_region): BOOL
+PRIVATE(MODULE) ::layer3_region_full FUNCTION(@region MUT->layer3_region): BOOL
 {
   VAR slots SZ := region->.class_control->.slot_count;
   LOOP VALUE(index) FROM(0 AS SZ) UNTIL((slots + layer3_bitmap_word_bits - 1) / layer3_bitmap_word_bits) DO
@@ -360,8 +349,7 @@ PRIVATE(MODULE) ::layer3_region_full
 }
 
 DOC <$ Detaches empty backing under exclusive access before returning it to the shared pool. $>
-PRIVATE(MODULE) ::layer3_region_retire
-  FUNCTION(@control MUT->layer3_region_control)
+PRIVATE(MODULE) ::layer3_region_retire FUNCTION(@control MUT->layer3_region_control)
 {
   IF (control->.try_exclusive() == FALSE) { RETURN; }
   VAR region MUT->layer3_region := control->.region;

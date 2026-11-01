@@ -10,8 +10,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ All comparisons follow element position within one allocation, including its one-past endpoint. $>
-  ::array_positions
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::array_positions TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR values [4]T;
     VAR first =>>T := values[& 0];
@@ -39,8 +38,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Ordered pointer pairs agree for primitive elements and elements containing subobjects. $>
-  ::element_widths
-    DUAL_TEST
+  ::element_widths DUAL_TEST
   {
     array_positions#(U8)();
     array_positions#(I32)();
@@ -50,8 +48,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Equality and relational operators agree with a stable total order. $>
-  ::check_order
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T, @c T)
+  ::check_order TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T, @c T)
   {
     VAR order ORDER := a <=> b;
     TEST_ASSERT((a == b) == (order == ORDER::EQUAL));
@@ -68,8 +65,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Distinct live allocations and null pointers participate in the total order. $>
-  ::unrelated_allocations
-    DUAL_TEST
+  ::unrelated_allocations DUAL_TEST
   {
     VAR first I32 := 1;
     VAR second I32 := 2;
@@ -98,8 +94,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Expired pointers preserve comparison results and remain totally ordered. $>
-  ::expired_allocations
-    DUAL_TEST
+  ::expired_allocations DUAL_TEST
   {
     VAR first ->I32 := NEW I32;
     VAR second ->I32 := NEW I32;

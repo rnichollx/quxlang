@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::union_selection_tests NAMESPACE
 {
   DOC <$ A boxed union distinguishes named alternatives with identical payload types. $>
-  ::boxed
-    UNION
+  ::boxed UNION
   {
     .empty OPTION DEFAULT VOID;
     .first OPTION I32;
@@ -12,8 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An inline union distinguishes named alternatives with identical payload types. $>
-  ::inlined
-    INLINE_UNION
+  ::inlined INLINE_UNION
   {
     .empty OPTION DEFAULT VOID;
     .first OPTION I32;
@@ -21,8 +19,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Assignment changes named tags, match bindings mutate stored payloads, and copies retain independent state. $>
-  ::transitions
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::transitions TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR value T;
     TEST_ASSERT(value IS empty);
@@ -62,8 +59,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Only matching named alternatives evaluate guards, and rejected guards reach OTHERWISE or DEFAULT exactly once. $>
-  ::guards
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::guards TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR value T :(@second (7 AS I32));
     VAR mode I32 := 0;
@@ -97,29 +93,25 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Boxed union copies and repeated tag changes preserve named identity and independent payload storage. $>
-  ::boxed_transitions
-    DUAL_TEST
+  ::boxed_transitions DUAL_TEST
   {
     transitions#(boxed)();
   }
 
   DOC <$ Inline union copies and repeated tag changes preserve named identity and independent payload storage. $>
-  ::inline_transitions
-    DUAL_TEST
+  ::inline_transitions DUAL_TEST
   {
     transitions#(inlined)();
   }
 
   DOC <$ Boxed union matching respects named guard order and both fallback forms. $>
-  ::boxed_guards
-    DUAL_TEST
+  ::boxed_guards DUAL_TEST
   {
     guards#(boxed)();
   }
 
   DOC <$ Inline union matching respects named guard order and both fallback forms. $>
-  ::inline_guards
-    DUAL_TEST
+  ::inline_guards DUAL_TEST
   {
     guards#(inlined)();
   }

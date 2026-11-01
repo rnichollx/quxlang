@@ -517,8 +517,7 @@ PRIVATE(MODULE)
   TEST_ASSERT(result == 97);
 }
 
-::thread_allocator_shutdown_bypasses_refills
-  INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
+::thread_allocator_shutdown_bypasses_refills INCLUDE_IF(OS_WINDOWS || OS_MACOS || OS_LINUX) UNIT_TEST
 {
   VAR completed BOOL := FALSE;
   VAR entry thread_allocator_shutdown_entry;

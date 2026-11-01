@@ -13,8 +13,7 @@ DOC <$
   Returns the historical public bucket size used by runtime clients that need
   the 8, 16, 24, 32, 48, ... progression.
   $>
-::memory_bucket_size
-  FUNCTION(@size SZ): SZ
+::memory_bucket_size FUNCTION(@size SZ): SZ
 {
   VAR bucket SZ := 8;
   VAR step SZ := 8;
@@ -43,8 +42,7 @@ DOC <$
 DOC <$
   Rounds an OS mapping request up to a nonzero whole number of 4096-byte pages.
   $>
-PRIVATE(MODULE) ::layer5_mapping_size
-  FUNCTION(@size SZ): SZ
+PRIVATE(MODULE) ::layer5_mapping_size FUNCTION(@size SZ): SZ
 {
   IF (size <= 4096)
   {

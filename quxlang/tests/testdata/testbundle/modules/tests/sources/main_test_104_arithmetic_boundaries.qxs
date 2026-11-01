@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::arithmetic_boundary_tests NAMESPACE
 {
   DOC <$ Signed extrema support representable neighboring operations and exact minimum division without overflow. $>
-  ::signed_endpoints
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
+  ::signed_endpoints TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR zero T := 0;
     VAR one T := 1;
@@ -31,8 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Unsigned maximum division and reconstruction retain the high bit without intermediate overflow. $>
-  ::unsigned_endpoints
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
+  ::unsigned_endpoints TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR one T := 1;
     VAR two T := 2;
@@ -54,8 +52,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Standard and non-byte signed widths exercise both representable endpoints. $>
-  ::signed_widths
-    DUAL_TEST
+  ::signed_widths DUAL_TEST
   {
     signed_endpoints#(I5)(@maximum 15);
     signed_endpoints#(I8)(@maximum 127);
@@ -66,8 +63,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Standard and non-byte unsigned widths preserve their maximum through compound arithmetic. $>
-  ::unsigned_widths
-    DUAL_TEST
+  ::unsigned_widths DUAL_TEST
   {
     unsigned_endpoints#(U5)(@maximum 31);
     unsigned_endpoints#(U8)(@maximum 255);
@@ -77,16 +73,14 @@ LANGUAGE QUXLANG EN 0.0;
     unsigned_endpoints#(U64)(@maximum 18446744073709551615);
   }
   DOC <$ An even signed minimum has zero remainder on division by two. $>
-  ::minimum_remainder
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
+  ::minimum_remainder TEMPLATE(@T TYPE AUTO) FUNCTION(@maximum T)
   {
     VAR minimum T := (0 AS T) - maximum - 1;
     TEST_ASSERT((minimum % 2) == 0);
   }
 
   DOC <$ Signed minimum remainder is zero across standard and non-byte widths. $>
-  ::signed_minimum_remainder
-    DUAL_TEST
+  ::signed_minimum_remainder DUAL_TEST
   {
     minimum_remainder#(I5)(@maximum 15);
     minimum_remainder#(I8)(@maximum 127);

@@ -6,8 +6,7 @@ DOC <$
   Reports the outcome of one file transfer. A successful transfer may contain
   fewer bytes than requested, including zero bytes at end of file.
   $>
-::transfer_result
-  STRUCT
+::transfer_result STRUCT
 {
   .size VAR SZ;
   .succeeded VAR BOOL;
@@ -17,15 +16,13 @@ DOC <$
   A non-owning reference to a mutable byte range. The referenced storage must
   remain alive for every operation that uses the reference.
   $>
-::buffer_ref
-  STRUCT
+::buffer_ref STRUCT
 {
   .data VAR MUT=>>BYTE;
   .size VAR SZ;
 
   DOC <$ Creates a reference to data[0..size). $>
-  .CONSTRUCTOR
-    FUNCTION(@data MUT=>>BYTE, @size SZ)
+  .CONSTRUCTOR FUNCTION(@data MUT=>>BYTE, @size SZ)
   {
     .data := data;
     .size := size;
@@ -107,23 +104,19 @@ DOC <$
   .descriptor VAR I32;
 
   DOC <$ Creates an empty file reference. $>
-  .CONSTRUCTOR
-    FUNCTION() { .descriptor := -1; }
+  .CONSTRUCTOR FUNCTION() { .descriptor := -1; }
 
   DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
-  .is_valid
-    FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
+  .is_valid FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
 
   DOC <$ Creates a non-owning reference to descriptor. $>
-  .CONSTRUCTOR
-    FUNCTION(@descriptor I32)
+  .CONSTRUCTOR FUNCTION(@descriptor I32)
   {
     .descriptor := descriptor;
   }
 
   DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
-  .read
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .read FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     outcome.size := syscall::linux::read(
@@ -140,8 +133,7 @@ DOC <$
   }
 
   DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
-  .write
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .write FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     outcome.size := syscall::linux::write(
@@ -161,8 +153,7 @@ DOC <$
     Closes the referenced descriptor. This operation does not track whether
     another file_ref still refers to the same descriptor.
     $>
-  .close
-    FUNCTION(): BOOL
+  .close FUNCTION(): BOOL
   {
     RETURN syscall::linux::close(@fd .descriptor) == 0;
   }
@@ -178,23 +169,19 @@ DOC <$
   .descriptor VAR I32;
 
   DOC <$ Creates an empty file reference. $>
-  .CONSTRUCTOR
-    FUNCTION() { .descriptor := -1; }
+  .CONSTRUCTOR FUNCTION() { .descriptor := -1; }
 
   DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
-  .is_valid
-    FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
+  .is_valid FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
 
   DOC <$ Creates a non-owning reference to descriptor. $>
-  .CONSTRUCTOR
-    FUNCTION(@descriptor I32)
+  .CONSTRUCTOR FUNCTION(@descriptor I32)
   {
     .descriptor := descriptor;
   }
 
   DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
-  .read
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .read FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     outcome.size := syscall::macos::read(
@@ -211,8 +198,7 @@ DOC <$
   }
 
   DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
-  .write
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .write FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     outcome.size := syscall::macos::write(
@@ -232,8 +218,7 @@ DOC <$
     Closes the referenced descriptor. This operation does not track whether
     another file_ref still refers to the same descriptor.
     $>
-  .close
-    FUNCTION(): BOOL
+  .close FUNCTION(): BOOL
   {
     RETURN syscall::macos::close(@fd .descriptor) == 0;
   }
@@ -249,23 +234,19 @@ DOC <$
   .random_access_file VAR ~> java_random_access_file;
 
   DOC <$ Creates an empty file reference. $>
-  .CONSTRUCTOR
-    FUNCTION() { }
+  .CONSTRUCTOR FUNCTION() { }
 
   DOC <$ Reports whether the reference contains a Java file object. $>
-  .is_valid
-    FUNCTION() CONST: BOOL { RETURN .random_access_file != NULL; }
+  .is_valid FUNCTION() CONST: BOOL { RETURN .random_access_file != NULL; }
 
   DOC <$ Creates a non-owning reference to random_access_file. $>
-  .CONSTRUCTOR
-    FUNCTION(@random_access_file ~> java_random_access_file)
+  .CONSTRUCTOR FUNCTION(@random_access_file ~> java_random_access_file)
   {
     .random_access_file := random_access_file;
   }
 
   DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
-  .read
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .read FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     outcome.succeeded := TRUE;
@@ -284,8 +265,7 @@ DOC <$
   }
 
   DOC <$ Writes buffer.size bytes from buffer and stores the outcome in result. $>
-  .write
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .write FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     LOOP WHILE (outcome.size < buffer.size) DO
@@ -302,8 +282,7 @@ DOC <$
   }
 
   DOC <$ Returns the current file length in bytes. $>
-  .size
-    FUNCTION(): SZ
+  .size FUNCTION(): SZ
   {
     VAR length I64 := jvm_random_access_file_length(
       @THIS .random_access_file
@@ -312,8 +291,7 @@ DOC <$
   }
 
   DOC <$ Truncates the file to zero bytes. $>
-  .truncate
-    FUNCTION()
+  .truncate FUNCTION()
   {
     jvm_random_access_file_set_length(
       @THIS .random_access_file,
@@ -322,8 +300,7 @@ DOC <$
   }
 
   DOC <$ Closes the referenced Java random-access file. $>
-  .close
-    FUNCTION(): BOOL
+  .close FUNCTION(): BOOL
   {
     jvm_random_access_file_close(@THIS .random_access_file);
     RETURN TRUE;
@@ -355,27 +332,23 @@ DOC <$
   .handle VAR ADDRESS;
 
   DOC <$ Creates an empty file reference. $>
-  .CONSTRUCTOR
-    FUNCTION() { }
+  .CONSTRUCTOR FUNCTION() { }
 
   DOC <$ Rejects null and INVALID_HANDLE_VALUE references. $>
-  .is_valid
-    FUNCTION() CONST: BOOL
+  .is_valid FUNCTION() CONST: BOOL
   {
     VAR null_address ADDRESS;
     RETURN .handle != NULL && .handle != null_address - (1 AS SZ);
   }
 
   DOC <$ Creates a non-owning reference to handle. $>
-  .CONSTRUCTOR
-    FUNCTION(@handle ADDRESS)
+  .CONSTRUCTOR FUNCTION(@handle ADDRESS)
   {
     .handle := handle;
   }
 
   DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
-  .read
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .read FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     VAR transferred U32 := 0;
@@ -392,8 +365,7 @@ DOC <$
   }
 
   DOC <$ Writes at most buffer.size bytes from buffer and stores the outcome in result. $>
-  .write
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .write FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     VAR transferred U32 := 0;
@@ -413,8 +385,7 @@ DOC <$
     Closes the referenced handle. This operation does not track whether another
     file_ref still refers to the same handle.
     $>
-  .close
-    FUNCTION(): BOOL
+  .close FUNCTION(): BOOL
   {
     RETURN syscall::windows::close_handle(@handle .handle) != 0;
   }
@@ -426,8 +397,7 @@ DOC <$
   the caller retains no responsibility for closing the native resource.
   Moving releases the source. Destruction closes a valid owned reference once.
   $>
-::file
-  STRUCT MOVE_ONLY
+::file STRUCT MOVE_ONLY
 {
   PRIVATE(CLASS)
   {
@@ -435,26 +405,22 @@ DOC <$
   }
 
   DOC <$ Creates a closed owner. $>
-  .CONSTRUCTOR
-    FUNCTION() { }
+  .CONSTRUCTOR FUNCTION() { }
 
   DOC <$ Takes exclusive ownership of native_ref. Empty references remain closed. $>
-  .CONSTRUCTOR
-    FUNCTION(@native_ref file_ref)
+  .CONSTRUCTOR FUNCTION(@native_ref file_ref)
   {
     .native_ref := native_ref;
   }
 
   DOC <$ Transfers ownership from OTHER and leaves OTHER closed. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER TEMP& file)
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& file)
   {
     .native_ref := OTHER.release();
   }
 
   DOC <$ Closes the current resource and transfers ownership from OTHER. Self-move preserves ownership. $>
-  .OPERATOR:=
-    FUNCTION(@OTHER TEMP& file) MUT
+  .OPERATOR:= FUNCTION(@OTHER TEMP& file) MUT
   {
     VAR incoming file_ref := OTHER.release();
     .close();
@@ -462,26 +428,22 @@ DOC <$
   }
 
   DOC <$ Closes the owned reference if it is valid. $>
-  .DESTRUCTOR
-    FUNCTION() { .close(); }
+  .DESTRUCTOR FUNCTION() { .close(); }
 
   DOC <$ Borrows the owned reference without transferring responsibility for closing it. $>
-  .reference
-    FUNCTION() CONST: file_ref
+  .reference FUNCTION() CONST: file_ref
   {
     RETURN .native_ref;
   }
 
   DOC <$ Reports whether this value owns a valid native reference. $>
-  .is_open
-    FUNCTION() CONST: BOOL
+  .is_open FUNCTION() CONST: BOOL
   {
     RETURN .native_ref.is_valid();
   }
 
   DOC <$ Transfers responsibility for closing the reference to the caller and leaves this owner closed. $>
-  .release
-    FUNCTION() MUT: file_ref
+  .release FUNCTION() MUT: file_ref
   {
     VAR previous file_ref := .native_ref;
     VAR empty file_ref;
@@ -490,8 +452,7 @@ DOC <$
   }
 
   DOC <$ Reads into buffer through the owned reference. Closed owners report an unsuccessful transfer. $>
-  .read
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .read FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     IF (.is_open())
     {
@@ -503,8 +464,7 @@ DOC <$
   }
 
   DOC <$ Writes buffer through the owned reference. Closed owners report an unsuccessful transfer. $>
-  .write
-    FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  .write FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     IF (.is_open())
     {
@@ -516,8 +476,7 @@ DOC <$
   }
 
   DOC <$ Relinquishes ownership before closing the native reference. Closed owners succeed without a native call; failed closes are not retried. $>
-  .close
-    FUNCTION(): BOOL
+  .close FUNCTION(): BOOL
   {
     IF (.is_open() == FALSE) { RETURN TRUE; }
     VAR previous file_ref := .release();

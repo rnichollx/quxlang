@@ -3,13 +3,11 @@ LANGUAGE QUXLANG EN 0.0;
 ::exponentiation_tests NAMESPACE
 {
   DOC <$ Supplies a user-defined exponentiation operator for nonnegative integer powers. $>
-  ::number
-    STRUCT
+  ::number STRUCT
   {
     .value VAR I32;
     DOC <$ Computes an exact small power by repeated multiplication. $>
-    .OPERATOR^
-      FUNCTION(@OTHER I32) CONST: I32
+    .OPERATOR^ FUNCTION(@OTHER I32) CONST: I32
     {
       VAR result I32 := 1;
       VAR exponent I32 := 0;
@@ -19,8 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Exponentiation dispatches to the custom member and binds more tightly than multiplication. $>
-  ::member_dispatch_and_grouping
-    DUAL_TEST
+  ::member_dispatch_and_grouping DUAL_TEST
   {
     VAR base number;
     base.value := 3;

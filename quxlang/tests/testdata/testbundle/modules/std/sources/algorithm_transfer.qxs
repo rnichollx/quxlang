@@ -1,8 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Transfers all elements and returns owned cursor values; exact self-transfer is a no-op. $>
-::copy
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator)): AUTO
+::copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator)): AUTO
 {
   STATIC_IF(SAME_TYPES(input_iterator, output_iterator))
   {
@@ -15,8 +14,7 @@ DOC <$ Transfers all elements and returns owned cursor values; exact self-transf
 }
 
 DOC <$ Transfers all elements and returns owned cursor values; exact self-transfer is a no-op. $>
-::move
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator)): AUTO
+::move FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator)): AUTO
 {
   STATIC_IF(SAME_TYPES(input_iterator, output_iterator))
   {
@@ -29,8 +27,7 @@ DOC <$ Transfers all elements and returns owned cursor values; exact self-transf
 }
 
 DOC <$ Transfers bidirectional elements backwards and returns the produced destination beginning. $>
-::copy_backward
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @output_last AUTO(output_iterator)): AUTO
+::copy_backward FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @output_last AUTO(output_iterator)): AUTO
 {
   STATIC_IF(SAME_TYPES(input_iterator, output_iterator))
   {
@@ -44,8 +41,7 @@ DOC <$ Transfers bidirectional elements backwards and returns the produced desti
 }
 
 DOC <$ Transfers bidirectional elements backwards and returns the produced destination beginning. $>
-::move_backward
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @output_last AUTO(output_iterator)): AUTO
+::move_backward FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @output_last AUTO(output_iterator)): AUTO
 {
   STATIC_IF(SAME_TYPES(input_iterator, output_iterator))
   {
@@ -74,8 +70,7 @@ DOC <$ Copies selected elements in their input order and returns final cursors. 
 
 DOC <$ Copies selected elements in their input order and returns final cursors. $>
 PRIVATE(MODULE)
-::copy_if_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): AUTO
+::copy_if_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): AUTO
 {
   LOOP WHILE (first != last) DO
   { IF (predicate(projection(first->))) { output-> := first->; output++; } first++; }
@@ -103,8 +98,7 @@ DOC <$ Copies selected elements in their input order and returns final cursors. 
 
 DOC <$ Copies selected elements in their input order and returns final cursors. $>
 PRIVATE(MODULE)
-::remove_copy_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): AUTO
+::remove_copy_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): AUTO
 {
   LOOP WHILE (first != last) DO
   { IF (equal(@left projection(first->), @right value) == FALSE) { output-> := first->; output++; } first++; }
@@ -127,8 +121,7 @@ DOC <$ Copies selected elements in their input order and returns final cursors. 
 
 DOC <$ Copies selected elements in their input order and returns final cursors. $>
 PRIVATE(MODULE)
-::remove_copy_if_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): AUTO
+::remove_copy_if_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): AUTO
 {
   LOOP WHILE (first != last) DO
   { IF (predicate(projection(first->)) == FALSE) { output-> := first->; output++; } first++; }
@@ -136,8 +129,7 @@ PRIVATE(MODULE)
 }
 
 DOC <$ Writes one unary transformation for each input element. $>
-::transform
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @operation TT(operation_type)): AUTO
+::transform FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @operation TT(operation_type)): AUTO
 {
   LOOP WHILE (first != last) DO
   { output-> := operation(first->); output++; first++; }
@@ -145,8 +137,7 @@ DOC <$ Writes one unary transformation for each input element. $>
 }
 
 DOC <$ Writes binary transformations until either finite input ends. $>
-::transform
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @operation TT(operation_type)): AUTO
+::transform FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @operation TT(operation_type)): AUTO
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   { output-> := operation(@left first1->, @right first2->); output++; first1++; first2++; }
@@ -154,15 +145,13 @@ DOC <$ Writes binary transformations until either finite input ends. $>
 }
 
 DOC <$ Assigns value to every input position. $>
-::fill
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO)
+::fill FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO)
 {
   LOOP WHILE (first != last) DO { first-> := value; first++; }
 }
 
 DOC <$ Assigns one generator result to every input position in order. $>
-::generate
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @generator TT(generator_type))
+::generate FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @generator TT(generator_type))
 {
   LOOP WHILE (first != last) DO { first-> := generator(); first++; }
 }
@@ -190,8 +179,7 @@ DOC <$ Replaces selected original elements using their projected relation. $>
 
 DOC <$ Replaces selected original elements using their projected relation. $>
 PRIVATE(MODULE)
-::replace_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @old_value CONST& AUTO, @equal TT(equal_type), @new_value CONST& AUTO, @projection TT(projection_type))
+::replace_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @old_value CONST& AUTO, @equal TT(equal_type), @new_value CONST& AUTO, @projection TT(projection_type))
 {
   LOOP WHILE (first != last) DO
   { IF (equal(@left projection(first->), @right old_value)) { first-> := new_value; } first++; }
@@ -214,8 +202,7 @@ DOC <$ Replaces selected original elements using their projected relation. $>
 
 DOC <$ Replaces selected original elements using their projected relation. $>
 PRIVATE(MODULE)
-::replace_if_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @new_value CONST& AUTO, @projection TT(projection_type))
+::replace_if_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @new_value CONST& AUTO, @projection TT(projection_type))
 {
   LOOP WHILE (first != last) DO
   { IF (predicate(projection(first->))) { first-> := new_value; } first++; }
@@ -242,8 +229,7 @@ DOC <$ Replaces selected original elements using their projected relation. $>
 
 DOC <$ Replaces selected original elements using their projected relation. $>
 PRIVATE(MODULE)
-::replace_copy_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @old_value CONST& AUTO, @equal TT(equal_type), @new_value CONST& AUTO, @projection TT(projection_type)): AUTO
+::replace_copy_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @old_value CONST& AUTO, @equal TT(equal_type), @new_value CONST& AUTO, @projection TT(projection_type)): AUTO
 {
   LOOP WHILE (first != last) DO
   {
@@ -269,8 +255,7 @@ DOC <$ Replaces selected original elements using their projected relation. $>
 
 DOC <$ Replaces selected original elements using their projected relation. $>
 PRIVATE(MODULE)
-::replace_copy_if_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @predicate TT(predicate_type), @new_value CONST& AUTO, @projection TT(projection_type)): AUTO
+::replace_copy_if_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @predicate TT(predicate_type), @new_value CONST& AUTO, @projection TT(projection_type)): AUTO
 {
   LOOP WHILE (first != last) DO
   {
@@ -301,8 +286,7 @@ DOC <$ Stably compacts retained elements and returns their logical end without d
 
 DOC <$ Stably compacts retained elements and returns their logical end without destroying the suffix. $>
 PRIVATE(MODULE)
-::remove_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): input_iterator
+::remove_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @value CONST& AUTO, @equal TT(equal_type), @projection TT(projection_type)): input_iterator
 {
   LOOP WHILE (first != last) DO { IF (equal(@left projection(first->), @right value)) { BREAK; } first++; }
   VAR output input_iterator := first;
@@ -332,8 +316,7 @@ DOC <$ Stably compacts retained elements and returns their logical end without d
 
 DOC <$ Stably compacts retained elements and returns their logical end without destroying the suffix. $>
 PRIVATE(MODULE)
-::remove_if_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+::remove_if_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
 {
   LOOP WHILE (first != last) DO { IF (predicate(projection(first->))) { BREAK; } first++; }
   VAR output input_iterator := first;
@@ -368,8 +351,7 @@ DOC <$ Stably retains the first element of each adjacent equivalence run. $>
 
 DOC <$ Stably retains the first element of each adjacent equivalence run. $>
 PRIVATE(MODULE)
-::unique_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @equal TT(equal_type), @projection TT(projection_type)): input_iterator
+::unique_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @equal TT(equal_type), @projection TT(projection_type)): input_iterator
 {
   IF (first == last) { RETURN first; }
   VAR previous input_iterator := first;
@@ -408,8 +390,7 @@ DOC <$ Copies the first element of each adjacent equivalence run using a forward
 
 DOC <$ Copies the first element of each adjacent equivalence run using a forward input. $>
 PRIVATE(MODULE)
-::unique_copy_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @equal TT(equal_type), @projection TT(projection_type)): AUTO
+::unique_copy_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output AUTO(output_iterator), @equal TT(equal_type), @projection TT(projection_type)): AUTO
 {
   IF (first == last) { RETURN :{ .in = first AS input_iterator; .out = output AS output_iterator; }; }
   VAR previous input_iterator := first;
@@ -424,8 +405,7 @@ PRIVATE(MODULE)
 }
 
 DOC <$ Reverses a bidirectional range by exchanging elements. $>
-::reverse
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator))
+::reverse FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator))
 {
   LOOP WHILE (first != last) DO
   {
@@ -437,8 +417,7 @@ DOC <$ Reverses a bidirectional range by exchanging elements. $>
 }
 
 DOC <$ Copies a bidirectional range in reverse order. $>
-::reverse_copy
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @output AUTO(output_iterator)): AUTO
+::reverse_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @output AUTO(output_iterator)): AUTO
 {
   VAR cursor input_iterator := last;
   LOOP WHILE (cursor != first) DO
@@ -447,8 +426,7 @@ DOC <$ Copies a bidirectional range in reverse order. $>
 }
 
 DOC <$ Rotates two adjacent forward ranges and returns the new position of the original first element. $>
-::rotate
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator)): input_iterator
+::rotate FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator)): input_iterator
 {
   IF (first == middle) { RETURN last; }
   IF (middle == last) { RETURN first; }
@@ -471,8 +449,7 @@ DOC <$ Rotates two adjacent forward ranges and returns the new position of the o
 }
 
 DOC <$ Copies the second adjacent range followed by the first. $>
-::rotate_copy
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator), @output AUTO(output_iterator)): AUTO
+::rotate_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator), @output AUTO(output_iterator)): AUTO
 {
   VAR cursor input_iterator := middle;
   LOOP WHILE (cursor != last) DO { output-> := cursor->; output++; cursor++; }
@@ -482,8 +459,7 @@ DOC <$ Copies the second adjacent range followed by the first. $>
 }
 
 DOC <$ Exchanges elements until either finite range ends. $>
-::swap_ranges
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2)): AUTO
+::swap_ranges FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2)): AUTO
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   { first1-> <-> first2->; first1++; first2++; }
@@ -506,8 +482,7 @@ DOC <$ Partitions a forward range and returns the first false position. $>
 
 DOC <$ Partitions a forward range and returns the first false position. $>
 PRIVATE(MODULE)
-::partition_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+::partition_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
 {
   LOOP WHILE (first != last) DO { IF (predicate(projection(first->)) == FALSE) { BREAK; } first++; }
   VAR boundary input_iterator := first;
@@ -534,8 +509,7 @@ DOC <$ Tests whether every true element precedes every false element. $>
 
 DOC <$ Tests whether every true element precedes every false element. $>
 PRIVATE(MODULE)
-::is_partitioned_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
+::is_partitioned_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @predicate TT(predicate_type), @projection TT(projection_type)): BOOL
 {
   LOOP WHILE (first != last) DO { IF (predicate(projection(first->)) == FALSE) { BREAK; } first++; }
   LOOP WHILE (first != last) DO { IF (predicate(projection(first->))) { RETURN FALSE; } first++; }
@@ -558,8 +532,7 @@ DOC <$ Copies true and false elements to separate destinations, preserving their
 
 DOC <$ Copies true and false elements to separate destinations, preserving their orders. $>
 PRIVATE(MODULE)
-::partition_copy_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output_true AUTO(true_iterator), @output_false AUTO(false_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): AUTO
+::partition_copy_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output_true AUTO(true_iterator), @output_false AUTO(false_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): AUTO
 {
   LOOP WHILE (first != last) DO
   {

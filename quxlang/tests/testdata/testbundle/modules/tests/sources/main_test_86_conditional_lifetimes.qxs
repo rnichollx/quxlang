@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::conditional_object_tests NAMESPACE
 {
   DOC <$ Template conditions select constructors, destructor bodies, and owned field storage independently for each instantiation. $>
-  ::record
-    TEMPLATE(@owned VALUE BOOL) STRUCT
+  ::record TEMPLATE(@owned VALUE BOOL) STRUCT
   {
     .events VAR MUT->I32;
     .payload INCLUDE_IF(owned) VAR array_lifetime_tests::element;
@@ -35,8 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ The owned instantiation selects its constructor and destructor and cleans the active field afterward. $>
-  ::owned_alternative
-    DUAL_TEST
+  ::owned_alternative DUAL_TEST
   {
     VAR events I32 := 0;
     {
@@ -52,8 +50,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ The scalar instantiation selects the opposite overloads and never constructs or destroys the excluded owned field. $>
-  ::scalar_alternative
-    DUAL_TEST
+  ::scalar_alternative DUAL_TEST
   {
     VAR events I32 := 0;
     {

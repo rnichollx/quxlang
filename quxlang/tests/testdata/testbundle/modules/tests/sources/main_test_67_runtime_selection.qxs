@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::runtime_selection_tests NAMESPACE
 {
   DOC <$ Records exactly the selected nested runtime branches before returning their phase-specific result. $>
-  ::nested_selection
-    FUNCTION(@events MUT& I32): I32
+  ::nested_selection FUNCTION(@events MUT& I32): I32
   {
     VAR result I32 := 0;
     RUNTIME CONSTEXPR
@@ -27,8 +26,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Compile-time execution selects CONSTEXPR and the nested NATIVE alternative without evaluating inactive assertions. $>
-  ::constexpr_nested_selection
-    STATIC_TEST
+  ::constexpr_nested_selection STATIC_TEST
   {
     VAR events I32 := 0;
     TEST_ASSERT(nested_selection(@events events) == 11);
@@ -36,8 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Native execution selects the outer alternative and nested CONSTEXPR alternative with the expected side effects. $>
-  ::native_nested_selection
-    UNIT_TEST
+  ::native_nested_selection UNIT_TEST
   {
     VAR events I32 := 0;
     TEST_ASSERT(nested_selection(@events events) == 22);
@@ -45,8 +42,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returning from a selected runtime branch destroys its local before the enclosing function local. $>
-  ::return_from_phase
-    FUNCTION(@events MUT& I32): I32
+  ::return_from_phase FUNCTION(@events MUT& I32): I32
   {
     VAR outer control_flow_tests::exit_record :(@events events, @digit 9);
     RUNTIME CONSTEXPR
@@ -62,8 +58,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Compile-time phase returns preserve the result and destroy only the active branch's locals. $>
-  ::constexpr_return_cleanup
-    STATIC_TEST
+  ::constexpr_return_cleanup STATIC_TEST
   {
     VAR events I32 := 0;
     TEST_ASSERT(return_from_phase(@events events) == 31);
@@ -71,8 +66,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Native phase returns preserve the result and destroy only the active branch's locals. $>
-  ::native_return_cleanup
-    UNIT_TEST
+  ::native_return_cleanup UNIT_TEST
   {
     VAR events I32 := 0;
     TEST_ASSERT(return_from_phase(@events events) == 42);

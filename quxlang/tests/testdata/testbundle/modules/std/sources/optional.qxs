@@ -1,8 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Stores either no value or one T in inline typed storage. Moving preserves the source's engagement and moves its contained value. $>
-::optional
-  TEMPLATE(@T TYPE AUTO) STRUCT
+::optional TEMPLATE(@T TYPE AUTO) STRUCT
 {
   PRIVATE(CLASS)
   {
@@ -11,41 +10,35 @@ DOC <$ Stores either no value or one T in inline typed storage. Moving preserves
   }
 
   DOC <$ Creates an empty optional without constructing T. $>
-  .CONSTRUCTOR
-    FUNCTION()
+  .CONSTRUCTOR FUNCTION()
   {
   }
 
   DOC <$ Constructs the contained T from value. $>
-  .CONSTRUCTOR
-    FUNCTION(@value AUTO& AUTO)
+  .CONSTRUCTOR FUNCTION(@value AUTO& AUTO)
   {
     .emplace(@OTHER FORWARD(value));
   }
 
   DOC <$ Constructs an empty optional from NULL. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER NULL_TYPE)
+  .CONSTRUCTOR FUNCTION(@OTHER NULL_TYPE)
   {
   }
 
   DOC <$ Implicitly constructs an engaged optional from a T, preserving its reference qualification for copying or moving. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER AUTO& T)
+  .CONSTRUCTOR FUNCTION(@OTHER AUTO& T)
   {
     .emplace(@OTHER FORWARD(OTHER));
   }
 
   DOC <$ Copies OTHER's contained value when engaged. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER CONST& optional#T)
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& optional#T)
   {
     IF (OTHER.has_value()) { .emplace(@OTHER OTHER.value()); }
   }
 
   DOC <$ Moves OTHER's contained value while leaving OTHER engaged. $>
-  .CONSTRUCTOR
-    FUNCTION(@OTHER TEMP& optional#T)
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& optional#T)
   {
     IF (OTHER.has_value())
     {
@@ -55,15 +48,13 @@ DOC <$ Stores either no value or one T in inline typed storage. Moving preserves
   }
 
   DOC <$ Destroys the contained value when engaged. $>
-  .DESTRUCTOR
-    FUNCTION()
+  .DESTRUCTOR FUNCTION()
   {
     .reset();
   }
 
   DOC <$ Copies OTHER's state, assigning an existing value or constructing a new one as needed. $>
-  .OPERATOR:=
-    FUNCTION(@OTHER CONST& optional#T) MUT
+  .OPERATOR:= FUNCTION(@OTHER CONST& optional#T) MUT
   {
     VAR self CONST& optional#T := THIS;
     VAR other CONST& optional#T := OTHER;
@@ -77,15 +68,13 @@ DOC <$ Stores either no value or one T in inline typed storage. Moving preserves
   }
 
   DOC <$ Assigning NULL destroys any contained value and leaves the optional empty. $>
-  .OPERATOR:=
-    FUNCTION(@OTHER NULL_TYPE) MUT
+  .OPERATOR:= FUNCTION(@OTHER NULL_TYPE) MUT
   {
     .reset();
   }
 
   DOC <$ Moves OTHER's state while preserving its engagement. Self-move leaves the optional unchanged. $>
-  .OPERATOR:=
-    FUNCTION(@OTHER TEMP& optional#T) MUT
+  .OPERATOR:= FUNCTION(@OTHER TEMP& optional#T) MUT
   {
     VAR self CONST& optional#T := THIS;
     VAR other CONST& optional#T := OTHER;
@@ -100,8 +89,7 @@ DOC <$ Stores either no value or one T in inline typed storage. Moving preserves
   }
 
   DOC <$ Exchanges values and engagement without copying typed storage. $>
-  .OPERATOR<->
-    FUNCTION(@OTHER MUT& optional#T) MUT
+  .OPERATOR<-> FUNCTION(@OTHER MUT& optional#T) MUT
   {
     IF (THIS<- == OTHER<-) { RETURN; }
     IF (.engaged)
@@ -123,37 +111,32 @@ DOC <$ Stores either no value or one T in inline typed storage. Moving preserves
   }
 
   DOC <$ Reports whether a T is alive in the storage. $>
-  .has_value
-    FUNCTION() CONST: BOOL
+  .has_value FUNCTION() CONST: BOOL
   {
     RETURN .engaged;
   }
 
   DOC <$ Reports whether the optional contains a value. $>
-  .OPERATOR??
-    FUNCTION() CONST: BOOL
+  .OPERATOR?? FUNCTION() CONST: BOOL
   {
     RETURN .engaged;
   }
 
   DOC <$ Returns the contained value with the receiver's access qualification. Requires an engaged optional. $>
-  .value
-    FUNCTION(@THIS AUTO& THISTYPE): AUTO& T
+  .value FUNCTION(@THIS AUTO& THISTYPE): AUTO& T
   {
     ASSERT(.engaged, "Cannot access an empty optional.");
     RETURN PUN .storage AS T;
   }
 
   DOC <$ Returns a reference to the contained value. Requires an engaged optional. $>
-  .OPERATOR->
-    FUNCTION(@THIS AUTO& THISTYPE): AUTO& T
+  .OPERATOR-> FUNCTION(@THIS AUTO& THISTYPE): AUTO& T
   {
     RETURN .value();
   }
 
   DOC <$ Destroys the contained value, if present, and leaves the optional empty. $>
-  .reset
-    FUNCTION() MUT
+  .reset FUNCTION() MUT
   {
     IF (.engaged)
     {
@@ -163,8 +146,7 @@ DOC <$ Stores either no value or one T in inline typed storage. Moving preserves
   }
 
   DOC <$ Replaces the contained value by forwarding positional and named arguments to T's constructor. Remains empty if construction throws. $>
-  .emplace
-    FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT: MUT& T
+  .emplace FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT: MUT& T
   {
     .reset();
     VAR placed MUT->T := PLACE AT(.storage) T :(
@@ -178,8 +160,7 @@ DOC <$ Stores either no value or one T in inline typed storage. Moving preserves
 }
 
 DOC <$ Creates an engaged optional by constructing T from value. $>
-::make_optional_value
-  TEMPLATE(@T TYPE AUTO) FUNCTION(@ARG:value AUTO& AUTO): optional#T
+::make_optional_value TEMPLATE(@T TYPE AUTO) FUNCTION(@ARG:value AUTO& AUTO): optional#T
 {
   RETURN optional#T(@value FORWARD(value));
 }

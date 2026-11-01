@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::lambda_signature_tests NAMESPACE
 {
   DOC <$ Explicit lambda signatures bind renamed named parameters, supply defaults, and preserve written argument evaluation order. $>
-  ::renamed_default_parameters
-    DUAL_TEST
+  ::renamed_default_parameters DUAL_TEST
   {
     AUTO callable := -< [] (@left:first I32, @right:second I32 DEFAULT(7)) NOEXCEPT: I32 = first * 10 + second;
     TEST_ASSERT(callable(@left 2) == 27);
@@ -18,8 +17,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Reference returns identify either the borrowed source or the closure's independently owned value capture. $>
-  ::reference_return_capture_storage
-    DUAL_TEST
+  ::reference_return_capture_storage DUAL_TEST
   {
     VAR value I32 := 3;
     AUTO borrowed := -< [value] NOEXCEPT: MUT& I32 { RETURN value; };

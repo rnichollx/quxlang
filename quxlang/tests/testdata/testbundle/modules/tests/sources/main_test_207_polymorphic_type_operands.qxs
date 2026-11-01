@@ -3,29 +3,23 @@ LANGUAGE QUXLANG EN 0.0;
 ::polymorphic_type_operand_tests NAMESPACE
 {
   DOC <$ An ordinary record contains a polymorphic object without being polymorphic itself. $>
-  ::holder
-    STRUCT { .member VAR inheritance_tests::dispatch_base; }
+  ::holder STRUCT { .member VAR inheritance_tests::dispatch_base; }
 
   DOC <$ A second containing level preserves the ordinary record category. $>
-  ::nested_holder
-    STRUCT { .member VAR holder; }
+  ::nested_holder STRUCT { .member VAR holder; }
 
   DOC <$ An alias preserves the ordinary containing record's identity. $>
-  ::holder_alias
-    ALIAS holder;
+  ::holder_alias ALIAS holder;
 
   DOC <$ A polymorphic constructor records execution for unevaluated type-operand checks. $>
-  ::probe
-    STRUCT POLYMORPHIC
+  ::probe STRUCT POLYMORPHIC
   {
     DOC <$ Records construction through caller-owned state. $>
-    .CONSTRUCTOR
-      FUNCTION(@calls MUT& I32) { calls ++; }
+    .CONSTRUCTOR FUNCTION(@calls MUT& I32) { calls ++; }
   }
 
   DOC <$ Polymorphism classifies the exact record type without propagating through ordinary fields or storage wrappers. $>
-  ::containment
-    DUAL_TEST
+  ::containment DUAL_TEST
   {
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(inheritance_tests::dispatch_base));
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(holder) == FALSE);
@@ -35,8 +29,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ TYPE_IS_POLYMORPHIC resolves TYPEOF of construction without executing the constructor or changing caller state. $>
-  ::unevaluated_constructor
-    DUAL_TEST
+  ::unevaluated_constructor DUAL_TEST
   {
     VAR calls I32 := 0;
     TEST_ASSERT(TYPE_IS_POLYMORPHIC(TYPEOF(probe(@calls calls))));

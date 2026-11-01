@@ -1,8 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Tests the better-fit ordering used to select function overloads. $>
-::ranking_tests
-NAMESPACE
+::ranking_tests NAMESPACE
 {
     DOC <$
     Verifies the complete implemented better-fit ladder for a pure value: identity, temporary materialization,

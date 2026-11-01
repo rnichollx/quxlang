@@ -3,12 +3,10 @@ LANGUAGE QUXLANG EN 0.0;
 ::layout_operand_constraint_tests NAMESPACE
 {
   DOC <$ An ordinary function symbol used to distinguish callable names from class types. $>
-  ::callable
-    FUNCTION(): I32 { RETURN 17; }
+  ::callable FUNCTION(): I32 { RETURN 17; }
 
   DOC <$ A namespace symbol used to distinguish scopes from class types. $>
-  ::scope
-    NAMESPACE { }
+  ::scope NAMESPACE { }
 
   DOC <$ SIZEOF rejects an object name where a class type is required. $>
   ::sizeof_object INCLUDE_IF(ARCH_IS_LAYOUTLESS == FALSE)

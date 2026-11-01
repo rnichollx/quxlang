@@ -2,8 +2,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Restores the maximum-heap property below one root in a random-access sequence. $>
 PRIVATE(MODULE)
-::algorithm_sift_down
-  FUNCTION(@first AUTO(input_iterator), @count SZ, @root SZ, @compare TT(compare_type), @projection TT(projection_type))
+::algorithm_sift_down FUNCTION(@first AUTO(input_iterator), @count SZ, @root SZ, @compare TT(compare_type), @projection TT(projection_type))
 {
   LOOP WHILE (root < count / 2) DO
   {
@@ -44,8 +43,7 @@ DOC <$ Builds a maximum heap in linear work. $>
 
 DOC <$ Builds a maximum heap in linear work. $>
 PRIVATE(MODULE)
-::make_heap_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+::make_heap_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
 {
   IF (first == last) { RETURN; }
   VAR count SZ := (last - first) AS ASSUME SZ;
@@ -77,8 +75,7 @@ DOC <$ Extends the heap preceding the final element to include that element. $>
 
 DOC <$ Extends the heap preceding the final element to include that element. $>
 PRIVATE(MODULE)
-::push_heap_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+::push_heap_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
 {
   IF (first == last) { RETURN; }
   VAR child SZ := ((last - first) AS ASSUME SZ) - 1;
@@ -114,8 +111,7 @@ DOC <$ Moves the maximum to the final position and restores the preceding heap. 
 
 DOC <$ Moves the maximum to the final position and restores the preceding heap. $>
 PRIVATE(MODULE)
-::pop_heap_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+::pop_heap_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
 {
   IF (first == last) { RETURN; }
   VAR count SZ := (last - first) AS ASSUME SZ;
@@ -148,8 +144,7 @@ DOC <$ Sorts a maximum heap into ascending order. $>
 
 DOC <$ Sorts a maximum heap into ascending order. $>
 PRIVATE(MODULE)
-::sort_heap_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+::sort_heap_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
 {
   LOOP WHILE (first != last) DO
   { pop_heap(@first first, @last last, @compare compare, @projection projection); last--; }
@@ -176,8 +171,7 @@ DOC <$ Returns the first heap-order violation, or the exclusive end. $>
 
 DOC <$ Returns the first heap-order violation, or the exclusive end. $>
 PRIVATE(MODULE)
-::is_heap_until_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+::is_heap_until_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
 {
   IF (first == last) { RETURN last; }
   VAR count SZ := (last - first) AS ASSUME SZ;
@@ -211,16 +205,14 @@ DOC <$ Tests the maximum-heap ordering relation. $>
 
 DOC <$ Tests the maximum-heap ordering relation. $>
 PRIVATE(MODULE)
-::is_heap_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): BOOL
+::is_heap_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): BOOL
 {
   RETURN is_heap_until(@first first, @last last, @compare compare, @projection projection) == last;
 }
 
 DOC <$ Orders a bounded small sequence using adjacent element exchanges. $>
 PRIVATE(MODULE)
-::algorithm_insertion_sort
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+::algorithm_insertion_sort FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
 {
   IF (first == last) { RETURN; }
   VAR cursor input_iterator := first; cursor++;
@@ -239,8 +231,7 @@ PRIVATE(MODULE)
 
 DOC <$ Partitions around the final element and writes the bounds of its equivalence band. $>
 PRIVATE(MODULE)
-::algorithm_partition_equal
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @lower MUT& AUTO(input_iterator), @upper MUT& AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+::algorithm_partition_equal FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @lower MUT& AUTO(input_iterator), @upper MUT& AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
 {
   VAR pivot input_iterator := last - (1 AS SZ);
   lower := first;
@@ -259,8 +250,7 @@ PRIVATE(MODULE)
 
 DOC <$ Uses bounded-depth three-way partitioning and processes the smaller partition recursively. $>
 PRIVATE(MODULE)
-::algorithm_intro_sort
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @depth SZ, @compare TT(compare_type), @projection TT(projection_type))
+::algorithm_intro_sort FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @depth SZ, @compare TT(compare_type), @projection TT(projection_type))
 {
   LOOP WHILE (first != last) DO
   {
@@ -319,8 +309,7 @@ DOC <$ Sorts with deterministic introsort, worst-case O(N log N) comparisons and
 
 DOC <$ Sorts with deterministic introsort, worst-case O(N log N) comparisons and O(log N) stack. $>
 PRIVATE(MODULE)
-::sort_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+::sort_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
 {
   IF (first == last) { RETURN; }
   VAR remaining SZ := (last - first) AS ASSUME SZ;
@@ -352,8 +341,7 @@ DOC <$ Partitions around nth using deterministic median-of-medians selection wit
 
 DOC <$ Partitions around nth using deterministic median-of-medians selection with worst-case linear comparisons. $>
 PRIVATE(MODULE)
-::nth_element_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @nth AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+::nth_element_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @nth AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
 {
   IF (nth == last) { RETURN; }
   LOOP WHILE (first != last) DO
@@ -410,8 +398,7 @@ DOC <$ Sorts the smallest middle-first elements into the prefix using heap selec
 
 DOC <$ Sorts the smallest middle-first elements into the prefix using heap selection. $>
 PRIVATE(MODULE)
-::partial_sort_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
+::partial_sort_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @middle AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type))
 {
   IF (first == middle) { RETURN; }
   make_heap(@first first, @last middle, @compare compare, @projection projection);
@@ -450,8 +437,7 @@ DOC <$ Copies the smallest elements that fit into a bounded random-access destin
 
 DOC <$ Copies the smallest elements that fit into a bounded random-access destination and sorts them. $>
 PRIVATE(MODULE)
-::partial_sort_copy_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output_first AUTO(output_iterator), @output_last AUTO(output_iterator), @compare TT(compare_type), @projection TT(projection_type)): AUTO
+::partial_sort_copy_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @output_first AUTO(output_iterator), @output_last AUTO(output_iterator), @compare TT(compare_type), @projection TT(projection_type)): AUTO
 {
   VAR output output_iterator := output_first;
   LOOP WHILE (first != last && output != output_last) DO
@@ -494,8 +480,7 @@ DOC <$ Returns the first descending adjacent position, or the input end. $>
 
 DOC <$ Returns the first descending adjacent position, or the input end. $>
 PRIVATE(MODULE)
-::is_sorted_until_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+::is_sorted_until_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): input_iterator
 {
   IF (first == last) { RETURN first; }
   VAR previous input_iterator := first; first++;
@@ -528,8 +513,7 @@ DOC <$ Tests nondecreasing projected values. $>
 
 DOC <$ Tests nondecreasing projected values. $>
 PRIVATE(MODULE)
-::is_sorted_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): BOOL
+::is_sorted_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @compare TT(compare_type), @projection TT(projection_type)): BOOL
 {
   RETURN is_sorted_until(@first first, @last last, @compare compare, @projection projection) == last;
 }
@@ -555,8 +539,7 @@ DOC <$ Finds the random-access partition boundary with logarithmic comparisons a
 
 DOC <$ Finds the random-access partition boundary with logarithmic comparisons and movement. $>
 PRIVATE(MODULE)
-::lower_bound_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+::lower_bound_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): input_iterator
 {
   IF (first == last) { RETURN first; }
   VAR count SZ := (last - first) AS ASSUME SZ;
@@ -591,8 +574,7 @@ DOC <$ Finds the random-access partition boundary with logarithmic comparisons a
 
 DOC <$ Finds the random-access partition boundary with logarithmic comparisons and movement. $>
 PRIVATE(MODULE)
-::upper_bound_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): input_iterator
+::upper_bound_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): input_iterator
 {
   IF (first == last) { RETURN first; }
   VAR count SZ := (last - first) AS ASSUME SZ;
@@ -622,8 +604,7 @@ DOC <$ Finds the random-access partition boundary with logarithmic comparisons a
 
 DOC <$ Finds the random-access partition boundary with logarithmic comparisons and movement. $>
 PRIVATE(MODULE)
-::partition_point_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
+::partition_point_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @predicate TT(predicate_type), @projection TT(projection_type)): input_iterator
 {
   IF (first == last) { RETURN first; }
   VAR count SZ := (last - first) AS ASSUME SZ;
@@ -658,8 +639,7 @@ DOC <$ Returns the sorted subsequence equivalent to the unprojected lookup value
 
 DOC <$ Returns the sorted subsequence equivalent to the unprojected lookup value. $>
 PRIVATE(MODULE)
-::equal_range_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): AUTO
+::equal_range_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): AUTO
 {
   VAR lower input_iterator := lower_bound(@first first, @last last, @value value, @compare compare, @projection projection);
   VAR upper input_iterator := upper_bound(@first lower, @last last, @value value, @compare compare, @projection projection);
@@ -687,8 +667,7 @@ DOC <$ Tests membership in a sorted random-access range. $>
 
 DOC <$ Tests membership in a sorted random-access range. $>
 PRIVATE(MODULE)
-::binary_search_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): BOOL
+::binary_search_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @value CONST& AUTO, @compare TT(compare_type), @projection TT(projection_type)): BOOL
 {
   VAR position input_iterator := lower_bound(@first first, @last last, @value value, @compare compare, @projection projection);
   IF (position == last) { RETURN FALSE; }
@@ -721,8 +700,7 @@ DOC <$ Combines sorted inputs with stable first-input preference and duplicate m
 
 DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
 PRIVATE(MODULE)
-::merge_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+::merge_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   {
@@ -765,8 +743,7 @@ DOC <$ Combines sorted inputs with stable first-input preference and duplicate m
 
 DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
 PRIVATE(MODULE)
-::set_union_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+::set_union_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   {
@@ -809,8 +786,7 @@ DOC <$ Combines sorted inputs with stable first-input preference and duplicate m
 
 DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
 PRIVATE(MODULE)
-::set_intersection_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+::set_intersection_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   {
@@ -851,8 +827,7 @@ DOC <$ Combines sorted inputs with stable first-input preference and duplicate m
 
 DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
 PRIVATE(MODULE)
-::set_difference_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+::set_difference_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   {
@@ -894,8 +869,7 @@ DOC <$ Combines sorted inputs with stable first-input preference and duplicate m
 
 DOC <$ Combines sorted inputs with stable first-input preference and duplicate multiplicities. $>
 PRIVATE(MODULE)
-::set_symmetric_difference_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
+::set_symmetric_difference_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @output AUTO(output_iterator), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): AUTO
 {
   LOOP WHILE (first1 != last1 && first2 != last2) DO
   {
@@ -938,8 +912,7 @@ DOC <$ Tests whether the sorted first input contains every second-input multipli
 
 DOC <$ Tests whether the sorted first input contains every second-input multiplicity. $>
 PRIVATE(MODULE)
-::includes_iterators
-  FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): BOOL
+::includes_iterators FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @compare TT(compare_type), @projection1 TT(projection1_type), @projection2 TT(projection2_type)): BOOL
 {
   LOOP WHILE (first2 != last2) DO
   {
@@ -973,8 +946,7 @@ DOC <$ Advances the bidirectional permutation, wrapping to its opposite extreme 
 
 DOC <$ Advances the bidirectional permutation, wrapping to its opposite extreme on failure. $>
 PRIVATE(MODULE)
-::next_permutation_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): BOOL
+::next_permutation_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): BOOL
 {
   IF (first == last) { RETURN FALSE; }
   VAR cursor input_iterator := last; cursor--;
@@ -1017,8 +989,7 @@ DOC <$ Advances the bidirectional permutation, wrapping to its opposite extreme 
 
 DOC <$ Advances the bidirectional permutation, wrapping to its opposite extreme on failure. $>
 PRIVATE(MODULE)
-::prev_permutation_iterators
-  FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): BOOL
+::prev_permutation_iterators FUNCTION(@first AUTO(input_iterator), @last AUTO(input_iterator), @compare TT(compare_type), @projection TT(projection_type)): BOOL
 {
   IF (first == last) { RETURN FALSE; }
   VAR cursor input_iterator := last; cursor--;

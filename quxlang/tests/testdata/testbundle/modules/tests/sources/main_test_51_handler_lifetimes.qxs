@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::handler_lifetime_tests NAMESPACE
 {
   DOC <$ A normal TRY exit executes local cleanup without entering any handler or establishing a current exception. $>
-  ::normal_try_exit
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::normal_try_exit DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     TRY
@@ -20,8 +19,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returns through handler-local deferred and ordinary cleanup while releasing the caught payload. $>
-  ::return_from_handler
-    FUNCTION(@events MUT& I32, @destroyed MUT& I32): I32
+  ::return_from_handler FUNCTION(@events MUT& I32, @destroyed MUT& I32): I32
   {
     TRY
     {
@@ -39,8 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Returning from a handler restores the caller's exception state after destroying its locals and payload. $>
-  ::handler_return_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::handler_return_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR destroyed I32 := 0;
@@ -51,8 +48,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Copies of EXCEPTION_PTR retain one shared payload, which is destroyed only after the final handle leaves scope. $>
-  ::retained_payload_last_handle
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::retained_payload_last_handle DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR destroyed I32 := 0;
     {
@@ -88,8 +84,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ CONTINUE and BREAK from a handler clean handler actions before loop-body locals and restore exception state. $>
-  ::handler_loop_exits
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::handler_loop_exits DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR events I32 := 0;
     VAR iteration I32 := 0;

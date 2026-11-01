@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::checked_arithmetic_tests NAMESPACE
 {
   DOC <$ Overflow exceptions retain ordinary object identity across saved handles and rethrows. $>
-  ::exception_ownership
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::exception_ownership DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR saved EXCEPTION_PTR;
     TRY { VAR value U8 := 255; value +=? 1; TEST_ASSERT(FALSE); }
@@ -24,8 +23,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught);
   }
   DOC <$ Counts at and above the logical width produce zero before count narrowing. $>
-  ::oversized_shift
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@count SZ)
+  ::oversized_shift TEMPLATE(@T TYPE AUTO) FUNCTION(@count SZ)
   {
     VAR value T := 1;
     TEST_ASSERT((value #++ count) == 0);
@@ -39,8 +37,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Ordinary shifts handle boundaries, odd widths, and counts exceeding the operand representation. $>
-  ::ordinary_shift_counts
-    DUAL_TEST
+  ::ordinary_shift_counts DUAL_TEST
   {
     oversized_shift#U5(@count 5);
     oversized_shift#U8(@count 8);
@@ -52,8 +49,7 @@ LANGUAGE QUXLANG EN 0.0;
     oversized_shift#U8(@count (0 AS SZ) #!!);
   }
   DOC <$ Checked and assumed operations agree with ordinary arithmetic inside the permitted range. $>
-  ::valid_operations
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::valid_operations DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR a I32 := 24;
     VAR b I32 := 3;
@@ -76,8 +72,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked addition of two operands throws the arithmetic overflow exception. $>
-  ::addition_overflow
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
+  ::addition_overflow TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -100,8 +95,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Signed, unsigned, and non-byte additions propagate typed range failures. $>
-  ::addition_overflow_operands
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::addition_overflow_operands DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     addition_overflow#I8(@a 127, @b 1);
     addition_overflow#I8(@a -128, @b -1);
@@ -112,8 +106,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked subtraction of two operands throws the arithmetic overflow exception. $>
-  ::subtraction_overflow
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
+  ::subtraction_overflow TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -136,8 +129,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked multiplication of two operands throws the arithmetic overflow exception. $>
-  ::multiplication_overflow
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
+  ::multiplication_overflow TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -160,8 +152,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked division of two operands throws the arithmetic overflow exception. $>
-  ::division_overflow
-    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
+  ::division_overflow TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T)
   {
     VAR caught BOOL := FALSE;
     TRY
@@ -184,8 +175,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Signed bounds and unsigned underflow produce typed subtraction failures. $>
-  ::subtraction_overflow_operands
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::subtraction_overflow_operands DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     subtraction_overflow#I8(@a -128, @b 1);
     subtraction_overflow#I8(@a 127, @b -1);
@@ -196,8 +186,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Signed and unsigned products outside the destination range produce typed failures. $>
-  ::multiplication_overflow_operands
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::multiplication_overflow_operands DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     multiplication_overflow#I8(@a 64, @b 2);
     multiplication_overflow#I8(@a -65, @b 2);
@@ -209,16 +198,14 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Dividing the minimum signed value by negative one produces a typed failure. $>
-  ::division_overflow_operands
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::division_overflow_operands DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     division_overflow#I8(@a -128, @b -1);
     division_overflow#I5(@a -16, @b -1);
   }
 
   DOC <$ Checked division by zero throws arithmetic overflow for signed and unsigned operands. $>
-  ::division_by_zero
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::division_by_zero DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     division_overflow#I8(@a 0, @b 0);
     division_overflow#I8(@a 1, @b 0);
@@ -233,8 +220,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Range failures propagate as typed exceptions for signed and unsigned arithmetic. $>
-  ::overflow_exceptions
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::overflow_exceptions DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught U32 := 0;
     TRY { AUTO result := (127 AS I8) +? 1; TEST_ASSERT(FALSE); }
@@ -257,8 +243,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Checked shifts and rotations reject counts equal to or larger than the bit width. $>
-  ::invalid_counts
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::invalid_counts DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR caught U32 := 0;
     VAR value U8 := 1;
@@ -289,8 +274,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(caught == 12);
   }
   DOC <$ Negative literals preserve signed minima and participate in ordinary literal arithmetic. $>
-  ::negative_literals
-    DUAL_TEST
+  ::negative_literals DUAL_TEST
   {
     TEST_ASSERT(-128 == 0 - 128);
     TEST_ASSERT(-0 == 0);
@@ -303,8 +287,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(wide_minimum == -9223372036854775808);
   }
   DOC <$ Checks signed and unsigned limits independently of their storage width. $>
-  ::integer_boundaries
-    TEMPLATE(@T TYPE AUTO) FUNCTION()
+  ::integer_boundaries TEMPLATE(@T TYPE AUTO) FUNCTION()
   {
     VAR a T := 6;
     VAR b T := 2;
@@ -340,8 +323,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Range contracts cover odd widths and integers wider than a machine register. $>
-  ::integer_widths
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::integer_widths DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     integer_boundaries#U5();
     integer_boundaries#I5();
@@ -353,8 +335,7 @@ LANGUAGE QUXLANG EN 0.0;
     integer_boundaries#I128();
   }
   DOC <$ Mutating range operators store the successful result for each arithmetic and bit operation. $>
-  ::mutating_valid_operations
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::mutating_valid_operations DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value I32 := 24;
     value := 24; value +=? 3; TEST_ASSERT(value == 27);
@@ -376,8 +357,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Overflow leaves each destination unchanged and propagates the typed exception. $>
-  ::mutating_failures
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::mutating_failures DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value U8 := 0;
     VAR caught U32 := 0;
@@ -417,8 +397,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Arithmetic failure unwinds deferred actions before entering the enclosing handler. $>
-  ::overflow_cleanup
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::overflow_cleanup DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR cleaned U32 := 0;
     VAR caught BOOL := FALSE;
@@ -440,8 +419,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Byte arithmetic uses unsigned range checks and division for high bit patterns. $>
-  ::byte_arithmetic
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::byte_arithmetic DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value BYTE := 240;
     TEST_ASSERT((value /? 2) == 120);
@@ -459,8 +437,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Ordinary rotations reduce the full count, including counts larger than a narrow operand can hold. $>
-  ::rotation_counts
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::rotation_counts DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR value U5 := 17;
     TEST_ASSERT((value #+% 5) == value);

@@ -5,8 +5,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
   DOC <$ Writes through an explicitly register-bound pointer without returning a value. $>
-  ::store
-    ASM_INLINE_FUNCTION ARM64
+  ::store ASM_INLINE_FUNCTION ARM64
     CALLABLE(X3 MUT->U64, X5 U64; CLOBBER())
   {
     STR X5, [X3]

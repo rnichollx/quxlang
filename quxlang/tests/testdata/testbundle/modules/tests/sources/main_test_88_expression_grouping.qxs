@@ -3,8 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::expression_grouping_tests NAMESPACE
 {
   DOC <$ Multiplication binds above addition, which binds above division; parentheses override these levels. $>
-  ::arithmetic_levels
-    DUAL_TEST
+  ::arithmetic_levels DUAL_TEST
   {
     VAR a I32 := 20;
     VAR b I32 := 2;
@@ -25,8 +24,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Bitwise operators and shifts share a left-associative level above arithmetic addition. $>
-  ::bitwise_shared_level
-    DUAL_TEST
+  ::bitwise_shared_level DUAL_TEST
   {
     VAR a U32 := 1;
     VAR b U32 := 2;

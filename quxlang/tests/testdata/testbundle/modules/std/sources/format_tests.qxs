@@ -30,8 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Records argument evaluation order and returns the supplied value. $>
-  ::argument_event
-    FUNCTION(@events MUT& I32, @value I32): I32
+  ::argument_event FUNCTION(@events MUT& I32, @value I32): I32
   {
     events := events * 10 + value;
     RETURN value;

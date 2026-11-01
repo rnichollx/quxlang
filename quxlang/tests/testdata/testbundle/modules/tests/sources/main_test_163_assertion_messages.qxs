@@ -3,12 +3,10 @@ LANGUAGE QUXLANG EN 0.0;
 ::assertion_message_tests NAMESPACE
 {
   DOC <$ Records one evaluation and supplies a true assertion condition. $>
-  ::condition
-    FUNCTION(@calls MUT& I32): BOOL { calls++; RETURN TRUE; }
+  ::condition FUNCTION(@calls MUT& I32): BOOL { calls++; RETURN TRUE; }
 
   DOC <$ Literal messages preserve once-only condition evaluation, including empty messages. $>
-  ::successful_conditions
-    DUAL_TEST
+  ::successful_conditions DUAL_TEST
   {
     VAR calls I32 := 0;
     TEST_ASSERT(condition(@calls calls), "custom assertion");
@@ -18,8 +16,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Terminates a standalone process with an explicitly empty assertion message. $>
-  ::empty_failure_main
-    FUNCTION(): I32
+  ::empty_failure_main FUNCTION(): I32
   {
     TEST_ASSERT(FALSE, "");
     RETURN 0;

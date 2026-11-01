@@ -4,8 +4,7 @@ DOC <$
   Counts bytes before the first zero. The caller supplies an array containing
   a zero terminator within its accessible storage.
   $>
-::zero_terminated_byte_count
-  FUNCTION(@bytes CONST=>>BYTE): SZ
+::zero_terminated_byte_count FUNCTION(@bytes CONST=>>BYTE): SZ
 {
   VAR count SZ := 0;
   LOOP WHILE (bytes[count] != 0) DO
@@ -19,8 +18,7 @@ DOC <$
   Preserves byte-scanning semantics through native optimization, including
   empty input, high-bit bytes, and a terminator at the final array element.
   $>
-::zero_terminated_byte_scan
-  DUAL_TEST
+::zero_terminated_byte_scan DUAL_TEST
 {
   VAR bytes [8]BYTE;
   TEST_ASSERT(zero_terminated_byte_count(@bytes bytes[& 0]) == 0);

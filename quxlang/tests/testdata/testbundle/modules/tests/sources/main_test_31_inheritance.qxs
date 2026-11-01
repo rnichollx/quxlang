@@ -1,8 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Exercises base subobjects, virtual dispatch, construction, and destruction. $>
-::inheritance_tests
-NAMESPACE
+::inheritance_tests NAMESPACE
 {
   ::dispatch_base STRUCT POLYMORPHIC
   {
@@ -66,11 +65,9 @@ NAMESPACE
   }
 
   DOC <$ Supplies storage for two distinct base subobjects of the same type. $>
-  ::repeated_value_base
-    STRUCT { .number VAR I32; }
+  ::repeated_value_base STRUCT { .number VAR I32; }
   DOC <$ Keeps repeated base subobjects accessible through explicit selectors. $>
-  ::repeated_value_record
-    STRUCT
+  ::repeated_value_record STRUCT
   {
     .left BASE repeated_value_base;
     .right BASE repeated_value_base;

@@ -15,8 +15,7 @@ DOC <$
     {
       .state VAR MUT->U64;
       DOC <$ Mixes one byte using unsigned wrapping multiplication. $>
-      .OPERATOR:=
-        FUNCTION(@OTHER BYTE) MUT
+      .OPERATOR:= FUNCTION(@OTHER BYTE) MUT
       { .state-> := (.state-> #^^ ((OTHER AS U8) AS U64)) * 1099511628211; }
     }
 
@@ -25,20 +24,16 @@ DOC <$
     {
       .slot VAR default_hasher::output_slot;
       DOC <$ Binds an iterator to a live hash accumulator. $>
-      .CONSTRUCTOR
-        FUNCTION(@EXPLICIT:state MUT->U64) { .slot.state := state; }
+      .CONSTRUCTOR FUNCTION(@EXPLICIT:state MUT->U64) { .slot.state := state; }
       DOC <$ Returns an iterator sharing the accumulator; byte assignment advances the hash. $>
-      .OPERATOR++
-        FUNCTION() MUT: default_hasher::output_iterator { RETURN THIS; }
+      .OPERATOR++ FUNCTION() MUT: default_hasher::output_iterator { RETURN THIS; }
       DOC <$ Returns the byte-assignment sink used by SERIALIZE. $>
-      .OPERATOR->
-        FUNCTION(): MUT& default_hasher::output_slot { RETURN .slot; }
+      .OPERATOR-> FUNCTION(): MUT& default_hasher::output_slot { RETURN .slot; }
     }
   }
 
   DOC <$ Returns a hash of every byte emitted by value.SERIALIZE. $>
-  .hash
-    FUNCTION(@ARG:value CONST& AUTO) CONST: U64
+  .hash FUNCTION(@ARG:value CONST& AUTO) CONST: U64
   {
     VAR state U64 := 14695981039346656037;
     VAR output default_hasher::output_iterator :(@EXPLICIT state<-);

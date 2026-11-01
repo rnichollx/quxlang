@@ -7,8 +7,7 @@ PRIVATE(MODULE)
   DOC <$
     Returns the address of the low 32-bit state word used by address waits.
     $>
-  ::initguard_wait_address
-    FUNCTION(@guard MUT& INITGUARD): ADDRESS
+  ::initguard_wait_address FUNCTION(@guard MUT& INITGUARD): ADDRESS
   {
     VAR address ADDRESS := IBC_GETADDR(@PTR guard<-);
     STATIC_IF(ARCH_IS_Z_ARCH)

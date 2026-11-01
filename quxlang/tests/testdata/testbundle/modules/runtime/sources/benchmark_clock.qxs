@@ -41,16 +41,14 @@ DOC <$ The clock returns a target monotonic timestamp in nanoseconds. $>
   RETURN signed AS PARTIAL U64;
 }
 
-::BENCHMARK_CLOCK
-  INCLUDE_IF(OS_LINUX == FALSE && OS_MACOS == FALSE && OS_WINDOWS == FALSE && ARCH_IS_JVM == FALSE)
+::BENCHMARK_CLOCK INCLUDE_IF(OS_LINUX == FALSE && OS_MACOS == FALSE && OS_WINDOWS == FALSE && ARCH_IS_JVM == FALSE)
   FUNCTION(): U64
 {
   COMPILATION_ERROR ON_LOWER "Benchmark timing is unavailable on this target";
 }
 
 DOC <$ Converts and validates one measurement operation count before timing starts. $>
-::BENCHMARK_OPERATION_COUNT
-  FUNCTION(@VALUE:value AUTO(count_type)): U64
+::BENCHMARK_OPERATION_COUNT FUNCTION(@VALUE:value AUTO(count_type)): U64
 {
   VAR result U64;
   STATIC_IF(SAME_TYPES(count_type, U64)) { result := value; }
@@ -60,16 +58,14 @@ DOC <$ Converts and validates one measurement operation count before timing star
 }
 
 DOC <$ Adds a completed measurement with checked duration and operation totals. $>
-::BENCHMARK_ACCUMULATE
-  FUNCTION(@ELAPSED:elapsed U64, @COUNT:count U64, @CHANNEL:channel SZ, @STATE:state MUT& BENCHMARK_STATE)
+::BENCHMARK_ACCUMULATE FUNCTION(@ELAPSED:elapsed U64, @COUNT:count U64, @CHANNEL:channel SZ, @STATE:state MUT& BENCHMARK_STATE)
 {
   state.durations[channel] := state.durations[channel] +? elapsed;
   state.counts[channel] := state.counts[channel] +? count;
 }
 
 DOC <$ Stops a measurement before updating its channel accumulators. $>
-::BENCHMARK_RECORD
-  FUNCTION(@START:start U64, @COUNT:count U64, @CHANNEL:channel SZ, @STATE:state MUT& BENCHMARK_STATE)
+::BENCHMARK_RECORD FUNCTION(@START:start U64, @COUNT:count U64, @CHANNEL:channel SZ, @STATE:state MUT& BENCHMARK_STATE)
 {
   VAR end U64 := BENCHMARK_CLOCK();
   BENCHMARK_ACCUMULATE(@ELAPSED end -? start, @COUNT count, @CHANNEL channel, @STATE state);

@@ -12,8 +12,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::bodies VAR CONSTEXPR_OK I32;
 
   DOC <$ Creates an owned default or throws before construction at the selected factory. $>
-  ::create
-    FUNCTION(@digit I32): control_flow_tests::exit_record
+  ::create FUNCTION(@digit I32): control_flow_tests::exit_record
   {
     attempts++;
     IF (failure == digit) { THROW I32(@OTHER digit); }
@@ -21,8 +20,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Observes both default temporaries alive for the duration of the call. $>
-  ::consume
-    FUNCTION(@first CONST& control_flow_tests::exit_record DEFAULT(create(@digit 1)),
+  ::consume FUNCTION(@first CONST& control_flow_tests::exit_record DEFAULT(create(@digit 1)),
       @second CONST& control_flow_tests::exit_record DEFAULT(create(@digit 2)))
   {
     TEST_ASSERT(events == 0);
@@ -32,8 +30,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ Defaults are constructed in order and only completed temporaries are destroyed if a later default throws. $>
-  ::default_construction_paths
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::default_construction_paths DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     VAR mode I32 := 0;
     LOOP WHILE (mode < 3) DO
@@ -66,8 +63,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   DOC <$ An explicit owned reference suppresses its throwing default and remains alive after the call. $>
-  ::explicit_argument_suppresses_default
-    DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  ::explicit_argument_suppresses_default DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {
     events := 0;
     attempts := 0;
