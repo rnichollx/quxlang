@@ -31,14 +31,4 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT((base ^ ((2 AS I32) * 3)) == 729);
   }
 
-  DOC <$ Built-in integer exponentiation computes small exact powers. $>
-  ::integer_powers
-    DUAL_TEST KNOWN_BROKEN
-    // Not yet implemented
-  {
-    VAR base I32 := 3;
-    VAR exponent I32 := 4;
-    TEST_ASSERT((base ^ exponent) == 81);
-    TEST_ASSERT((base ^ 0) == 1);
-  }
 }

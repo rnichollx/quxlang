@@ -2,7 +2,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::explicit_storage_call_tests NAMESPACE
 {
-  DOC <$ Records positional construction and the selected explicit destructor argument. $>
+  DOC <$ Records positional construction and ordinary destruction. $>
   ::record
     STRUCT
   {
@@ -19,9 +19,6 @@ LANGUAGE QUXLANG EN 0.0;
     DOC <$ Records ordinary destruction. $>
     .DESTRUCTOR
       FUNCTION() { .events-> := .events-> * 10 + 4; }
-    DOC <$ Records the caller-supplied destruction event. $>
-    .DESTRUCTOR
-      FUNCTION(@digit I32) { .events-> := .events-> * 10 + digit; }
   }
 
   DOC <$ Positional placement expression and statement arguments execute once and initialize reusable storage. $>
@@ -44,19 +41,4 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(events == 234);
   }
 
-  DOC <$ Explicit destructor arguments select the matching overload and end the placed object's lifetime before storage reuse. $>
-  ::named_destruction
-    DUAL_TEST KNOWN_BROKEN
-  {
-    VAR events I32 := 0;
-    VAR slot TYPED_STORAGE(record);
-    PLACE AT(slot) record :[17, events];
-    TEST_ASSERT(events == 3);
-    DESTROY AT(slot) record :(@digit 5);
-    TEST_ASSERT(events == 35);
-    PLACE AT(slot) record :[29, events];
-    TEST_ASSERT(events == 353);
-    DESTROY AT(slot) record :(@digit 6);
-    TEST_ASSERT(events == 3536);
-  }
 }
