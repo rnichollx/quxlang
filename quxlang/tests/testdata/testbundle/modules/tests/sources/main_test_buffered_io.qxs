@@ -1,0 +1,113 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+IMPORT syscall;
+
+::buffered_output INCLUDE_IF(OS_MACOS) NAMESPACE
+{
+  PRIVATE(MODULE)
+  {
+    DOC <$ Stores a Darwin socket timeout in seconds and microseconds. $>
+    ::socket_timeout IBC_STRUCT
+    {
+      .seconds VAR I64;
+      .microseconds VAR I32;
+    }
+
+    DOC <$ Creates two connected local stream sockets. $>
+    ::socket_pair EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"socketpair"]
+      CALLABLE CALLCONV CCALL(@domain I32, @type I32, @protocol I32,
+        @descriptors MUT=>>I32; RETURN I32);
+
+    DOC <$ Configures an integer socket option. $>
+    ::set_socket_integer EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"setsockopt"]
+      CALLABLE CALLCONV CCALL(@descriptor I32, @level I32, @option I32,
+        @value CONST->I32, @length U32; RETURN I32);
+
+    DOC <$ Configures a socket transfer timeout. $>
+    ::set_socket_timeout EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"setsockopt"]
+      CALLABLE CALLCONV CCALL(@descriptor I32, @level I32, @option I32,
+        @value CONST->socket_timeout, @length U32; RETURN I32);
+  }
+
+  DOC <$ Buffered output preserves unwritten bytes across partial-transfer failures and subsequent writes. $>
+  ::partial_flush_recovery UNIT_TEST
+  {
+    VAR descriptors [2]I32;
+    TEST_ASSERT(socket_pair(@domain 1, @type 1, @protocol 0,
+      @descriptors descriptors[&0]) == 0);
+    DEFER
+    {
+      syscall::macos::close(@fd descriptors[0]);
+      syscall::macos::close(@fd descriptors[1]);
+    }
+
+    VAR capacity I32 := 1024;
+    TEST_ASSERT(set_socket_integer(@descriptor descriptors[0], @level 65535,
+      @option 4097, @value capacity<-, @length SIZEOF(I32) AS CHECKED U32) == 0);
+    TEST_ASSERT(set_socket_integer(@descriptor descriptors[1], @level 65535,
+      @option 4098, @value capacity<-, @length SIZEOF(I32) AS CHECKED U32) == 0);
+    VAR timeout socket_timeout;
+    timeout.microseconds := 10000;
+    TEST_ASSERT(set_socket_timeout(@descriptor descriptors[0], @level 65535,
+      @option 4101, @value timeout<-, @length SIZEOF(socket_timeout) AS CHECKED U32) == 0);
+    TEST_ASSERT(set_socket_timeout(@descriptor descriptors[1], @level 65535,
+      @option 4102, @value timeout<-, @length SIZEOF(socket_timeout) AS CHECKED U32) == 0);
+
+    VAR writer std::buffered_writer := std::file_ref(@descriptor descriptors[0]) AS std::buffered_writer;
+    VAR reader std::file_ref :(@descriptor descriptors[1]);
+    VAR failed BOOL := FALSE;
+    TRY
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(16384) DO
+      {
+        writer.write_byte((index % 251) AS CHECKED U8 AS BYTE);
+      }
+    }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 1); failed := TRUE; }
+    TEST_ASSERT(failed);
+
+    failed := FALSE;
+    TRY { writer.write_byte(255); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 1); failed := TRUE; }
+    TEST_ASSERT(failed);
+
+    VAR received [16384]BYTE;
+    VAR count SZ := 0;
+    VAR flushed BOOL := FALSE;
+    LOOP VALUE(attempt) FROM(0 AS SZ) UNTIL(64) DO
+    {
+      TEST_ASSERT(count < received.SIZE());
+      VAR buffer std::buffer_ref :(@data received[&count], @size received.SIZE() - count);
+      VAR transfer std::transfer_result;
+      reader.read(@buffer buffer, @result transfer);
+      TEST_ASSERT(transfer.succeeded && transfer.size > 0);
+      count += transfer.size;
+      TRY { writer.flush(); flushed := TRUE; }
+      CATCH error CONST& I32 { TEST_ASSERT(error == 1); }
+      IF (flushed) { BREAK; }
+    }
+    TEST_ASSERT(flushed);
+
+    LOOP WHILE (count < received.SIZE()) DO
+    {
+      VAR buffer std::buffer_ref :(@data received[&count], @size received.SIZE() - count);
+      VAR transfer std::transfer_result;
+      reader.read(@buffer buffer, @result transfer);
+      TEST_ASSERT(transfer.succeeded && transfer.size > 0);
+      count += transfer.size;
+    }
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(received.SIZE()) DO
+    {
+      TEST_ASSERT(received[index] == (index % 251) AS CHECKED U8 AS BYTE);
+    }
+
+    writer.write_byte(255);
+    writer.flush();
+    VAR last [1]BYTE;
+    VAR buffer std::buffer_ref :(@data last[&0], @size 1);
+    VAR transfer std::transfer_result;
+    reader.read(@buffer buffer, @result transfer);
+    TEST_ASSERT(transfer.succeeded && transfer.size == 1 && last[0] == (255 AS BYTE));
+  }
+}

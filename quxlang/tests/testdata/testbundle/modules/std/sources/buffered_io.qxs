@@ -38,28 +38,37 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
     .file VAR file_ref;
     .bytes VAR [16384]BYTE;
     .used VAR SZ;
+    DOC <$ Counts the buffered prefix already transferred to the file. $>
+    .flushed VAR SZ;
   }
 
   DOC <$ Borrows file without assuming responsibility for closing it. $>
   .CONSTRUCTOR FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
 
-  DOC <$ Writes all pending bytes, including partial native writes, or throws on failure. $>
+  DOC <$
+    Writes all pending bytes, including partial native writes, or throws on
+    failure. Completed transfers remain committed, and unwritten bytes remain
+    buffered for a subsequent flush.
+    $>
   .flush FUNCTION() MUT
   {
-    LOOP INIT { VAR offset SZ := 0; } WHILE (offset < .used) DO
+    LOOP WHILE (.flushed < .used) DO
     {
+      VAR offset SZ := .flushed;
       VAR buffer buffer_ref :(@data .bytes[&offset], @size .used - offset);
       VAR transfer transfer_result;
       .file.write(@buffer buffer, @result transfer);
       IF (transfer.succeeded == FALSE || transfer.size == 0) { THROW (1 AS I32); }
-      offset += transfer.size;
+      .flushed += transfer.size;
     }
     .used := 0;
+    .flushed := 0;
   }
 
   DOC <$ Appends one byte and flushes a full buffer. $>
   .write_byte FUNCTION(@ARG:value BYTE) MUT
   {
+    IF UNLIKELY (.used == 16384) { .flush(); }
     .bytes[.used] := value;
     .used++;
     IF UNLIKELY (.used == 16384) { .flush(); }
