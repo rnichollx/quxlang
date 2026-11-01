@@ -120,10 +120,32 @@ for the exact ordering and explicit predicate family.
 
 ## Pointer comparison
 
-Compatible instance pointers and array pointers support equality. Array
-Pointers also support `<=>` and the derived relational operators. Ordering a
-pointer does not make an otherwise invalid pointer dereference valid;
-allocation and lifetime constraints still apply.
+All ordinary instance or array pointers of a given type support `==`, `!=`,
+`<=>`, `<`, `<=`, `>`, and `>=`. Pointer comparisons define a total order,
+including null pointers,
+past-the-end pointers, and pointers whose allocations are no longer valid.
+Comparing pointers does not cause undefined behavior. These rules also apply
+during constant evaluation.
+
+Within an allocation, pointers are ordered by element index. The past-the-end
+pointer compares greater than every element pointer in that allocation.
+Ordering between allocations is unspecified but consistent. All comparison
+operators agree with the same order, including transitivity and equality.
+
+Whether a past-the-end pointer compares equal to another pointer is unspecified
+but consistent, subject to the allocation rules below. Pointers into distinct
+allocations whose allocation lifetimes overlap compare unequal, except that a
+past-the-end pointer may compare equal to the start of another allocation.
+Whether a pointer from an allocation that is no longer valid compares equal to
+a pointer from an allocation whose allocation lifetime did not overlap is
+unspecified but consistent.
+
+Comparison equality does not imply pointer identity. Equal pointers can retain
+distinct allocation dependencies. Equality does not establish a dependency on
+another allocation or permit access to that allocation. Access through such a
+pointer requires the applicable `LAUNDER` operation to establish the required
+dependency. Allocation validity, object lifetime, and dereference constraints
+continue to apply independently of comparison results.
 
 ## Lexicographic return support
 

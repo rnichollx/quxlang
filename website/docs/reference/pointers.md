@@ -75,8 +75,10 @@ ASSERT(iterator[3] == 40);
 
 Array pointers support element-based `+`, `-`, `++`, and `--`. Subtracting two
 compatible array pointers produces a signed pointer-sized element distance.
-They also support three-way ordering. These operations require pointers into a
-compatible valid sequence.
+Pointer arithmetic and subtraction require pointers into a compatible valid
+sequence. Ordinary instance and array pointers support the total order specified
+under [Pointer comparison](comparison-operators.md#pointer-comparison), including
+comparisons between allocations and comparisons of invalidated pointers.
 
 An instance pointer does not become an array pointer merely because `T` has a
 known size. The `->T` type denotes one object. The `=>>T` type denotes a

@@ -213,9 +213,6 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::pointer_cmp inst);
         std::string to_string_internal(vmir2::pointer_eq inst);
         std::string to_string_internal(vmir2::pointer_ne inst);
-        std::string to_string_internal(vmir2::global_cmp inst);
-        std::string to_string_internal(vmir2::global_eq inst);
-        std::string to_string_internal(vmir2::global_ne inst);
         std::string to_string_internal(vmir2::cmp_bool inst);
 
         std::string to_string_internal(vmir2::jump inst);

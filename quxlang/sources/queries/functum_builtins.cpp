@@ -1080,7 +1080,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, bool_type{});
             }
 
-            if (ptr.ptr_class == pointer_class::array && operator_name == "<=>" && !is_rhs)
+            if ((ptr.ptr_class == pointer_class::instance || ptr.ptr_class == pointer_class::array) && operator_name == "<=>" && !is_rhs)
             {
                 add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, builtin_symbol{"ORDER"});
             }

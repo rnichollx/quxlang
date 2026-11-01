@@ -1451,18 +1451,6 @@ namespace quxlang::vmir2
     {
         return "POINTER_NE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
-    std::string assembler::to_string_internal(vmir2::global_cmp inst)
-    {
-        return "GLOBAL_CMP %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
-    }
-    std::string assembler::to_string_internal(vmir2::global_eq inst)
-    {
-        return "GLOBAL_EQ %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
-    }
-    std::string assembler::to_string_internal(vmir2::global_ne inst)
-    {
-        return "GLOBAL_NE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
-    }
     std::string assembler::to_string_internal(vmir2::cmp_bool inst)
     {
         return "CMP_BOOL %" + std::to_string(inst.ordering) + ", " + rpnx::enum_traits< quxlang::vmir2::comparison_relation >::to_string(inst.relation) + ", %" + std::to_string(inst.result);

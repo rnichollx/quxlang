@@ -6224,7 +6224,7 @@ namespace quxlang::cortado_backend
                                                 {
                                                     emit_boolean_from_value(selected.from, selected.to, true);
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::address_cmp > || std::is_same_v< instruction_type, vmir2::pointer_cmp > || std::is_same_v< instruction_type, vmir2::global_cmp >)
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::address_cmp > || std::is_same_v< instruction_type, vmir2::pointer_cmp >)
                                                 {
                                                     if (local_is_gc_pointer(selected.a) || local_is_gc_pointer(selected.b))
                                                     {
@@ -6232,7 +6232,7 @@ namespace quxlang::cortado_backend
                                                     }
                                                     emit_pointer_comparison(selected.a, selected.b, selected.result);
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::pointer_eq > || std::is_same_v< instruction_type, vmir2::global_eq >)
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::pointer_eq >)
                                                 {
                                                     if (local_is_gc_pointer(selected.a) || local_is_gc_pointer(selected.b))
                                                     {
@@ -6252,7 +6252,7 @@ namespace quxlang::cortado_backend
                                                     };
                                                     emit_comparison_boolean(relation);
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::pointer_ne > || std::is_same_v< instruction_type, vmir2::global_ne >)
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::pointer_ne >)
                                                 {
                                                     if (local_is_gc_pointer(selected.a) || local_is_gc_pointer(selected.b))
                                                     {

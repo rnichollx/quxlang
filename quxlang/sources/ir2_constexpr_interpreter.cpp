@@ -7,6 +7,7 @@
 
 #include "constexpr_interpreter_internal.hpp"
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
+#include "quxlang/vmir2/constexpr_object_id.hpp"
 
 #include "quxlang/backends/asm/gnu_asm_converter.hpp"
 #include "quxlang/bytemath.hpp"
@@ -116,7 +117,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::set< type_symbol > asm_procedure_symbols;
     std::set< type_symbol > missing_antestatal_globals_val;
 
-    std::uint64_t next_object_id = 1;
+    constexpr_object_id next_object_id{.low = 1};
 
     enum class initguard_state : std::uint8_t {
         uninitialized = 0,
@@ -146,6 +147,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::optional< std::weak_ptr< local > > pointer_target;
         std::optional< std::weak_ptr< local > > one_past_the_end;
         bool invalidated = false;
+        /// Stable symbolic object ID, retained after storage expires; zero denotes null.
+        constexpr_object_id object_id;
     };
 
     struct object_pointer_impl
@@ -168,7 +171,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool negative;
         slot_stage stage = slot_stage::dead;
         bool storage_initiated = false;
-        std::uint64_t object_id{};
+        constexpr_object_id object_id;
+        /// Exclusive end of the contiguous ID range occupied by this storage tree.
+        constexpr_object_id object_id_end;
         bool readonly = false;
         std::optional< type_symbol > actual_type;
         std::optional< type_symbol > procedure;
@@ -226,7 +231,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     struct object_base
     {
         std::weak_ptr< object > member_of;
-        std::uint64_t object_id{};
+        constexpr_object_id object_id;
         std::optional< dtor_spec > dtor;
         bool alive = false;
         bool storage_initiated = false;
@@ -387,10 +392,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     // otherwise it returns a pointer to the object itself.
     pointer_impl get_pointer_to(std::size_t frame, local_index slot);
 
-    // make_pointer_to creates pointer to the object.
-    // Unlike get_pointer_to, it does not do any special handling for references,
-    // so can in principle create a pointer to a reference.
+    /** Creates a pointer to the object itself with a stable symbolic object ID, including reference objects. */
     pointer_impl make_pointer_to(std::shared_ptr< local > object);
+    /** Creates the endpoint of a symbolic array allocation. */
+    pointer_impl make_end_pointer(std::shared_ptr< local > array);
 
     /** Returns the complete object that owns one inheritance subobject. */
     std::shared_ptr< local > complete_inheritance_object(std::shared_ptr< local > const& object);
@@ -614,9 +619,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::pointer_cmp const& instruction);
     void exec_instr_val(vmir2::pointer_eq const& instruction);
     void exec_instr_val(vmir2::pointer_ne const& instruction);
-    void exec_instr_val(vmir2::global_cmp const& instruction);
-    void exec_instr_val(vmir2::global_eq const& instruction);
-    void exec_instr_val(vmir2::global_ne const& instruction);
     void exec_instr_val(vmir2::cmp_bool const& instruction);
     void exec_instr_val(vmir2::float_ieee_eq const& op);
     void exec_instr_val(vmir2::float_ieee_ne const& op);
@@ -714,7 +716,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::optional< std::weak_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > > pointer_memberof(pointer_impl ptr);
     std::int64_t pointer_offset_in_array(std::shared_ptr< local > array, pointer_impl ptr);
     pointer_impl pointer_arith(pointer_impl input, std::int64_t offset, type_symbol type);
-    std::partial_ordering pointer_compare(pointer_impl a, pointer_impl b);
+    std::strong_ordering pointer_compare(pointer_impl a, pointer_impl b);
     constexpr_allocation& register_constexpr_allocation(constexpr_allocation allocation);
     constexpr_allocation& allocation_for_pointer(pointer_impl const& ptr);
     void invalidate_local_tree(std::shared_ptr< local > const& object);
@@ -725,7 +727,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::shared_ptr< local > consume_local(local_index slot);
     interface_object load_interface_object(local_index slot, bool consume);
 
-    uint64_t alloc_object_id();
+    /** Allocates a unique identity and rejects exhaustion of the 128-bit address space. */
+    constexpr_object_id alloc_object_id();
     void set_data(local_index slot, std::vector< std::byte > data);
 
     bool consume_bool(local_index slot);
@@ -1848,8 +1851,7 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
 
     if (!is_ref)
     {
-        pointer_impl result;
-        result.pointer_target = stack[frame].local_values[slot];
+        pointer_impl result = make_pointer_to(stack[frame].local_values[slot]);
         if (result.pointer_target.value().lock() == nullptr)
         {
             throw compiler_bug("Attempt to take reference to non-existant storage location");
@@ -1870,7 +1872,19 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
 }
 quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_impl quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::make_pointer_to(std::shared_ptr< local > object)
 {
-    return pointer_impl{.pointer_target = object};
+    pointer_impl result;
+    result.pointer_target = object;
+    result.object_id = object->object_id;
+    return result;
+}
+
+/** Creates an endpoint whose object ID follows the complete allocation range and survives its destruction. */
+quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_impl quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::make_end_pointer(std::shared_ptr< local > array)
+{
+    pointer_impl result;
+    result.one_past_the_end = array;
+    result.object_id = array->object_id_end;
+    return result;
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::complete_inheritance_object(std::shared_ptr< local > const& object)
@@ -1989,7 +2003,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto guard = get_or_create_initguard(symbol);
     auto guard_ref = output_local(target_ref);
-    guard_ref->ref = pointer_impl{.pointer_target = guard};
+    guard_ref->ref = make_pointer_to(guard);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_complete const& igr)
@@ -2158,7 +2172,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    field->ref = pointer_impl{.pointer_target = field_slot};
+    field->ref = make_pointer_to(field_slot);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::swap const& swp)
 {
@@ -2306,11 +2320,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (arry_index == ref_to_ptr->array_members.size())
     {
-        field->ref = pointer_impl{.one_past_the_end = ref_to_ptr};
+        field->ref = make_end_pointer(ref_to_ptr);
     }
     else
     {
-        field->ref = pointer_impl{.pointer_target = ref_to_ptr->array_members.at(arry_index)};
+        field->ref = make_pointer_to(ref_to_ptr->array_members.at(arry_index));
     }
     begin_lifetime(field);
 
@@ -2429,7 +2443,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (is_ref(this_type) || is_ptr(this_type))
     {
         std::shared_ptr< local >& this_local = get_current_frame().local_values[this_argument->second];
-        this_local->ref = pointer_impl{.pointer_target = adjusted_receiver};
+        this_local->ref = make_pointer_to(adjusted_receiver);
     }
     else
     {
@@ -2493,7 +2507,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             }
             selected = complete;
         }
-        source_pointer.pointer_target = selected;
+        source_pointer = make_pointer_to(selected);
     }
 
     std::shared_ptr< local > const result = output_local(instruction.result);
@@ -2551,7 +2565,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    result->ref = pointer_impl{.pointer_target = inheritance_subobject(complete, embedded_phase_subobject(complete, selected->target_subobject))};
+    result->ref = make_pointer_to(inheritance_subobject(complete, embedded_phase_subobject(complete, selected->target_subobject)));
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_type_is const& instruction)
 {
@@ -2629,7 +2643,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::shared_ptr< local > const storage_pointer = output_local(instruction.storage_pointer);
-    storage_pointer->ref = pointer_impl{.pointer_target = storage};
+    storage_pointer->ref = make_pointer_to(storage);
     auto write_unsigned = [&](local_index target, std::uint64_t value) -> void
     {
         std::vector< std::byte > bytes(get_type_size(get_local_type(target)), std::byte{0});
@@ -2690,7 +2704,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto proc_local = get_or_create_procedure(gpp.routine, gpp.calling_convention);
     auto ptrval = output_local(gpp.pointer_index);
-    ptrval->ref = pointer_impl{.pointer_target = proc_local};
+    ptrval->ref = make_pointer_to(proc_local);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::storage_init const& sin)
 {
@@ -2828,7 +2842,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     auto out_ref = output_local(spn.to_reference);
-    out_ref->ref = pointer_impl{.pointer_target = storage_local->stored_object};
+    out_ref->ref = make_pointer_to(storage_local->stored_object);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_underyling_storage const& instruction)
@@ -2873,7 +2887,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::shared_ptr< local > result = output_local(instruction.storage_pointer);
-    result->ref = pointer_impl{.pointer_target = storage_object};
+    result->ref = make_pointer_to(storage_object);
     end_lifetime(object_pointer);
     object_pointer = nullptr;
 }
@@ -2949,7 +2963,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::shared_ptr< local > const result = output_local(instruction.result);
-    result->ref = pointer_impl{.pointer_target = subject->fusion_payload_storage};
+    result->ref = make_pointer_to(subject->fusion_payload_storage);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::fusion_set_active const& instruction)
@@ -3248,7 +3262,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     });
 
     auto result = output_local(cal.result);
-    result->ref = pointer_impl{.pointer_target = storage_local};
+    result->ref = make_pointer_to(storage_local);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_alloc_multiple const& cal)
@@ -3268,6 +3282,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         root->array_members.push_back(element);
         elements.push_back(std::move(element));
     }
+    root->object_id_end = next_object_id;
     begin_lifetime(root);
 
     register_constexpr_allocation(constexpr_allocation{
@@ -3281,11 +3296,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result = output_local(cal.result);
     if (count == 0)
     {
-        result->ref = pointer_impl{.one_past_the_end = root};
+        result->ref = make_end_pointer(root);
     }
     else
     {
-        result->ref = pointer_impl{.pointer_target = root->array_members.front()};
+        result->ref = make_pointer_to(root->array_members.front());
     }
 }
 
@@ -3374,7 +3389,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto storage_local = get_or_create_global_storage(symbol, storage_type);
     auto out_ref = output_local(target_ref);
-    out_ref->ref = pointer_impl{.pointer_target = storage_local};
+    out_ref->ref = make_pointer_to(storage_local);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_object_ref(type_symbol symbol, local_index target_ref)
@@ -3388,7 +3403,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     type_symbol const object_type = remove_ref(target_type);
     std::shared_ptr< local > object = get_or_create_zero_initialized_global_object(symbol, object_type);
     auto out_ref = output_local(target_ref);
-    out_ref->ref = pointer_impl{.pointer_target = object};
+    out_ref->ref = make_pointer_to(object);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_antestatal_ref(type_symbol symbol, local_index target_ref)
@@ -3402,7 +3417,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto const object_type = remove_ref(target_type);
     auto object = get_or_create_antestatal_global(symbol, object_type);
     auto out_ref = output_local(target_ref);
-    out_ref->ref = pointer_impl{.pointer_target = object};
+    out_ref->ref = make_pointer_to(object);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::make_reference const& mrf)
@@ -3908,7 +3923,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
         {
             std::ostringstream debug_message;
-            debug_message << "ptr object id: " << ptr->object_id;
+            debug_message << "ptr object id: " << ptr->object_id.high << ":" << ptr->object_id.low;
             if (debug_line_handler)
             {
                 debug_line_handler(debug_message.str());
@@ -3928,7 +3943,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("dereference pointer to invalid storage location");
     }
 
-    pointer_impl pointer_to_target = pointer_impl{.pointer_target = pointer_target};
+    pointer_impl pointer_to_target = make_pointer_to(pointer_target);
 
     ref->ref = pointer_to_target;
 }
@@ -4113,7 +4128,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             throw constexpr_logic_execution_error("Error executing <compare_exchange>: uninitialized pointer operand");
         }
-        matched = pointer_compare(*target->ref, *expected->ref) == std::partial_ordering::equivalent;
+        matched = pointer_compare(*target->ref, *expected->ref) == std::strong_ordering::equal;
     }
     else
     {
@@ -4334,7 +4349,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     else
     {
-        from_ptr.pointer_target = from_local;
+        from_ptr = make_pointer_to(from_local);
     }
 
     if (!is_ref(to_type))
@@ -4383,7 +4398,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
                 std::ostringstream debug_message;
-                debug_message << "str: from: " << from_ptr_target.object_id << " to: " << to_ptr_target.object_id;
+                debug_message << "str: from: " << from_ptr_target.object_id.high << ":" << from_ptr_target.object_id.low << " to: " << to_ptr_target.object_id.high << ":" << to_ptr_target.object_id.low;
                 if (debug_line_handler)
                 {
                     debug_line_handler(debug_message.str());
@@ -5380,22 +5395,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto ptr1 = load_as_pointer(instruction.a, true);
     auto ptr2 = load_as_pointer(instruction.b, true);
-    std::partial_ordering const cmp_result = pointer_compare(ptr1, ptr2);
-    if (cmp_result == std::partial_ordering::less)
+    std::strong_ordering const cmp_result = pointer_compare(ptr1, ptr2);
+    if (cmp_result == std::strong_ordering::less)
     {
         set_data(instruction.result, {std::byte{0xff}});
     }
-    else if (cmp_result == std::partial_ordering::greater)
+    else if (cmp_result == std::strong_ordering::greater)
     {
         set_data(instruction.result, {std::byte{1}});
     }
-    else if (cmp_result == std::partial_ordering::equivalent)
-    {
-        set_data(instruction.result, {std::byte{0}});
-    }
     else
     {
-        throw constexpr_logic_execution_error("Error executing POINTER_CMP: pointers are unordered, program behavior is undefined");
+        set_data(instruction.result, {std::byte{0}});
     }
 }
 
@@ -5432,32 +5443,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pointer_eq const& instruction)
 {
-    std::partial_ordering const result = pointer_compare(load_as_pointer(instruction.a, true), load_as_pointer(instruction.b, true));
-    set_data(instruction.result, {result == std::partial_ordering::equivalent ? std::byte{1} : std::byte{0}});
+    std::strong_ordering const result = pointer_compare(load_as_pointer(instruction.a, true), load_as_pointer(instruction.b, true));
+    set_data(instruction.result, {result == std::strong_ordering::equal ? std::byte{1} : std::byte{0}});
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pointer_ne const& instruction)
 {
-    std::partial_ordering const result = pointer_compare(load_as_pointer(instruction.a, true), load_as_pointer(instruction.b, true));
-    set_data(instruction.result, {result != std::partial_ordering::equivalent ? std::byte{1} : std::byte{0}});
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::global_cmp const& instruction)
-{
-    (void)instruction;
-    throw rpnx::unimplemented();
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::global_eq const& instruction)
-{
-    (void)instruction;
-    throw rpnx::unimplemented();
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::global_ne const& instruction)
-{
-    (void)instruction;
-    throw rpnx::unimplemented();
+    std::strong_ordering const result = pointer_compare(load_as_pointer(instruction.a, true), load_as_pointer(instruction.b, true));
+    set_data(instruction.result, {result != std::strong_ordering::equal ? std::byte{1} : std::byte{0}});
 }
 
 quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter()
@@ -5959,10 +5952,7 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
     }
     else if (new_position == arry->array_members.size())
     {
-        pointer_impl output;
-        output.one_past_the_end = arry;
-        output.pointer_target = std::nullopt;
-        return output;
+        return make_end_pointer(arry);
     }
     else if (new_position > arry->array_members.size())
     {
@@ -5970,70 +5960,13 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
     }
     else
     {
-        pointer_impl output;
-        output.one_past_the_end = std::nullopt;
-        output.pointer_target = arry->array_members[new_position];
-        return output;
+        return make_pointer_to(arry->array_members[new_position]);
     }
 }
-std::partial_ordering quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_compare(pointer_impl a, pointer_impl b)
+/** Orders symbolic pointers without consulting allocation validity or host addresses. */
+std::strong_ordering quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_compare(pointer_impl a, pointer_impl b)
 {
-    bool const a_is_null = pointer_is_nullptr(a);
-    bool const b_is_null = pointer_is_nullptr(b);
-    if (a_is_null || b_is_null)
-    {
-        return a_is_null == b_is_null ? std::partial_ordering::equivalent : std::partial_ordering::unordered;
-    }
-
-    // The only valid use of an invalidated pointer is a comparison with nullptr, which is checked above,
-    // all remaining comparisons are UB.
-    if (pointer_invalidated(a) || pointer_invalidated(b))
-    {
-        throw constexpr_logic_execution_error("comparison of an invalidated pointer with a value other than NULLPTR is undefined behavior");
-    }
-
-    std::shared_ptr< local > const a_target = a.pointer_target.has_value() ? a.pointer_target->lock() : nullptr;
-    std::shared_ptr< local > const b_target = b.pointer_target.has_value() ? b.pointer_target->lock() : nullptr;
-    if (a_target != nullptr && a_target == b_target)
-    {
-        return std::partial_ordering::equivalent;
-    }
-
-    std::optional< std::weak_ptr< local > > const a_member = pointer_memberof(a);
-    std::optional< std::weak_ptr< local > > const b_member = pointer_memberof(b);
-    if (!a_member.has_value() || !b_member.has_value())
-    {
-        return std::partial_ordering::unordered;
-    }
-
-    std::shared_ptr< local > const p1 = a_member->lock();
-    std::shared_ptr< local > const p2 = b_member->lock();
-    if (p1 != p2)
-    {
-        // TODO: Implement global pointer ordering here where requested.
-        return std::partial_ordering::unordered;
-    }
-
-    if ((a_target && std::ranges::find(p1->array_members, a_target) == p1->array_members.end()) ||
-        (b_target && std::ranges::find(p1->array_members, b_target) == p1->array_members.end()))
-    {
-        return std::partial_ordering::unordered;
-    }
-
-    auto off1 = pointer_offset_in_array(p1, a);
-    auto off2 = pointer_offset_in_array(p2, b);
-    if (off1 < off2)
-    {
-        return std::partial_ordering::less;
-    }
-    else if (off1 > off2)
-    {
-        return std::partial_ordering::greater;
-    }
-    else
-    {
-        return std::partial_ordering::equivalent;
-    }
+    return a.object_id <=> b.object_id;
 }
 
 std::uint64_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::consume_u64(local_index slot)
@@ -6118,9 +6051,14 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::inter
     return *local_ptr->interface_value;
 }
 
-uint64_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::alloc_object_id()
+quxlang::vmir2::constexpr_object_id quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::alloc_object_id()
 {
-    return next_object_id++;
+    constexpr_object_id result = next_object_id;
+    if (!next_object_id.try_increment())
+    {
+        throw constexpr_logic_execution_error("constexpr object-ID address space exhausted");
+    }
+    return result;
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::set_data(local_index slot, std::vector< std::byte > data)
@@ -6546,12 +6484,13 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 
     return frame.local_values[local_idx];
 }
-/** Allocates the complete storage tree without beginning any object lifetime. */
+/** Allocates a contiguous object-ID range for the storage tree without beginning any object lifetime. */
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_object_skeleton(type_symbol type)
 {
     std::shared_ptr< local > object = std::make_shared< local >();
-    object->object_id = next_object_id++;
+    object->object_id = alloc_object_id();
     init_storage(object, type);
+    object->object_id_end = next_object_id;
     assert(object->stage == slot_stage::dead);
     return object;
 }
@@ -7075,7 +7014,7 @@ quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_in
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::store_as_reference(local_index slot, std::shared_ptr< local > value)
 {
     auto local_ptr = output_local(slot);
-    local_ptr->ref = pointer_impl{.pointer_target = value};
+    local_ptr->ref = make_pointer_to(value);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::store_as_pointer(local_index slot, pointer_impl value)
 {
@@ -7420,23 +7359,23 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
         auto array = local_from_antestatal_access(array_element.array);
         if (array_element.index == array->array_members.size())
         {
-            return pointer_impl{.one_past_the_end = array};
+            return make_end_pointer(array);
         }
         if (array_element.index > array->array_members.size())
         {
             throw constexpr_logic_execution_error("antestatal pointer array element is out of bounds");
         }
-        return pointer_impl{.pointer_target = array->array_members.at(static_cast< std::size_t >(array_element.index))};
+        return make_pointer_to(array->array_members.at(static_cast< std::size_t >(array_element.index)));
     }
 
     if (typeis< procedure_type >(ptr_type.target) && typeis< antestatal_access_global >(access))
     {
         auto const& procedure = as< antestatal_access_global >(access);
         auto const& expected_proc = as< procedure_type >(ptr_type.target);
-        return pointer_impl{.pointer_target = get_or_create_procedure(procedure.symbol, expected_proc.calling_convention)};
+        return make_pointer_to(get_or_create_procedure(procedure.symbol, expected_proc.calling_convention));
     }
 
-    return pointer_impl{.pointer_target = local_from_antestatal_access(access)};
+    return make_pointer_to(local_from_antestatal_access(access));
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local_from_antestatal_access(antestatal_access const& access)
@@ -8325,7 +8264,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     lock->storage_initiated = true;
     lock->stage = slot_stage::full;
     lock->data.assign(1, std::byte{1});
-    lock->ref = pointer_impl{.pointer_target = guard};
+    lock->ref = make_pointer_to(guard);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::abort_initguard_lock_if_needed(type_symbol slot_type, std::shared_ptr< local > const& lock)

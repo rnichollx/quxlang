@@ -1339,24 +1339,6 @@ namespace quxlang::vmir2
             consume(cmp.b);
             output(cmp.result);
         }
-        void apply_internal(vmir2::global_cmp const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::global_eq const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
-        void apply_internal(vmir2::global_ne const& cmp)
-        {
-            consume(cmp.a);
-            consume(cmp.b);
-            output(cmp.result);
-        }
         void apply_internal(vmir2::cmp_bool const& cmp)
         {
             consume(cmp.ordering);

@@ -1,6 +1,7 @@
 // Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/bytemath.hpp" // Include the header file with the functions to test
 #include "gtest/gtest.h"
+#include "quxlang/vmir2/constexpr_object_id.hpp"
 #include <stdexcept> // For std::invalid_argument
 #include <string>
 #include <vector>
@@ -480,4 +481,31 @@ TEST(ByteMathStringConv, InvalidInput)
     EXPECT_THROW(string_to_le_raw("123a45"), std::invalid_argument);
     EXPECT_THROW(string_to_le_raw(" 123"), std::invalid_argument);
     EXPECT_THROW(string_to_le_raw("-123"), std::invalid_argument);
+}
+
+// The 128-bit exhaustion boundary cannot be reached by a practical Quxlang allocation test.
+TEST(ConstexprObjectId, OrderingAndCarry)
+{
+    quxlang::vmir2::constexpr_object_id value{.high = 7, .low = std::numeric_limits< std::uint64_t >::max()};
+    quxlang::vmir2::constexpr_object_id previous = value;
+    EXPECT_TRUE(value.try_increment());
+    EXPECT_EQ(value.high, 8);
+    EXPECT_EQ(value.low, 0);
+    EXPECT_GT(value, previous);
+    EXPECT_NE(value, previous);
+    EXPECT_TRUE(value.try_increment());
+    EXPECT_EQ(value.low, 1);
+}
+
+TEST(ConstexprObjectId, OverflowPreservesIdentity)
+{
+    quxlang::vmir2::constexpr_object_id value{
+        .high = std::numeric_limits< std::uint64_t >::max(),
+        .low = std::numeric_limits< std::uint64_t >::max() - 1,
+    };
+    EXPECT_TRUE(value.try_increment());
+    quxlang::vmir2::constexpr_object_id maximum = value;
+    EXPECT_FALSE(value.try_increment());
+    EXPECT_EQ(value, maximum);
+    EXPECT_GT(value, quxlang::vmir2::constexpr_object_id{});
 }

@@ -226,10 +226,10 @@ DOC <$
   }
 
   DOC <$ Compares ownership identities. $>
-  .OPERATOR==
-    FUNCTION(@OTHER CONST& strong_ptr#(T)): BOOL
+  .OPERATOR<=>
+    FUNCTION(@OTHER CONST& strong_ptr#(T)): ORDER
   {
-    RETURN .control == OTHER.control;
+    RETURN .control <=> OTHER.control;
   }
 }
 

@@ -2,6 +2,13 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::pointer_ordering_tests NAMESPACE
 {
+  DOC <$ An array element contains multiple subobjects in its allocation range. $>
+  ::record STRUCT
+  {
+    .first VAR I32;
+    .second VAR I32;
+  }
+
   DOC <$ All comparisons follow element position within one allocation, including its one-past endpoint. $>
   ::array_positions
     TEMPLATE(@T TYPE AUTO) FUNCTION()
@@ -31,12 +38,89 @@ LANGUAGE QUXLANG EN 0.0;
     }
   }
 
-  DOC <$ Ordered pointer pairs agree for byte, four-byte and eight-byte element types. $>
+  DOC <$ Ordered pointer pairs agree for primitive elements and elements containing subobjects. $>
   ::element_widths
     DUAL_TEST
   {
     array_positions#(U8)();
     array_positions#(I32)();
     array_positions#(U64)();
+    array_positions#([2]I32)();
+    array_positions#(record)();
+  }
+
+  DOC <$ Equality and relational operators agree with a stable total order. $>
+  ::check_order
+    TEMPLATE(@T TYPE AUTO) FUNCTION(@a T, @b T, @c T)
+  {
+    VAR order ORDER := a <=> b;
+    TEST_ASSERT((a == b) == (order == ORDER::EQUAL));
+    TEST_ASSERT((a != b) == (order != ORDER::EQUAL));
+    TEST_ASSERT((a < b) == (order == ORDER::LESS));
+    TEST_ASSERT((a > b) == (order == ORDER::GREATER));
+    TEST_ASSERT((a <= b) == ((a > b) == FALSE));
+    TEST_ASSERT((a >= b) == ((a < b) == FALSE));
+    TEST_ASSERT((a < b) == (b > a));
+    TEST_ASSERT((a == b) == (b == a));
+    TEST_ASSERT((a <=> b) == order);
+    IF (a <= b && b <= c) { TEST_ASSERT(a <= c); }
+    IF (a >= b && b >= c) { TEST_ASSERT(a >= c); }
+  }
+
+  DOC <$ Distinct live allocations and null pointers participate in the total order. $>
+  ::unrelated_allocations
+    DUAL_TEST
+  {
+    VAR first I32 := 1;
+    VAR second I32 := 2;
+    VAR third I32 := 3;
+    VAR null_pointer ->I32 := NULL;
+    TEST_ASSERT(first<- != second<-);
+    check_order#(->I32)(@a first<-, @b second<-, @c third<-);
+    check_order#(->I32)(@a second<-, @b third<-, @c first<-);
+    check_order#(->I32)(@a third<-, @b first<-, @c second<-);
+    check_order#(->I32)(@a second<-, @b first<-, @c third<-);
+    check_order#(->I32)(@a first<-, @b third<-, @c second<-);
+    check_order#(->I32)(@a third<-, @b second<-, @c first<-);
+    check_order#(CONST->I32)(@a first<-, @b second<-, @c third<-);
+    check_order#(->VOID)(@a first<- AS REINTERPRET ->VOID,
+      @b second<- AS REINTERPRET ->VOID, @c NULL);
+    check_order#(->I32)(@a null_pointer, @b first<-, @c second<-);
+    check_order#(->I32)(@a first<-, @b null_pointer, @c second<-);
+    check_order#(->I32)(@a null_pointer, @b null_pointer, @c first<-);
+    VAR left [2]I32;
+    VAR right [2]I32;
+    VAR end =>>I32 := left[& 0] + (2 AS SZ);
+    TEST_ASSERT(left[& 0] != right[& 0]);
+    TEST_ASSERT(end != right[& 1]);
+    check_order#(=>>I32)(@a left[& 0], @b right[& 0], @c end);
+    check_order#(=>>I32)(@a end, @b right[& 0], @c right[& 1]);
+  }
+
+  DOC <$ Expired pointers preserve comparison results and remain totally ordered. $>
+  ::expired_allocations
+    DUAL_TEST
+  {
+    VAR first ->I32 := NEW I32;
+    VAR second ->I32 := NEW I32;
+    VAR order ORDER := first <=> second;
+    VAR copy ->I32 := first;
+    DELETE first;
+    DELETE second;
+    TEST_ASSERT(first == copy);
+    TEST_ASSERT((first <=> second) == order);
+    VAR current ->I32 := NEW I32;
+    check_order#(->I32)(@a first, @b second, @c current);
+    check_order#(->I32)(@a current, @b first, @c second);
+    DELETE current;
+    VAR escaped =>>I32 := NULL;
+    VAR escaped_end =>>I32 := NULL;
+    {
+      VAR values [2]I32;
+      escaped := values[& 0];
+      escaped_end := escaped + (2 AS SZ);
+    }
+    TEST_ASSERT(escaped < escaped_end);
+    check_order#(=>>I32)(@a escaped, @b escaped_end, @c NULL);
   }
 }

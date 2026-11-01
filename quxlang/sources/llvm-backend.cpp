@@ -8691,7 +8691,7 @@ namespace quxlang::llvm_backend::detail
             store_comparison_order(state, instruction.result, builder.CreateICmpULT(lhs_key, rhs_key), builder.CreateICmpUGT(lhs_key, rhs_key));
         }
 
-        /** Emits an unsigned address comparison for ADDRESS, pointer, and global comparison instructions. */
+        /** Emits an unsigned address comparison for ADDRESS and pointer comparison instructions. */
         void emit_address_comparison(function_codegen_state& state, quxlang::vmir2::local_index a, quxlang::vmir2::local_index b, quxlang::vmir2::local_index result)
         {
             llvm::Value* lhs = builder.CreatePtrToInt(load_slot_value(state, builder, a), pointer_integer_type());
@@ -8727,11 +8727,11 @@ namespace quxlang::llvm_backend::detail
             emit_address_comparison(state, instruction.a, instruction.b, instruction.result);
         }
 
-        /** Emits pointer/global equality without imposing an ordering requirement. */
+        /** Emits pointer equality in the total pointer order. */
         void emit_address_equality(function_codegen_state& state, quxlang::vmir2::local_index a, quxlang::vmir2::local_index b, quxlang::vmir2::local_index result, llvm::CmpInst::Predicate predicate)
         {
-            llvm::Value* lhs = load_slot_value(state, builder, a);
-            llvm::Value* rhs = load_slot_value(state, builder, b);
+            llvm::Value* lhs = builder.CreatePtrToInt(load_slot_value(state, builder, a), pointer_integer_type());
+            llvm::Value* rhs = builder.CreatePtrToInt(load_slot_value(state, builder, b), pointer_integer_type());
             store_boolean(state, builder, result, builder.CreateICmp(predicate, lhs, rhs));
         }
 
@@ -8742,24 +8742,6 @@ namespace quxlang::llvm_backend::detail
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::pointer_ne const& instruction)
-        {
-            (void)current_block;
-            emit_address_equality(state, instruction.a, instruction.b, instruction.result, llvm::CmpInst::ICMP_NE);
-        }
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::global_cmp const& instruction)
-        {
-            (void)current_block;
-            emit_address_comparison(state, instruction.a, instruction.b, instruction.result);
-        }
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::global_eq const& instruction)
-        {
-            (void)current_block;
-            emit_address_equality(state, instruction.a, instruction.b, instruction.result, llvm::CmpInst::ICMP_EQ);
-        }
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::global_ne const& instruction)
         {
             (void)current_block;
             emit_address_equality(state, instruction.a, instruction.b, instruction.result, llvm::CmpInst::ICMP_NE);
