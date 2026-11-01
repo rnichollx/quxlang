@@ -5,6 +5,7 @@ out
 .*
 !.gitignore
 !.gitattributes
+!.git-blame-ignore-revs
 !.clang-format
 **.zip
 .aider*
