@@ -11,8 +11,9 @@ For an ordinary named declaration, the components appear in this order:
 1. optional `DOC <$ ... $>`;
 2. optional `PRIVATE(...)`;
 3. the `.name` or `::name` declaration name;
-4. optional `INCLUDE_IF(...)`;
-5. the declaration kind and definition.
+4. optional `DOC <$ ... $>` if no block precedes the name;
+5. optional `INCLUDE_IF(...)`;
+6. the declaration kind and definition.
 
 ```quxlang
 DOC <$
@@ -40,14 +41,16 @@ Member and type-owned declarations use the same position:
 }
 ```
 
-The `DOC` block precedes the declaration name and any explicit privacy modifier.
-Only one `DOC` block is allowed for one declaration. A block after the declaration
-name, a block without a following declaration, and a block preceding a scoped
-`PRIVATE` block are syntax errors. Declarations inside a scoped `PRIVATE` block
-may each carry their own prefix documentation.
+The `DOC` block may precede the declaration name and any explicit privacy modifier,
+or immediately follow the declaration name before `INCLUDE_IF(...)` and the
+declaration kind. Only one `DOC` block is allowed for one declaration, including
+when both positions are used. A block without a following declaration and a block
+preceding a scoped `PRIVATE` block are syntax errors. Declarations inside a scoped `PRIVATE` block
+may each carry their own documentation.
 
-The same placement applies to named and anonymous base declarations and import
-declarations. Documentation belongs to the following declaration alone; nested
+Named base declarations and named import declarations accept both positions.
+Anonymous bases also accept `DOC` immediately after `.BASE`. Import shorthand
+accepts documentation before `IMPORT`. Documentation belongs to the following declaration alone; nested
 declarations and subsequent declarations receive their own documentation.
 
 ## Delimiters and text
@@ -87,7 +90,7 @@ Whitespace and comments after `$>` are skipped before parsing the declaration.
 `DOC` attaches to the declaration before target filtering and privacy checks.
 It does not make an unavailable declaration active and does not make a private
 declaration public. The ordering with `INCLUDE_IF` is syntactic: when both are
-present, `DOC` precedes the declaration name and `INCLUDE_IF(...)` follows the name.
+present, `DOC` precedes `INCLUDE_IF(...)`.
 
 See [Target Availability](availability-and-targets.md) and
 [Privacy](privacy.md).

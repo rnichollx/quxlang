@@ -754,19 +754,25 @@ TEST(parsing, declaration_doc_block_before_declaration)
     EXPECT_EQ(*global.doc, "x");
     ASSERT_TRUE(global.privacy.has_value());
 
+    quxlang::ast2_file_declaration suffix = parse_file_text("PRIVATE(MODULE) ::foo DOC <$x$> INCLUDE_IF(TRUE) FUNCTION() {}");
+    quxlang::global_subdeclaration const& documented = suffix.declarations[0].get_as< quxlang::global_subdeclaration >();
+    EXPECT_EQ(documented.doc, "x");
+    EXPECT_TRUE(documented.include_if.has_value());
+    EXPECT_TRUE(documented.privacy.has_value());
+
     quxlang::ast2_file_declaration nested = parse_file_text(R"(
         DOC <$outer$> ::outer STRUCT
         {
             DOC <$base$> .BASE parent;
-            DOC <$field$> .field VAR I32;
+            .field DOC <$field$> VAR I32;
             .plain VAR I32;
-            DOC <$inner$> ::inner STRUCT { .plain VAR I32; }
+            ::inner DOC <$inner$> STRUCT { .plain VAR I32; }
         }
         ::plain STRUCT {}
         DOC <$import$> IMPORT library;
         DOC <$union$> ::choice UNION
         {
-            DOC <$method$> .read FUNCTION() {}
+            .read DOC <$method$> FUNCTION() {}
         }
     )");
     ASSERT_EQ(nested.declarations.size(), 4);
@@ -792,7 +798,8 @@ TEST(parsing, declaration_doc_block_before_declaration)
 TEST(parsing, declaration_rejects_multiple_doc_blocks)
 {
     EXPECT_THROW(parse_file_text("DOC <$x$> DOC <$y$> ::foo FUNCTION() { }"), std::logic_error);
-    EXPECT_THROW(parse_file_text("::foo DOC <$x$> FUNCTION() { }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("DOC <$x$> ::foo DOC <$y$> FUNCTION() { }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo DOC <$x$> DOC <$y$> FUNCTION() { }"), std::logic_error);
     EXPECT_THROW(parse_file_text("DOC <$x$>"), std::logic_error);
     EXPECT_THROW(parse_file_text("DOC <$x$> PRIVATE(MODULE) { ::foo STRUCT {} }"), std::logic_error);
 }

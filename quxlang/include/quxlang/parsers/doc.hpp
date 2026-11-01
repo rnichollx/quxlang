@@ -115,16 +115,17 @@ namespace quxlang::parsers
         throw syntax_compilation_error("unexpected end of file in DOC block");
     }
 
-    inline std::optional< std::string > try_parse_single_doc(parsing_context& ctx)
+    /** Parses documentation at one declaration position and rejects duplicate blocks across positions. */
+    inline std::optional< std::string > try_parse_single_doc(parsing_context& ctx, std::optional< std::string > existing)
     {
         auto out = try_parse_doc(ctx);
 
-        if (out && try_parse_doc(ctx))
+        if (out && (existing.has_value() || try_parse_doc(ctx)))
         {
             throw syntax_compilation_error("only one DOC block is allowed per declaration");
         }
 
-        return out;
+        return out ? std::move(out) : std::move(existing);
     }
 
 } // namespace quxlang::parsers

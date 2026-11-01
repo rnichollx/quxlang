@@ -44,6 +44,7 @@ namespace quxlang::parsers
             anonymous = true;
             declaration.kind = inheritance_kind::nonvirtual;
             skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
+            trial.pending_doc = try_parse_single_doc(trial, std::move(trial.pending_doc));
             include_if = try_parse_include_if(trial);
         }
         else
@@ -55,6 +56,7 @@ namespace quxlang::parsers
             }
             member_name = std::move(selector);
             skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
+            trial.pending_doc = try_parse_single_doc(trial, std::move(trial.pending_doc));
             include_if = try_parse_include_if(trial);
 
             if (skip_keyword_if_is(trial.iter_pos, trial.iter_end, "BASE"))
@@ -91,6 +93,7 @@ namespace quxlang::parsers
         std::optional< source_location > location = ctx.get_location_optional(begin, trial.iter_pos);
         declaration.location = location;
         ctx.iter_pos = trial.iter_pos;
+        ctx.pending_doc = std::move(trial.pending_doc);
         return member_subdeclaration{
             .decl = std::move(declaration),
             .name = std::move(member_name),
@@ -108,7 +111,7 @@ namespace quxlang::parsers
         while (true)
         {
             skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
-            ctx.pending_doc = try_parse_single_doc(ctx);
+            ctx.pending_doc = try_parse_single_doc(ctx, std::nullopt);
             std::optional< privacy_scope > declaration_privacy = try_parse_privacy_scope(ctx);
             if (declaration_privacy.has_value())
             {

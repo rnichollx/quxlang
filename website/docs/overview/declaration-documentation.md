@@ -18,8 +18,18 @@ For an ordinary named declaration, modifiers occur in this order:
 1. optional `DOC <$ ... $>`;
 2. optional `PRIVATE(...)`;
 3. the declaration name;
-4. optional `INCLUDE_IF(...)`;
-5. the declaration kind and definition.
+4. optional `DOC <$ ... $>` if no block precedes the name;
+5. optional `INCLUDE_IF(...)`;
+6. the declaration kind and definition.
+
+Documentation may also follow the declaration name:
+
+```quxlang
+::double DOC <$ Returns twice the supplied value. $> FUNCTION(@ARG:value I32): I32
+{
+  RETURN value * 2;
+}
+```
 
 Member documentation follows the same placement:
 

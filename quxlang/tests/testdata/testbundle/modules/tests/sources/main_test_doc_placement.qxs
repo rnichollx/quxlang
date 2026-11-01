@@ -1,0 +1,41 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::doc_placement_tests DOC <$ Exercises documentation on named declarations. $> NAMESPACE
+{
+  DOC <$ Returns the prefix-documented value. $>
+  ::prefix FUNCTION(): I32 { RETURN 17; }
+
+  PRIVATE(MODULE) ::suffix DOC <$ Returns the name-documented value. $>
+    INCLUDE_IF(TRUE) FUNCTION(): I32 { RETURN 23; }
+
+  ::parent DOC <$ Supplies a base member. $> STRUCT
+  {
+    .value DOC <$ Stores the inherited value. $> VAR I32;
+  }
+
+  ::record STRUCT
+  {
+    .parent DOC <$ Names the direct base. $> BASE parent;
+    .read DOC <$ Reads the inherited value. $> FUNCTION() CONST: I32
+    {
+      RETURN .parent.value;
+    }
+  }
+
+  ::anonymous_record STRUCT
+  {
+    .BASE DOC <$ Supplies anonymous inheritance. $> parent;
+  }
+
+  ::placements DOC <$ Verifies declarations with either documentation position. $> DUAL_TEST
+  {
+    TEST_ASSERT(prefix() == 17);
+    TEST_ASSERT(suffix() == 23);
+    VAR value record;
+    value.parent.value := 31;
+    TEST_ASSERT(value.read() == 31);
+    VAR anonymous anonymous_record;
+    anonymous.value := 37;
+    TEST_ASSERT(anonymous.value == 37);
+  }
+}

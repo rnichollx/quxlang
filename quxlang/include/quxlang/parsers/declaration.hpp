@@ -65,7 +65,7 @@ namespace quxlang::parsers
         while (true)
         {
             skip_whitespace_and_comments(pos, end);
-            ctx.pending_doc = try_parse_single_doc(ctx);
+            ctx.pending_doc = try_parse_single_doc(ctx, std::nullopt);
             std::optional< privacy_scope > declaration_privacy = try_parse_privacy_scope(ctx);
             if (declaration_privacy.has_value())
             {
@@ -130,6 +130,7 @@ namespace quxlang::parsers
         std::optional< expression > ifl;
         if (name_opt.has_value())
         {
+            ctx.pending_doc = try_parse_single_doc(ctx, std::move(ctx.pending_doc));
             ifl = try_parse_include_if(ctx);
         }
         std::optional< global_subdeclaration > import = try_parse_import_declaration(
@@ -211,7 +212,7 @@ namespace quxlang::parsers
     inline std::optional< subdeclaration > try_parse_subdeclaration(parsing_context& ctx)
     {
         skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
-        ctx.pending_doc = try_parse_single_doc(ctx);
+        ctx.pending_doc = try_parse_single_doc(ctx, std::nullopt);
         std::optional< subdeclaration > result = try_parse_subdeclaration(ctx, std::nullopt);
         if (ctx.pending_doc.has_value())
         {
