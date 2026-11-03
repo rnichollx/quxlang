@@ -2,6 +2,7 @@
 #include "quxlang/bytemath.hpp" // Include the header file with the functions to test
 #include "gtest/gtest.h"
 #include "quxlang/vmir2/constexpr_object_id.hpp"
+#include <quxlang/vmir2/constexpr_address.hpp>
 #include <stdexcept> // For std::invalid_argument
 #include <string>
 #include <vector>
@@ -508,4 +509,16 @@ TEST(ConstexprObjectId, OverflowPreservesIdentity)
     EXPECT_FALSE(value.try_increment());
     EXPECT_EQ(value, maximum);
     EXPECT_GT(value, quxlang::vmir2::constexpr_object_id{});
+}
+
+TEST(ConstexprAddress, ByteOffsetsPreserveAllocationIdentityAndRejectOverflow)
+{
+    quxlang::vmir2::constexpr_address first{.allocation = {.high = 2, .low = 7}, .offset = 12};
+    quxlang::vmir2::constexpr_address second = first;
+    EXPECT_TRUE(second.try_advance(4));
+    EXPECT_EQ(first.allocation, second.allocation);
+    EXPECT_LT(first, second);
+    EXPECT_FALSE(second.try_advance(std::numeric_limits< std::uint64_t >::max()));
+    EXPECT_EQ(second.offset, 16);
+    EXPECT_GT((quxlang::vmir2::constexpr_address{.allocation = {.high = 2, .low = 8}}), second);
 }

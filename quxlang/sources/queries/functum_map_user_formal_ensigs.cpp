@@ -83,7 +83,9 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             {
                 throw quxlang::semantic_compilation_error("Named variadic packs are not supported");
             }
-            formal_ensig.interface.named[param.first] = argif{.type = formal_type_opt.value(), .is_defaulted = param.second.is_defaulted, .is_pack = param.second.is_pack};
+            argif resolved = param.second;
+            resolved.type = *formal_type_opt;
+            formal_ensig.interface.named[param.first] = std::move(resolved);
         }
         for (auto const& param : decl.interface.positional)
         {
@@ -95,7 +97,9 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             {
                 throw quxlang::semantic_compilation_error("Type not found");
             }
-            formal_ensig.interface.positional.push_back(argif{.type = formal_type_opt.value(), .is_defaulted = param.is_defaulted, .is_pack = param.is_pack});
+            argif resolved = param;
+            resolved.type = *formal_type_opt;
+            formal_ensig.interface.positional.push_back(std::move(resolved));
         }
 
         if (is_member_functum && !formal_ensig.interface.named.contains("THIS"))

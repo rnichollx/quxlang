@@ -279,6 +279,8 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
             .arguments = input.arguments,
             .parameters = input.parameters,
             .adaptations = input.adaptations,
+        .lookup_kind = input.lookup_kind,
+        .implicit_named_arguments = input.implicit_named_arguments,
         });
         if (!instance.has_value())
         {

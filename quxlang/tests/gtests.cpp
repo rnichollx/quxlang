@@ -1488,6 +1488,71 @@ TEST(parsing, parse_pack_expressions)
     ASSERT_EQ(arg_expr.get_as< expression_pack_arg >().index, expression(expression_numeric_literal{"0"}));
 }
 
+TEST(parsing, coroutine_declarations_and_operations)
+{
+    std::string source = "COROUTINE(%value I32) CANCELLABLE { YIELD value; RETURN; }";
+    quxlang::parsers::parsing_context context = test_parsing_context(source);
+    std::optional< quxlang::ast2_function_declaration > declaration = quxlang::parsers::try_parse_function_declaration(context);
+    ASSERT_TRUE(declaration.has_value());
+    EXPECT_EQ(context.iter_pos, context.iter_end);
+    EXPECT_EQ(declaration->header.execution_kind, quxlang::function_execution_kind::coroutine);
+    EXPECT_EQ(declaration->header.cancellation_mode, quxlang::coroutine_cancellation_mode::cooperative);
+    ASSERT_TRUE(declaration->header.controller_parameter.has_value());
+    EXPECT_EQ(declaration->header.controller_parameter->api_name, "CONTROLLER");
+    EXPECT_TRUE(declaration->header.controller_parameter->type.type_is< quxlang::auto_temploidic >());
+    ASSERT_EQ(declaration->header.call_parameters.size(), 1);
+    EXPECT_EQ(declaration->header.call_parameters.front().name, "value");
+    ASSERT_TRUE(declaration->definition.return_type.has_value());
+    EXPECT_TRUE(declaration->definition.return_type->type_is< quxlang::void_type >());
+    ASSERT_EQ(declaration->definition.body.statements.size(), 2);
+    EXPECT_TRUE(declaration->definition.body.statements.front().type_is< quxlang::function_yield_statement >());
+
+    source = "COROUTINE(@CONTROLLER:driver controller, %value I32) CANCELLABLE(INSTANT) : I64 { RETURN value; }";
+    context = test_parsing_context(source);
+    declaration = quxlang::parsers::try_parse_function_declaration(context);
+    ASSERT_TRUE(declaration.has_value());
+    EXPECT_EQ(context.iter_pos, context.iter_end);
+    EXPECT_EQ(declaration->header.cancellation_mode, quxlang::coroutine_cancellation_mode::instant);
+    ASSERT_TRUE(declaration->header.controller_parameter.has_value());
+    EXPECT_EQ(declaration->header.controller_parameter->name, "driver");
+    EXPECT_EQ(declaration->header.controller_parameter->type, quxlang::type_symbol(quxlang::freebound_identifier{.name = "controller"}));
+    EXPECT_EQ(declaration->header.call_parameters.size(), 1);
+    ASSERT_TRUE(declaration->definition.return_type.has_value());
+    EXPECT_EQ(*declaration->definition.return_type, quxlang::type_symbol(quxlang::int_type{.bits = 64, .has_sign = true}));
+
+    quxlang::expression await_expression = parse_expression_text("AWAIT(operation)");
+    ASSERT_TRUE(await_expression.type_is< quxlang::expression_await >());
+    EXPECT_EQ(await_expression.as< quxlang::expression_await >().operand, parse_expression_text("operation"));
+    EXPECT_TRUE(parse_expression_text("TYPE_IS_ASYNC_ONLY(resource)").type_is< quxlang::expression_type_is_async_only >());
+
+    EXPECT_NO_THROW(parse_file_text("::resource STRUCT { .CONSTRUCTOR COROUTINE() {} .DESTRUCTOR COROUTINE() {} }"));
+    EXPECT_NO_THROW(parse_file_text("::controller STRUCT { .CO_AWAIT FUNCTION(@ARG AUTO) {} .CO_CALL_CORT FUNCTION(@COROUTINE AUTO, @ARGUMENTS AUTO) {} .CO_CALL_CTOR FUNCTION(@COROUTINE AUTO, @ARGUMENTS AUTO, @DESTINATION AUTO) {} .CO_CALL_DTOR FUNCTION(@COROUTINE AUTO, @ARGUMENTS AUTO) {} }"));
+}
+
+TEST(parsing, coroutine_syntax_diagnostics)
+{
+    std::array< std::string_view, 6 > declarations = {
+        "FUNCTION() CANCELLABLE {}",
+        "COROUTINE() CANCELLABLE CANCELLABLE {}",
+        "COROUTINE() CANCELLABLE() {}",
+        "COROUTINE() CANCELLABLE(LATER) {}",
+        "COROUTINE(@CONTROLLER AUTO, @CONTROLLER AUTO) {}",
+        "COROUTINE(@CONTROLLER AUTO DEFAULT(controller)) {}",
+    };
+    for (std::string_view declaration : declarations)
+    {
+        std::string source(declaration);
+        quxlang::parsers::parsing_context context = test_parsing_context(source);
+        EXPECT_THROW((void)quxlang::parsers::try_parse_function_declaration(context), quxlang::compilation_error) << source;
+    }
+    EXPECT_THROW(parse_expression_text("AWAIT operation"), quxlang::compilation_error);
+    EXPECT_THROW(parse_expression_text("AWAIT()"), quxlang::compilation_error);
+    EXPECT_THROW(parse_expression_text("AWAIT(operation"), quxlang::compilation_error);
+    EXPECT_THROW(parse_expression_text("-< COROUTINE {}"), quxlang::compilation_error);
+    EXPECT_THROW(parse_file_text("::task COROUTINE() { YIELD; }"), quxlang::compilation_error);
+    EXPECT_THROW(parse_file_text("::task COROUTINE() { YIELD operation }"), quxlang::compilation_error);
+}
+
 TEST(parsing, parse_forward_decltype_typeof)
 {
     auto decltype_ref = parse_type_symbol("DECLTYPE(x)");
@@ -7489,6 +7554,32 @@ TEST(llvm_backend, jump_transition_emits_destructor_cleanup_block)
 
     EXPECT_NE(result.llvm_ir_text.find("block0.transition.block1"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void " + llvm_ir_symbol_reference(dtor_symbol)), std::string::npos);
+
+    // A sparse dispatch table preserves one cleanup path per distinct target.
+    // Source syntax cannot prescribe this VMIR table or its default entries.
+    quxlang::type_symbol ordinal_type = quxlang::int_type{.bits = 32, .has_sign = false};
+    routine.local_types.push_back({.type = ordinal_type});
+    routine.parameters.named.emplace("INDEX", quxlang::vmir2::routine_parameter{
+        .type = ordinal_type, .local_index = quxlang::vmir2::local_index(2)});
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(2)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full, .storage_valid = true};
+    routine.blocks.resize(3);
+    routine.blocks[2].terminator = quxlang::vmir2::ret{};
+    std::vector< quxlang::vmir2::block_index > targets(4096, quxlang::vmir2::block_index(2));
+    targets[7] = quxlang::vmir2::block_index(1);
+    targets[3071] = quxlang::vmir2::block_index(1);
+    routine.blocks[0].terminator = quxlang::vmir2::tablebranch{
+        .index = quxlang::vmir2::local_index(2), .targets = std::move(targets), .default_target = quxlang::vmir2::block_index(2)};
+    llvm_compilation_inspection dispatch = compile_llvm_packet_for_test(backend, packet);
+    std::string destructor_call = "call void " + llvm_ir_symbol_reference(dtor_symbol);
+    std::size_t calls = 0;
+    std::size_t position = 0;
+    while ((position = dispatch.llvm_ir_text.find(destructor_call, position)) != std::string::npos)
+    {
+        ++calls;
+        position += destructor_call.size();
+    }
+    EXPECT_EQ(calls, 2);
 }
 
 TEST(llvm_backend, return_emits_destructor_cleanup)

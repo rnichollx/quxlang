@@ -90,6 +90,27 @@ rpnx::querygraph::coroutine< quxlang::struct_virtual_slots_spec > quxlang::struc
             std::size_t overload_ordinal = overload_ordinals[member.name]++;
             bool is_destructor = member.name == "DESTRUCTOR";
             bool is_constructor = member.name == "CONSTRUCTOR" || member.name == "FULLOBJECT_CONSTRUCTOR" || member.name == "SUBOBJECT_CONSTRUCTOR";
+            if (function.header.execution_kind == function_execution_kind::coroutine)
+            {
+                if (function.header.virtual_specifier.has_value())
+                {
+                    throw semantic_compilation_error("Virtual COROUTINE declarations are not supported: " + to_string(submember{hierarchy_type, member.name}) + source_location_suffix(function.location));
+                }
+                if (!is_destructor)
+                {
+                    if (function.header.is_nonvirtual)
+                        throw semantic_compilation_error("NONVIRTUAL is permitted only on a destructor: " + to_string(submember{hierarchy_type, member.name}) + source_location_suffix(function.location));
+                    continue;
+                }
+                if (polymorphism.at(hierarchy_type) != struct_polymorphism_kind::none)
+                {
+                    if (co_await rpnx::querygraph::request< user_default_dtor_exists_query >(hierarchy_type)) continue;
+                    if (!function.header.is_nonvirtual)
+                    {
+                        throw semantic_compilation_error("Virtual coroutine destruction requires an ordinary destructor alternative or an explicit NONVIRTUAL coroutine destructor: " + to_string(hierarchy_type) + source_location_suffix(function.location));
+                    }
+                }
+            }
             if (is_constructor && !function.header.virtual_specifier.has_value() && !function.header.is_nonvirtual)
             {
                 continue;

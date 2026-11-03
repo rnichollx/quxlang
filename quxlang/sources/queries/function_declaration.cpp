@@ -8,6 +8,27 @@
 
 rpnx::querygraph::coroutine< quxlang::function_declaration_spec > quxlang::function_declaration_impl(temploid_reference input)
 {
+    std::optional< builtin_function_info > const& generated = co_await rpnx::querygraph::request< function_primitive_query >(input);
+    if (generated.has_value() && generated->execution_kind == function_execution_kind::coroutine)
+    {
+        ast2_function_declaration declaration;
+        declaration.header.execution_kind = function_execution_kind::coroutine;
+        declaration.header.controller_parameter = ast2_function_parameter{.api_name = "CONTROLLER", .type = auto_temploidic{}};
+        declaration.header.enable_if = generated->overload.enable_if;
+        declaration.header.priority = generated->overload.priority;
+        declaration.definition.return_type = generated->return_type;
+        for (argif const& parameter : generated->overload.interface.positional)
+        {
+            declaration.header.call_parameters.push_back(ast2_function_parameter{.type = parameter.type, .is_pack = parameter.is_pack});
+        }
+        for (std::pair< std::string const, argif > const& parameter : generated->overload.interface.named)
+        {
+            if (parameter.first == "CONTROLLER") continue;
+            declaration.header.call_parameters.push_back(ast2_function_parameter{
+                .name = parameter.first, .api_name = parameter.first, .type = parameter.second.type, .is_pack = parameter.second.is_pack});
+        }
+        co_return declaration;
+    }
     type_symbol functum = input.templexoid;
     std::string name = to_string(functum);
 

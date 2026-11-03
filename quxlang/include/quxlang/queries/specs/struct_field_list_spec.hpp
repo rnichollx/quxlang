@@ -4,6 +4,7 @@
 #define QUXLANG_QUERIES_SPECS_STRUCT_FIELD_LIST_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/struct_field_list.hpp>
+#include <quxlang/queries/coroutine_frame.hpp>
 #include <quxlang/queries/struct_field_declaration_list.hpp>
 #include <quxlang/queries/lookup.hpp>
 
@@ -17,7 +18,7 @@ namespace quxlang
     struct struct_field_list_spec
     {
         using query = struct_field_list_query;
-        using dependencies = rpnx::typelist< constexpr_u64_query, struct_field_declaration_list_query, lookup_query >;
+        using dependencies = rpnx::typelist< coroutine_frame_query, constexpr_u64_query, struct_field_declaration_list_query, lookup_query >;
     };
 
     rpnx::querygraph::coroutine< struct_field_list_spec > struct_field_list_impl(type_symbol input);

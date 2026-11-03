@@ -28,6 +28,7 @@ rpnx::querygraph::coroutine< quxlang::implementation_function_map_spec > quxlang
             .initializee = function_symbol,
             .parameters = instatype_from_invotype(slot.key.concrete_params),
             .adaptations = allowed_adaptations::destination_rebinding,
+            .lookup_kind = function_lookup_kind::invocation,
         };
 
         auto inst = co_await rpnx::querygraph::request< instanciation_query >(init);

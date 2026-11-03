@@ -1,0 +1,100 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Borrows caller-owned storage for a concrete coroutine specialization. The frame remains at its original address for the entire invocation. The controller adapts awaitables through CO_AWAIT; each returned awaiter supplies its readiness, suspension, and result operations. $>
+::coroutine_view TEMPLATE(@T:descriptor TYPE AUTO) STRUCT
+{
+  PRIVATE(CLASS)
+  {
+    .frame VAR MUT->descriptor::FRAME_TYPE;
+  }
+
+  DOC <$ Binds an existing frame without initializing or executing it. The frame must outlive the view and all continuation registrations. $>
+  .CONSTRUCTOR FUNCTION(@frame MUT& descriptor::FRAME_TYPE) NOEXCEPT
+  {
+    .frame := frame<-;
+  }
+
+  DOC <$ Returns the borrowed frame. $>
+  .get FUNCTION() CONST: MUT& descriptor::FRAME_TYPE
+  {
+    RETURN .frame->;
+  }
+
+  DOC <$ Captures arguments in an empty or completed frame. Previous continuation registrations must have been retired. $>
+  .INITIALIZE FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT
+  {
+    .frame->.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
+  }
+
+  DOC <$ Drives the frame through an authorized activation and reports terminal completion. $>
+  .RESUME FUNCTION(@CONTROLLER MUT& descriptor::CONTROLLER_TYPE) MUT: BOOL
+  {
+    RETURN .frame->.RESUME(@CONTROLLER CONTROLLER);
+  }
+
+  DOC <$ Requests the specialization's permitted cancellation and reports terminal completion. $>
+  .TRY_CANCEL FUNCTION(@CONTROLLER MUT& descriptor::CONTROLLER_TYPE) MUT
+    ENABLE_IF(descriptor::CANCELLATION_MODE != RUNTIME_MODULE::COROUTINE_CANCELLATION_MODE::NONE): BOOL
+  {
+    RETURN .frame->.TRY_CANCEL(@CONTROLLER CONTROLLER);
+  }
+}
+
+DOC <$ Owns a stable heap-allocated frame for one concrete coroutine specialization. Ownership may move while the frame retains its address. Destruction requires an empty or completed frame with all continuation registrations retired. $>
+::coroutine_handle TEMPLATE(@T:descriptor TYPE AUTO) STRUCT MOVE_ONLY
+{
+  PRIVATE(CLASS)
+  {
+    .frame VAR MUT->descriptor::FRAME_TYPE;
+  }
+
+  DOC <$ Allocates an empty frame without executing the coroutine. $>
+  .CONSTRUCTOR FUNCTION()
+  {
+    .frame := NEW descriptor::FRAME_TYPE;
+  }
+
+  DOC <$ Transfers frame ownership and leaves OTHER empty. $>
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& coroutine_handle#descriptor)
+  {
+    .frame := OTHER.frame;
+    OTHER.frame := NULL;
+  }
+
+  DOC <$ Deletes the inactive owned frame. $>
+  .DESTRUCTOR FUNCTION()
+  {
+    DELETE OPTIONAL .frame;
+  }
+
+  DOC <$ Reports whether this handle owns a frame. $>
+  .has_value FUNCTION() CONST: BOOL
+  {
+    RETURN .frame??;
+  }
+
+  DOC <$ Returns the owned frame. The handle must own a frame. $>
+  .get FUNCTION() CONST: MUT& descriptor::FRAME_TYPE
+  {
+    RETURN .frame->;
+  }
+
+  DOC <$ Captures arguments in an empty or completed frame. Previous continuation registrations must have been retired. $>
+  .INITIALIZE FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT
+  {
+    .frame->.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
+  }
+
+  DOC <$ Drives the frame through an authorized activation and reports terminal completion. $>
+  .RESUME FUNCTION(@CONTROLLER MUT& descriptor::CONTROLLER_TYPE) MUT: BOOL
+  {
+    RETURN .frame->.RESUME(@CONTROLLER CONTROLLER);
+  }
+
+  DOC <$ Requests the specialization's permitted cancellation and reports terminal completion. $>
+  .TRY_CANCEL FUNCTION(@CONTROLLER MUT& descriptor::CONTROLLER_TYPE) MUT
+    ENABLE_IF(descriptor::CANCELLATION_MODE != RUNTIME_MODULE::COROUTINE_CANCELLATION_MODE::NONE): BOOL
+  {
+    RETURN .frame->.TRY_CANCEL(@CONTROLLER CONTROLLER);
+  }
+}

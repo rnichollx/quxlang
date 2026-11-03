@@ -1,0 +1,88 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_cancellation_tests NAMESPACE
+{
+  ::cooperative COROUTINE(@VALUE:value MUT& I32) CANCELLABLE
+  {
+    TRY
+    {
+      AWAIT(FALSE);
+      value += 100;
+    }
+    CATCH cancelled CONST& COROUTINE_CANCELLED
+    {
+      value += 1;
+    }
+    AWAIT(FALSE);
+    value += 10;
+  }
+
+  DOC <$ A failed cancellation claim preserves the pending attempt; a caught attempt is delivered once. $>
+  ::claim_and_single_delivery DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR value I32;
+    VAR frame cooperative#(@VALUE MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@VALUE value);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(value == 0);
+    TEST_ASSERT(controller.registrations == 1);
+    controller.quiescent := TRUE;
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(value == 1);
+    TEST_ASSERT(controller.registrations == 2);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(value == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(value == 11);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER controller));
+  }
+
+  DOC <$ An authorized readiness notification delivers a pending cooperative attempt without another registration. $>
+  ::notification_after_failed_claim DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR value I32;
+    VAR frame cooperative#(@VALUE MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@VALUE value);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(value == 1);
+    TEST_ASSERT(controller.registrations == 2);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(value == 11);
+  }
+
+  ::instant COROUTINE(@VALUE:value MUT& I32) CANCELLABLE(INSTANT)
+  {
+    DEFER { value += 1; }
+    TRY { AWAIT(FALSE); }
+    CATCH DEFAULT { value += 100; }
+    value += 1000;
+  }
+
+  DOC <$ Instant cancellation executes mandatory synchronous cleanup and skips body catch handlers. $>
+  ::instant_cleanup DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    controller.quiescent := TRUE;
+    VAR value I32;
+    VAR frame instant#(@VALUE MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@VALUE value);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER controller));
+    TEST_ASSERT(value == 1);
+    TEST_ASSERT(controller.cancellations == 1);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER controller));
+    TEST_ASSERT(controller.cancellations == 1);
+  }
+
+  ::unmarked_has_no_cancel STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR frame coroutine_frame_tests::count#(@VALUE MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.TRY_CANCEL(@CONTROLLER controller);
+  }
+}

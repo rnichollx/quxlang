@@ -1,0 +1,72 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::coroutine_storage_tests NAMESPACE
+{
+  ::count_descriptor ALIAS coroutine_frame_tests::count#(@VALUE MUT& I32, @CONTROLLER coroutine_frame_tests::controller);
+
+  DOC <$ A borrowed adapter drives and reuses one caller-owned frame without allocating frame storage. $>
+  ::caller_storage DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR count I32;
+    VAR frame count_descriptor::FRAME_TYPE;
+    VAR view std::coroutine_view#count_descriptor :(@frame frame);
+    TEST_ASSERT(view.get()<- == frame<-);
+    TEST_ASSERT(SIZEOF(std::coroutine_view#count_descriptor) == SIZEOF(MUT->count_descriptor::FRAME_TYPE));
+    view.INITIALIZE(@VALUE count);
+    TEST_ASSERT(count == 0);
+    TEST_ASSERT(view.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(view.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(count == 2);
+    view.INITIALIZE(@VALUE count);
+    TEST_ASSERT(view.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(view.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(count == 4);
+  }
+
+  DOC <$ Moving an owning handle preserves the address of an active frame and transfers its destruction responsibility. $>
+  ::owning_storage DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR count I32;
+    VAR first std::coroutine_handle#count_descriptor;
+    TEST_ASSERT(SIZEOF(std::coroutine_handle#count_descriptor) == SIZEOF(MUT->count_descriptor::FRAME_TYPE));
+    VAR address MUT->count_descriptor::FRAME_TYPE := first.get()<-;
+    first.INITIALIZE(@VALUE count);
+    TEST_ASSERT(first.RESUME(@CONTROLLER controller) == FALSE);
+    VAR second std::coroutine_handle#count_descriptor := MOVE(first);
+    TEST_ASSERT(first.has_value() == FALSE);
+    TEST_ASSERT(second.get()<- == address);
+    TEST_ASSERT(second.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(count == 2);
+  }
+  ::capture_address COROUTINE(@pointer:output MUT& MUT->I32)
+  {
+    VAR value I32 := 7;
+    output := value<-;
+    AWAIT(FALSE);
+    value += 1;
+    output := value<-;
+  }
+
+  DOC <$ Reinitialization reuses the retained local's address within the same caller-owned frame storage. $>
+  ::retained_address_reuse DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR first MUT->I32;
+    VAR second MUT->I32;
+    VAR frame capture_address#(@pointer MUT& MUT->I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    AUTO frame_address := frame<-;
+    frame.INITIALIZE(@pointer first);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+    frame.INITIALIZE(@pointer second);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame<- == frame_address);
+    TEST_ASSERT(first == second);
+    TEST_ASSERT((first <=> second) == ORDER::EQUAL);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+  }
+
+}

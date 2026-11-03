@@ -329,6 +329,7 @@ rpnx::querygraph::coroutine< quxlang::struct_runtime_info_spec > quxlang::struct
                 throw compiler_bug("Virtual final overrider owner is not an enclosing receiver subobject: " + to_string(overrider.final_overrider));
             }
             initialization_reference target_initialization;
+            target_initialization.lookup_kind = function_lookup_kind::invocation;
             if (slot.key.signature.name == "DESTRUCTOR" || slot.key.signature.name == "POLYMORPHIC_DESTRUCTOR")
             {
                 struct_runtime_requirements const target_requirements = co_await rpnx::querygraph::request< struct_runtime_requirements_query >(target_owner);

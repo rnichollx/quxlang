@@ -5,6 +5,7 @@
 
 #include "quxlang/data/compilation_result.hpp"
 
+#include <algorithm>
 #include <optional>
 
 #include <quxlang/ast2/ast2_function_delegate.hpp>
@@ -94,6 +95,7 @@ namespace quxlang::parsers
         return result;
     }
 
+    /** Parses a synchronous function or controller-driven coroutine declaration. */
     inline std::optional< ast2_function_declaration > try_parse_function_declaration(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
@@ -102,13 +104,40 @@ namespace quxlang::parsers
 
         std::optional< ast2_function_declaration > out;
 
-        if (!skip_keyword_if_is(pos, end, "FUNCTION"))
+        std::optional< std::string_view > declaration_kind = skip_keyword_if_one_of(pos, end, {"FUNCTION", "COROUTINE"});
+        if (!declaration_kind.has_value())
         {
             return out;
         }
         out = ast2_function_declaration{};
+        out->header.execution_kind = *declaration_kind == "COROUTINE" ? function_execution_kind::coroutine : function_execution_kind::ordinary;
 
         out->header.call_parameters = parse_function_args(ctx);
+
+        if (out->header.execution_kind == function_execution_kind::coroutine)
+        {
+            std::vector< ast2_function_parameter >::iterator controller = std::find_if(
+                out->header.call_parameters.begin(), out->header.call_parameters.end(),
+                [](ast2_function_parameter const& parameter) { return parameter.api_name == "CONTROLLER"; });
+            if (controller == out->header.call_parameters.end())
+            {
+                out->header.controller_parameter = ast2_function_parameter{.api_name = "CONTROLLER", .type = auto_temploidic{}};
+            }
+            else
+            {
+                if (controller->default_expr.has_value())
+                {
+                    throw syntax_compilation_error("A coroutine controller parameter cannot declare a default argument");
+                }
+                out->header.controller_parameter = std::move(*controller);
+                out->header.call_parameters.erase(controller);
+                if (std::any_of(out->header.call_parameters.begin(), out->header.call_parameters.end(),
+                                [](ast2_function_parameter const& parameter) { return parameter.api_name == "CONTROLLER"; }))
+                {
+                    throw syntax_compilation_error("A coroutine cannot declare more than one CONTROLLER parameter");
+                }
+            }
+        }
 
         bool has_this_parameter = false;
         while (true)
@@ -139,6 +168,34 @@ namespace quxlang::parsers
             }
 
             skip_whitespace_and_comments(pos, end);
+            if (skip_keyword_if_is(pos, end, "CANCELLABLE"))
+            {
+                if (out->header.execution_kind != function_execution_kind::coroutine)
+                {
+                    throw syntax_compilation_error("CANCELLABLE requires a COROUTINE declaration");
+                }
+                if (out->header.cancellation_mode != coroutine_cancellation_mode::none)
+                {
+                    throw syntax_compilation_error("A coroutine cannot declare CANCELLABLE more than once");
+                }
+                out->header.cancellation_mode = coroutine_cancellation_mode::cooperative;
+                skip_whitespace_and_comments(pos, end);
+                if (skip_symbol_if_is(pos, end, "("))
+                {
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_keyword_if_is(pos, end, "INSTANT"))
+                    {
+                        throw syntax_compilation_error("Expected INSTANT in CANCELLABLE options");
+                    }
+                    skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, ")"))
+                    {
+                        throw syntax_compilation_error("Expected ')' after CANCELLABLE(INSTANT");
+                    }
+                    out->header.cancellation_mode = coroutine_cancellation_mode::instant;
+                }
+                continue;
+            }
             if (skip_keyword_if_is(pos, end, "NOEXCEPT"))
             {
                 if (out->header.is_noexcept || out->header.noexcept_if.has_value())
@@ -202,6 +259,10 @@ namespace quxlang::parsers
         }
 
         out->definition.return_type = try_parse_function_return_type(ctx);
+        if (out->header.execution_kind == function_execution_kind::coroutine && !out->definition.return_type.has_value())
+        {
+            out->definition.return_type = void_type{};
+        }
         out->definition.delegates = parse_function_delegates(ctx);
         if (out->header.virtual_specifier.has_value() && out->header.virtual_specifier->is_pure)
         {

@@ -49,13 +49,6 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
 
-        if (!skip_keyword_if_is(trial.iter_pos, trial.iter_end, "FUNCTION"))
-        {
-            return std::nullopt;
-        }
-
-        skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
-
         auto function_opt = try_parse_function_declaration(trial);
         if (!function_opt)
         {

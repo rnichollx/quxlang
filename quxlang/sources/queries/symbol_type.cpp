@@ -84,6 +84,11 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
 
     if (typeis< instanciation_reference >(input))
     {
+       instanciation_reference const& instantiation = as< instanciation_reference >(input);
+       if (co_await rpnx::querygraph::request< symbol_type_query >(instantiation.temploid) == symbol_kind::function)
+       {
+           co_return symbol_kind::funtanoid;
+       }
        auto const& selected_ast = co_await rpnx::querygraph::request< symboid_query >(input);
 
         if (typeis< ast2_alias_declaration >(selected_ast))

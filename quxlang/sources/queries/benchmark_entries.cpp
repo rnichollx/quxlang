@@ -22,7 +22,11 @@ rpnx::querygraph::coroutine< quxlang::benchmark_entries_spec > quxlang::benchmar
         for (std::size_t index = 0; index < count; ++index)
         {
             type_symbol function = subsymbol{.of = symbol, .name = "__BENCHMARK_CASE_" + std::to_string(index)};
-            std::optional< instanciation_reference > procedure = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = function, .parameters = instatype_from_invotype(benchmark_procedure_type().get_as< procedure_type >().signature.params)});
+            std::optional< instanciation_reference > procedure = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
+                .initializee = function,
+                .parameters = instatype_from_invotype(benchmark_procedure_type().get_as< procedure_type >().signature.params),
+                .lookup_kind = function_lookup_kind::invocation,
+            });
             if (!procedure)
             {
                 throw semantic_compilation_error("Could not instantiate benchmark case: " + to_string(symbol));

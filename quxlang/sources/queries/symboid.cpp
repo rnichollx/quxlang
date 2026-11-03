@@ -5,6 +5,7 @@
 #include "quxlang/manipulators/typeutils.hpp"
 #include <quxlang/data/builtin_array_ranges.hpp>
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/data/coroutine_types.hpp>
 #include <quxlang/queries/specs/symboid_spec.hpp>
 
 #include <optional>
@@ -13,6 +14,119 @@
 
 rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_symbol input)
 {
+    if (input.type_is< subsymbol >())
+    {
+        subsymbol const& symbol = input.get_as< subsymbol >();
+        if (symbol.name == "__COROUTINE_DESTRUCTOR" || symbol.name == "__COROUTINE_SUBOBJECT_DESTRUCTOR")
+        {
+            ast2_function_declaration declaration;
+            declaration.header.execution_kind = function_execution_kind::coroutine;
+            declaration.header.controller_parameter = ast2_function_parameter{.api_name = "CONTROLLER", .type = auto_temploidic{}};
+            declaration.header.call_parameters.push_back(ast2_function_parameter{.api_name = "THIS", .type = make_mref(symbol.of)});
+            declaration.definition.return_type = void_type{};
+            co_return functum{.functions = {std::move(declaration)}};
+        }
+    }
+    if (std::optional< instanciation_reference > coroutine = coroutine_frame_specialization(input))
+    {
+        std::optional< ast2_function_declaration > source = co_await rpnx::querygraph::request< function_declaration_query >(coroutine->temploid);
+        if (!source.has_value() || source->header.execution_kind != function_execution_kind::coroutine)
+        {
+            throw semantic_compilation_error("FRAME_TYPE requires a coroutine specialization");
+        }
+        instatype parameters = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(*coroutine);
+        ast2_struct_declaration frame;
+        frame.struct_keywords.insert(keywords::rooted);
+        ast2_function_declaration initialize;
+        initialize.definition.return_type = void_type{};
+        initialize.header.call_parameters.push_back(ast2_function_parameter{
+            .name = "THIS", .api_name = "THIS", .type = make_mref(input),
+        });
+        auto capture_type = [](parameter_instantiation const& parameter) -> type_symbol
+        {
+            type_symbol type = parameter_instantiation_type(parameter);
+            if (type.type_is< nvalue_slot >()) return make_mref(type.get_as< nvalue_slot >().target);
+            if (type.type_is< dvalue_slot >()) return make_mref(type.get_as< dvalue_slot >().target);
+            return type;
+        };
+        std::map< std::string, expression > named_defaults;
+        std::vector< std::optional< expression > > positional_defaults;
+        std::optional< type_symbol > lifecycle_storage;
+        for (ast2_function_parameter const& parameter : source->header.call_parameters)
+        {
+            if (parameter.is_named_rest) continue;
+            if (parameter.api_name.has_value())
+            {
+                if (parameter.default_expr.has_value()) named_defaults.emplace(*parameter.api_name, *parameter.default_expr);
+            }
+            else positional_defaults.push_back(parameter.default_expr);
+        }
+        for (std::size_t index = 0; index < parameters.positional.size(); ++index)
+        {
+            initialize.header.call_parameters.push_back(ast2_function_parameter{
+                .name = "__ARG" + std::to_string(index),
+                .type = capture_type(parameters.positional.at(index)),
+                .default_expr = index < positional_defaults.size() ? positional_defaults[index] : std::nullopt,
+            });
+        }
+        for (std::pair< std::string const, parameter_instantiation > const& parameter : parameters.named)
+        {
+            if (parameter.first == "CONTROLLER") continue;
+            if (parameter.first == "THIS")
+            {
+                type_symbol const& receiver = parameter_instantiation_type(parameter.second);
+                if (receiver.type_is< nvalue_slot >()) lifecycle_storage = receiver.get_as< nvalue_slot >().target;
+                else if (receiver.type_is< dvalue_slot >()) lifecycle_storage = receiver.get_as< dvalue_slot >().target;
+                else if (coroutine->temploid.templexoid.type_is< submember >() && coroutine->temploid.templexoid.get_as< submember >().name == "DESTRUCTOR")
+                    lifecycle_storage = remove_ref(receiver);
+                else if (coroutine->temploid.templexoid.type_is< subsymbol >())
+                {
+                    std::string const& name = coroutine->temploid.templexoid.get_as< subsymbol >().name;
+                    if (name == "__COROUTINE_DESTRUCTOR" || name == "__COROUTINE_SUBOBJECT_DESTRUCTOR") lifecycle_storage = remove_ref(receiver);
+                }
+            }
+            initialize.header.call_parameters.push_back(ast2_function_parameter{
+                .name = parameter.first == "THIS" ? "__RECEIVER" : parameter.first,
+                .api_name = parameter.first == "THIS" ? "RECEIVER" : parameter.first,
+                .type = capture_type(parameter.second),
+                .default_expr = named_defaults.contains(parameter.first) ? std::optional< expression >(named_defaults.at(parameter.first)) : std::nullopt,
+            });
+        }
+        if (lifecycle_storage.has_value())
+        {
+            ast2_function_declaration storage_initialize = initialize;
+            for (ast2_function_parameter& parameter : storage_initialize.header.call_parameters)
+            {
+                if (parameter.api_name == "RECEIVER") parameter.type = make_mref(storage{.storable_types = {*lifecycle_storage}});
+            }
+            frame.declarations.push_back(member_subdeclaration{.decl = std::move(storage_initialize), .name = "INITIALIZE"});
+        }
+        frame.declarations.push_back(member_subdeclaration{.decl = std::move(initialize), .name = "INITIALIZE"});
+        type_symbol controller = remove_ref(parameter_instantiation_type(parameters.named.at("CONTROLLER")));
+        bool concrete_controller = !is_template(controller);
+        if (!concrete_controller && (controller.type_is< instanciation_reference >() || controller.type_is< subsymbol >()))
+        {
+            concrete_controller = (co_await rpnx::querygraph::request< symbol_type_query >(controller)) == symbol_kind::class_;
+        }
+        if (!concrete_controller)
+        {
+            throw semantic_compilation_error("FRAME_TYPE requires a concrete CONTROLLER specialization");
+        }
+        for (std::string const& name : {std::string("RESUME"), std::string("TRY_CANCEL")})
+        {
+            if (name == "TRY_CANCEL" && source->header.cancellation_mode == coroutine_cancellation_mode::none) continue;
+            ast2_function_declaration driver;
+            driver.header.call_parameters.push_back(ast2_function_parameter{
+                .name = "THIS", .api_name = "THIS", .type = make_mref(input),
+            });
+            driver.header.call_parameters.push_back(ast2_function_parameter{
+                .name = "CONTROLLER", .api_name = "CONTROLLER", .type = make_mref(controller),
+            });
+            driver.definition.return_type = bool_type{};
+            frame.declarations.push_back(member_subdeclaration{.decl = std::move(driver), .name = name});
+        }
+        co_return frame;
+    }
     if (input.type_is< array_type >())
     {
         co_return builtin_array_index_declaration(input.get_as< array_type >());

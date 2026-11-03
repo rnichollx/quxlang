@@ -34,7 +34,7 @@ namespace quxlang::parsers
 
     namespace detail
     {
-        inline std::optional< expression > try_parse_expression_impl(parsing_context& ctx);
+        inline std::optional< expression > try_parse_expression_impl(parsing_context& ctx, bool postfix_only = false);
 
         /** Parses an optional named conversion mode at the current position. */
         inline std::optional< conversion_mode > try_parse_conversion_mode(parsing_context& ctx)
@@ -154,6 +154,10 @@ namespace quxlang::parsers
 
             expression_lambda lambda;
             skip_whitespace_and_comments(pos, end);
+            if (skip_keyword_if_is(pos, end, "COROUTINE"))
+            {
+                throw syntax_compilation_error("Coroutine lambdas are not supported");
+            }
             if (peek_symbol(pos, end).starts_with("["))
             {
                 lambda.has_explicit_capture_list = true;
@@ -293,7 +297,8 @@ namespace quxlang::parsers
             return true;
         }
 
-        inline std::optional< expression > try_parse_expression_impl(parsing_context& ctx)
+        /** Parses an expression, optionally stopping before binary operators and type predicates. */
+        inline std::optional< expression > try_parse_expression_impl(parsing_context& ctx, bool postfix_only)
         {
             auto& pos = ctx.iter_pos;
             auto end = ctx.iter_end;
@@ -642,6 +647,23 @@ namespace quxlang::parsers
             *value_bind_point = std::move(polymorphic_expression);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "TYPE_IS_ASYNC_ONLY"))
+        {
+            expression_type_is_async_only trait;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after TYPE_IS_ASYNC_ONLY");
+            }
+            trait.of_type = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after TYPE_IS_ASYNC_ONLY type");
+            }
+            *value_bind_point = std::move(trait);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "SAME_TYPES"))
         {
             expression_same_types expr_same_types;
@@ -728,6 +750,49 @@ namespace quxlang::parsers
                 throw syntax_compilation_error("Expected ')' after STATIC_CHOOSE(<cond>, <true>, <false>");
             }
             *value_bind_point = std::move(expr);
+            have_anything = true;
+        }
+        else if (kw_pre_translate == "ON" || kw_pre_translate == "GO")
+        {
+            bool const explicit_controller = skip_keyword_if_is(pos, end, "ON");
+            std::optional< expression > controller;
+            if (explicit_controller)
+            {
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after ON");
+                controller = parse_expression_impl(ctx);
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after ON controller");
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_keyword_if_is(pos, end, "RUN")) throw syntax_compilation_error("Expected RUN after ON(controller)");
+            }
+            else skip_keyword_if_is(pos, end, "GO");
+            std::optional< expression > target = try_parse_expression_impl(ctx, true);
+            if (!target.has_value() || !target->template type_is< expression_call >())
+                throw syntax_compilation_error("Coroutine launch requires a call expression");
+            expression_call& call = target->template get_as< expression_call >();
+            if (call.execution_mode != call_execution_mode::ordinary)
+                throw syntax_compilation_error("A coroutine call cannot have multiple launch prefixes");
+            call.execution_mode = explicit_controller ? call_execution_mode::run : call_execution_mode::go;
+            call.controller = std::move(controller);
+            *value_bind_point = std::move(*target);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "AWAIT"))
+        {
+            expression_await await_expression;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after AWAIT");
+            }
+            await_expression.operand = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after AWAIT operation");
+            }
+            *value_bind_point = std::move(await_expression);
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "SNAPSHOT"))
@@ -1538,7 +1603,7 @@ namespace quxlang::parsers
         QUXLANG_DEBUG(remaining = std::string(pos, end);)
 
         skip_whitespace_and_comments(pos, end);
-        if (detail::binary_operator_v3(pos, end, bindings, value_bind_point))
+        if (!postfix_only && detail::binary_operator_v3(pos, end, bindings, value_bind_point))
         {
             goto next_value;
         }
@@ -1550,7 +1615,7 @@ namespace quxlang::parsers
             *binding_point2 = quxlang::expression(std::move(call_expr));
             goto next_operator;
         }
-        else if (parse_iterator const isa_begin = pos; skip_keyword_if_is(pos, end, "ISA"))
+        else if (parse_iterator const isa_begin = pos; !postfix_only && skip_keyword_if_is(pos, end, "ISA"))
         {
             skip_whitespace_and_comments(pos, end);
             std::optional< type_symbol > const target_type = try_parse_type_symbol(ctx);
@@ -1569,7 +1634,7 @@ namespace quxlang::parsers
             }
             goto next_operator;
         }
-        else if (parse_iterator const is_begin = pos; skip_keyword_if_is(pos, end, "IS"))
+        else if (parse_iterator const is_begin = pos; !postfix_only && skip_keyword_if_is(pos, end, "IS"))
         {
             skip_whitespace_and_comments(pos, end);
             std::string option_name = parse_subentity(pos, end);
@@ -1588,7 +1653,7 @@ namespace quxlang::parsers
             }
             goto next_operator;
         }
-        else if (skip_keyword_if_is(pos, end, "AS"))
+        else if (!postfix_only && skip_keyword_if_is(pos, end, "AS"))
         {
             // Type cast operator with precedence level 3
             // Bind like a binary operator at priority 3, but the RHS is a type symbol

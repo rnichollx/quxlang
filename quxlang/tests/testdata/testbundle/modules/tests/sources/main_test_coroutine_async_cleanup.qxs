@@ -1,0 +1,930 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::coroutine_async_cleanup_tests NAMESPACE
+{
+  DOC <$ Borrows a child operation whose controller advances only authorized continuations. $>
+  ::pending_operation_ref GENERIC_REF INCOMPARABLE
+  {
+    .advance FUNCTION() MUT: BOOL;
+  }
+
+  ::gate_awaiter STRUCT
+  {
+    .ready VAR BOOL;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .ready; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO): BOOL
+    {
+      CONTROLLER.waiting := TRUE;
+      RETURN TRUE;
+    }
+    .AWAIT_RESUME FUNCTION() {}
+    .TRY_CANCEL FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO): BOOL
+    {
+      IF (CONTROLLER.gate-> == FALSE) { RETURN FALSE; }
+      CONTROLLER.waiting := FALSE;
+      RETURN TRUE;
+    }
+  }
+
+  ::return_transfer STRUCT MOVE_ONLY
+  {
+    .borrowed VAR CONST->resource;
+    .events VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@ARG CONST& resource)
+    {
+      .borrowed := ARG<-;
+      .events := ARG.events;
+      .events-> := .events-> * 10 + 4;
+    }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& return_transfer)
+    {
+      .borrowed := OTHER.borrowed;
+      .events := OTHER.events;
+      OTHER.borrowed := NULL;
+      OTHER.events := NULL;
+    }
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN FALSE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO): BOOL
+    {
+      CONTROLLER.waiting := TRUE;
+      RETURN TRUE;
+    }
+    .AWAIT_RESUME FUNCTION() CONST
+    {
+      TEST_ASSERT(.borrowed->.events == .events);
+      .events-> := .events-> * 10 + 5;
+    }
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.events??)
+      {
+        TEST_ASSERT(.borrowed->.events == .events);
+        .events-> := .events-> * 10 + 6;
+      }
+    }
+  }
+
+  DOC <$ Retires one pending registration before its owning frame is resumed. $>
+  ::controller STRUCT
+  {
+    .gate VAR MUT->BOOL;
+    .waiting VAR BOOL;
+    .pending VAR std::optional#pending_operation_ref;
+    .failure VAR EXCEPTION_PTR;
+
+    .advance FUNCTION() MUT: BOOL
+    {
+      IF (.waiting)
+      {
+        IF (.gate-> == FALSE) { RETURN FALSE; }
+        .waiting := FALSE;
+        RETURN TRUE;
+      }
+      IF (.pending.has_value())
+      {
+        IF (.pending.value().advance() == FALSE) { RETURN FALSE; }
+        .pending.reset();
+        RETURN TRUE;
+      }
+      RETURN FALSE;
+    }
+
+    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
+    {
+      RETURN child_operation#child(@parent THIS, @ARGUMENTS arguments);
+    }
+
+    .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
+    {
+      RETURN child_operation#child(@parent THIS, @ARGUMENTS arguments);
+    }
+
+    .CO_CALL_CTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO, @DESTINATION:destination MUT& AUTO(destination_type)) MUT: AUTO
+    {
+      STATIC_IF(SAME_TYPES(destination_type, construction_phase_right))
+      {
+        RETURN construction_phase_operation#child(@parent THIS, @ARGUMENTS arguments, @DESTINATION destination);
+      }
+      STATIC_ELSE
+      {
+        RETURN child_operation#child(@parent THIS, @ARGUMENTS arguments, @DESTINATION destination);
+      }
+    }
+
+    .CO_AWAIT FUNCTION(@ARG BOOL): gate_awaiter
+    {
+      VAR awaiter gate_awaiter;
+      awaiter.ready := ARG;
+      RETURN awaiter;
+    }
+    .CO_AWAIT FUNCTION(@ARG AUTO& AUTO(operation_type))
+      ENABLE_IF(SAME_TYPES(operation_type, BOOL) == FALSE): MUT& operation_type
+    {
+      RETURN ARG AS MUT& operation_type;
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_RETURN FUNCTION(@ARG CONST& resource): return_transfer { RETURN return_transfer(@ARG ARG); }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR) MUT: BOOL { .failure := ARG; RETURN TRUE; }
+    .CO_CANCELLED FUNCTION(@ARG MUT& AUTO) NOEXCEPT {}
+  }
+
+  DOC <$ Keeps the child controller and rooted frame at stable addresses until terminal completion. $>
+  ::child_context TEMPLATE(@T:descriptor TYPE AUTO) STRUCT ROOTED
+  {
+    .adapted VAR controller;
+    .frame VAR descriptor#(@CONTROLLER controller)::FRAME_TYPE;
+    .finished VAR BOOL;
+  }
+
+  ::child_operation TEMPLATE(@T:descriptor TYPE AUTO) STRUCT MOVE_ONLY
+  {
+    .context VAR MUT->child_context#descriptor;
+    .CONSTRUCTOR FUNCTION(@parent MUT& controller, @ARGUMENTS:arguments AUTO& AUTO)
+    {
+      .context := NEW child_context#descriptor;
+      .context->.adapted.gate := parent.gate;
+      TRY { .context->.frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments))); }
+      CATCH DEFAULT { DELETE .context; .context := NULL; RETHROW; }
+    }
+    .CONSTRUCTOR FUNCTION(@parent MUT& controller, @ARGUMENTS:arguments AUTO& AUTO, @DESTINATION:destination MUT& AUTO)
+    {
+      .context := NEW child_context#descriptor;
+      .context->.adapted.gate := parent.gate;
+      TRY { .context->.frame.INITIALIZE(@RECEIVER destination, COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments))); }
+      CATCH DEFAULT { DELETE .context; .context := NULL; RETHROW; }
+    }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& child_operation#descriptor)
+    {
+      .context := OTHER.context;
+      OTHER.context := NULL;
+    }
+    .DESTRUCTOR FUNCTION() { DELETE OPTIONAL .context; }
+    .AWAIT_READY FUNCTION() MUT: BOOL
+    {
+      .context->.finished := .context->.frame.RESUME(@CONTROLLER .context->.adapted);
+      RETURN .context->.finished;
+    }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO): BOOL
+    {
+      CONTROLLER.pending.emplace(@OTHER THIS);
+      RETURN TRUE;
+    }
+    .advance FUNCTION() MUT: BOOL
+    {
+      IF (.context->.finished) { RETURN TRUE; }
+      IF (.context->.adapted.advance() == FALSE) { RETURN FALSE; }
+      .context->.finished := .context->.frame.RESUME(@CONTROLLER .context->.adapted);
+      RETURN .context->.finished;
+    }
+    .AWAIT_RESUME FUNCTION() CONST
+    {
+      TEST_ASSERT(.context->.finished);
+      IF (.context->.adapted.failure??) { THROW_EXCEPTION_PTR(.context->.adapted.failure); }
+    }
+  }
+
+  ::resource STRUCT MOVE_ONLY
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@events:events MUT& I32) { .events := events<-; }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& resource)
+    {
+      .events := OTHER.events;
+      OTHER.events := NULL;
+    }
+    .DESTRUCTOR COROUTINE()
+    {
+      IF (.events??)
+      {
+        .events-> := .events-> * 10 + 2;
+        AWAIT(FALSE);
+        .events-> := .events-> * 10 + 3;
+      }
+    }
+  }
+
+  ::scope_exit COROUTINE(@events:events MUT& I32)
+  {
+    VAR value resource :(@events events);
+    events := events * 10 + 1;
+  }
+
+  ::return_resource COROUTINE(@events:events MUT& I32): resource
+  {
+    events := events * 10 + 1;
+    RETURN resource(@events events);
+  }
+
+  DOC <$ An async-only return value survives transfer and transfer-operation cleanup before its coroutine destructor completes. $>
+  ::async_return_transfer DUAL_TEST
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame return_resource#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 14);
+    TEST_ASSERT(adapted.advance() == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    ready := FALSE;
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 14562);
+    TEST_ASSERT(adapted.advance() == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 145623);
+    TEST_ASSERT(adapted.failure!?);
+  }
+
+  DOC <$ Scope cleanup preserves the object and child operation across suspension until an authorized notification arrives. $>
+  ::suspended_scope_exit DUAL_TEST
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame scope_exit#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(adapted.advance() == FALSE);
+    TEST_ASSERT(events == 12);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(adapted.failure!?);
+  }
+
+  ::exception_exit COROUTINE(@events:events MUT& I32)
+  {
+    VAR value resource :(@events events);
+    events := events * 10 + 1;
+    THROW I32(@OTHER 37);
+  }
+
+  DOC <$ Exception ownership survives asynchronous cleanup while native handler state is detached between driver activations. $>
+  ::suspended_exception_exit DUAL_TEST
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame exception_exit#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(CURRENT_EXCEPTION()!?);
+    TEST_ASSERT(adapted.failure!?);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(CURRENT_EXCEPTION()!?);
+    VAR caught BOOL;
+    TRY { THROW_EXCEPTION_PTR(adapted.failure); }
+    CATCH error CONST& I32 { caught := error == 37; }
+    TEST_ASSERT(caught);
+  }
+
+  ::delete_object COROUTINE(@events:events MUT& I32)
+  {
+    VAR pointer MUT->resource := NEW resource :(@events events);
+    events := 1;
+    DELETE pointer;
+    events := events * 10 + 4;
+  }
+
+  ::destroy_storage COROUTINE(@events:events MUT& I32)
+  {
+    VAR storage TYPED_STORAGE(resource);
+    PLACE AT(storage) resource :(@events events);
+    events := 1;
+    DESTROY AT(storage) resource;
+    events := events * 10 + 4;
+  }
+
+  DOC <$ Explicit destruction completes its child operation before execution proceeds to the next statement. $>
+  ::verify_explicit_cleanup TEMPLATE(@T:descriptor TYPE AUTO) FUNCTION()
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame descriptor::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(adapted.advance() == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 1234);
+    TEST_ASSERT(adapted.failure!?);
+  }
+
+  ::suspended_delete DUAL_TEST
+  {
+    verify_explicit_cleanup#(delete_object#(@events MUT& I32, @CONTROLLER controller))();
+  }
+
+  ::suspended_destroy_at DUAL_TEST
+  {
+    verify_explicit_cleanup#(destroy_storage#(@events MUT& I32, @CONTROLLER controller))();
+  }
+
+  ::alternative INLINE_UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .value OPTION resource;
+  }
+
+  ::replace_alternative COROUTINE(@events:events MUT& I32)
+  {
+    VAR value alternative :(@value resource(@events events));
+    events := 1;
+    value := alternative();
+    TEST_ASSERT(value IS empty);
+    events := events * 10 + 4;
+  }
+
+  DOC <$ Replacement retains the active alternative's storage until asynchronous payload destruction completes. $>
+  ::suspended_alternative_replacement DUAL_TEST
+  {
+    verify_explicit_cleanup#(replace_alternative#(@events MUT& I32, @CONTROLLER controller))();
+  }
+
+  ::rollback_element STRUCT
+  {
+    .events VAR MUT->I32;
+    .number VAR I32;
+    .copied VAR BOOL;
+    .CONSTRUCTOR FUNCTION() {}
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& rollback_element)
+    {
+      .events := OTHER.events;
+      .number := OTHER.number;
+      IF (.number == 3) { THROW I32(@OTHER 37); }
+      .copied := TRUE;
+    }
+    .DESTRUCTOR COROUTINE()
+    {
+      IF (.copied)
+      {
+        .events-> := .events-> * 10 + .number;
+        AWAIT(FALSE);
+      }
+    }
+  }
+
+  ::rollback_array COROUTINE(@events:events MUT& I32)
+  {
+    VAR source [3]rollback_element;
+    source[0].events := events<-;
+    source[1].events := events<-;
+    source[2].events := events<-;
+    source[0].number := 1;
+    source[1].number := 2;
+    source[2].number := 3;
+    TRY { VAR copy [3]rollback_element := source; }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 37);
+      events := events * 10 + 9;
+    }
+  }
+
+  DOC <$ Partial array construction destroys its completed prefix in reverse order before entering the source handler. $>
+  ::suspended_array_rollback DUAL_TEST
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame rollback_array#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 2);
+    TEST_ASSERT(CURRENT_EXCEPTION()!?);
+    ready := TRUE;
+    VAR advances I32;
+    LOOP WHILE (adapted.advance() == FALSE) DO { advances++; TEST_ASSERT(advances < 8); }
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 219);
+    TEST_ASSERT(adapted.failure!?);
+  }
+
+  ::rollback_aggregate STRUCT
+  {
+    .first VAR rollback_element;
+    .second VAR rollback_element;
+  }
+
+  ::rollback_fields COROUTINE(@events:events MUT& I32)
+  {
+    VAR source rollback_aggregate;
+    source.first.events := events<-;
+    source.first.number := 1;
+    source.second.events := events<-;
+    source.second.number := 3;
+    TRY { VAR copy rollback_aggregate := source; }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 37);
+      events := events * 10 + 9;
+    }
+  }
+
+  DOC <$ Generated aggregate rollback completes asynchronous destruction of initialized fields before entering the handler. $>
+  ::suspended_aggregate_rollback DUAL_TEST
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame rollback_fields#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 1);
+    TEST_ASSERT(adapted.advance() == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 19);
+    TEST_ASSERT(adapted.failure!?);
+  }
+
+  ::noexcept_body COROUTINE() NOEXCEPT
+  {
+    THROW I32(@OTHER 37);
+  }
+
+  DOC <$ A controller cannot absorb an exception that escapes a NOEXCEPT coroutine body. $>
+  ::noexcept_boundary STATIC_TEST EXPECT_FAIL
+  {
+    VAR adapted controller;
+    VAR frame noexcept_body#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    frame.RESUME(@CONTROLLER adapted);
+  }
+
+  ::throwing_destructor STRUCT
+  {
+    .DESTRUCTOR COROUTINE() { THROW I32(@OTHER 37); }
+  }
+
+  ::destructor_boundary COROUTINE()
+  {
+    VAR value throwing_destructor;
+  }
+
+  DOC <$ Coroutine destructors preserve the ordinary default NOEXCEPT boundary. $>
+  ::default_noexcept_destructor STATIC_TEST EXPECT_FAIL
+  {
+    VAR adapted controller;
+    VAR frame destructor_boundary#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    frame.RESUME(@CONTROLLER adapted);
+  }
+
+  ::reporting_destructor STRUCT
+  {
+    .DESTRUCTOR COROUTINE() NOEXCEPT_IF(FALSE) { THROW I32(@OTHER 37); }
+  }
+
+  ::report_cleanup_failure COROUTINE()
+  {
+    VAR value reporting_destructor;
+  }
+
+  DOC <$ An explicitly throwing destructor reports its failure through the enclosing coroutine's exception operation. $>
+  ::throwing_destructor_report DUAL_TEST
+  {
+    VAR adapted controller;
+    VAR frame report_cleanup_failure#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    VAR caught BOOL;
+    TRY { THROW_EXCEPTION_PTR(adapted.failure); }
+    CATCH error CONST& I32 { caught := error == 37; }
+    TEST_ASSERT(caught);
+  }
+
+  ::suspended_failing_cleanup STRUCT
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@events MUT& I32) { .events := events<-; }
+    .DESTRUCTOR COROUTINE() NOEXCEPT_IF(FALSE)
+    {
+      .events-> := .events-> * 10 + 2;
+      AWAIT(FALSE);
+      .events-> := .events-> * 10 + 3;
+      THROW I32(@OTHER 37);
+    }
+  }
+
+  ::unwind_to_suspended_cleanup COROUTINE(@events MUT& I32)
+  {
+    VAR resource suspended_failing_cleanup :(@events events);
+    events := 1;
+    THROW I32(@OTHER 17);
+  }
+
+  DOC <$ A destructor failure during suspended exception cleanup terminates after its authorized resumption. $>
+  ::suspended_double_exception STATIC_TEST EXPECT_FAIL
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame unwind_to_suspended_cleanup#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(adapted.advance() == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(adapted.failure!?);
+    frame.RESUME(@CONTROLLER adapted);
+  }
+
+  ::normal_to_suspended_cleanup COROUTINE(@events MUT& I32)
+  {
+    VAR resource suspended_failing_cleanup :(@events events);
+    events := 1;
+  }
+
+  DOC <$ A suspended destructor failure on ordinary scope exit reaches the enclosing exception operation. $>
+  ::suspended_single_exception DUAL_TEST
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame normal_to_suspended_cleanup#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(adapted.advance() == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(events == 123);
+    TEST_ASSERT(adapted.failure!?);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    VAR caught BOOL;
+    TRY { THROW_EXCEPTION_PTR(adapted.failure); }
+    CATCH error CONST& I32 { caught := error == 37; }
+    TEST_ASSERT(caught);
+  }
+
+  ::instant_synchronous COROUTINE(@events:events MUT& I32) CANCELLABLE(INSTANT)
+  {
+    DEFER { events += 1; }
+    AWAIT(FALSE);
+    events += 100;
+  }
+
+  DOC <$ The cleanup controller supplies a complete instant-cancellation protocol for synchronous cleanup. $>
+  ::instant_synchronous_cleanup DUAL_TEST
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame instant_synchronous#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER adapted));
+    TEST_ASSERT(events == 1);
+  }
+
+  ::instant_async_exit COROUTINE(@events:events MUT& I32) CANCELLABLE(INSTANT)
+  {
+    VAR value resource :(@events events);
+    AWAIT(FALSE);
+  }
+
+  DOC <$ Instant cancellation rejects cleanup that selects a coroutine destructor. $>
+  ::instant_async_cleanup_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame instant_async_exit#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+  }
+
+  ::dual_cleanup STRUCT
+  {
+    .DESTRUCTOR FUNCTION() {}
+    .DESTRUCTOR COROUTINE() { AWAIT(FALSE); }
+  }
+
+  ::instant_dual_exit COROUTINE() CANCELLABLE(INSTANT)
+  {
+    VAR value dual_cleanup;
+    AWAIT(FALSE);
+  }
+
+  DOC <$ A synchronous destructor alternative does not override coroutine cleanup preference during instant cancellation. $>
+  ::instant_preferred_cleanup_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame instant_dual_exit#(@CONTROLLER controller)::FRAME_TYPE;
+  }
+
+  ::direct_resource STRUCT
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR COROUTINE(@events MUT& I32)
+    {
+      .events := events<-;
+      events := events * 10 + 1;
+      AWAIT(FALSE);
+      events := events * 10 + 2;
+    }
+    .DESTRUCTOR COROUTINE()
+    {
+      .events-> := .events-> * 10 + 3;
+      AWAIT(FALSE);
+      .events-> := .events-> * 10 + 4;
+    }
+  }
+
+  DOC <$ Direct lifecycle frames borrow typed destination storage and retain its ownership until completion. $>
+  ::verify_direct_lifecycle TEMPLATE(@T:resource_type TYPE) FUNCTION()
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR slot TYPED_STORAGE(resource_type);
+    VAR construction resource_type::.CONSTRUCTOR#(@THIS NVALUE[resource_type], @events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    VAR destruction resource_type::.DESTRUCTOR#(@THIS MUT& resource_type, @CONTROLLER controller)::FRAME_TYPE;
+    construction.INITIALIZE(@RECEIVER slot, @events events);
+    TEST_ASSERT(events == 0);
+    TEST_ASSERT(construction.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 1);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(construction.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT((PUN slot AS resource_type).events == events<-);
+    ready := FALSE;
+    destruction.INITIALIZE(@RECEIVER slot);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(destruction.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 123);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(destruction.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 1234);
+    TEST_ASSERT(adapted.failure!?);
+    events := 0;
+    ready := FALSE;
+    construction.INITIALIZE(@RECEIVER slot, @events events);
+    TEST_ASSERT(construction.RESUME(@CONTROLLER adapted) == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(construction.RESUME(@CONTROLLER adapted));
+    ready := FALSE;
+    destruction.INITIALIZE(@RECEIVER slot);
+    TEST_ASSERT(destruction.RESUME(@CONTROLLER adapted) == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(destruction.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 1234);
+  }
+  ::direct_lifecycle_frames DUAL_TEST
+  {
+    verify_direct_lifecycle#direct_resource();
+  }
+
+  ::polymorphic_resource STRUCT POLYMORPHIC
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@events MUT& I32)
+    {
+      .events := events<-;
+      events := events * 10 + 9;
+    }
+    .CONSTRUCTOR COROUTINE(@events MUT& I32)
+    {
+      .events := events<-;
+      events := events * 10 + 1;
+      AWAIT(FALSE);
+      events := events * 10 + 2;
+    }
+    .DESTRUCTOR FUNCTION() { .events-> := .events-> * 10 + 8; }
+    .DESTRUCTOR COROUTINE()
+    {
+      .events-> := .events-> * 10 + 3;
+      AWAIT(FALSE);
+      .events-> := .events-> * 10 + 4;
+    }
+  }
+
+  DOC <$ Ordinary polymorphic types expose coroutine construction through the common CONSTRUCTOR declaration. $>
+  ::polymorphic_lifecycle_frames DUAL_TEST
+  {
+    verify_direct_lifecycle#polymorphic_resource();
+  }
+
+  ::construction_phase_left STRUCT POLYMORPHIC {}
+
+  ::construction_phase_right STRUCT POLYMORPHIC
+  {
+    .phase_value FUNCTION() CONST VIRTUAL: I32 { RETURN 1; }
+    .CONSTRUCTOR COROUTINE(@events MUT& I32)
+    {
+      events := events * 10 + .phase_value();
+      AWAIT(FALSE);
+      events := events * 10 + .phase_value();
+    }
+  }
+
+  ::construction_phase_operation TEMPLATE(@T:descriptor TYPE AUTO) STRUCT MOVE_ONLY
+  {
+    .child VAR MUT->child_operation#descriptor;
+    .destination VAR CONST->construction_phase_right;
+    .CONSTRUCTOR FUNCTION(@parent MUT& controller, @ARGUMENTS:arguments AUTO& AUTO, @DESTINATION:destination MUT& construction_phase_right)
+    {
+      .child := NEW child_operation#descriptor :(@parent parent, @ARGUMENTS arguments, @DESTINATION destination);
+      .destination := destination<-;
+    }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& construction_phase_operation#descriptor)
+    {
+      .child := OTHER.child;
+      .destination := OTHER.destination;
+      OTHER.child := NULL;
+    }
+    .DESTRUCTOR FUNCTION() { DELETE OPTIONAL .child; }
+    .AWAIT_READY FUNCTION() MUT: BOOL { RETURN .child->.AWAIT_READY(); }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO): BOOL
+    {
+      RETURN .child->.AWAIT_SUSPEND(@CONTROLLER CONTROLLER, @FRAME FRAME);
+    }
+    .AWAIT_RESUME FUNCTION() CONST
+    {
+      .child->.AWAIT_RESUME();
+      TEST_ASSERT(.destination->.phase_value() == 1);
+    }
+  }
+
+  ::construction_phase_derived STRUCT POLYMORPHIC
+  {
+    .left BASE construction_phase_left;
+    .right BASE construction_phase_right;
+    .phase_value FUNCTION() CONST VIRTUAL(OVERRIDE): I32 { RETURN 2; }
+    .CONSTRUCTOR COROUTINE(@events MUT& I32) :> .right:(@events events)
+    {
+      events := events * 10 + .right.phase_value();
+    }
+  }
+
+  ::construct_polymorphic_base COROUTINE(@events MUT& I32)
+  {
+    VAR object construction_phase_derived :(@events events);
+    events := events * 10 + object.right.phase_value();
+  }
+
+  DOC <$ A suspended secondary-base constructor retains base dispatch through child completion and adapter resumption. $>
+  ::polymorphic_base_construction_phase DUAL_TEST
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame construct_polymorphic_base#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 1);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 1122);
+  }
+
+  ::split_resource STRUCT VIRTUAL_POLYMORPHIC
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@events MUT& I32)
+    {
+      .events := events<-;
+      events := events * 10 + 9;
+    }
+    .CONSTRUCTOR COROUTINE(@events MUT& I32)
+    {
+      .events := events<-;
+      events := events * 10 + 1;
+      AWAIT(FALSE);
+      events := events * 10 + 2;
+    }
+    .DESTRUCTOR FUNCTION() { .events-> := .events-> * 10 + 8; }
+    .DESTRUCTOR COROUTINE()
+    {
+      .events-> := .events-> * 10 + 3;
+      AWAIT(FALSE);
+      .events-> := .events-> * 10 + 4;
+    }
+  }
+
+  DOC <$ Complete lifecycle descriptors coexist with ordinary constructors and destructors on virtual-polymorphic types. $>
+  ::split_lifecycle_frames DUAL_TEST
+  {
+    VAR events I32;
+    {
+      VAR synchronous split_resource :(@events events);
+      TEST_ASSERT(events == 9);
+    }
+    TEST_ASSERT(events == 98);
+    verify_direct_lifecycle#split_resource();
+  }
+
+  ::handler_resource STRUCT
+  {
+    .events VAR MUT->I32;
+    .expected VAR EXCEPTION_PTR;
+    .CONSTRUCTOR FUNCTION(@events MUT& I32, @expected CONST& EXCEPTION_PTR)
+    {
+      .events := events<-;
+      .expected := expected;
+    }
+    .DESTRUCTOR COROUTINE()
+    {
+      TEST_ASSERT(CURRENT_EXCEPTION() == .expected);
+      .events-> := .events-> * 10 + 2;
+      AWAIT(FALSE);
+      .events-> := .events-> * 10 + 3;
+    }
+  }
+
+  ::return_from_handler COROUTINE(@events MUT& I32)
+  {
+    VAR empty EXCEPTION_PTR;
+    VAR resource handler_resource :(@events events, @expected empty);
+    TRY { THROW I32(@OTHER 17); }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 17);
+      events := 1;
+      RETURN;
+    }
+  }
+
+  ::return_from_nested_handler COROUTINE(@events MUT& I32)
+  {
+    TRY { THROW I32(@OTHER 17); }
+    CATCH outer CONST& I32
+    {
+      TEST_ASSERT(outer == 17);
+      VAR expected EXCEPTION_PTR := CURRENT_EXCEPTION();
+      DEFER
+      {
+        TEST_ASSERT(CURRENT_EXCEPTION() == expected);
+        events := events * 10 + 4;
+      }
+      VAR resource handler_resource :(@events events, @expected expected);
+      TRY { THROW I32(@OTHER 29); }
+      CATCH inner CONST& I32
+      {
+        TEST_ASSERT(inner == 29);
+        events := 1;
+        RETURN;
+      }
+    }
+  }
+
+  DOC <$ Returning through suspendable cleanup retires inner handlers before adapting enclosing destructors. $>
+  ::verify_handler_retirement TEMPLATE(@T:descriptor TYPE AUTO) FUNCTION(@expected I32)
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame descriptor::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(CURRENT_EXCEPTION()!?);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == expected);
+    TEST_ASSERT(CURRENT_EXCEPTION()!?);
+    TEST_ASSERT(adapted.failure!?);
+  }
+
+  ::handler_retired_before_outer_cleanup DUAL_TEST
+  {
+    verify_handler_retirement#(return_from_handler#(@events MUT& I32, @CONTROLLER controller))(@expected 123);
+  }
+
+  ::nested_handler_retirement DUAL_TEST
+  {
+    verify_handler_retirement#(return_from_nested_handler#(@events MUT& I32, @CONTROLLER controller))(@expected 1234);
+  }
+
+}

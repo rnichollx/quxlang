@@ -64,6 +64,11 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_ensig_declarations_spec 
             }
         }
 
+        if (head.controller_parameter.has_value())
+        {
+            ensig.interface.named["CONTROLLER"] = argif{.type = head.controller_parameter->type, .is_defaulted = true, .is_execution_controller = true};
+        }
+
         output.push_back(ensig);
     }
 

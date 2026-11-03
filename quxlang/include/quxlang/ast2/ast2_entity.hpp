@@ -413,6 +413,12 @@ namespace quxlang
     struct ast2_function_header
     {
         std::vector< ast2_function_parameter > call_parameters;
+        /** Selects synchronous invocation or coroutine execution. */
+        function_execution_kind execution_kind = function_execution_kind::ordinary;
+        /** Controls the supported cancellation entry points of a coroutine frame. */
+        coroutine_cancellation_mode cancellation_mode = coroutine_cancellation_mode::none;
+        /** Execution-only controller parameter, excluded from captured call arguments. */
+        std::optional< ast2_function_parameter > controller_parameter;
         /** Prevents exceptions from escaping this callable. */
         bool is_noexcept = false;
         /** Constant Boolean exception specification evaluated in the callable context. */
@@ -425,7 +431,7 @@ namespace quxlang
         /// True when a destructor explicitly opts out of polymorphic dispatch.
         bool is_nonvirtual = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, is_noexcept, noexcept_if, priority, enable_if, virtual_specifier, is_nonvirtual);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, execution_kind, cancellation_mode, controller_parameter, is_noexcept, noexcept_if, priority, enable_if, virtual_specifier, is_nonvirtual);
     };
 
     struct parameters

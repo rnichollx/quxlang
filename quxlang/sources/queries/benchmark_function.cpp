@@ -302,6 +302,7 @@ rpnx::querygraph::coroutine< quxlang::benchmark_function_spec > quxlang::benchma
                                                                            {"INPUT", make_cref(string_type)},
                                                                            {"OUTPUT", make_mref(*parameter_type)},
                                                                        }}),
+                    .lookup_kind = function_lookup_kind::invocation,
                 });
                 if (!parse)
                 {

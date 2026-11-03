@@ -8,6 +8,7 @@
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_identifier.hpp>
+#include <quxlang/parsers/parse_subentity.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/symbol.hpp>
 
@@ -117,7 +118,7 @@ namespace quxlang::parsers
         }
 
         ast2_enum_value_declaration value;
-        value.name = parse_identifier(pos, end);
+        value.name = parse_subentity(pos, end);
         if (value.name.empty())
         {
             throw syntax_compilation_error("Expected enum item name");
@@ -174,7 +175,7 @@ namespace quxlang::parsers
         }
 
         ast2_flagset_value_declaration value;
-        value.name = parse_identifier(pos, end);
+        value.name = parse_subentity(pos, end);
         if (value.name.empty())
         {
             throw syntax_compilation_error("Expected flagset item name");

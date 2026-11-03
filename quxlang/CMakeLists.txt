@@ -159,6 +159,39 @@ set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         sources/ir2_constexpr_interpreter.cpp
         include/quxlang/exception.hpp
         include/quxlang/vmir2/state_engine.hpp
+        include/quxlang/vmir2/coroutine_frame_analysis.hpp
+        include/quxlang/vmir2/constexpr_address.hpp
+        include/quxlang/vmir2/lifetime_state_map.hpp
+        include/quxlang/vmir2/lifetime_snapshot_graph.hpp
+        include/quxlang/vmir2/lifetime_snapshot_archive.hpp
+        include/quxlang/vmir2/routine_snapshot_archive.hpp
+        sources/vmir2/routine_snapshot_archive.cpp
+        sources/vmir2/coroutine_lifetime_snapshots.hpp
+        sources/vmir2/coroutine_lifetime_snapshots.cpp
+        include/quxlang/vmir2/local_borrow_analysis.hpp
+        sources/vmir2/local_borrow_analysis.cpp
+        include/quxlang/vmir2/coroutine_output_initialization.hpp
+        sources/vmir2/coroutine_output_initialization.cpp
+        include/quxlang/vmir2/lifetime_state_difference.hpp
+        include/quxlang/vmir2/lifetime_transition_graph.hpp
+        include/quxlang/vmir2/lifetime_cleanup_program.hpp
+        include/quxlang/co_coroutine_cleanup_dispatch.hpp
+        include/quxlang/co_coroutine_cleanup_storage.hpp
+        include/quxlang/data/coroutine_types.hpp
+        include/quxlang/co_coroutine_initialize.hpp
+        include/quxlang/data/coroutine_frame_info.hpp
+        include/quxlang/coroutine_storage_dependencies.hpp
+        include/quxlang/queries/coroutine_frame.hpp
+        include/quxlang/queries/specs/coroutine_frame_spec.hpp
+        sources/queries/coroutine_frame.cpp
+        sources/vmir2/coroutine_frame_analysis.cpp
+        include/quxlang/data/array_initializer_placement.hpp
+        include/quxlang/vmir2/coroutine_vmir_analysis.hpp
+        sources/vmir2/coroutine_vmir_analysis.cpp
+        include/quxlang/vmir2/local_operands.hpp
+        sources/vmir2/coroutine_frame_analysis_internal.hpp
+        include/quxlang/vmir2/coroutine_lowering.hpp
+        sources/vmir2/coroutine_lowering.cpp
         include/quxlang/lang/lang.hpp
         include/quxlang/bytemath.hpp
         include/quxlang/ast2/source_location.hpp
@@ -403,6 +436,11 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/type_is_trivially_default_constructible_spec.hpp
         include/quxlang/queries/specs/functanoid_is_noexcept_spec.hpp
         include/quxlang/queries/specs/type_operation_is_noexcept_spec.hpp
+        include/quxlang/queries/type_has_coroutine_lifecycle.hpp
+        include/quxlang/queries/specs/type_has_coroutine_lifecycle_spec.hpp
+        include/quxlang/queries/specs/type_is_async_only_spec.hpp
+        include/quxlang/queries/specs/type_destruction_capabilities_spec.hpp
+        include/quxlang/queries/specs/coroutine_destructor_spec.hpp
         include/quxlang/queries/specs/type_is_trivially_relocatable_spec.hpp
         include/quxlang/data/pseudotype_match.hpp
         include/quxlang/queries/pseudotype_match.hpp
@@ -626,6 +664,10 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/type_is_trivially_default_constructible.cpp
         sources/queries/functanoid_is_noexcept.cpp
         sources/queries/type_operation_is_noexcept.cpp
+        sources/queries/type_has_coroutine_lifecycle.cpp
+        sources/queries/type_is_async_only.cpp
+        sources/queries/type_destruction_capabilities.cpp
+        sources/queries/coroutine_destructor.cpp
         sources/queries/type_is_trivially_relocatable.cpp
         sources/queries/class_placement_info.cpp
         sources/queries/type_should_autogen_deserialize.cpp
@@ -764,7 +806,7 @@ if (BUILD_TESTING)
     add_executable(quxlang_long_gtests)
     add_executable(quxlang_math_gtests)
     add_executable(quxlang_static_gtests)
-    target_sources(quxlang_gtests PRIVATE tests/gtests.cpp tests/expr_test_generator.cpp tests/querygraph_gtests.cpp tests/source_loader_gtests.cpp)
+    target_sources(quxlang_gtests PRIVATE tests/gtests.cpp tests/expr_test_generator.cpp tests/querygraph_gtests.cpp tests/source_loader_gtests.cpp tests/coroutine_frame_analysis_gtests.cpp tests/coroutine_storage_gtests.cpp tests/coroutine_lowering_gtests.cpp tests/lifetime_state_map_gtests.cpp tests/lifetime_state_difference_gtests.cpp tests/lifetime_snapshot_graph_gtests.cpp tests/routine_snapshot_archive_gtests.cpp)
     target_sources(quxlang_long_gtests PRIVATE tests/long_gtests.cpp)
     target_sources(quxlang_static_gtests PRIVATE tests/static_gtests.cpp)
     target_link_libraries(quxlang_gtests PUBLIC GTest::GTest GTest::Main quxlang quxlang-loaders PRIVATE ${QUXLANG_LLVM_LIBS})
@@ -778,12 +820,16 @@ if (BUILD_TESTING)
     target_sources(quxlang_math_gtests PRIVATE tests/gtests_bytemath.cpp)
     target_compile_definitions(quxlang_gtests PRIVATE QUXLANG_TESTS_TESTDDATA_PATH="${QUXLANG_TESTS_TESTDATA_PATH}")
     target_compile_definitions(quxlang_static_gtests PRIVATE QUXLANG_TESTS_TESTDDATA_PATH="${QUXLANG_TESTS_TESTDATA_PATH}")
-    add_test(
-            NAME qxc_compile_test
-            COMMAND $<TARGET_FILE:qxc>
-                    "${QUXLANG_TESTS_TESTDATA_PATH}/testbundle"
-                    "${CMAKE_CURRENT_BINARY_DIR}/qxc_compile_test_output/$<CONFIG>"
-                    "linux-x64,linux-x64-glibc,linux-arm64,linux-x86,linux-z-arch,windows-x64,macos-arm64")
+    foreach (test_target IN ITEMS linux-x64 linux-x64-glibc linux-arm64 linux-x86 linux-z-arch windows-x64 macos-arm64)
+        add_test(
+                NAME qxc_compile_test.${test_target}
+                COMMAND $<TARGET_FILE:qxc>
+                        "${QUXLANG_TESTS_TESTDATA_PATH}/testbundle"
+                        "${CMAKE_CURRENT_BINARY_DIR}/qxc_compile_test_output/$<CONFIG>/${test_target}"
+                        "${test_target}")
+        # Each target has its own timeout while compilation retains one active target at a time.
+        set_tests_properties(qxc_compile_test.${test_target} PROPERTIES RESOURCE_LOCK qxc_compile_test)
+    endforeach ()
     gtest_discover_tests(quxlang_math_gtests)
     gtest_discover_tests(quxlang_gtests DISCOVERY_TIMEOUT 30)
     if (QUXLANG_DISCOVER_STATIC_TESTS)

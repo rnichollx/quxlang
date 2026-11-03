@@ -1,0 +1,107 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_retained_lifetime_tests NAMESPACE
+{
+  ::snapshot STRUCT
+  {
+    .number VAR I32;
+    .check VAR I32;
+  }
+
+  ::read_capture COROUTINE(@VALUE:value snapshot, @result:result MUT& I32)
+  {
+    result := value.number * 100 + value.check;
+  }
+
+  DOC <$ Initialization preserves an owned runtime argument after its source changes and leaves scope, including coroutines whose body never suspends. $>
+  ::owned_capture_before_first_drive DUAL_TEST
+  {
+    VAR result I32;
+    VAR driver coroutine_frame_tests::controller;
+    VAR frame read_capture#(@VALUE snapshot, @result MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    {
+      VAR source snapshot;
+      source.number := 17;
+      source.check := 23;
+      frame.INITIALIZE(@VALUE source, @result result);
+      source.number := 99;
+      source.check := 0;
+      TEST_ASSERT(result == 0);
+    }
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 1723);
+  }
+
+  ::tracked STRUCT
+  {
+    .events VAR MUT->I32;
+    .value VAR I32;
+    .CONSTRUCTOR FUNCTION(@events:events MUT& I32)
+    {
+      .events := events<-;
+      .value := 17;
+    }
+    .DESTRUCTOR FUNCTION() { .events-> := .events-> * 10 + 1; }
+  }
+
+  ::branch_exit COROUTINE(@early:early BOOL, @events:events MUT& I32)
+  {
+    {
+      VAR object tracked :(@events events);
+      IF(early) { GOTO :after; }
+      AWAIT(FALSE);
+      TEST_ASSERT(object.value == 17);
+      events := events * 10 + 2;
+    }
+    LABEL :after;
+    events := events * 10 + 3;
+  }
+
+  DOC <$ Cleanup on one branch preserves the object's lifetime on another branch that suspends before leaving the same scope. $>
+  ::bypassed_lifetime_endpoint DUAL_TEST
+  {
+    VAR events I32;
+    VAR driver coroutine_frame_tests::controller;
+    VAR frame branch_exit#(@early BOOL, @events MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@early TRUE, @events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(events == 13);
+    events := 0;
+    frame.INITIALIZE(@early FALSE, @events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(events == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(events == 213);
+  }
+
+  ::jump_cleanup COROUTINE(@events:events MUT& I32)
+  {
+    {
+      VAR object coroutine_async_cleanup_tests::resource :(@events events);
+      events := events * 10 + 1;
+      GOTO :after;
+    }
+    LABEL :after;
+    events := events * 10 + 4;
+  }
+
+  DOC <$ A jump reaches its destination after the coroutine destructor of the exited scope completes. $>
+  ::suspended_jump_cleanup DUAL_TEST
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR driver coroutine_async_cleanup_tests::controller;
+    driver.gate := ready<-;
+    VAR frame jump_cleanup#(@events MUT& I32, @CONTROLLER coroutine_async_cleanup_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(events == 12);
+    TEST_ASSERT(driver.advance() == FALSE);
+    TEST_ASSERT(events == 12);
+    ready := TRUE;
+    TEST_ASSERT(driver.advance());
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(events == 1234);
+    TEST_ASSERT(driver.failure!?);
+  }
+}

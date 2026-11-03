@@ -10,6 +10,7 @@
 #include <quxlang/queries/struct_inheritance_info.hpp>
 #include <quxlang/queries/struct_tags.hpp>
 #include <quxlang/queries/struct_virtual_slots.hpp>
+#include <quxlang/queries/user_default_dtor_exists.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -18,7 +19,7 @@ namespace quxlang
     struct struct_virtual_slots_spec
     {
         using query = struct_virtual_slots_query;
-        using dependencies = rpnx::typelist< active_symboid_subdeclarations_query, constexpr_bool_query, lookup_query, struct_direct_bases_query, struct_inheritance_info_query, struct_tags_query >;
+        using dependencies = rpnx::typelist< active_symboid_subdeclarations_query, constexpr_bool_query, lookup_query, struct_direct_bases_query, struct_inheritance_info_query, struct_tags_query, user_default_dtor_exists_query >;
     };
 
     /** Normalizes virtual declarations, overrides, and implicit destructor slots. */

@@ -167,6 +167,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
             empty_call.initializee = *resolved_entry;
         }
 
+        empty_call.lookup_kind = function_lookup_kind::invocation;
         rpnx::querygraph::request< instanciation_query > entry_instanciation_request(std::move(empty_call));
         co_yield rpnx::querygraph::dependency(entry_instanciation_request);
         entry_functanoid = co_await entry_instanciation_request;
@@ -419,6 +420,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
                 {
                     detector_call.initializee = *resolved_detector;
                 }
+                detector_call.lookup_kind = function_lookup_kind::invocation;
                 detector = co_await rpnx::querygraph::request< instanciation_query >(std::move(detector_call));
             }
             if (!detector.has_value())
@@ -469,6 +471,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_catalog_spec > quxlang::output
                     {
                         post_detect_call.initializee = *resolved_post_detect;
                     }
+                    post_detect_call.lookup_kind = function_lookup_kind::invocation;
                     post_detect_functanoid = co_await rpnx::querygraph::request< instanciation_query >(std::move(post_detect_call));
                 }
                 if (!post_detect_functanoid.has_value() || !post_detect_functanoid->params.positional.empty() || !post_detect_functanoid->params.named.empty() || co_await rpnx::querygraph::request< functanoid_return_type_query >(*post_detect_functanoid) != type_symbol(void_type{}))

@@ -1,0 +1,187 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_lookup_tests NAMESPACE
+{
+  ::unrelated_controller STRUCT {}
+
+  ::select FUNCTION(@value I32): I32 { RETURN value + 1; }
+  ::select COROUTINE(@value I32): I32 { RETURN value + 10; }
+
+  ::argument FUNCTION(@count MUT& I32): I32 { count += 1; RETURN 7; }
+
+  ::call_selected COROUTINE(@count MUT& I32, @result MUT& I32)
+  {
+    result := select(@value argument(@count count));
+  }
+
+  DOC <$ An ordinary invocation selects the FUNCTION overload from a mixed functum. $>
+  ::ordinary_selection DUAL_TEST
+  {
+    TEST_ASSERT(select(@value 7) == 8);
+  }
+
+  DOC <$ Coroutine lookup supplies its controller before ordinary fallback and evaluates explicit arguments once. $>
+  ::coroutine_selection DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR adapted coroutine_call_tests::controller;
+    adapted.observed := observed<-;
+    VAR count I32;
+    VAR result I32;
+    VAR frame call_selected#(@count MUT& I32, @result MUT& I32, @CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@count count, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(count == 1);
+    TEST_ASSERT(result == 17);
+    TEST_ASSERT(observed.calls == 1);
+  }
+
+  ::restricted FUNCTION(@value I32): I32 { RETURN value + 2; }
+  ::restricted COROUTINE(@CONTROLLER unrelated_controller, @value I32): I32
+  {
+    RETURN missing_restricted_body(@value value);
+  }
+
+  ::call_restricted COROUTINE(@count MUT& I32, @result MUT& I32)
+  {
+    result := restricted(@value argument(@count count));
+  }
+
+  DOC <$ An incompatible controller permits ordinary fallback without instantiating the rejected coroutine body. $>
+  ::controller_mismatch_fallback DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR adapted coroutine_call_tests::controller;
+    adapted.observed := observed<-;
+    VAR count I32;
+    VAR result I32;
+    VAR frame call_restricted#(@count MUT& I32, @result MUT& I32, @CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@count count, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(count == 1);
+    TEST_ASSERT(result == 9);
+    TEST_ASSERT(observed.calls == 0);
+  }
+
+  ::observe FUNCTION(@CONTROLLER MUT& coroutine_call_tests::controller)
+  {
+    CONTROLLER.observed->.integer_yields += 1;
+  }
+
+  ::named_count FUNCTION(@KWARGS ...): SZ { RETURN COMPOSITE_FIELD_COUNT(DECLTYPE(KWARGS)); }
+
+  ::call_controller_functions COROUTINE(@explicit MUT& coroutine_call_tests::controller)
+  {
+    observe();
+    observe(@CONTROLLER explicit);
+    TEST_ASSERT(named_count(@value 7) == 1);
+    TEST_ASSERT(named_count(@CONTROLLER explicit, @value 7) == 2);
+  }
+
+  DOC <$ Ordinary controller-taking functions receive the selected borrow while keyword packs retain only explicit arguments. $>
+  ::ordinary_controller_arguments DUAL_TEST
+  {
+    VAR current_observed coroutine_call_tests::observations;
+    VAR supplied_observed coroutine_call_tests::observations;
+    VAR adapted coroutine_call_tests::controller;
+    VAR supplied coroutine_call_tests::controller;
+    adapted.observed := current_observed<-;
+    supplied.observed := supplied_observed<-;
+    VAR frame call_controller_functions#(@explicit MUT& coroutine_call_tests::controller, @CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@explicit supplied);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(current_observed.integer_yields == 1);
+    TEST_ASSERT(supplied_observed.integer_yields == 1);
+    TEST_ASSERT(current_observed.calls == 0);
+  }
+
+  ::ambiguous FUNCTION(): I32 { RETURN 1; }
+  ::ambiguous COROUTINE() ENABLE_IF(TRUE): I32 { RETURN 2; }
+  ::ambiguous COROUTINE() ENABLE_IF(1 == 1): I32 { RETURN 3; }
+  ::call_ambiguous COROUTINE() { ambiguous(); }
+
+  DOC <$ Ambiguity in controller-aware lookup is diagnosed before ordinary fallback. $>
+  ::controller_ambiguity_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame call_ambiguous#(@CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+  }
+
+  ::invalid_body FUNCTION(): I32 { RETURN 1; }
+  ::invalid_body COROUTINE(): I32 { RETURN missing_selected_body(); }
+  ::call_invalid_body COROUTINE() { invalid_body(); }
+
+  DOC <$ An error in the selected coroutine body does not cause overload fallback. $>
+  ::selected_body_error_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame call_invalid_body#(@CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+  }
+
+  ::unselected_body FUNCTION(): I32 { RETURN missing_ordinary_body(); }
+  ::unselected_body COROUTINE(): I32 { RETURN 31; }
+  ::call_unselected_body COROUTINE(@result MUT& I32) { result := unselected_body(); }
+
+  DOC <$ The ordinary alternative's body remains uninstantiated when controller lookup selects the coroutine. $>
+  ::unselected_body_is_discarded DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR adapted coroutine_call_tests::controller;
+    adapted.observed := observed<-;
+    VAR result I32;
+    VAR frame call_unselected_body#(@result MUT& I32, @CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(result == 31);
+    TEST_ASSERT(observed.calls == 1);
+  }
+
+  ::rank_ordinary FUNCTION(@CONTROLLER MUT& coroutine_call_tests::controller): I32 { RETURN 41; }
+  ::rank_ordinary COROUTINE(): I32 { RETURN 42; }
+  ::rank_coroutine FUNCTION(@CONTROLLER MUT& AUTO): I32 { RETURN 41; }
+  ::rank_coroutine COROUTINE(@CONTROLLER coroutine_call_tests::controller): I32 { RETURN 42; }
+
+  ::call_ranked COROUTINE(@result MUT& I32)
+  {
+    result := rank_ordinary() + rank_coroutine();
+  }
+
+  DOC <$ Ordinary overload ranking compares concrete controller formals against deduced controller formals in either execution model. $>
+  ::controller_overload_ranking DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR adapted coroutine_call_tests::controller;
+    adapted.observed := observed<-;
+    VAR result I32;
+    VAR frame call_ranked#(@result MUT& I32, @CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(result == 83);
+    TEST_ASSERT(observed.calls == 1);
+  }
+
+  ::destructor_choice STRUCT
+  {
+    .events VAR MUT->I32;
+    .DESTRUCTOR FUNCTION() { .events-> += 100; }
+    .DESTRUCTOR FUNCTION(@CONTROLLER MUT& coroutine_call_tests::controller) { .events-> += 1; }
+    .DESTRUCTOR COROUTINE() { .events-> += 10; }
+  }
+
+  ::destroy_selected COROUTINE(@events MUT& I32)
+  {
+    VAR value destructor_choice;
+    value.events := events<-;
+  }
+
+  DOC <$ Destructor overload ranking preserves ordinary execution when a concrete controller formal selects an ordinary body. $>
+  ::ordinary_controller_destructor DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR adapted coroutine_call_tests::controller;
+    adapted.observed := observed<-;
+    VAR events I32;
+    VAR frame destroy_selected#(@events MUT& I32, @CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 1);
+  }
+}

@@ -274,7 +274,8 @@ namespace quxlang::vmir2
             if (fnc.blocks.at(i).catcher.has_value())
             {
                 exception_catcher const& catcher = *fnc.blocks.at(i).catcher;
-                output += " CATCH %" + std::to_string(catcher.exception) + ", !" + std::to_string(catcher.handler);
+                if (catcher.terminate_before_capture) output += " TERMINATE !" + std::to_string(catcher.handler);
+                else output += " CATCH %" + std::to_string(catcher.exception) + ", !" + std::to_string(catcher.handler);
             }
 
             if (print_comments && fnc.blocks.at(i).dbg_name.has_value())
@@ -491,7 +492,73 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::storage_init_start inst)
     {
-        return "STORAGE_INIT_START %" + std::to_string(inst.on_storage) + " -> %" + std::to_string(inst.target_value);
+        return std::string(inst.persistent ? "STORAGE_INIT_START PERSISTENT %" : "STORAGE_INIT_START %") + std::to_string(inst.on_storage) + " -> %" + std::to_string(inst.target_value);
+    }
+
+    std::string assembler::to_string_internal(vmir2::storage_rebind inst)
+    {
+        return "STORAGE_REBIND %" + std::to_string(inst.on_storage) + " -> %" + std::to_string(inst.target_value) + " STAGE " + std::to_string(static_cast< std::uint16_t >(inst.stage));
+    }
+
+    std::string assembler::to_string_internal(vmir2::array_deinit_previous inst)
+    {
+        return "ARRAY_DEINIT_PREVIOUS %" + std::to_string(inst.initializer) + " -> %" + std::to_string(inst.target);
+    }
+
+    std::string assembler::to_string_internal(vmir2::struct_phase_enter inst)
+    {
+        return "STRUCT_PHASE_ENTER %" + std::to_string(inst.on_value) + " -> %" + std::to_string(inst.saved_phase);
+    }
+
+    std::string assembler::to_string_internal(vmir2::struct_phase_leave inst)
+    {
+        return "STRUCT_PHASE_LEAVE %" + std::to_string(inst.saved_phase) + (inst.completed ? " COMPLETE" : " ABORT");
+    }
+
+    std::string assembler::to_string_internal(vmir2::begin_destruction inst)
+    {
+        return "BEGIN_DESTRUCTION %" + std::to_string(inst.of);
+    }
+
+    std::string assembler::to_string_internal(vmir2::complete_initialization inst)
+    {
+        return "COMPLETE_INITIALIZATION %" + std::to_string(inst.of) + (inst.finalize_partial ? " FINALIZE_PARTIAL" : "");
+    }
+
+    std::string assembler::to_string_internal(vmir2::lifetime_transfer const& instruction)
+    {
+        return "LIFETIME_TRANSFER " + std::to_string(instruction.state.size()) + " active slots";
+    }
+
+    std::string assembler::to_string_internal(vmir2::lifetime_import const& instruction)
+    {
+        return "LIFETIME_IMPORT %" + std::to_string(instruction.slot);
+    }
+
+    std::string assembler::to_string_internal(vmir2::co_save inst)
+    {
+        return "CO_SAVE " + std::to_string(inst.continuation);
+    }
+
+    std::string assembler::to_string_internal(vmir2::co_cleanup_storage const& instruction)
+    {
+        return std::string("CO_CLEANUP_STORAGE ") +
+            (instruction.area == coroutine_cleanup_area::retirement ? "RETIREMENT" : "CONTEXTS") + " -> %" + std::to_string(instruction.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::co_cleanup_mark const& instruction)
+    {
+        return "CO_CLEANUP_MARK %" + std::to_string(instruction.slot) + " " + std::to_string(instruction.status);
+    }
+
+    std::string assembler::to_string_internal(vmir2::co_suspend inst)
+    {
+        return "CO_SUSPEND " + std::to_string(inst.continuation);
+    }
+
+    std::string assembler::to_string_internal(vmir2::co_complete inst)
+    {
+        return inst.exception.has_value() ? "CO_COMPLETE EXCEPTION %" + std::to_string(*inst.exception) : "CO_COMPLETE";
     }
 
     std::string assembler::to_string_internal(vmir2::storage_deinit_start inst)
@@ -841,7 +908,7 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::make_reference inst)
     {
-        std::string result = "MAKEREF %" + std::to_string(inst.value_index) + ", %" + std::to_string(inst.reference_index);
+        std::string result = std::string(inst.storage_only ? "MAKEREF STORAGE %" : "MAKEREF %") + std::to_string(inst.value_index) + ", %" + std::to_string(inst.reference_index);
 
         // Use apply_visitor since both types have the same logic
 
@@ -1058,7 +1125,7 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::ret inst)
     {
-        return "RET";
+        return inst.retain_storage ? "RET RETAIN_STORAGE" : "RET";
     }
 
     std::string assembler::to_string_internal(vmir2::panic inst)
@@ -1492,12 +1559,12 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::end_lifetime elt)
     {
-        return "END_LIFETIME %" + std::to_string(elt.of);
+        return "END_LIFETIME %" + std::to_string(elt.of) + (elt.initialization_rollback ? " ROLLBACK" : "");
     }
 
     std::string assembler::to_string_internal(vmir2::destroy dst)
     {
-        return "DESTROY %" + std::to_string(dst.of);
+        return "DESTROY %" + std::to_string(dst.of) + (dst.initialization_rollback ? " ROLLBACK" : "");
     }
     std::string assembler::to_string_internal(vmir2::pointer_arith inst)
     {

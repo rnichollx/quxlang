@@ -5,7 +5,7 @@
 
 #include <cstdint>
 #include <limits>
-#include <quxlang/exception.hpp>
+#include <quxlang/data/compilation_result.hpp>
 
 namespace quxlang
 {

@@ -1,0 +1,149 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_frame_tests NAMESPACE
+{
+  ::awaiter STRUCT
+  {
+    .ready VAR BOOL;
+    .driver VAR MUT->controller;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .ready; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO): BOOL
+    {
+      CONTROLLER.registrations += 1;
+      RETURN TRUE;
+    }
+    .AWAIT_RESUME FUNCTION() { .driver->.deliveries += 1; }
+    .TRY_CANCEL FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO): BOOL { RETURN CONTROLLER.quiescent; }
+  }
+
+  ::controller STRUCT
+  {
+    .registrations VAR I32;
+    .deliveries VAR I32;
+    .returns VAR I32;
+    .quiescent VAR BOOL;
+    .cancellations VAR I32;
+
+    .CO_AWAIT FUNCTION(@ARG BOOL) MUT: awaiter
+    {
+      VAR result awaiter;
+      result.ready := ARG;
+      result.driver := THIS<-;
+      RETURN result;
+    }
+    .CO_RETURN FUNCTION(): BOOL
+    {
+      .returns += 1;
+      RETURN TRUE;
+    }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+    .CO_CANCELLED FUNCTION(@ARG MUT& AUTO) NOEXCEPT { .cancellations += 1; }
+  }
+
+  ::count COROUTINE(@VALUE:value MUT& I32)
+  {
+    value += 1;
+    AWAIT(FALSE);
+    value += 1;
+  }
+
+  DOC <$ Initialization captures arguments without executing the body or controller hooks. $>
+  ::initialize_suspend_complete_reuse DUAL_TEST
+  {
+    VAR driver controller;
+    VAR value I32 := 0;
+    VAR frame count#(@VALUE MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@VALUE value);
+    TEST_ASSERT(value == 0);
+    TEST_ASSERT(driver.registrations == 0);
+    TEST_ASSERT(driver.returns == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(value == 1);
+    TEST_ASSERT(driver.registrations == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(value == 2);
+    TEST_ASSERT(driver.registrations == 1);
+    TEST_ASSERT(driver.returns == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.returns == 1);
+    frame.INITIALIZE(@VALUE value);
+    TEST_ASSERT(value == 2);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(value == 4);
+    TEST_ASSERT(driver.returns == 2);
+  }
+
+  ::captured_value STRUCT
+  {
+    .live VAR MUT->I32;
+    .fail VAR BOOL;
+    .copied VAR BOOL;
+    .CONSTRUCTOR FUNCTION() {}
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& captured_value)
+    {
+      IF (OTHER.fail) { THROW I32(@OTHER 41); }
+      .live := OTHER.live;
+      .copied := TRUE;
+      .live-> += 1;
+    }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& captured_value)
+    {
+      .live := OTHER.live;
+      .fail := OTHER.fail;
+      .copied := OTHER.copied;
+      OTHER.copied := FALSE;
+    }
+    .DESTRUCTOR FUNCTION()
+    {
+      IF (.copied) { .live-> -= 1; }
+    }
+  }
+
+  ::capture COROUTINE(@first captured_value, @second captured_value, @body:body MUT& I32)
+  {
+    body += 1;
+  }
+
+  DOC <$ Failed argument capture rolls back synchronously and leaves the frame available for initialization. $>
+  ::initialize_rollback DUAL_TEST
+  {
+    VAR live I32;
+    VAR body I32;
+    VAR first captured_value;
+    VAR second captured_value;
+    first.live := live<-;
+    second.live := live<-;
+    second.fail := TRUE;
+    VAR driver controller;
+    VAR frame capture#(@first captured_value, @second captured_value, @body MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    VAR caught BOOL;
+    TRY { frame.INITIALIZE(@first first, @second second, @body body); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 41); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(live == 0);
+    TEST_ASSERT(body == 0);
+    TEST_ASSERT(driver.returns == 0);
+    second.fail := FALSE;
+    frame.INITIALIZE(@first first, @second second, @body body);
+    TEST_ASSERT(live == 2);
+    TEST_ASSERT(body == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(live == 0);
+    TEST_ASSERT(body == 1);
+  }
+
+  DOC <$ Coroutine frames retain their storage identity and cannot be copied. $>
+  ::frame_copy_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR source count#(@VALUE MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    VAR copied count#(@VALUE MUT& I32, @CONTROLLER controller)::FRAME_TYPE := source;
+  }
+
+  DOC <$ Coroutine frames retain their storage identity and cannot be moved. $>
+  ::frame_move_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR source count#(@VALUE MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    VAR moved count#(@VALUE MUT& I32, @CONTROLLER controller)::FRAME_TYPE := MOVE(source);
+  }
+}

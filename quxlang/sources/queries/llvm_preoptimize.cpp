@@ -176,7 +176,6 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
             for (static_snapshot_ref const& snapshot : direct.static_snapshots)
             {
                 constants.insert(snapshot);
-                routines.insert(snapshot.functanoid);
             }
         }
         objects.insert(constants.begin(), constants.end());
@@ -219,6 +218,9 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
             compilable.unit_tests.push_back(test);
         }
     }
+    // Lowered procedures carry their required snapshots even when a logical
+    // procedure owns the snapshot identity and has no executable native body.
+    std::map< static_snapshot_ref, vmir2::localdata_entry const* > snapshots;
     for (type_symbol const& procedure : routines)
     {
         vmir2::functanoid_routine3 const* routine;
@@ -250,6 +252,10 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
         {
             type_roots.insert(parameter.second.type);
         }
+        for (std::pair< static_snapshot_ref const, vmir2::localdata_entry > const& snapshot : routine->static_snapshots)
+        {
+            if (constants.contains(snapshot.first)) snapshots.emplace(snapshot.first, &snapshot.second);
+        }
     }
     if (compilable.owns_support_data)
     {
@@ -276,8 +282,7 @@ auto quxlang::lower_llvm_unit(llvm_output_query_input input) -> typename rpnx::q
         if (symbol.type_is< static_snapshot_ref >())
         {
             static_snapshot_ref const& snapshot = symbol.get_as< static_snapshot_ref >();
-            vmir2::functanoid_routine3 const& routine = *compilable.procedure_declarations.at(snapshot.functanoid);
-            compilable.antestatal_constants.emplace(symbol, routine.static_snapshots.at(snapshot).value);
+            compilable.antestatal_constants.emplace(symbol, snapshots.at(snapshot)->value);
         }
         else
         {

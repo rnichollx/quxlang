@@ -555,6 +555,7 @@ namespace quxlang::llvm_backend
     {
         initialization_reference initialization{
             .initializee = runtime_procedure_initializee(procedure),
+            .lookup_kind = function_lookup_kind::invocation,
         };
 
         switch (procedure)

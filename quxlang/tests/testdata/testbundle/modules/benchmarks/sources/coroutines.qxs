@@ -1,0 +1,86 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_benchmarks NAMESPACE
+{
+  ::completed_steps VAR ATOMIC#U64;
+
+  ::awaiter STRUCT
+  {
+    .ready VAR BOOL;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .ready; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO): BOOL
+    {
+      CONTROLLER.registrations += 1;
+      RETURN TRUE;
+    }
+    .AWAIT_RESUME FUNCTION() {}
+  }
+
+  ::controller STRUCT
+  {
+    .registrations VAR U64;
+    .CO_AWAIT FUNCTION(@ARG BOOL): awaiter
+    {
+      VAR result awaiter;
+      result.ready := ARG;
+      RETURN result;
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+  }
+
+  ::steps COROUTINE(@VALUE:value MUT& U64, @COUNT:count U64, @ready BOOL)
+  {
+    LOOP VALUE(index) FROM(0 AS U64) UNTIL(count) DO
+    {
+      AWAIT(ready);
+      value += 1;
+      completed_steps.FETCH_ADD#ATOMIC_RELAXED(1);
+    }
+  }
+
+  DOC <$ Measures argument capture, repeated await boundaries, and completion using a reusable caller-owned frame. $>
+  ::caller_frame BENCHMARK(@count U64, @ready BOOL)
+    CASE("ready", @count 256, @ready TRUE)
+    CASE("suspend", @count 256, @ready FALSE)
+  BODY
+  {
+    VAR driver controller;
+    VAR value U64;
+    VAR frame steps#(@VALUE MUT& U64, @COUNT U64, @ready BOOL, @CONTROLLER controller)::FRAME_TYPE;
+    BENCHMARK_LOOP
+    {
+      value := 0;
+      driver.registrations := 0;
+      completed_steps.STORE#ATOMIC_RELAXED(0);
+      MEASURE COUNT(count)
+      {
+        frame.INITIALIZE(@VALUE value, @COUNT count, @ready ready);
+        LOOP WHILE (frame.RESUME(@CONTROLLER driver) == FALSE) DO {}
+      }
+      TEST_ASSERT(value == count);
+      TEST_ASSERT(completed_steps.LOAD#ATOMIC_RELAXED() == count);
+      IF (ready) { TEST_ASSERT(driver.registrations == 0); }
+      ELSE { TEST_ASSERT(driver.registrations == count); }
+    }
+  }
+
+  DOC <$ Measures the same observable updates without coroutine execution for comparison with caller_frame. $>
+  ::ordinary_loop BENCHMARK(@count U64)
+    CASE("matched", @count 256)
+  BODY
+  {
+    BENCHMARK_LOOP
+    {
+      completed_steps.STORE#ATOMIC_RELAXED(0);
+      MEASURE COUNT(count)
+      {
+        LOOP VALUE(index) FROM(0 AS U64) UNTIL(count) DO
+        {
+          completed_steps.FETCH_ADD#ATOMIC_RELAXED(1);
+        }
+      }
+      TEST_ASSERT(completed_steps.LOAD#ATOMIC_RELAXED() == count);
+    }
+  }
+}

@@ -250,7 +250,8 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
             formal_type = co_await co_substitute_formal_this_type(co_substitute_formal_this_type, formal_type);
         }
 
-        auto const actual_type = parameter_instantiation_type(actual);
+        type_symbol actual_type = parameter_instantiation_type(actual);
+        if (formal.is_execution_controller) actual_type = remove_ref(actual_type);
         std::optional< type_symbol > initialized_type;
         if (formal.template_parameter.has_value())
         {
@@ -309,7 +310,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         auto it = ensig.interface.named.find(name);
         if (it == ensig.interface.named.end())
         {
-            if (!ensig.interface.accepts_named_rest || name == "RETURN" || name == "THIS")
+            if (!ensig.interface.accepts_named_rest || input.implicit_named_arguments.contains(name) || name == "RETURN" || name == "THIS")
             {
                 co_return std::nullopt;
             }
@@ -331,7 +332,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         {
             continue;
         }
-        if (!formal.is_defaulted)
+        if (!formal.is_defaulted || (formal.is_execution_controller && input.lookup_kind == function_lookup_kind::invocation))
         {
             co_return std::nullopt;
         }

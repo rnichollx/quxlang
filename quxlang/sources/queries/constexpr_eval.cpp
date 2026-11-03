@@ -19,7 +19,8 @@
 
 namespace quxlang::detail
 {
-    struct constexpr_eval_helpers
+    /** Classifies layout dependencies required by constant evaluation. */
+    struct constexpr_layout_scan
     {
         static auto add_type_for_layout_scan(std::vector< type_symbol >& pending, type_symbol type) -> void
         {
@@ -36,6 +37,16 @@ namespace quxlang::detail
         if (type.type_is< quxlang::ptrref_type >())
         {
             pending.push_back(type.get_as< quxlang::ptrref_type >().target);
+            return;
+        }
+        if (type.type_is< quxlang::attached_type_reference >())
+        {
+            pending.push_back(type.get_as< quxlang::attached_type_reference >().carrying_type);
+            return;
+        }
+        if (type.type_is< quxlang::readonly_constant >())
+        {
+            pending.push_back(ptrref_type{.target = int_type{.bits = 8, .has_sign = false}, .ptr_class = pointer_class::array, .qual = qualifier::constant});
             return;
         }
         if (type.type_is< quxlang::array_type >())
@@ -76,9 +87,13 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
     interp.set_source_index(indexed_source_bundle);
     machine_target_info machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
     bool layoutless_target = cpu_is_layoutless(machine_info.cpu_type);
+    if (!layoutless_target)
+    {
+        interp.require_physical_layout();
+    }
 
     std::set< type_symbol > layout_types;
-    std::set< type_symbol > loaded_layouts;
+    std::set< type_symbol > loaded_types;
     std::vector< instanciation_reference > pending_functanoids;
     std::set< type_symbol > queued_functanoids;
     std::set< type_symbol > loaded_functanoids;
@@ -148,14 +163,23 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
                 type_symbol type = std::move(pending.back());
                 pending.pop_back();
 
-                detail::constexpr_eval_helpers::add_type_for_layout_scan(pending, type);
+                if (!loaded_types.insert(type).second)
+                {
+                    continue;
+                }
+                if (!layoutless_target && !typeis< nvalue_slot >(type) && !typeis< dvalue_slot >(type) && !typeis< virtual_storage >(type))
+                {
+                    class_placement_info const& placement = co_await rpnx::querygraph::request< class_placement_info_query >(type);
+                    interp.add_type_placement(type, placement);
+                }
 
-                if (!detail::constexpr_eval_helpers::type_might_have_layout(type) || loaded_layouts.contains(type))
+                detail::constexpr_layout_scan::add_type_for_layout_scan(pending, type);
+
+                if (!detail::constexpr_layout_scan::type_might_have_layout(type))
                 {
                     continue;
                 }
 
-                loaded_layouts.insert(type);
                 class_kind const kind = co_await rpnx::querygraph::request< class_type_query >(type);
                 if (kind == class_kind::enum_)
                 {
@@ -213,6 +237,14 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
                     {
                         pending.push_back(field.type);
                     }
+                    for (struct_base_layout_info const& base : layout.direct_bases)
+                    {
+                        pending.push_back(base.type);
+                    }
+                    for (struct_virtual_base_layout_info const& base : layout.virtual_bases)
+                    {
+                        pending.push_back(base.type);
+                    }
                     interp.add_struct_layout(type, std::move(layout));
                 }
             }
@@ -231,6 +263,9 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
         antestatal_value value = co_await rpnx::querygraph::request< antestatal_static_value_query >(symbol);
         dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
             direct_dependencies_input{.symbol = symbol, .set = dependency_set::constexpr_});
+        enqueue_layouts(dependencies.type_placements);
+        enqueue_layouts(dependencies.struct_layouts);
+        enqueue_layouts(dependencies.fusion_layouts);
         std::set< type_symbol > value_functanoids;
         for (auto const& [functanoid, _] : dependencies.functanoids) value_functanoids.insert(functanoid);
         std::set< type_symbol > value_antestatal_globals = dependencies.antestatal_globals;
@@ -258,6 +293,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
     vmir2::functanoid_routine3 const& ir3 = routine_result.routine;
     dependencies const& root_dependencies = routine_result.direct_dependencies;
     layout_types.insert(input.type);
+    enqueue_layouts(root_dependencies.type_placements);
     enqueue_layouts(root_dependencies.struct_layouts);
     enqueue_layouts(root_dependencies.fusion_layouts);
     for (auto const& [functanoid, _] : root_dependencies.functanoids) enqueue_functanoid(functanoid);
@@ -351,6 +387,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
                 direct_dependencies_input{.symbol = funcname, .set = dependency_set::constexpr_});
             interp.add_functanoid3(funcname, ir2_other, dependencies.static_snapshots);
             loaded_functanoids.insert(funcname);
+            enqueue_layouts(dependencies.type_placements);
             enqueue_layouts(dependencies.struct_layouts);
             enqueue_layouts(dependencies.fusion_layouts);
             enqueue_antestatal_globals(dependencies.antestatal_globals);

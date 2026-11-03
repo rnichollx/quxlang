@@ -32,6 +32,10 @@ rpnx::querygraph::coroutine< quxlang::function_param_names_spec > quxlang::funct
     QUXLANG_COMPILER_BUG_IF(!decl_opt.has_value(), "Function declaration not found");
 
     ast2_function_declaration const& decl = decl_opt.value();
+    if (decl.header.controller_parameter.has_value())
+    {
+        result.named["CONTROLLER"] = decl.header.controller_parameter->name.value_or("CONTROLLER");
+    }
 
     std::size_t positional_index = 0;
     for (auto const& param : decl.header.call_parameters)

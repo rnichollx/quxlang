@@ -78,6 +78,14 @@ namespace quxlang
 
     auto parameter_runtime_type(type_symbol const& parameter_type) -> std::optional< type_symbol >
     {
+        if (is_ref(parameter_type))
+        {
+            type_symbol const& target = parameter_type.get_as< ptrref_type >().target;
+            if (target.type_is< attached_type_reference >() && target.get_as< attached_type_reference >().carrying_type.type_is< void_type >())
+            {
+                return std::nullopt;
+            }
+        }
         if (typeis< void_type >(parameter_type) || typeis< null_type >(parameter_type) || typeis< numeric_literal_type >(parameter_type) || typeis< string_literal_type >(parameter_type))
         {
             return std::nullopt;
@@ -301,6 +309,12 @@ namespace quxlang
             return "TYPE_IS_POLYMORPHIC(" + to_string(expression.of_type) + ")";
         }
 
+        /** Formats the asynchronous ownership trait and its type argument. */
+        std::string operator()(expression_type_is_async_only const& expression) const
+        {
+            return "TYPE_IS_ASYNC_ONLY(" + to_string(expression.of_type) + ")";
+        }
+
         std::string operator()(expression_same_types const& types) const
         {
             return "SAME_TYPES(" + to_string(types.lhs_type) + ", " + to_string(types.rhs_type) + ")";
@@ -360,6 +374,12 @@ namespace quxlang
         std::string operator()(expression_snapshot const& expr) const
         {
             return "SNAPSHOT(" + expr.name + ")";
+        }
+
+        /** Formats a controller-mediated await expression. */
+        std::string operator()(expression_await const& expr) const
+        {
+            return "AWAIT(" + expr_to_string(expr.operand) + ")";
         }
 
         /** Formats a structural literal without discarding evaluation order. */
@@ -564,11 +584,14 @@ namespace quxlang
 
         std::string operator()(expression_call const& expr) const
         {
+            std::string result = "(";
+            if (expr.execution_mode == call_execution_mode::run) result += "ON(" + expr_to_string(*expr.controller) + ") RUN ";
+            else if (expr.execution_mode == call_execution_mode::go) result += "GO ";
             if (expr.composite_arguments.has_value())
             {
-                return "(APPLY " + expr_to_string(*expr.composite_arguments) + " TO " + expr_to_string(expr.callee) + ")";
+                return result + "APPLY " + expr_to_string(*expr.composite_arguments) + " TO " + expr_to_string(expr.callee) + ")";
             }
-            std::string result = "(" + to_string(expr.callee) + "(";
+            result += to_string(expr.callee) + "(";
             for (decltype(expr.args)::size_type i = 0; i < expr.args.size(); i++)
             {
                 auto arg = expr.args[i].value;
@@ -2249,6 +2272,10 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             {
                 value.rhs = strip_source_locations(std::move(value.rhs));
             }
+            else if constexpr (std::is_same_v< value_type, expression_await >)
+            {
+                value.operand = strip_source_locations(std::move(value.operand));
+            }
                                     else if constexpr (std::is_same_v< value_type, expression_unary_postfix > || std::is_same_v< value_type, expression_dotreference > || std::is_same_v< value_type, expression_rightarrow > || std::is_same_v< value_type, expression_leftarrow >)
             {
                 value.lhs = strip_source_locations(std::move(value.lhs));
@@ -2263,6 +2290,7 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             }
             else if constexpr (std::is_same_v< value_type, expression_call >)
             {
+                if (value.controller.has_value()) value.controller = strip_source_locations(std::move(*value.controller));
                 value.callee = strip_source_locations(std::move(value.callee));
                 if (value.composite_arguments.has_value())
                 {
@@ -2442,7 +2470,7 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             {
                 value.symbol = strip_source_locations(std::move(value.symbol));
             }
-                                    else if constexpr (std::is_same_v< value_type, expression_bits > || std::is_same_v< value_type, expression_sizeof > || std::is_same_v< value_type, expression_alignof > || std::is_same_v< value_type, expression_is_integral > || std::is_same_v< value_type, expression_type_is_layoutless > || std::is_same_v< value_type, expression_type_is_polymorphic > || std::is_same_v< value_type, expression_is_signed >)
+                                    else if constexpr (std::is_same_v< value_type, expression_bits > || std::is_same_v< value_type, expression_sizeof > || std::is_same_v< value_type, expression_alignof > || std::is_same_v< value_type, expression_is_integral > || std::is_same_v< value_type, expression_type_is_layoutless > || std::is_same_v< value_type, expression_type_is_polymorphic > || std::is_same_v< value_type, expression_type_is_async_only > || std::is_same_v< value_type, expression_is_signed >)
             {
                 value.of_type = strip_source_locations(std::move(value.of_type));
             }

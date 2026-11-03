@@ -20,11 +20,12 @@ rpnx::querygraph::coroutine< quxlang::struct_constructor_forms_spec > quxlang::s
         ast2_function_declaration declaration;
         std::optional< source_location > location;
     };
+    using constructor_signature = std::pair< function_execution_kind, temploid_ensig >;
 
     struct_inheritance_info inheritance = co_await rpnx::querygraph::request< struct_inheritance_info_query >(input);
     std::vector< parsed_constructor > constructor_templates;
-    std::map< temploid_ensig, parsed_constructor > full_declarations;
-    std::map< temploid_ensig, parsed_constructor > subobject_declarations;
+    std::map< constructor_signature, parsed_constructor > full_declarations;
+    std::map< constructor_signature, parsed_constructor > subobject_declarations;
     std::vector< subdeclaration > declarations = co_await rpnx::querygraph::request< active_symboid_subdeclarations_query >(input);
 
     for (subdeclaration const& declaration_entry : declarations)
@@ -79,7 +80,15 @@ rpnx::querygraph::coroutine< quxlang::struct_constructor_forms_spec > quxlang::s
         {
             signature.interface.named.emplace("THIS", argif{.type = nvalue_slot{.target = thistype{}}});
         }
+        if (declaration.header.controller_parameter.has_value())
+        {
+            std::optional< type_symbol > controller = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                .context = input, .type = declaration.header.controller_parameter->type});
+            if (!controller.has_value()) throw semantic_compilation_error("Constructor controller type could not be resolved");
+            signature.interface.named.emplace("CONTROLLER", argif{.type = std::move(*controller), .is_defaulted = true, .is_execution_controller = true});
+        }
         signature = strip_source_locations(std::move(signature));
+        constructor_signature key{declaration.header.execution_kind, signature};
 
         parsed_constructor parsed{
             .signature = signature,
@@ -92,12 +101,12 @@ rpnx::querygraph::coroutine< quxlang::struct_constructor_forms_spec > quxlang::s
         }
         else if (is_full)
         {
-            if (!full_declarations.emplace(signature, std::move(parsed)).second)
+            if (!full_declarations.emplace(std::move(key), std::move(parsed)).second)
             {
                 throw semantic_compilation_error("Duplicate FULLOBJECT_CONSTRUCTOR signature in " + to_string(input) + source_location_suffix(member.location));
             }
         }
-        else if (!subobject_declarations.emplace(signature, std::move(parsed)).second)
+        else if (!subobject_declarations.emplace(std::move(key), std::move(parsed)).second)
         {
             throw semantic_compilation_error("Duplicate SUBOBJECT_CONSTRUCTOR signature in " + to_string(input) + source_location_suffix(member.location));
         }
@@ -114,10 +123,11 @@ rpnx::querygraph::coroutine< quxlang::struct_constructor_forms_spec > quxlang::s
         co_return output;
     }
 
-    std::set< temploid_ensig > claimed_signatures;
+    std::set< constructor_signature > claimed_signatures;
     for (parsed_constructor const& constructor_template : constructor_templates)
     {
-        if (!claimed_signatures.insert(constructor_template.signature).second || full_declarations.contains(constructor_template.signature) || subobject_declarations.contains(constructor_template.signature))
+        constructor_signature key{constructor_template.declaration.header.execution_kind, constructor_template.signature};
+        if (!claimed_signatures.insert(key).second || full_declarations.contains(key) || subobject_declarations.contains(key))
         {
             throw semantic_compilation_error("CONSTRUCTOR template collides with another constructor form in " + to_string(input) + source_location_suffix(constructor_template.location));
         }
@@ -134,19 +144,19 @@ rpnx::querygraph::coroutine< quxlang::struct_constructor_forms_spec > quxlang::s
         });
     }
 
-    std::set< temploid_ensig > explicit_signatures;
-    for (std::pair< temploid_ensig const, parsed_constructor > const& full : full_declarations)
+    std::set< constructor_signature > explicit_signatures;
+    for (std::pair< constructor_signature const, parsed_constructor > const& full : full_declarations)
     {
         explicit_signatures.insert(full.first);
     }
-    for (std::pair< temploid_ensig const, parsed_constructor > const& subobject : subobject_declarations)
+    for (std::pair< constructor_signature const, parsed_constructor > const& subobject : subobject_declarations)
     {
         explicit_signatures.insert(subobject.first);
     }
-    for (temploid_ensig const& signature : explicit_signatures)
+    for (constructor_signature const& signature : explicit_signatures)
     {
-        std::map< temploid_ensig, parsed_constructor >::const_iterator full = full_declarations.find(signature);
-        std::map< temploid_ensig, parsed_constructor >::const_iterator subobject = subobject_declarations.find(signature);
+        std::map< constructor_signature, parsed_constructor >::const_iterator full = full_declarations.find(signature);
+        std::map< constructor_signature, parsed_constructor >::const_iterator subobject = subobject_declarations.find(signature);
         if (full == full_declarations.end() || subobject == subobject_declarations.end())
         {
             throw semantic_compilation_error("Every explicit VIRTUAL_POLYMORPHIC constructor signature requires both FULLOBJECT_CONSTRUCTOR and SUBOBJECT_CONSTRUCTOR in " + to_string(input));
@@ -159,7 +169,7 @@ rpnx::querygraph::coroutine< quxlang::struct_constructor_forms_spec > quxlang::s
             }
         }
         output.forms.push_back(struct_constructor_form{
-            .normalized_signature = signature,
+            .normalized_signature = signature.second,
             .origin = constructor_form_origin::explicit_pair,
             .full_declaration = full->second.declaration,
             .subobject_declaration = subobject->second.declaration,

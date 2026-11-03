@@ -1,0 +1,7 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Identifies the cancellation contract of a coroutine specialization. $>
+::COROUTINE_CANCELLATION_MODE ENUM [NONE DEFAULT, COOPERATIVE, INSTANT];
+
+DOC <$ Reports the cooperative cancellation attempt for one coroutine invocation. $>
+::COROUTINE_CANCELLED STRUCT {}

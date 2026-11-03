@@ -3,11 +3,15 @@
 #ifndef QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 #define QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 
+#include <quxlang/data/coroutine_types.hpp>
 #include <quxlang/manipulators/declaration_alignment.hpp>
 #include <quxlang/manipulators/struct_math.hpp>
 #include <quxlang/manipulators/code_alignment.hpp>
 #include <quxlang/queries/snapshot_value.hpp>
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
+#include <quxlang/queries/type_destruction_capabilities.hpp>
+#include <quxlang/queries/type_is_async_only.hpp>
+#include <quxlang/queries/coroutine_frame.hpp>
 #include <quxlang/queries/functanoid_is_noexcept.hpp>
 #include <quxlang/queries/type_operation_is_noexcept.hpp>
 #include "quxlang/ast2/ast2_entity.hpp"
@@ -122,15 +126,46 @@
 namespace quxlang
 {
 
+    struct coroutine_frame_info;
+
     template < typename T >
     concept codegen_co_base = requires {
         { std::declval< typename T::template cosubroutine< quxlang::type_symbol > >() };
         { std::declval< typename T::template cosubroutine< quxlang::vmir2::local_index > >() };
     };
 
+    /** Expands owned coroutine lifetimes through statically selected destruction operations. */
+    template < codegen_co_base CoroutineBaseType >
+    class coroutine_cleanup_lowering;
+
+    /** Emits shared typed cleanup dispatch operations. */
+    template < codegen_co_base CoroutineBaseType >
+    class coroutine_cleanup_dispatch;
+
+    /** Materializes invocation-owned cleanup storage after semantic expansion. */
+    template < codegen_co_base CoroutineBaseType >
+    class coroutine_cleanup_storage_lowering;
+
+    template < codegen_co_base CoroutineBaseType >
+    class co_vmir_generator2;
+
+    /** Expands suspendable cleanup before the logical coroutine is published for frame analysis. */
+    template < codegen_co_base CoroutineBaseType >
+    auto co_expand_coroutine_cleanup(co_vmir_generator2< CoroutineBaseType >& generator) -> typename CoroutineBaseType::template cosubroutine< void >;
+
     template < codegen_co_base CoroutineBaseType >
     class co_vmir_generator2
     {
+
+        friend class coroutine_cleanup_lowering< CoroutineBaseType >;
+        friend class coroutine_cleanup_dispatch< CoroutineBaseType >;
+        friend class coroutine_cleanup_storage_lowering< CoroutineBaseType >;
+
+        /** Grants generated frame initialization access to the ordinary lifetime and invocation machinery. */
+        template < codegen_co_base OtherCoroutineBase >
+        friend auto co_generate_coroutine_initialize(co_vmir_generator2< OtherCoroutineBase >& generator,
+            instanciation_reference const& generated, instanciation_reference const& coroutine,
+            coroutine_frame_info const& frame_info) -> typename OtherCoroutineBase::template cosubroutine< vmir2::functanoid_routine3 >;
 
         // The following structs are basically integer types but they can't be interconverted with each other.
         // They are used to represent different indices in the code generation this->state.
@@ -162,10 +197,40 @@ namespace quxlang
             independent,
         };
 
+        /** Records a selected callable and whether its invocation uses an implicit controller argument. */
+        struct invocation_selection
+        {
+            std::optional< instanciation_reference > operation;
+            bool uses_implicit_controller = false;
+        };
+
+        /** Lexical exception ownership active while a coroutine handler executes. */
+        struct coroutine_handler_context
+        {
+            std::optional< value_index > root;
+            std::optional< value_index > exception;
+            std::optional< value_index > catch_exception;
+            std::optional< block_index > catch_region;
+        };
+
+        /** Describes the context restored when one handler activation is retired. */
+        struct coroutine_handler_scope
+        {
+            coroutine_handler_context before;
+            coroutine_handler_context parent;
+        };
+
+        /** Shares constructor completion after source-scope cleanup and before return reporting. */
+        struct coroutine_constructor_completion
+        {
+            block_index destination;
+            local_index receiver;
+        };
+
         struct codegen_block
         {
-            std::map< local_index, vmir2::slot_state > entry_state;
-            std::map< local_index, vmir2::slot_state > current_state;
+            vmir2::state_map entry_state;
+            vmir2::state_map current_state;
             std::vector< vmir2::vm_instruction > instructions;
             std::optional< vmir2::vm_terminator > terminator;
             std::optional< std::string > dbg_name;
@@ -177,11 +242,15 @@ namespace quxlang
             std::optional< value_index > catch_exception;
             /** Individual handler scope, used to reject jumps between sibling catches. */
             std::optional< block_index > catch_region;
+            /** Outermost coroutine handler object or nullable pointer binding for activation transfer. */
+            std::optional< value_index > coroutine_handler_root;
+            /** Current owned exception object or nullable pointer binding for activation transfer. */
+            std::optional< value_index > coroutine_handler_exception;
             std::map< std::string, value_index > lookup_values;
             /// Names intentionally hidden from enclosing lookup scopes in this block.
             std::set< std::string > lookup_tombstones;
 
-            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, has_incoming_flow, catcher, catch_exception, catch_region, lookup_values, lookup_tombstones);
+            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, has_incoming_flow, catcher, catch_exception, catch_region, coroutine_handler_root, coroutine_handler_exception, lookup_values, lookup_tombstones);
         };
 
         struct codegen_argument
@@ -194,8 +263,10 @@ namespace quxlang
         {
             type_symbol attached_symbol;
             value_index bound_value;
+            /** Reference category of a storage-free symbol argument. */
+            std::optional< ptrref_type > static_reference;
 
-            RPNX_MEMBER_METADATA(codegen_binding, attached_symbol, bound_value);
+            RPNX_MEMBER_METADATA(codegen_binding, attached_symbol, bound_value, static_reference);
         };
 
         struct codegen_local
@@ -356,6 +427,31 @@ namespace quxlang
 
         struct codegen_state
         {
+            /** Logical coroutine metadata retained until shared frame lowering. */
+            std::optional< vmir2::coroutine_body > coroutine;
+            /** Values supplying the execution-only controller and borrowed frame. */
+            std::optional< value_index > coroutine_controller;
+            std::optional< value_index > coroutine_frame;
+            /** Per-invocation cancellation request and delivery state. */
+            std::optional< value_index > coroutine_cancellation_state;
+            /** Outermost handler object or nullable pointer binding whose caller link changes on activation. */
+            std::optional< value_index > coroutine_handler_root;
+            /** Exception object or nullable pointer binding installed as the innermost active handler. */
+            std::optional< value_index > coroutine_handler_exception;
+            /** Shares the lexical context transition for each generated handler activation. */
+            std::map< local_index, coroutine_handler_scope > coroutine_handler_scopes;
+            /** Protects required lifecycle and terminal reporting operations from cancellation. */
+            bool coroutine_shielded = false;
+            /** Common owning cleanup reached after an embedded coroutine lifecycle body returns. */
+            std::optional< block_index > coroutine_lifecycle_exit;
+            /** Canonical constructor output awaiting one physical completion operation. */
+            std::optional< coroutine_constructor_completion > coroutine_constructor_exit;
+            /** Source exits whose complete output ownership must be proved before normalization. */
+            std::set< block_index > coroutine_constructor_returns;
+            /** Rejects coroutine declarations selected as synchronous controller hooks. */
+            bool generating_controller_hook = false;
+            /** Selects ownership snapshots established by the lifetime planner after source validation. */
+            bool expanding_lifetime_cleanup = false;
             /** Active exception destinations while generating nested source blocks. */
             std::optional< vmir2::exception_catcher > catcher;
             /** Lexical catch identity available to RETHROW. */
@@ -370,11 +466,17 @@ namespace quxlang
             std::vector< vmir2::local_type > locals{vmir2::local_type{.type = void_type()}};
             std::vector< codegen_block > blocks;
             vmir2::routine_parameters params;
+            /** Logical positional arguments, including values with no runtime parameter storage. */
+            std::vector< value_index > positional_arguments;
             std::map< type_symbol, type_symbol > non_trivial_dtors;
+            /// Records slots requiring asynchronous cleanup when a transition ends an owned lifetime.
+            std::set< local_index > asynchronous_cleanup_slots;
             std::map< std::string, value_index > codegen_numeric_literals;
             std::map< std::string, value_index > codegen_string_literals;
             std::map< std::string, value_index > top_level_lookups;
             std::map< std::string, value_index > top_level_lookups_weak;
+            /** Owned working values constructed from borrowed generated-lifecycle arguments. */
+            std::map< value_index, value_index > generated_owned_parameters;
             type_symbol context;
             std::optional< instanciation_reference > functanoid_type;
             std::optional< type_symbol > declared_return_type;
@@ -571,6 +673,11 @@ namespace quxlang
             {
                 return;
             }
+            if (state.expanding_lifetime_cleanup)
+            {
+                to.has_incoming_flow = true;
+                return;
+            }
             auto merge_parameter = [&](vmir2::routine_parameter const& parameter)
             {
                 if (!typeis< nvalue_slot >(parameter.type))
@@ -578,13 +685,31 @@ namespace quxlang
                     return;
                 }
                 local_index slot = parameter.local_index;
+                if (state.coroutine_constructor_exit.has_value() && target == state.coroutine_constructor_exit->destination &&
+                    slot == state.coroutine_constructor_exit->receiver)
+                {
+                    vmir2::slot_stage incoming = from.current_state[slot].stage;
+                    if (!to.has_incoming_flow)
+                    {
+                        to.entry_state[slot].stage = incoming;
+                        to.current_state[slot].stage = incoming;
+                    }
+                    else if (incoming != to.entry_state[slot].stage)
+                    {
+                        throw semantic_compilation_error("Coroutine constructor initialization state differs across return paths in " + to_string(body_context()));
+                    }
+                    return;
+                }
                 vmir2::slot_state incoming = from.current_state[slot];
                 if (to.has_incoming_flow || !to.instructions.empty() || to.terminator.has_value())
                 {
                     vmir2::slot_state const& expected = to.entry_state[slot];
                     if (incoming.stage != expected.stage || incoming.storage_valid != expected.storage_valid)
                     {
-                        throw semantic_compilation_error("NVALUE initialization state differs across control-flow paths");
+                        throw semantic_compilation_error("NVALUE initialization state differs across control-flow paths in " + to_string(body_context())
+                            + " for output %" + std::to_string(static_cast< std::uint64_t >(slot))
+                            + " from block " + std::to_string(static_cast< std::uint64_t >(source))
+                            + " to block " + std::to_string(static_cast< std::uint64_t >(target)));
                     }
                 }
                 else
@@ -800,7 +925,7 @@ namespace quxlang
 
             this->generate_return(current_block);
 
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
 
             co_return get_result();
         }
@@ -837,7 +962,7 @@ namespace quxlang
                 .parameters = instatype_from_invotype(parameters),
                 .adaptations = allowed_adaptations::destination_rebinding,
             };
-            if (co_await rpnx::querygraph::request< instanciation_query >(probe))
+            if ((co_await co_select_invocation(std::move(probe))).operation.has_value())
             {
                 co_await co_gen_call_functum(block, constructor,
                     codegen_invocation_args{.named = {{"THIS", target}, {"DESERIALIZE_INPUT_ITERATOR", input}}});
@@ -1278,6 +1403,7 @@ namespace quxlang
             {
                 auto result_val = co_await this->co_generate_void_expr(current_block, expr);
                 auto result_type = this->current_type(current_block, result_val);
+                if (is_ref(result_type) && !parameter_runtime_type(result_type).has_value()) result_type = remove_ref(result_type);
                 if (typeis< attached_type_reference >(result_type))
                 {
                     auto const& attached = as< attached_type_reference >(result_type);
@@ -1331,7 +1457,7 @@ namespace quxlang
                 }
             }
             generate_jump(initialization_block, body_block);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
 
             co_return constexpr_routine_v3_result{.routine = get_result(), .deduced_type = std::move(deduced_type), .type_binding_result = std::move(type_binding_result)};
         }
@@ -1394,6 +1520,16 @@ namespace quxlang
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_argument_adaptation(block_index& bidx, value_index val, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
         {
             auto value_type = this->current_type(bidx, val);
+
+            if (!parameter_runtime_type(value_type).has_value() && !parameter_runtime_type(target_type).has_value() &&
+                remove_ref(value_type) == remove_ref(target_type))
+            {
+                if (remove_ref(target_type).template type_is< attached_type_reference >())
+                {
+                    co_return copy_static_binding(val, target_type);
+                }
+                co_return val;
+            }
 
             if ((typeis< numeric_literal_type >(target_type) || typeis< string_literal_type >(target_type)) && remove_ref(value_type) == target_type)
             {
@@ -1818,9 +1954,38 @@ namespace quxlang
             co_return submember{.of = object_type, .name = "CONSTRUCTOR"};
         }
 
+        /** Performs ordered invocation lookup before materializing any implicit execution argument. */
+        auto co_select_invocation(initialization_reference input, std::optional< type_symbol > execution_controller = std::nullopt) -> co_type< invocation_selection >
+        {
+            input.lookup_kind = function_lookup_kind::invocation;
+            if (!execution_controller.has_value() && state.coroutine.has_value() && !state.generating_controller_hook)
+                execution_controller = state.locals.at(state.coroutine->controller).type;
+            if (execution_controller.has_value() && !input.parameters.named.contains("CONTROLLER"))
+            {
+                initialization_reference contextual = input;
+                contextual.parameters.named.emplace("CONTROLLER", make_type_instantiation(*execution_controller));
+                contextual.implicit_named_arguments.insert("CONTROLLER");
+                std::optional< instanciation_reference > selected = co_await rpnx::querygraph::request< instanciation_query >(std::move(contextual));
+                if (selected.has_value()) co_return invocation_selection{.operation = std::move(selected), .uses_implicit_controller = true};
+            }
+            co_return invocation_selection{.operation = co_await rpnx::querygraph::request< instanciation_query >(std::move(input))};
+        }
+
         /** Resolves the compiler-owned complete-object or subobject destructor entry. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_select_default_destructor_entry(type_symbol const& object_type, bool subobject) -> co_type< std::optional< type_symbol > >
         {
+            if (state.coroutine.has_value())
+            {
+                type_destruction_capabilities const& capabilities = co_await rpnx::querygraph::request< type_destruction_capabilities_query >(object_type);
+                if (capabilities.prefers_coroutine)
+                {
+                    if (state.coroutine->cancellation_mode == coroutine_cancellation_mode::instant)
+                    {
+                        throw semantic_compilation_error("CANCELLABLE(INSTANT) requires synchronous selected cleanup for " + to_string(object_type));
+                    }
+                    co_return subsymbol{.of = object_type, .name = subobject ? "__COROUTINE_SUBOBJECT_DESTRUCTOR" : "__COROUTINE_DESTRUCTOR"};
+                }
+            }
             symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(object_type);
             class_kind const concrete_kind = kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(object_type) : class_kind::noexist;
             if (concrete_kind != class_kind::struct_ || (co_await rpnx::querygraph::request< struct_runtime_requirements_query >(object_type)).polymorphism != struct_polymorphism_kind::virtual_polymorphic)
@@ -1832,6 +1997,7 @@ namespace quxlang
                 .initializee = submember{.of = object_type, .name = subobject ? "SUBOBJECT_DESTRUCTOR" : "FULLOBJECT_DESTRUCTOR"},
                 .parameters = instatype_from_invotype(invotype{.named = {{"THIS", dvalue_slot{object_type}}}}),
                 .adaptations = allowed_adaptations::destination_rebinding,
+                .lookup_kind = function_lookup_kind::invocation,
             };
             std::optional< instanciation_reference > const destructor = co_await rpnx::querygraph::request< instanciation_query >(std::move(initialization));
             if (!destructor.has_value())
@@ -1871,7 +2037,9 @@ namespace quxlang
             co_return target_index;
         }
 
-        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, allowed_adaptations adaptations = allowed_adaptations::destination_rebinding, bool permit_virtual_dispatch = false) -> co_type< value_index >
+        /** Resolves and adapts a call, then transfers any destruction obligation at invocation. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, allowed_adaptations adaptations = allowed_adaptations::destination_rebinding, bool permit_virtual_dispatch = false, std::optional< vmir2::local_index > destruction_target = std::nullopt,
+            call_execution_mode execution_mode = call_execution_mode::ordinary, std::optional< value_index > launch_controller = std::nullopt) -> co_type< value_index >
         {
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
@@ -1944,7 +2112,14 @@ namespace quxlang
                     throw semantic_compilation_error("Error: symbol " + func_str + " is not a functum");
                 }
             }
-            auto const& instanciation = co_await rpnx::querygraph::request< instanciation_query >(functanoid_unnormalized);
+            std::optional< type_symbol > controller_type;
+            if (launch_controller.has_value())
+            {
+                controller_type = current_type(bidx, *launch_controller);
+                if (!is_ref(*controller_type)) controller_type = make_mref(*controller_type);
+            }
+            invocation_selection selection = co_await co_select_invocation(std::move(functanoid_unnormalized), std::move(controller_type));
+            std::optional< instanciation_reference > const& instanciation = selection.operation;
 
             auto const & functum_overloeads = co_await rpnx::querygraph::request< functum_overloads_query >(func);
 
@@ -1966,7 +2141,7 @@ namespace quxlang
                 co_yield rpnx::querygraph::debug_message("co_gen_call_functum selected instanciation: {}", quxlang::to_string(*instanciation));
             }
 
-            co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args, adaptations, permit_virtual_dispatch);
+            co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args, adaptations, permit_virtual_dispatch, destruction_target, selection.uses_implicit_controller, execution_mode, launch_controller);
         }
 
       private:
@@ -1986,6 +2161,10 @@ namespace quxlang
 
             if (slot.template type_is< codegen_binding >())
             {
+                if (slot.template get_as< codegen_binding >().static_reference.has_value())
+                {
+                    return *slot.template get_as< codegen_binding >().static_reference;
+                }
                 auto bound_value = slot.template get_as< codegen_binding >().bound_value;
                 auto attached_symbol = slot.template get_as< codegen_binding >().attached_symbol;
                 assert(!type_is_contextual(attached_symbol));
@@ -2302,7 +2481,7 @@ namespace quxlang
         auto co_resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, allowed_adaptations adaptations) -> co_type< instanciation_reference >
         {
             instatype call_parameters = instatype_from_invotype(calltype);
-            initialization_reference functanoid_unnormalized{.initializee = func, .context = body_context(), .parameters = call_parameters, .adaptations = adaptations};
+            initialization_reference functanoid_unnormalized{.initializee = func, .context = body_context(), .parameters = call_parameters, .adaptations = adaptations, .lookup_kind = function_lookup_kind::invocation};
 
             auto kind = (co_await rpnx::querygraph::request< symbol_type_query >(func));
             if (kind != symbol_kind::functum)
@@ -2343,10 +2522,12 @@ namespace quxlang
                     continue;
                 }
                 instatype parameters = instatype_from_invotype(calltype);
+                if (!parameters.named.contains("CONTROLLER") && what.params.named.contains("CONTROLLER"))
+                    parameters.named.emplace("CONTROLLER", what.params.named.at("CONTROLLER"));
                 auto parameter = parameters.named.extract("ARG");
                 parameter.key() = name;
                 parameters.named.insert(std::move(parameter));
-                auto selected = co_await rpnx::querygraph::request< instanciation_query >({.initializee = what.temploid, .context = body_context(), .parameters = parameters, .adaptations = adaptations});
+                auto selected = co_await rpnx::querygraph::request< instanciation_query >({.initializee = what.temploid, .context = body_context(), .parameters = parameters, .adaptations = adaptations, .lookup_kind = function_lookup_kind::invocation});
                 if (selected)
                 {
                     auto argument = args.named.extract("ARG");
@@ -2722,8 +2903,19 @@ namespace quxlang
             return value_index(this->state.genvalues.size() - 1);
         }
 
+        /** Copies a storage-free symbol while preserving its selected value or reference category. */
+        auto copy_static_binding(value_index value, type_symbol const& target_type) -> value_index
+        {
+            codegen_binding binding = state.genvalues.at(value).template get_as< codegen_binding >();
+            if (binding.bound_value != value_index(0)) throw compiler_bug("Static symbol reference has a runtime carrier");
+            binding.static_reference = is_ref(target_type) ? std::optional< ptrref_type >(target_type.template get_as< ptrref_type >()) : std::nullopt;
+            state.genvalues.push_back(std::move(binding));
+            return value_index(state.genvalues.size() - 1);
+        }
+
         static auto storage_type_for_attached_field(type_symbol const& field_type) -> std::optional< type_symbol >
         {
+            if (is_ref(field_type) && !parameter_runtime_type(field_type).has_value()) return std::nullopt;
             if (!typeis< attached_type_reference >(field_type))
             {
                 return field_type;
@@ -2784,6 +2976,7 @@ namespace quxlang
             {
                 throw compiler_bug("Expected a reference type");
             }
+            if (!parameter_runtime_type(val_type).has_value()) return copy_static_binding(val, val_type);
 
             value_index copy_idx = this->create_local_value(vptr);
             this->emit(current_block, vmir2::copy_reference{.from_index = get_local_index(val), .to_index = get_local_index(copy_idx)});
@@ -2839,7 +3032,13 @@ namespace quxlang
             this->apply_current_source_location(val);
             if (block.catcher.has_value() && (val.type_is< vmir2::invoke >() || val.type_is< vmir2::invoke_virtual >() || val.type_is< vmir2::invoke_indirect >() || val.type_is< vmir2::interface_invoke >()))
             {
-                merge_nvalue_flow(bidx, block.catcher->handler);
+                // Exceptional edges roll ownership back to the handler's lexical
+                // snapshot before entering its body. Initialization progress at
+                // the throwing instruction therefore does not merge into it.
+                if (bidx == block_index(0) || block.has_incoming_flow)
+                {
+                    state.blocks.at(block.catcher->handler).has_incoming_flow = true;
+                }
             }
             try
             {
@@ -2859,6 +3058,7 @@ namespace quxlang
 
         auto create_reference(block_index& bidx, value_index index, type_symbol const& new_type)
         {
+            if (!parameter_runtime_type(new_type).has_value()) return copy_static_binding(index, new_type);
             // This function is used to handle the case where we have an index and need to force it into a
             // reference type.
             // This is mainly used in three places, implied ctor "THIS" argument, dtor, and when a symbol
@@ -2883,6 +3083,7 @@ namespace quxlang
             // This is mainly used in three places, implied ctor "THIS" argument, dtor, and when a symbol
             // is encountered during an expression.
             auto ty = this->current_type(bidx, index);
+            if (!parameter_runtime_type(ty).has_value()) return copy_static_binding(index, ty);
 
             auto temp = create_local_value(ty);
 
@@ -2896,6 +3097,7 @@ namespace quxlang
 
         auto cast_ptrref(block_index bidx, value_index index, type_symbol const& ty)
         {
+            if (!parameter_runtime_type(ty).has_value()) return copy_static_binding(index, ty);
             auto temp = create_local_value(ty);
             vmir2::cast_ptrref ref;
             ref.source_index = get_local_index(index);
@@ -3028,6 +3230,8 @@ namespace quxlang
             if (lookup == value_index(0)) return void_type{};
             while (this->state.genvalues.at(lookup).template type_is< codegen_binding >())
             {
+                if (state.genvalues.at(lookup).template get_as< codegen_binding >().static_reference.has_value())
+                    return *state.genvalues.at(lookup).template get_as< codegen_binding >().static_reference;
                 lookup = this->state.genvalues.at(lookup).template get_as< codegen_binding >().bound_value;
                 if (lookup == value_index(0)) return void_type{};
             }
@@ -3158,7 +3362,7 @@ namespace quxlang
             }
 
             auto val = looked.value();
-            auto vtype = this->current_type(idx, val);
+            auto vtype = remove_ref(this->current_type(idx, val));
 
             if (!typeis< attached_type_reference >(vtype))
             {
@@ -3465,7 +3669,7 @@ namespace quxlang
 
             assert(retval == 0);
 
-            auto dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(new_type);
+            std::optional< type_symbol > const dtor = co_await co_select_default_destructor_entry(new_type, false);
             if (dtor)
             {
                 this->add_nontrivial_default_dtor(new_type, *dtor);
@@ -3506,13 +3710,14 @@ namespace quxlang
             calltype.named[arg_name] = this->current_type(bidx, arg_val);
             calltype.named["THIS"] = create_nslot(new_type);
 
-            auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
+            invocation_selection selection = co_await co_select_invocation(initialization_reference{
                 .initializee = ctor,
                 .context = body_context(),
                 .parameters = instatype_from_invotype(calltype),
                 .adaptations = allowed_adaptations::destination_rebinding,
             });
 
+            std::optional< instanciation_reference > const& instanciation = selection.operation;
             if (!instanciation.has_value())
             {
                 co_return std::nullopt;
@@ -3520,11 +3725,11 @@ namespace quxlang
 
             auto new_object = create_local_value(new_type);
             args.named["THIS"] = new_object;
-            auto retval = co_await this->co_gen_call_functanoid(bidx, *instanciation, args, allowed_adaptations::destination_rebinding, false);
+            auto retval = co_await this->co_gen_call_functanoid(bidx, *instanciation, args, allowed_adaptations::destination_rebinding, false, std::nullopt, selection.uses_implicit_controller);
 
             assert(retval == 0);
 
-            auto dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(new_type);
+            std::optional< type_symbol > const dtor = co_await co_select_default_destructor_entry(new_type, false);
             if (dtor)
             {
                 this->add_nontrivial_default_dtor(new_type, *dtor);
@@ -3646,7 +3851,7 @@ namespace quxlang
                 co_await co_gen_call_functum(block, std::move(constructor), std::move(arguments), allowed_adaptations::source_rebinding);
             }
             emit(block, vmir2::struct_init_finish{.on_value = get_local_index(result)});
-            std::optional< type_symbol > destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(type);
+            std::optional< type_symbol > destructor = co_await co_select_default_destructor_entry(type, false);
             if (destructor.has_value())
             {
                 add_nontrivial_default_dtor(type, *destructor);
@@ -4005,6 +4210,17 @@ namespace quxlang
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_call call) -> co_type< value_index >
         {
+            std::optional< value_index > launch_controller;
+            if (call.execution_mode == call_execution_mode::run)
+            {
+                if (!call.controller.has_value()) throw compiler_bug("RUN expression has no controller operand");
+                launch_controller = co_await co_generate_expr(bidx, *call.controller);
+            }
+            else if (call.execution_mode == call_execution_mode::go)
+            {
+                if (!state.coroutine_controller.has_value()) throw semantic_compilation_error("GO requires a COROUTINE execution context");
+                launch_controller = *state.coroutine_controller;
+            }
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
                 co_yield rpnx::querygraph::debug_message("gen_call_expr A()");
@@ -4017,6 +4233,11 @@ namespace quxlang
             auto callee = co_await co_generate_expr(bidx, call.callee);
 
             type_symbol callee_type = this->current_type(bidx, callee);
+            if (is_ref(callee_type) && !parameter_runtime_type(callee_type).has_value())
+            {
+                callee_type = remove_ref(callee_type);
+                callee = copy_static_binding(callee, callee_type);
+            }
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
                 co_yield rpnx::querygraph::debug_message("gen_call_expr B() -> callee_type={}", quxlang::to_string(callee_type));
@@ -4070,6 +4291,8 @@ namespace quxlang
 
             if (attached_symbol_kind == symbol_kind::class_)
             {
+                if (call.execution_mode != call_execution_mode::ordinary)
+                    throw semantic_compilation_error("RUN and GO require a coroutine call target");
                 if (!typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type))
                 {
                     throw compiler_bug("attached class reference unexpectedly carried a value type");
@@ -4082,7 +4305,7 @@ namespace quxlang
             }
 
             co_return co_await co_gen_call_functum(bidx, as< attached_type_reference >(callee_type).attached_symbol, args, allowed_adaptations::destination_rebinding,
-                                                   !typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type));
+                                                   !typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type), std::nullopt, call.execution_mode, launch_controller);
         }
 
         /// Publishes a lambda under the current body before dependent type queries run.
@@ -4263,8 +4486,35 @@ namespace quxlang
             return boolv;
         }
 
-        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations, bool permit_virtual_dispatch) -> co_type< value_index >
+        /** Constructs accepted arguments before transferring destruction responsibility to the selected callable. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations, bool permit_virtual_dispatch, std::optional< vmir2::local_index > destruction_target = std::nullopt, bool implicit_controller = false,
+            call_execution_mode execution_mode = call_execution_mode::ordinary, std::optional< value_index > launch_controller = std::nullopt) -> co_type< value_index >
         {
+            std::optional< ast2_function_declaration > const& selected_declaration = co_await rpnx::querygraph::request< function_declaration_query >(what.temploid);
+            if (execution_mode != call_execution_mode::ordinary &&
+                (!selected_declaration.has_value() || selected_declaration->header.execution_kind != function_execution_kind::coroutine))
+                throw semantic_compilation_error("RUN and GO require a coroutine call target");
+            std::optional< std::string > coroutine_call_hook;
+            if (selected_declaration.has_value() && selected_declaration->header.execution_kind == function_execution_kind::coroutine)
+            {
+                if (state.generating_controller_hook)
+                {
+                    throw semantic_compilation_error("Coroutine protocol hooks must be synchronous FUNCTION declarations");
+                }
+                if (!state.coroutine.has_value() && execution_mode != call_execution_mode::run)
+                {
+                    throw semantic_compilation_error("A COROUTINE call requires a controller adapter or an initialized frame");
+                }
+                coroutine_call_hook = "CO_CALL_CORT";
+                if (what.temploid.templexoid.template type_is< submember >())
+                {
+                    std::string const& member = what.temploid.templexoid.template get_as< submember >().name;
+                    if (keywords::is_constructor_name(member)) coroutine_call_hook = "CO_CALL_CTOR";
+                    else if (member == "DESTRUCTOR" || member == "FULLOBJECT_DESTRUCTOR" || member == "SUBOBJECT_DESTRUCTOR") coroutine_call_hook = "CO_CALL_DTOR";
+                }
+            }
+            if (implicit_controller && !coroutine_call_hook.has_value())
+                expression_args.named.emplace("CONTROLLER", coroutine_borrow(bidx, *state.coroutine_controller));
             auto call_args_types = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
             co_await co_bind_constructor_conversion_argument(bidx, what, expression_args, adaptations);
 
@@ -4349,6 +4599,7 @@ namespace quxlang
 
             for (auto const& [name, arg_accepted_type] : call_args_types.named)
             {
+                if (coroutine_call_hook.has_value() && name == "CONTROLLER") continue;
                 value_index arg_expr_index(0);
                 if (auto it = expression_args.named.find(name); it != expression_args.named.end())
                 {
@@ -4391,6 +4642,11 @@ namespace quxlang
                 invocation_args.positional.push_back(arg_index);
             }
 
+            if (coroutine_call_hook.has_value())
+            {
+                co_return co_await co_coroutine_call(bidx, what, std::move(invocation_args), *coroutine_call_hook, destruction_target, execution_mode, launch_controller);
+            }
+
             assert(!type_is_contextual(what));
             auto return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(what);
 
@@ -4419,6 +4675,7 @@ namespace quxlang
                 assert(invocation_args.size() == what.params.size());
             }
 
+            if (destruction_target.has_value()) emit(bidx, vmir2::begin_destruction{.of = *destruction_target});
             co_await co_gen_invoke(bidx, what, invocation_args, permit_virtual_dispatch);
 
             co_return retval;
@@ -5003,7 +5260,7 @@ namespace quxlang
             }
 
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -6574,16 +6831,23 @@ namespace quxlang
                 class_kind const owner_class = owner_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(member.of) : class_kind::noexist;
                 if (owner_class == class_kind::struct_)
                 {
-                    struct_virtual_slots const slots = co_await rpnx::querygraph::request< struct_virtual_slots_query >(member.of);
+                    struct_virtual_slots const& slots = co_await rpnx::querygraph::request< struct_virtual_slots_query >(member.of);
                     type_symbol const selected_declaration = what.temploid;
                     for (struct_virtual_slot const& slot : slots.slots)
                     {
-                        bool const selects_slot = slot.key.introducing_declaration == selected_declaration || std::ranges::any_of(slot.overriders, [&](struct_virtual_overrider const& overrider)
+                        std::vector< struct_virtual_overrider >::const_iterator const selected_overrider = std::ranges::find_if(slot.overriders, [&](struct_virtual_overrider const& overrider)
                         {
                             return overrider.final_overrider == selected_declaration;
                         });
-                        if (selects_slot)
+                        if (selected_overrider != slot.overriders.end())
                         {
+                            QUXLANG_COMPILER_BUG_IF(selected_overrider->source_paths.empty(), "Virtual slot has no receiver path");
+                            struct_subobject_path const& receiver_path = selected_overrider->source_paths.front();
+                            if (!receiver_path.steps.empty())
+                            {
+                                // Dispatch uses the descriptor of the subobject that introduced the slot.
+                                args.named.at("THIS") = project_struct_subobject(bidx, args.named.at("THIS"), receiver_path.steps.back().base_type, receiver_path);
+                            }
                             this->emit(bidx, vmir2::invoke_virtual{
                                                  .slot = slot.key,
                                                  .args = get_invocation_args(args),
@@ -7073,6 +7337,14 @@ namespace quxlang
 
             bool const is_layoutless = cpu_is_layoutless(machine_info.cpu_type) && !layoutless_integer_size_bytes(attached_type).has_value();
             co_return this->create_bool_value(bidx, is_layoutless);
+        }
+
+        /** Evaluates whether owning this type requires asynchronous destruction. */
+        auto co_generate(block_index& block, expression_type_is_async_only const& expression) -> co_type< value_index >
+        {
+            type_symbol type = co_await co_resolve_type_symbol(block, expression.of_type);
+            bool result = co_await rpnx::querygraph::request< type_is_async_only_query >(type);
+            co_return create_bool_value(block, result);
         }
 
         /** Evaluates polymorphism from declaration tags without requiring layout or virtual slots. */
@@ -8051,6 +8323,7 @@ namespace quxlang
                     }
                     else if constexpr (std::is_same_v< value_type, expression_call >)
                     {
+                        if (value.controller.has_value()) co_await this->co_analyze_lambda_expression(analysis, *value.controller);
                         if (value.composite_arguments.has_value())
                         {
                             co_await this->co_analyze_lambda_expression(analysis, *value.composite_arguments);
@@ -8965,7 +9238,7 @@ namespace quxlang
 
             value_index const result = co_await this->co_generate_nominal_integer_spaceship(current_block, *this_value, *other_value);
             co_await this->co_return_value(current_block, result);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -9114,8 +9387,8 @@ namespace quxlang
                     type_symbol const rhs_equality = submember{rhs_underlying_type, "OPERATOR==RHS"};
                     invotype const lhs_equality_parameters{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
                     invotype const rhs_equality_parameters{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
-                    std::optional< instanciation_reference > const lhs_equality_call = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = lhs_equality, .parameters = instatype_from_invotype(lhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding});
-                    std::optional< instanciation_reference > const rhs_equality_call = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = rhs_equality, .parameters = instatype_from_invotype(rhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+                    std::optional< instanciation_reference > const lhs_equality_call = (co_await co_select_invocation(initialization_reference{.initializee = lhs_equality, .parameters = instatype_from_invotype(lhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding})).operation;
+                    std::optional< instanciation_reference > const rhs_equality_call = (co_await co_select_invocation(initialization_reference{.initializee = rhs_equality, .parameters = instatype_from_invotype(rhs_equality_parameters), .adaptations = allowed_adaptations::destination_rebinding})).operation;
 
                     std::optional< value_index > equality;
                     if (lhs_equality_call.has_value())
@@ -9147,8 +9420,8 @@ namespace quxlang
                 type_symbol const rhs_spaceship = submember{rhs_underlying_type, "OPERATOR<=>RHS"};
                 invotype const lhs_spaceship_parameters{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
                 invotype const rhs_spaceship_parameters{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
-                std::optional< instanciation_reference > const lhs_spaceship_call = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = lhs_spaceship, .parameters = instatype_from_invotype(lhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding});
-                std::optional< instanciation_reference > const rhs_spaceship_call = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = rhs_spaceship, .parameters = instatype_from_invotype(rhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding});
+                std::optional< instanciation_reference > const lhs_spaceship_call = (co_await co_select_invocation(initialization_reference{.initializee = lhs_spaceship, .parameters = instatype_from_invotype(lhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding})).operation;
+                std::optional< instanciation_reference > const rhs_spaceship_call = (co_await co_select_invocation(initialization_reference{.initializee = rhs_spaceship, .parameters = instatype_from_invotype(rhs_spaceship_parameters), .adaptations = allowed_adaptations::destination_rebinding})).operation;
 
                 std::optional< value_index > ordering;
                 if (lhs_spaceship_call.has_value())
@@ -9179,7 +9452,7 @@ namespace quxlang
             invotype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
             invotype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
-            auto lhs_exists_and_callable_with = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = lhs_function, .parameters = instatype_from_invotype(lhs_param_info), .adaptations = allowed_adaptations::destination_rebinding});
+            auto lhs_exists_and_callable_with = (co_await co_select_invocation(initialization_reference{.initializee = lhs_function, .parameters = instatype_from_invotype(lhs_param_info), .adaptations = allowed_adaptations::destination_rebinding})).operation;
 
             if (lhs_exists_and_callable_with)
             {
@@ -9187,7 +9460,7 @@ namespace quxlang
                 co_return co_await co_gen_call_functum(bidx, lhs_function, lhs_args);
             }
 
-            auto rhs_exists_and_callable_with = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = rhs_function, .parameters = instatype_from_invotype(rhs_param_info), .adaptations = allowed_adaptations::destination_rebinding});
+            auto rhs_exists_and_callable_with = (co_await co_select_invocation(initialization_reference{.initializee = rhs_function, .parameters = instatype_from_invotype(rhs_param_info), .adaptations = allowed_adaptations::destination_rebinding})).operation;
 
             if (rhs_exists_and_callable_with)
             {
@@ -9952,13 +10225,15 @@ namespace quxlang
                 signature.named[argument.first] = current_type(block, argument.second);
             }
             initialization_reference selection{.initializee = operation, .context = body_context(), .parameters = instatype_from_invotype(signature)};
-            std::optional< instanciation_reference > invocation = co_await rpnx::querygraph::request< instanciation_query >(selection);
+            invocation_selection selected = co_await co_select_invocation(selection);
+            std::optional< instanciation_reference > invocation = selected.operation;
             if (!invocation.has_value())
             {
                 signature.named.erase("INDEX");
                 arguments.named.erase("INDEX");
                 selection.parameters = instatype_from_invotype(signature);
-                invocation = co_await rpnx::querygraph::request< instanciation_query >(selection);
+                selected = co_await co_select_invocation(selection);
+                invocation = selected.operation;
             }
             if (!invocation.has_value())
             {
@@ -9969,7 +10244,7 @@ namespace quxlang
             {
                 throw semantic_compilation_error("Array generator must return VOID");
             }
-            co_await co_gen_call_functanoid(block, *invocation, std::move(arguments), allowed_adaptations::destination_rebinding, bound);
+            co_await co_gen_call_functanoid(block, *invocation, std::move(arguments), allowed_adaptations::destination_rebinding, bound, std::nullopt, selected.uses_implicit_controller);
             co_return;
         }
 
@@ -11992,6 +12267,7 @@ namespace quxlang
                 .initializee = submember{.of = callable_type, .name = "OPERATOR()"},
                 .context = this->body_context(),
                 .parameters = instatype_from_invotype(invotype{.named = {{"THIS", make_mref(callable_type)}}}),
+                .lookup_kind = function_lookup_kind::invocation,
             });
             if (!invocation.has_value())
             {
@@ -12007,6 +12283,7 @@ namespace quxlang
                 .context = guard_type,
                 .parameters = instatype_from_invotype(invotype{.named = {{"THIS", create_nslot(callable_type)}, {"OTHER", this->current_type(expression_block, callable)}}}),
                 .adaptations = allowed_adaptations::destination_rebinding,
+                .lookup_kind = function_lookup_kind::invocation,
             });
             if (!callable_initialization.has_value())
             {
@@ -12137,8 +12414,20 @@ namespace quxlang
                     value_index activation = co_await this->co_gen_call_ctor(body,
                         subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_HANDLER"},
                         codegen_invocation_args{.named = {{"EXCEPTION", exception}}});
-                    (void)activation;
+                    std::optional< value_index > previous_handler = state.coroutine_handler_root;
+                    std::optional< value_index > previous_exception = state.coroutine_handler_exception;
+                    if (state.coroutine.has_value())
+                    {
+                        if (!state.coroutine_handler_root.has_value()) state.coroutine_handler_root = activation;
+                        state.coroutine_handler_exception = exception;
+                        state.coroutine_handler_scopes.emplace(get_local_index(activation), coroutine_handler_scope{
+                            .before = {state.coroutine_handler_root, state.coroutine_handler_exception, exception, body},
+                            .parent = {previous_handler, previous_exception, outer_exception, outer_region},
+                        });
+                    }
                     co_await this->co_generate_function_block(body, clause.body, "catch");
+                    state.coroutine_handler_root = previous_handler;
+                    state.coroutine_handler_exception = previous_exception;
                     this->state.catch_region = outer_region;
                     this->generate_fallthrough_jump(body, after);
                     dispatch = next;
@@ -12375,7 +12664,7 @@ namespace quxlang
 
                 type_symbol ctor = co_await co_select_constructor_entry(var_type, false);
                 co_await this->co_gen_call_functum(new_expr_block, ctor, args);
-                auto class_default_dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(var_type);
+                std::optional< type_symbol > const class_default_dtor = co_await co_select_default_destructor_entry(var_type, false);
                 if (class_default_dtor)
                 {
                     if (!state.non_trivial_dtors.contains(var_type))
@@ -12467,7 +12756,7 @@ namespace quxlang
             {
                 type_symbol ctor = co_await co_select_constructor_entry(var_type, false);
                 co_await this->co_gen_call_functum(new_expr_block, ctor, args);
-                auto class_default_dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(var_type);
+                std::optional< type_symbol > const class_default_dtor = co_await co_select_default_destructor_entry(var_type, false);
                 if (class_default_dtor)
                 {
                     if (!state.non_trivial_dtors.contains(var_type))
@@ -12618,6 +12907,13 @@ namespace quxlang
                         if (inherited_field != inherited_fields.end())
                         {
                             receiver_reference_type.as< ptrref_type >().is_ibc = receiver_reference_type.as< ptrref_type >().is_ibc.value() || inherited_field->ibc_access;
+                            if (is_ref(inherited_field->type) && !parameter_runtime_type(inherited_field->type).has_value())
+                            {
+                                type_symbol const binding_type = remove_ref(inherited_field->type);
+                                attached_type_reference const& attached = binding_type.template get_as< attached_type_reference >();
+                                value_index binding = create_binding(value_index(0), attached.attached_symbol);
+                                co_return copy_static_binding(binding, inherited_field->type);
+                            }
                             if (typeis< attached_type_reference >(inherited_field->type))
                             {
                                 attached_type_reference const& attached = as< attached_type_reference >(inherited_field->type);
@@ -12669,6 +12965,13 @@ namespace quxlang
                     }
                     ptrref_type field_receiver = base_type.template get_as< ptrref_type >();
                     field_receiver.is_ibc = field_receiver.is_ibc.value() || ibc_access;
+                    if (is_ref(candidate_type) && !parameter_runtime_type(candidate_type).has_value())
+                    {
+                        type_symbol const binding_type = remove_ref(candidate_type);
+                        attached_type_reference const& attached = binding_type.template get_as< attached_type_reference >();
+                        value_index binding = create_binding(value_index(0), attached.attached_symbol);
+                        return copy_static_binding(binding, candidate_type);
+                    }
                     if (typeis< attached_type_reference >(candidate_type))
                         {
                         attached_type_reference const& attached = as< attached_type_reference >(candidate_type);
@@ -12921,6 +13224,7 @@ namespace quxlang
                     .context = generic_type,
                     .parameters = std::move(target_parameters),
                     .adaptations = allowed_adaptations::destination_rebinding,
+                    .lookup_kind = function_lookup_kind::invocation,
                 });
                 if (!target_function.has_value())
                 {
@@ -13004,9 +13308,8 @@ namespace quxlang
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
-            co_await co_generate_arg_info(func);
-            this->generate_entry_block();
-            block_index current_block = block_index(0);
+            block_index current_block(0);
+            std::optional< std::pair< value_index, block_index > > exception_region = co_await co_begin_generated_lifecycle(func, current_block);
             auto cls = func.temploid.templexoid.get_as< submember >().of;
 
             if (typeis< storage >(cls) || typeis< aligned_storage >(cls))
@@ -13018,7 +13321,7 @@ namespace quxlang
                 }
                 this->emit(current_block, vmir2::storage_init{.storage = get_local_index(*this_value)});
                 co_await co_generate_builtin_return(current_block);
-                co_return get_result();
+                co_return co_await co_finish_generated_lifecycle(exception_region);
             }
 
             class_kind const cls_kind = co_await rpnx::querygraph::request< class_type_query >(cls);
@@ -13026,7 +13329,7 @@ namespace quxlang
             {
                 co_await co_generate_generic_ctor(current_block, func, cls);
                 co_await co_generate_builtin_return(current_block);
-                co_return get_result();
+                co_return co_await co_finish_generated_lifecycle(exception_region);
             }
 
             if (co_await rpnx::querygraph::request< symbol_type_query >(cls) == symbol_kind::interface_)
@@ -13036,8 +13339,7 @@ namespace quxlang
                     throw compiler_bug("Interface constructor routine is not implemented: " + quxlang::to_string(func));
                 }
                 co_await co_generate_builtin_return(current_block);
-                co_await co_generate_dtor_references();
-                co_return get_result();
+                co_return co_await co_finish_generated_lifecycle(exception_region);
             }
 
             if (cls_kind == class_kind::enum_ || cls_kind == class_kind::flagset)
@@ -13065,16 +13367,14 @@ namespace quxlang
                     this->emit(current_block, vmir2::load_const_enum{.target = get_local_index(*thisidx), .case_name = *info.default_value_name});
                 }
                 co_await co_generate_builtin_return(current_block);
-                co_await co_generate_dtor_references();
-                co_return get_result();
+                co_return co_await co_finish_generated_lifecycle(exception_region);
             }
 
             if (cls_kind == class_kind::union_ || cls_kind == class_kind::variant)
             {
                 co_await co_generate_fusion_constructor(current_block, func, cls);
                 co_await co_generate_builtin_return(current_block);
-                co_await co_generate_dtor_references();
-                co_return get_result();
+                co_return co_await co_finish_generated_lifecycle(exception_region);
             }
 
             if (cls.template type_is< array_type >())
@@ -13086,8 +13386,7 @@ namespace quxlang
                 co_await co_generate_struct_ctor_delegates(current_block, func, {});
             }
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
-            co_return get_result();
+            co_return co_await co_finish_generated_lifecycle(exception_region);
         }
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_interface_get_impl(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
@@ -13120,7 +13419,7 @@ namespace quxlang
                                       });
 
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -13243,7 +13542,7 @@ namespace quxlang
             target_arguments.named["THIS"] = concrete_this;
             co_await co_gen_invoke(current_block, std::move(target), std::move(target_arguments));
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -13352,7 +13651,7 @@ namespace quxlang
                                           });
                 co_await co_deallocate_default_storage(current_block, concrete_type, storage_pointer_for_deallocation);
                 co_await co_generate_builtin_return(current_block);
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
             if (lifecycle_name == "__COPY")
@@ -13538,9 +13837,8 @@ namespace quxlang
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_swap(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
-            co_await co_generate_arg_info(func);
-            this->generate_entry_block();
-            block_index current_block = block_index(0);
+            block_index current_block(0);
+            std::optional< std::pair< value_index, block_index > > exception_region = co_await co_begin_generated_lifecycle(func, current_block);
 
             if ((co_await rpnx::querygraph::request< function_builtin_query >(func.temploid)) == builtin_function_kind::builtin_special)
             {
@@ -13549,7 +13847,7 @@ namespace quxlang
                 arguments.named["OTHER"] = local_value_direct_lookup(current_block, "OTHER").value();
                 co_await co_gen_invoke_builtin(current_block, func, arguments);
                 co_await co_generate_builtin_return(current_block);
-                co_return get_result();
+                co_return co_await co_finish_generated_lifecycle(exception_region);
             }
 
             if (typeis< submember >(func.temploid.templexoid))
@@ -13577,22 +13875,19 @@ namespace quxlang
                                                   });
                         co_await co_generate_builtin_return(current_block);
                     }
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
                 if (typeis< array_type >(member.of))
                 {
                     co_await co_generate_array_swap(current_block, member.of);
                     co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
             }
 
             co_await co_generate_swap_members(current_block, func);
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
-            co_return get_result();
+            co_return co_await co_finish_generated_lifecycle(exception_region);
         }
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_global_init(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
@@ -13622,7 +13917,7 @@ namespace quxlang
                                               .value = std::move(string_value.bytes),
                                           });
                 co_await co_generate_builtin_return(current_block);
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
 
@@ -13635,7 +13930,7 @@ namespace quxlang
                                               .value = std::move(numeric_value.bytes),
                                           });
                 co_await co_generate_builtin_return(current_block);
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
 
@@ -13644,7 +13939,7 @@ namespace quxlang
                 auto serialoid_value = co_await rpnx::querygraph::request< serialoid_static_value_query >(global_symbol);
                 co_await co_initialize_serialized_storage(current_block, storage_ref, global_type, serialoid_value);
                 co_await co_generate_builtin_return(current_block);
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
 
@@ -13652,7 +13947,7 @@ namespace quxlang
             (void)ignored;
 
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -13687,7 +13982,7 @@ namespace quxlang
             value_index const destroy_delegate = co_await co_begin_storage_delegate(current_block, storage_ref, global_type, true);
             this->emit(current_block, vmir2::destroy{.of = get_local_index(destroy_delegate)});
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -13711,7 +14006,7 @@ namespace quxlang
                                         });
 
                 co_await this->co_return_value(entry_block, result_ref);
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
 
@@ -13770,7 +14065,7 @@ namespace quxlang
                                                .constexpr_access_allowed = constexpr_access_allowed,
                                            });
                 co_await this->co_return_value(entry_block, result_ref);
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
 
@@ -13819,7 +14114,7 @@ namespace quxlang
 
             co_await emit_return_from_storage(initialized_block);
 
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -13875,7 +14170,7 @@ namespace quxlang
             QUXLANG_COMPILER_BUG_IF(!result.has_value(), "Generated array pointer function did not produce a result");
             co_await this->co_return_value(current_block, *result);
 
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -13895,7 +14190,7 @@ namespace quxlang
             this->emit(current_block, vmir2::load_const_int{.target = get_local_index(result), .value = as< expression_numeric_literal >(element_count).value});
             co_await this->co_return_value(current_block, result);
 
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -13911,7 +14206,7 @@ namespace quxlang
             QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value(), "Generated array VALUES function is missing THIS");
             co_await this->co_return_value(current_block, *this_lookup);
 
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -13929,7 +14224,7 @@ namespace quxlang
 
             co_await this->co_return_value(current_block, retval);
 
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -13961,6 +14256,8 @@ namespace quxlang
         /// Emits a load_from_ref instruction and returns the new local containing the referenced value.
         auto load_reference_value(block_index& current_block, value_index ref, type_symbol const& value_type) -> value_index
         {
+            if (!parameter_runtime_type(value_type).has_value() && value_type.template type_is< attached_type_reference >())
+                return copy_static_binding(ref, value_type);
             auto value = this->create_local_value(value_type);
             this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(ref), .to_value = get_local_index(value)});
             return value;
@@ -14118,7 +14415,7 @@ namespace quxlang
             }
 
             co_await co_return_value(final_block, *outit_ref);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14212,7 +14509,7 @@ namespace quxlang
             }
 
             co_await co_return_value(final_block, *input_iter);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14276,7 +14573,7 @@ namespace quxlang
             this->generate_jump(element_block, condition_block);
             value_index result = (co_await this->co_lookup_symbol(done_block, freebound_identifier{iterator_name})).value();
             co_await co_return_value(done_block, result);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14434,7 +14731,7 @@ namespace quxlang
                 throw compiler_bug("Missing builtin SERIALIZE iterator");
             }
             co_await co_return_value(current_block, *outit_ref);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14518,7 +14815,7 @@ namespace quxlang
                 throw compiler_bug("Missing builtin DESERIALIZE iterator");
             }
             co_await co_return_value(current_block, *input_iter);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14600,7 +14897,7 @@ namespace quxlang
                 throw compiler_bug("Shouldn't be possible");
             }
             co_await co_return_value(current_block, *outit_ref);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14639,7 +14936,7 @@ namespace quxlang
             }
 
             co_await co_return_value(current_block, *outit_ref);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14679,7 +14976,7 @@ namespace quxlang
             }
 
             co_await co_return_value(current_block, *outit_ref);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14731,7 +15028,7 @@ namespace quxlang
             }
 
             co_await co_return_value(current_block, *current_iter);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14766,7 +15063,7 @@ namespace quxlang
             }
 
             co_await co_return_value(current_block, *input_iter);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14864,7 +15161,7 @@ namespace quxlang
             }
 
             co_await co_return_value(current_block, *input_iter);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14904,7 +15201,7 @@ namespace quxlang
             }
 
             co_await co_return_value(current_block, *input_iter);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -14956,7 +15253,7 @@ namespace quxlang
             }
 
             co_await co_return_value(current_block, *current_iter);
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -15039,7 +15336,7 @@ namespace quxlang
                     co_await this->co_return_value(equal_block, equal_result);
                 }
 
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
 
@@ -15147,7 +15444,7 @@ namespace quxlang
                 value_index final_result = this->create_bool_value(current_block, true);
                 co_await this->co_return_value(current_block, final_result);
             }
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -15474,7 +15771,7 @@ namespace quxlang
                 value_index const result_reference = create_reference(alternative_block, result, make_tref(result_type));
                 co_await co_return_value(alternative_block, result_reference);
             }
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
@@ -15639,6 +15936,7 @@ namespace quxlang
             }
             fusion_codegen_info info = co_await co_load_fusion_codegen_info(fusion_type);
             instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(func);
+            concrete_params.named.erase("CONTROLLER");
 
             if (concrete_params.named.size() == 1 && concrete_params.named.contains("THIS"))
             {
@@ -15881,9 +16179,8 @@ namespace quxlang
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
-            co_await co_generate_arg_info(func);
-            this->generate_entry_block();
-            block_index current_block = block_index(0);
+            block_index current_block(0);
+            std::optional< std::pair< value_index, block_index > > exception_region = co_await co_begin_generated_lifecycle(func, current_block);
 
             if (typeis< submember >(func.temploid.templexoid))
             {
@@ -15917,8 +16214,7 @@ namespace quxlang
                         co_await co_construct_fusion_alternative(alternative_block, info, *this_value, alternative_index, payload_source);
                         co_await co_generate_builtin_return(alternative_block);
                     }
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
             }
 
@@ -15929,8 +16225,7 @@ namespace quxlang
                 {
                     co_await co_generate_array_copy_ctor_delegates(current_block, func);
                     co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
                 if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
                 {
@@ -15939,8 +16234,7 @@ namespace quxlang
                         throw compiler_bug("Interface copy constructor routine is not implemented: " + quxlang::to_string(func));
                     }
                     co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
             }
 
@@ -15961,32 +16255,28 @@ namespace quxlang
                     {
                         this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(*otheridx), .to_value = get_local_index(*thisidx)});
                         co_await co_generate_builtin_return(current_block);
-                        co_await co_generate_dtor_references();
-                        co_return get_result();
+                        co_return co_await co_finish_generated_lifecycle(exception_region);
                     }
                 }
                 if (auto intrinsic = this->intrinsic_instruction(func, concrete_call, args); intrinsic.has_value())
                 {
                     this->emit(current_block, intrinsic.value());
                     co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
             }
 
             co_await co_generate_copy_ctor_delegates(current_block, func);
 
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
-            co_return get_result();
+            co_return co_await co_finish_generated_lifecycle(exception_region);
         }
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_move_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
-            co_await co_generate_arg_info(func);
-            this->generate_entry_block();
-            block_index current_block = block_index(0);
+            block_index current_block(0);
+            std::optional< std::pair< value_index, block_index > > exception_region = co_await co_begin_generated_lifecycle(func, current_block);
 
             if (typeis< submember >(func.temploid.templexoid))
             {
@@ -16023,8 +16313,7 @@ namespace quxlang
                                                       .b = get_local_index(mutable_other_reference),
                                                   });
                         co_await co_generate_builtin_return(current_block);
-                        co_await co_generate_dtor_references();
-                        co_return get_result();
+                        co_return co_await co_finish_generated_lifecycle(exception_region);
                     }
 
                     fusion_dispatch_blocks dispatch = generate_fusion_dispatch(current_block, info, *other_value, "fusion_move");
@@ -16058,8 +16347,7 @@ namespace quxlang
                         }
                         co_await co_generate_builtin_return(alternative_block);
                     }
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
             }
 
@@ -16070,8 +16358,7 @@ namespace quxlang
                 {
                     co_await co_generate_array_move_ctor_delegates(current_block, func);
                     co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
                 if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
                 {
@@ -16080,8 +16367,7 @@ namespace quxlang
                         throw compiler_bug("Interface move constructor routine is not implemented: " + quxlang::to_string(func));
                     }
                     co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
             }
 
@@ -16102,31 +16388,27 @@ namespace quxlang
                     {
                         this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(*otheridx), .to_value = get_local_index(*thisidx)});
                         co_await co_generate_builtin_return(current_block);
-                        co_await co_generate_dtor_references();
-                        co_return get_result();
+                        co_return co_await co_finish_generated_lifecycle(exception_region);
                     }
                 }
                 if (auto intrinsic = this->intrinsic_instruction(func, concrete_call, args); intrinsic.has_value())
                 {
                     this->emit(current_block, intrinsic.value());
                     co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
             }
 
             co_await co_generate_move_ctor_delegates(current_block, func);
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
-            co_return get_result();
+            co_return co_await co_finish_generated_lifecycle(exception_region);
         }
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_assignment(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
-            co_await co_generate_arg_info(func);
-            this->generate_entry_block();
-            block_index current_block = block_index(0);
+            block_index current_block(0);
+            std::optional< std::pair< value_index, block_index > > exception_region = co_await co_begin_generated_lifecycle(func, current_block);
 
             if (typeis< submember >(func.temploid.templexoid))
             {
@@ -16139,8 +16421,7 @@ namespace quxlang
                         throw compiler_bug("Interface assignment routine is not implemented: " + quxlang::to_string(func));
                     }
                     co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
                 class_kind const member_class_kind = member_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(member.of) : class_kind::noexist;
                 if (member_class_kind == class_kind::union_ || member_class_kind == class_kind::variant)
@@ -16173,8 +16454,7 @@ namespace quxlang
                                                   });
                         co_await co_generate_builtin_return(current_block);
                     }
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
                 if (member_class_kind == class_kind::enum_ || member_class_kind == class_kind::flagset)
                 {
@@ -16186,8 +16466,7 @@ namespace quxlang
                     }
                     this->emit(current_block, vmir2::store_to_ref{.from_value = get_local_index(*otheridx), .to_reference = get_local_index(*thisidx)});
                     co_await co_generate_builtin_return(current_block);
-                    co_await co_generate_dtor_references();
-                    co_return get_result();
+                    co_return co_await co_finish_generated_lifecycle(exception_region);
                 }
             }
 
@@ -16217,8 +16496,7 @@ namespace quxlang
                 co_await co_generate(current_block, swap_expr);
             }
             co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
-            co_return get_result();
+            co_return co_await co_finish_generated_lifecycle(exception_region);
         }
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_dtor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
@@ -16272,7 +16550,7 @@ namespace quxlang
                                          });
                 co_await co_generate_builtin_return(delete_block);
                 co_await co_generate_builtin_return(done_block);
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
             if (typeis< array_type >(member.of))
@@ -16282,7 +16560,7 @@ namespace quxlang
                 std::optional< value_index > this_lookup = local_value_direct_lookup(current_block, "THIS");
                 QUXLANG_COMPILER_BUG_IF(!this_lookup.has_value(), "Generated array destructor is missing THIS");
                 value_index array_reference = create_reference(current_block, *this_lookup, make_mref(member.of));
-                std::optional< type_symbol > element_destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(array.element_type);
+                std::optional< type_symbol > element_destructor = co_await co_select_default_destructor_entry(array.element_type, false);
                 QUXLANG_COMPILER_BUG_IF(!element_destructor.has_value(), "Generated array destructor requires a nontrivial element destructor");
                 type_symbol element_reference_type = make_mref(array.element_type);
                 this->state.non_trivial_dtors[element_reference_type] = *element_destructor;
@@ -16320,7 +16598,7 @@ namespace quxlang
                 this->generate_jump(element_block, condition_block);
 
                 co_await co_generate_builtin_return(done_block);
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
             if (member_kind == class_kind::struct_)
@@ -16398,7 +16676,7 @@ namespace quxlang
                         continue;
                     }
 
-                    std::optional< type_symbol > field_destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(*field_storage_type);
+                    std::optional< type_symbol > field_destructor = co_await co_select_default_destructor_entry(*field_storage_type, false);
                     if (!field_destructor.has_value())
                     {
                         continue;
@@ -16429,7 +16707,7 @@ namespace quxlang
                 }
 
                 co_await co_generate_builtin_return(current_block);
-                co_await co_generate_dtor_references();
+                co_await co_generate_dtors();
                 co_return get_result();
             }
             if (member_kind != class_kind::union_ && member_kind != class_kind::variant)
@@ -16455,21 +16733,127 @@ namespace quxlang
                 co_await co_destroy_fusion_alternative(alternative_block, info, this_reference, static_cast< std::uint64_t >(index));
                 co_await co_generate_builtin_return(alternative_block);
             }
-            co_await co_generate_dtor_references();
+            co_await co_generate_dtors();
             co_return get_result();
         }
 
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_builtin_return(block_index bidx) -> co_type< void >
         {
+            if (state.coroutine.has_value())
+            {
+                co_await co_generate_coroutine_return(bidx, std::nullopt);
+                co_return;
+            }
             // TODO: Implement implied returns
             this->generate_return(bidx);
             co_return;
+        }
+
+        /** Establishes one canonical receiver state for all constructor body exits. */
+        void begin_coroutine_constructor_completion(block_index current)
+        {
+            if (!state.coroutine.has_value()) return;
+            type_symbol const& callable = state.coroutine->specialization.temploid.templexoid;
+            if (!callable.template type_is< submember >() || !keywords::is_constructor_name(callable.template get_as< submember >().name)) return;
+            local_index receiver = state.params.named.at("THIS").local_index;
+            block_index destination = generate_subblock(current, "coroutine_constructor_complete");
+            vmir2::state_map retained = state.blocks.at(current).current_state;
+            std::vector< local_index > bindings = vmir2::codegen_state_engine::retained_storage_bindings(retained, receiver);
+            for (std::size_t index = 1; index < bindings.size(); ++index) retained.erase(bindings[index]);
+            vmir2::slot_state& output = retained[receiver];
+            output.stage = vmir2::slot_stage::partial;
+            output.storage_valid = true;
+            output.struct_delegates.reset();
+            output.array_delegates.reset();
+            output.array_element_delegates = {};
+            state.blocks.at(destination).entry_state = retained;
+            state.blocks.at(destination).current_state = std::move(retained);
+            state.coroutine_constructor_exit = coroutine_constructor_completion{destination, receiver};
+        }
+
+        /** Completes the constructed object once before shielded return reporting. */
+        auto co_finish_coroutine_constructor_completion() -> co_type< void >
+        {
+            if (!state.coroutine_constructor_exit.has_value()) co_return;
+            coroutine_constructor_completion completion = *state.coroutine_constructor_exit;
+            state.coroutine_constructor_exit.reset();
+            block_index current = completion.destination;
+            if (!state.blocks.at(current).has_incoming_flow)
+            {
+                set_terminator(current, vmir2::unreachable{});
+                co_return;
+            }
+            codegen_block const& entry = state.blocks.at(current);
+            state.catcher = entry.catcher;
+            state.catch_exception = entry.catch_exception;
+            state.catch_region = entry.catch_region;
+            state.coroutine_handler_root = entry.coroutine_handler_root;
+            state.coroutine_handler_exception = entry.coroutine_handler_exception;
+            if (entry.current_state.at(completion.receiver).stage == vmir2::slot_stage::partial)
+            {
+                emit(current, vmir2::struct_init_finish{.on_value = completion.receiver});
+            }
+            co_await co_generate_coroutine_return(current, std::nullopt);
+            co_return;
+        }
+
+        /** Establishes execution bindings and owned working arguments for a generated lifecycle body. */
+        auto co_begin_generated_lifecycle(instanciation_reference const& function, block_index& current)
+            -> co_type< std::optional< std::pair< value_index, block_index > > >
+        {
+            co_await co_begin_functanoid(function);
+            if (!state.coroutine.has_value()) co_return std::nullopt;
+            std::pair< value_index, block_index > region = co_await co_begin_coroutine_exception_region(current);
+            state.coroutine_shielded = true;
+            std::optional< builtin_function_info > const& operation = co_await rpnx::querygraph::request< function_primitive_query >(function.temploid);
+            if (!operation.has_value()) throw compiler_bug("Generated lifecycle body has no builtin overload");
+            std::size_t concrete_index = 0;
+            for (std::size_t index = 0; index < operation->overload.interface.positional.size(); ++index)
+            {
+                argif const& formal = operation->overload.interface.positional[index];
+                std::size_t end = formal.is_pack ? state.positional_arguments.size() : concrete_index + 1;
+                for (; concrete_index < end; ++concrete_index)
+                {
+                    if (!operation->owned_positional_parameters.contains(index)) continue;
+                    value_index source = state.positional_arguments.at(concrete_index);
+                    if (!parameter_runtime_type(current_type(current, source)).has_value()) continue;
+                    type_symbol type = remove_ref(current_type(current, source));
+                    value_index owned = co_await co_gen_call_ctor(current, type,
+                        codegen_invocation_args{.named = {{"OTHER", copy_ref_value(current, source)}}});
+                    state.generated_owned_parameters.emplace(source, owned);
+                }
+            }
+            for (std::string const& name : operation->owned_named_parameters)
+            {
+                value_index source = state.top_level_lookups.at(name);
+                if (!parameter_runtime_type(current_type(current, source)).has_value()) continue;
+                type_symbol type = remove_ref(current_type(current, source));
+                value_index owned = co_await co_gen_call_ctor(current, type,
+                    codegen_invocation_args{.named = {{"OTHER", copy_ref_value(current, source)}}});
+                state.generated_owned_parameters.emplace(source, owned);
+                state.top_level_lookups[name] = owned;
+            }
+            begin_coroutine_constructor_completion(current);
+            co_return region;
+        }
+
+        /** Completes generated lifecycle reporting and expands its mandatory cleanup. */
+        auto co_finish_generated_lifecycle(std::optional< std::pair< value_index, block_index > > region)
+            -> co_type< vmir2::functanoid_routine3 >
+        {
+            co_await co_finish_coroutine_constructor_completion();
+            if (region.has_value()) co_await co_finish_coroutine_exception_region(*region);
+            co_await co_generate_dtors();
+            if (state.coroutine.has_value()) co_await co_expand_coroutine_cleanup(*this);
+            co_return get_result();
         }
         auto get_result()
         {
 
             vmir2::functanoid_routine3 result;
             result.is_noexcept = state.is_noexcept;
+            result.asynchronous_cleanup_slots = state.asynchronous_cleanup_slots;
+            result.coroutine = state.coroutine;
             for (auto const& [type, dtor] : this->state.non_trivial_dtors)
             {
                 result.non_trivial_dtors[type] = dtor;
@@ -16506,7 +16890,7 @@ namespace quxlang
             this->state.completion = function_decl.definition.body.completion;
             this->state.is_noexcept = co_await rpnx::querygraph::request< functanoid_is_noexcept_query >(func);
 
-
+            begin_coroutine_constructor_completion(current_block);
             co_await co_generate_function_block(current_block, function_decl.definition.body, "body");
 
             if (this->state.declared_return_type.has_value() && is_template(*this->state.declared_return_type) && !this->state.deduced_return_type.has_value())
@@ -16514,15 +16898,20 @@ namespace quxlang
                 co_await this->co_publish_deduced_return_type(void_type{});
             }
 
-            if (state.params.named.contains("RETURN"))
+            if (state.params.named.contains("RETURN") || (state.coroutine.has_value() && state.declared_return_type.has_value() && !typeis< void_type >(*state.declared_return_type)))
             {
                 this->set_terminator(current_block, vmir2::unreachable{});
+            }
+            else if (state.coroutine.has_value())
+            {
+                co_await co_generate_coroutine_return(current_block, std::nullopt);
             }
             else
             {
                 this->generate_return(current_block);
             }
             this->validate_no_pending_gotos();
+            co_await co_finish_coroutine_constructor_completion();
 
             co_return;
         }
@@ -16532,29 +16921,445 @@ namespace quxlang
             this->set_terminator(idx, vmir2::ret());
         }
 
-        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_dtor_references() -> co_type< void >
+        /** Borrows runtime values while preserving storage-free compile-time arguments. */
+        auto coroutine_borrow(block_index& block, value_index value) -> value_index
         {
-            // Loop through all local slots and check if they have non-trivial dtors, then add
-            // dtor references to non_trivial_dtors if they do.
-            for (codegen_value const& genvalue : this->state.genvalues)
+            value_index carrier = genlocal_index(value);
+            if (carrier == value_index(0) || state.genvalues.at(carrier).template type_is< codegen_literal >()) return value;
+            type_symbol type = this->current_type(block, value);
+            if (is_ref(type)) return this->copy_ref_value(block, value);
+            return this->create_reference(block, value, make_mref(type));
+        }
+
+        /** Invokes a statically selected synchronous controller hook. */
+        auto co_coroutine_hook(block_index& block, std::string const& name, codegen_invocation_args arguments) -> co_type< value_index >
+        {
+            if (!state.coroutine_controller.has_value()) throw semantic_compilation_error(name + " requires a COROUTINE execution context");
+            value_index controller = coroutine_borrow(block, *state.coroutine_controller);
+            type_symbol controller_type = current_type(block, controller);
+            arguments.named["THIS"] = controller;
+            bool previous_hook = state.generating_controller_hook;
+            state.generating_controller_hook = true;
+            value_index result = co_await co_gen_call_functum(block, submember{.of = as< ptrref_type >(controller_type).target, .name = name}, std::move(arguments));
+            state.generating_controller_hook = previous_hook;
+            co_return result;
+        }
+
+        /** Adapts a child invocation through the selected controller call or launch policy. */
+        auto co_coroutine_call(block_index& block, type_symbol callable, codegen_invocation_args arguments, std::string const& call_hook,
+            std::optional< vmir2::local_index > destruction_target = std::nullopt,
+            call_execution_mode execution_mode = call_execution_mode::ordinary, std::optional< value_index > launch_controller = std::nullopt) -> co_type< value_index >
+        {
+            if (!state.coroutine.has_value() && execution_mode != call_execution_mode::run)
             {
-                if (!genvalue.template type_is< codegen_local >())
+                throw semantic_compilation_error("Coroutine invocation requires an explicit controller adapter");
+            }
+            value_index const controller = launch_controller.has_value() ? *launch_controller : *state.coroutine_controller;
+            if (call_hook == "CO_CALL_CORT" && execution_mode != call_execution_mode::run) co_await co_coroutine_check_cancel(block);
+            if (!callable.template type_is< instanciation_reference >())
+            {
+                initialization_reference adaptation{.initializee = callable, .context = body_context()};
+                for (value_index argument : arguments.positional)
                 {
+                    adaptation.parameters.positional.push_back(make_type_instantiation(current_type(block, argument)));
+                }
+                for (std::pair< std::string const, value_index > const& argument : arguments.named)
+                {
+                    adaptation.parameters.named[argument.first] = make_type_instantiation(current_type(block, argument.second));
+                }
+                std::optional< instanciation_reference > descriptor = co_await rpnx::querygraph::request< instanciation_query >(std::move(adaptation));
+                if (!descriptor.has_value())
+                {
+                    std::string message = "Cannot specialize coroutine callable " + to_string(callable);
+                    for (std::pair< std::string const, value_index > const& argument : arguments.named)
+                    {
+                        message += " @" + argument.first + " " + to_string(current_type(block, argument.second));
+                    }
+                    throw semantic_compilation_error(std::move(message));
+                }
+                callable = *descriptor;
+            }
+            composite_type argument_type;
+            codegen_invocation_args argument_values;
+            std::optional< value_index > destination;
+            std::optional< value_index > constructed;
+            for (std::size_t ordinal = 0; ordinal < arguments.positional.size(); ++ordinal)
+            {
+                value_index value = arguments.positional.at(ordinal);
+                type_symbol type = current_type(block, value);
+                if (parameter_runtime_type(type).has_value())
+                    value = is_ref(type) ? copy_ref_value(block, value) : create_reference(block, value, make_tref(type));
+                std::string name = std::to_string(ordinal);
+                argument_type.fields.emplace(name, current_type(block, value));
+                argument_values.named.emplace(std::move(name), value);
+            }
+            for (std::pair< std::string const, value_index > const& argument : arguments.named)
+            {
+                if (argument.first == "CONTROLLER") continue;
+                value_index value = argument.second;
+                type_symbol type = current_type(block, value);
+                if (call_hook == "CO_CALL_CTOR" && argument.first == "THIS")
+                {
+                    if (!type.template type_is< nvalue_slot >()) throw compiler_bug("Coroutine construction requires an uninitialized destination");
+                    type_symbol object_type = type.template get_as< nvalue_slot >().target;
+                    destination = create_local_value(make_mref(object_type));
+                    constructed = value;
+                    emit(block, vmir2::make_reference{.value_index = get_local_index(value), .reference_index = get_local_index(*destination), .storage_only = true});
                     continue;
                 }
-                auto& slot = state.locals.at(genvalue.template get_as< codegen_local >().local_index);
-                if (typeis< storage >(slot.type) || typeis< aligned_storage >(slot.type))
+                if (parameter_runtime_type(type).has_value())
+                    value = is_ref(type) ? copy_ref_value(block, value) : create_reference(block, value, make_tref(type));
+                std::string name = argument.first == "THIS" ? "RECEIVER" : argument.first;
+                argument_type.fields.emplace(name, current_type(block, value));
+                argument_values.named.emplace(std::move(name), value);
+            }
+            value_index packed = co_await co_construct_composite(block, std::move(argument_type), std::move(argument_values));
+            type_symbol controller_type = remove_ref(current_type(block, controller));
+            std::string const hook = execution_mode == call_execution_mode::run ? "CO_RUN" :
+                execution_mode == call_execution_mode::go ? "CO_GO" : call_hook;
+            type_symbol operation_function = submember{.of = controller_type, .name = hook};
+            bool shielded = state.coroutine_shielded;
+            state.coroutine_shielded = shielded || call_hook != "CO_CALL_CORT";
+            std::optional< vmir2::local_index > phase_object = destruction_target;
+            if (constructed.has_value()) phase_object = get_local_index(*constructed);
+            if (call_hook == "CO_CALL_DTOR" && !phase_object.has_value() && arguments.named.contains("THIS"))
+            {
+                phase_object = get_local_index(arguments.named.at("THIS"));
+            }
+            std::optional< value_index > phase_guard;
+            if (phase_object.has_value())
+            {
+                type_symbol object_type = remove_ref(state.locals.at(*phase_object).type);
+                symbol_kind object_kind = co_await rpnx::querygraph::request< symbol_type_query >(object_type);
+                if (object_kind == symbol_kind::class_ &&
+                    (co_await rpnx::querygraph::request< class_type_query >(object_type)) == class_kind::struct_ &&
+                    (co_await rpnx::querygraph::request< struct_runtime_requirements_query >(object_type)).polymorphism != struct_polymorphism_kind::none)
                 {
-                    continue;
-                }
-                auto dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(slot.type);
-                if (dtor)
-                {
-                    assert(!this->state.non_trivial_dtors.contains(slot.type) || this->state.non_trivial_dtors[slot.type] == *dtor);
-                    this->state.non_trivial_dtors[slot.type] = *dtor;
+                    vmir2::slot_state const& object_state = state.blocks.at(block).current_state.at(*phase_object);
+                    std::optional< vmir2::destructor_subobject_context > subobject_context;
+                    if (call_hook == "CO_CALL_CTOR" && object_state.delegate_of.has_value() && object_state.struct_delegate_selector.has_value() &&
+                        !object_state.struct_delegate_selector->template type_is< vmir2::struct_init_field_selector >())
+                    {
+                        subobject_context = vmir2::destructor_subobject_context{
+                            .enclosing_object = *object_state.delegate_of, .selector = *object_state.struct_delegate_selector};
+                    }
+                    else if (call_hook == "CO_CALL_DTOR" && object_state.nontrivial_dtor.has_value())
+                    {
+                        subobject_context = object_state.nontrivial_dtor->subobject_context;
+                    }
+                    if (subobject_context.has_value())
+                    {
+                        phase_guard = create_local_value(address_type{});
+                        emit(block, vmir2::struct_phase_enter{
+                            .on_value = *phase_object,
+                            .saved_phase = get_local_index(*phase_guard),
+                            .kind = call_hook == "CO_CALL_CTOR" ? struct_phase_kind::construction : struct_phase_kind::destruction,
+                            .subobject_context = std::move(subobject_context),
+                        });
+                    }
                 }
             }
+            std::optional< block_index > lifecycle_complete;
+            if (call_hook != "CO_CALL_CORT") lifecycle_complete = generate_subblock(block, "coroutine_lifecycle_operation_complete");
+            bool previous_hook = state.generating_controller_hook;
+            state.generating_controller_hook = true;
+            codegen_invocation_args hook_arguments{.named = {
+                {"THIS", coroutine_borrow(block, controller)},
+                {"COROUTINE", create_binding(value_index(0), std::move(callable))},
+                {"ARGUMENTS", coroutine_borrow(block, packed)},
+            }};
+            if (destination.has_value()) hook_arguments.named["DESTINATION"] = coroutine_borrow(block, *destination);
+            value_index operation = co_await co_gen_call_functum(block, operation_function, std::move(hook_arguments),
+                allowed_adaptations::destination_rebinding, false, destruction_target);
+            state.generating_controller_hook = previous_hook;
+            if (destruction_target.has_value())
+            {
+                vmir2::begin_destruction transfer{.of = *destruction_target};
+                if (lifecycle_complete.has_value())
+                {
+                    codegen_block& complete = state.blocks.at(*lifecycle_complete);
+                    vmir2::codegen_state_engine(complete.entry_state, state.locals, state.params).apply(transfer);
+                    complete.current_state = complete.entry_state;
+                }
+            }
+            value_index result = execution_mode == call_execution_mode::run ? operation : co_await co_coroutine_await(block, operation);
+            if (constructed.has_value())
+            {
+                vmir2::complete_initialization ownership{.of = get_local_index(*constructed)};
+                emit(block, ownership);
+                codegen_block& complete = state.blocks.at(*lifecycle_complete);
+                vmir2::codegen_state_engine(complete.entry_state, state.locals, state.params).apply(ownership);
+                complete.current_state = complete.entry_state;
+            }
+            if (lifecycle_complete.has_value())
+            {
+                if (current_type(block, result) != type_symbol(void_type{}))
+                {
+                    throw semantic_compilation_error("Coroutine lifecycle operations must complete with VOID");
+                }
+                generate_jump(block, *lifecycle_complete);
+                block = *lifecycle_complete;
+                result = value_index(0);
+            }
+            if (phase_guard.has_value())
+            {
+                emit(block, vmir2::struct_phase_leave{.saved_phase = get_local_index(*phase_guard)});
+            }
+            state.coroutine_shielded = shielded;
+            co_return result;
+        }
 
+        /** Adapts an awaitable and invokes its statically selected awaiter protocol. */
+        auto co_coroutine_await(block_index& block, value_index awaitable) -> co_type< value_index >
+        {
+            if (!state.coroutine.has_value()) throw semantic_compilation_error("AWAIT requires a COROUTINE execution context");
+            value_index awaiter = co_await co_coroutine_hook(block, "CO_AWAIT", codegen_invocation_args{.named = {{"ARG", awaitable}}});
+            auto invoke = [&](block_index& target, std::string const& name, codegen_invocation_args arguments) -> co_type< value_index >
+            {
+                arguments.named["THIS"] = coroutine_borrow(target, awaiter);
+                type_symbol awaiter_type = remove_ref(current_type(target, awaiter));
+                bool previous_hook = state.generating_controller_hook;
+                state.generating_controller_hook = true;
+                value_index result = co_await co_gen_call_functum(target, submember{.of = std::move(awaiter_type), .name = name}, std::move(arguments));
+                state.generating_controller_hook = previous_hook;
+                co_return result;
+            };
+            auto arguments = [&](block_index& target) -> codegen_invocation_args
+            {
+                return codegen_invocation_args{.named = {
+                    {"CONTROLLER", coroutine_borrow(target, *state.coroutine_controller)},
+                    {"FRAME", coroutine_borrow(target, *state.coroutine_frame)},
+                }};
+            };
+            value_index ready = co_await invoke(block, "AWAIT_READY", {});
+            if (current_type(block, ready) != type_symbol(bool_type{})) throw semantic_compilation_error("AWAIT_READY must return BOOL");
+            block_index deliver = generate_subblock(block, "coroutine_deliver");
+            block_index prepare = generate_subblock(block, "coroutine_prepare");
+            generate_branch(ready, block, deliver, prepare);
+            kill_entry_value(deliver, ready);
+            kill_entry_value(prepare, ready);
+            vmir2::continuation_index continuation(state.coroutine->continuations.size());
+            state.coroutine->continuations.push_back(vmir2::coroutine_continuation{.resume = deliver, .awaiter = get_local_index(awaiter), .shielded = state.coroutine_shielded});
+            emit(prepare, vmir2::co_save{.continuation = continuation});
+            value_index suspended = co_await invoke(prepare, "AWAIT_SUSPEND", arguments(prepare));
+            if (current_type(prepare, suspended) != type_symbol(bool_type{})) throw semantic_compilation_error("AWAIT_SUSPEND must return BOOL");
+            block_index suspend = generate_subblock(prepare, "coroutine_suspend");
+            generate_branch(suspended, prepare, suspend, deliver);
+            kill_entry_value(suspend, suspended);
+            co_await co_coroutine_detach_handler(suspend);
+            set_terminator(suspend, vmir2::co_suspend{.continuation = continuation});
+
+            block_index resume = generate_subblock(deliver, "coroutine_authorized_resume");
+            co_await co_coroutine_attach_handler(resume);
+            generate_jump(resume, deliver);
+            state.coroutine->continuations.at(continuation).resume = resume;
+            if (state.coroutine_cancellation_state.has_value() && !state.coroutine_shielded)
+            {
+                block_index cancel = generate_subblock(deliver, "coroutine_cancel_claim");
+                state.coroutine->continuations.at(continuation).cancellation = cancel;
+                co_await co_coroutine_attach_handler(cancel);
+                value_index claimed = co_await invoke(cancel, "TRY_CANCEL", arguments(cancel));
+                if (current_type(cancel, claimed) != type_symbol(bool_type{}))
+                {
+                    throw semantic_compilation_error("Awaiter TRY_CANCEL must return BOOL");
+                }
+                block_index inject = generate_subblock(cancel, "coroutine_cancel_deliver");
+                block_index pending = generate_subblock(cancel, "coroutine_cancel_pending");
+                generate_branch(claimed, cancel, inject, pending);
+                kill_entry_value(inject, claimed);
+                kill_entry_value(pending, claimed);
+                co_await co_coroutine_detach_handler(pending);
+                set_terminator(pending, vmir2::co_suspend{.continuation = continuation});
+                co_await co_coroutine_inject_cancel(inject);
+            }
+            block = deliver;
+            value_index result = co_await invoke(block, "AWAIT_RESUME", {});
+            co_await co_coroutine_check_cancel(block);
+            co_return result;
+        }
+
+        /** Obtains an address from lexical handler storage or a shared cleanup context's pointer binding. */
+        auto coroutine_handler_address(block_index& block, value_index value) -> value_index
+        {
+            type_symbol const type = remove_ref(current_type(block, value));
+            if (type.template type_is< ptrref_type >() && type.template get_as< ptrref_type >().ptr_class == pointer_class::instance)
+            {
+                return coroutine_borrow(block, value);
+            }
+            value_index pointer = create_local_value(ptrref_type{.target = type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
+            this->emit(block, vmir2::make_pointer_to{.of_index = get_local_index(value), .pointer_index = get_local_index(pointer)});
+            return pointer;
+        }
+
+        /** Restores a retained handler chain relative to the current caller's exception context. */
+        auto co_coroutine_attach_handler(block_index& block) -> co_type< void >
+        {
+            if (!state.coroutine_handler_root.has_value()) co_return;
+            co_await co_gen_call_functum(block,
+                subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "COROUTINE_ATTACH_HANDLER"},
+                codegen_invocation_args{.named = {
+                    {"STATE", coroutine_handler_address(block, *state.coroutine_handler_root)},
+                    {"EXCEPTION", coroutine_handler_address(block, *state.coroutine_handler_exception)},
+                }});
+            co_return;
+        }
+
+        /** Detaches the coroutine's handler chain before returning to its driver. */
+        auto co_coroutine_detach_handler(block_index& block) -> co_type< void >
+        {
+            if (!state.coroutine_handler_root.has_value()) co_return;
+            co_await co_gen_call_functum(block,
+                subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "COROUTINE_DETACH_HANDLER"},
+                codegen_invocation_args{.named = {{"ARG", coroutine_handler_address(block, *state.coroutine_handler_root)}}});
+            co_return;
+        }
+
+        /** Delivers the invocation's sole cancellation attempt after the operation is quiescent. */
+        auto co_coroutine_inject_cancel(block_index& block) -> co_type< void >
+        {
+            type_symbol request_type = int_type{.bits = 8, .has_sign = false};
+            value_index delivered = create_small_uint_value(block, 2, request_type);
+            co_await co_store_local_value(block, *state.coroutine_cancellation_state, delivered, request_type);
+            if (state.coroutine->cancellation_mode == coroutine_cancellation_mode::instant)
+            {
+                initialization_reference callback;
+                callback.initializee = submember{.of = remove_ref(current_type(block, *state.coroutine_controller)), .name = "CO_CANCELLED"};
+                callback.lookup_kind = function_lookup_kind::invocation;
+                callback.parameters.named["THIS"] = make_type_instantiation(current_type(block, *state.coroutine_controller));
+                callback.parameters.named["ARG"] = make_type_instantiation(current_type(block, *state.coroutine_frame));
+                std::optional< instanciation_reference > selected = co_await rpnx::querygraph::request< instanciation_query >(callback);
+                if (!selected.has_value() || !(co_await rpnx::querygraph::request< functanoid_is_noexcept_query >(*selected)))
+                {
+                    throw semantic_compilation_error("Instant cancellation requires CO_CANCELLED(@ARG MUT& FRAME_TYPE) NOEXCEPT");
+                }
+                if ((co_await rpnx::querygraph::request< functanoid_return_type_query >(*selected)) != type_symbol(void_type{}))
+                {
+                    throw semantic_compilation_error("CO_CANCELLED must return VOID");
+                }
+                this->block(block).catcher.reset();
+                set_terminator(block, vmir2::co_complete{.cancelled_function = *selected, .exceptional_exit = true});
+                co_return;
+            }
+            expression cancelled = expression_call{.callee = expression_symbol_reference{.symbol =
+                subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "COROUTINE_CANCELLED"}}};
+            co_await co_generate_statement_ovl(block, function_throw_statement{.expr = std::move(cancelled)});
+            co_return;
+        }
+
+        /** Injects a pending attempt at an eligible source boundary without polling an operation. */
+        auto co_coroutine_check_cancel(block_index& block) -> co_type< void >
+        {
+            if (!state.coroutine_cancellation_state.has_value() || state.coroutine_shielded) co_return;
+            type_symbol request_type = int_type{.bits = 8, .has_sign = false};
+            value_index request = co_await co_construct_copy(block, *state.coroutine_cancellation_state, request_type);
+            value_index pending = create_small_uint_value(block, 1, request_type);
+            value_index requested = co_await co_generate_binary(block, "==", request, pending);
+            block_index inject = generate_subblock(block, "coroutine_cancel_boundary");
+            block_index proceed = generate_subblock(block, "coroutine_cancel_continue");
+            generate_branch(requested, block, inject, proceed);
+            kill_entry_value(inject, requested);
+            kill_entry_value(proceed, requested);
+            co_await co_coroutine_inject_cancel(inject);
+            block = proceed;
+            co_return;
+        }
+
+        /** Generates an explicitly awaited non-coroutine operation. */
+        auto co_generate(block_index& block, expression_await const& expression) -> co_type< value_index >
+        {
+            co_await co_coroutine_check_cancel(block);
+            value_index operation = co_await co_generate_expr(block, expression.operand);
+            co_return co_await co_coroutine_await(block, operation);
+        }
+
+        /** Dispatches a heterogeneous yielded value through the controller. */
+        auto co_generate_statement_ovl(block_index& block, function_yield_statement const& statement) -> co_type< void >
+        {
+            co_await co_coroutine_check_cancel(block);
+            block_index complete = generate_subblock(block, "coroutine_yield_complete");
+            value_index value = co_await co_generate_expr(block, statement.value);
+            block_index transferred = generate_subblock(block, "coroutine_yield_transfer_complete");
+            value_index operation = co_await co_coroutine_hook(block, "CO_YIELD", codegen_invocation_args{.named = {{"ARG", value}}});
+            value_index const operand = genlocal_index(value);
+            if (operand != value_index(0) && state.genvalues.at(operand).template type_is< codegen_local >())
+            {
+                local_index const local = get_local_index(operand);
+                vmir2::state_map const& current = state.blocks.at(block).current_state;
+                vmir2::state_map::const_iterator after = current.find(local);
+                if (after == current.end()) kill_entry_value(transferred, operand);
+                else
+                {
+                    state.blocks.at(transferred).entry_state[local] = after->second;
+                    state.blocks.at(transferred).current_state[local] = after->second;
+                }
+            }
+            value_index result = co_await co_coroutine_await(block, operation);
+            if (current_type(block, result) != type_symbol(void_type{})) throw semantic_compilation_error("CO_YIELD operation must complete with VOID");
+            generate_jump(block, transferred);
+            generate_jump(transferred, complete);
+            block = complete;
+            co_return;
+        }
+
+        /** Stages a ready completion value before the coroutine completion terminator. */
+        auto co_generate_coroutine_return(block_index& block, std::optional< value_index > value) -> co_type< void >
+        {
+            type_symbol completion = state.declared_return_type.value_or(type_symbol(void_type{}));
+            bool deduced = is_template(completion);
+            if (deduced)
+            {
+                completion = value.has_value() ? co_await co_deduce_return_type_from_expression(completion, current_type(block, *value)) : type_symbol(void_type{});
+            }
+            type_symbol const& callable = state.coroutine->specialization.temploid.templexoid;
+            if (callable.template type_is< submember >())
+            {
+                std::string const& name = callable.template get_as< submember >().name;
+                bool lifecycle = keywords::is_constructor_name(name) || name == "DESTRUCTOR" || name == "FULLOBJECT_DESTRUCTOR" || name == "SUBOBJECT_DESTRUCTOR";
+                if (lifecycle && !completion.template type_is< void_type >())
+                    throw semantic_compilation_error("Coroutine lifecycle functions must complete with VOID");
+            }
+            if (state.coroutine_lifecycle_exit.has_value() && !completion.template type_is< void_type >())
+                throw semantic_compilation_error("Coroutine lifecycle functions must complete with VOID");
+            if (deduced) co_await co_publish_deduced_return_type(completion);
+            if (typeis< void_type >(completion))
+            {
+                if (value.has_value() && current_type(block, *value) != type_symbol(void_type{}))
+                {
+                    throw semantic_compilation_error("A VOID coroutine cannot return a value");
+                }
+                value.reset();
+            }
+            else
+            {
+                if (!value.has_value()) throw semantic_compilation_error("Coroutine RETURN requires a completion value");
+                if (current_type(block, *value) != completion)
+                {
+                    value = co_await co_gen_argument_adaptation(block, *value, completion, allowed_adaptations::destination_rebinding);
+                }
+            }
+            if (state.coroutine_lifecycle_exit.has_value())
+            {
+                generate_jump(block, *state.coroutine_lifecycle_exit);
+                co_return;
+            }
+            if (state.coroutine_constructor_exit.has_value())
+            {
+                state.coroutine_constructor_returns.insert(block);
+                generate_jump(block, state.coroutine_constructor_exit->destination);
+                co_return;
+            }
+            block_index transferred = generate_subblock(block, "coroutine_return_transfer_complete");
+            codegen_invocation_args arguments;
+            if (value.has_value()) arguments.named["ARG"] = coroutine_borrow(block, *value);
+            bool shielded = state.coroutine_shielded;
+            state.coroutine_shielded = true;
+            value_index operation = co_await co_coroutine_hook(block, "CO_RETURN", std::move(arguments));
+            value_index result = co_await co_coroutine_await(block, operation);
+            state.coroutine_shielded = shielded;
+            if (current_type(block, result) != type_symbol(void_type{})) throw semantic_compilation_error("CO_RETURN operation must complete with VOID");
+            generate_jump(block, transferred);
+            block = transferred;
+            set_terminator(block, vmir2::co_complete{});
             co_return;
         }
 
@@ -16599,6 +17404,13 @@ namespace quxlang
             if (this->state.completion != function_completion::return_)
             {
                 throw semantic_compilation_error("NEW DO bodies complete with CONTINUE or fallthrough; RETURN requires an explicit function or lambda");
+            }
+            if (this->state.coroutine.has_value())
+            {
+                std::optional< value_index > value;
+                if (st.expr.has_value()) value = co_await co_generate_expr(current_block, *st.expr);
+                co_await co_generate_coroutine_return(current_block, value);
+                co_return;
             }
             auto return_arg_opt = this->local_value_direct_lookup(current_block, "RETURN");
 
@@ -16754,6 +17566,8 @@ namespace quxlang
             new_block.catcher = this->state.catcher;
             new_block.catch_exception = this->state.catch_exception;
             new_block.catch_region = this->state.catch_region;
+            new_block.coroutine_handler_root = this->state.coroutine_handler_root;
+            new_block.coroutine_handler_exception = this->state.coroutine_handler_exception;
             codegen_block& current_block_ref = this->state.blocks.at(current_block);
 
             new_block.entry_state = current_block_ref.current_state;
@@ -16908,7 +17722,8 @@ namespace quxlang
             throw semantic_compilation_error("Return expression type " + to_string(expression_type) + " does not match declared return template " + to_string(declared_return_type));
         }
 
-        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_arg_info(instanciation_reference func) -> co_type< void >
+        /** Creates logical parameters, including an optional owning lifecycle receiver. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_arg_info(instanciation_reference func, std::optional< type_symbol > receiver_type = std::nullopt) -> co_type< void >
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
             // Precondition: Func is a fully instanciated symbol
@@ -16916,6 +17731,7 @@ namespace quxlang
             assert(!type_is_contextual(func));
             instanciation_reference inst = func;
             auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(inst);
+            if (receiver_type.has_value()) concrete_params.named["THIS"] = make_type_instantiation(std::move(*receiver_type));
 
             // This function should be called before generating any blocks.
             assert(this->state.blocks.empty());
@@ -16923,39 +17739,48 @@ namespace quxlang
             type_symbol return_type = co_await co_lookup_declared_return_type(inst);
             this->state.declared_return_type = return_type;
 
-            if (!is_template(return_type) && !typeis< void_type >(return_type))
+            if (!this->state.coroutine.has_value() && !is_template(return_type) && !typeis< void_type >(return_type))
             {
                 this->create_return_parameter(std::move(return_type));
+            }
+            if (this->state.coroutine.has_value())
+            {
+                type_symbol controller_type = parameter_instantiation_type(concrete_params.named.at("CONTROLLER"));
+                if (is_ref(controller_type)) controller_type = as< ptrref_type >(controller_type).target;
+                concrete_params.named["CONTROLLER"] = make_type_instantiation(make_mref(controller_type));
             }
 
             auto create_parameter_lookup = [&](type_symbol const& param_type, auto publish_runtime_parameter) -> value_index
             {
                 validate_codegen_type(param_type, "Routine parameter type");
-                if (typeis< void_type >(param_type))
+                type_symbol const& binding_type = is_ref(param_type) && !parameter_runtime_type(param_type).has_value() ?
+                    param_type.template get_as< ptrref_type >().target : param_type;
+                if (typeis< void_type >(binding_type))
                 {
                     return value_index(0);
                 }
-                if (typeis< numeric_literal_type >(param_type))
+                if (typeis< numeric_literal_type >(binding_type))
                 {
-                    return create_numeric_literal(as< numeric_literal_type >(param_type).value);
+                    return create_numeric_literal(as< numeric_literal_type >(binding_type).value);
                 }
-                if (typeis< string_literal_type >(param_type))
+                if (typeis< string_literal_type >(binding_type))
                 {
-                    return create_string_literal(as< string_literal_type >(param_type).value);
+                    return create_string_literal(as< string_literal_type >(binding_type).value);
                 }
-                if (typeis< null_type >(param_type))
+                if (typeis< null_type >(binding_type))
                 {
                     codegen_literal literal;
-                    literal.type = param_type;
+                    literal.type = binding_type;
                     this->state.genvalues.push_back(std::move(literal));
                     return value_index(this->state.genvalues.size() - 1);
                 }
-                if (typeis< attached_type_reference >(param_type))
+                if (typeis< attached_type_reference >(binding_type))
                 {
-                    attached_type_reference const& attached = as< attached_type_reference >(param_type);
+                    attached_type_reference const& attached = as< attached_type_reference >(binding_type);
                     if (typeis< void_type >(attached.carrying_type))
                     {
-                        return this->create_binding(value_index(0), attached.attached_symbol);
+                        value_index binding = this->create_binding(value_index(0), attached.attached_symbol);
+                        return is_ref(param_type) ? copy_static_binding(binding, param_type) : binding;
                     }
 
                     type_symbol runtime_type = attached.carrying_type;
@@ -16987,7 +17812,7 @@ namespace quxlang
 
             auto create_positional_parameter_lookup = [&](type_symbol const& param_type) -> value_index
             {
-                return create_parameter_lookup(param_type,
+                value_index argument = create_parameter_lookup(param_type,
                                                [&](type_symbol runtime_type, value_index param_idx)
                                                {
                                                    this->state.params.positional.push_back(vmir2::routine_parameter{
@@ -16995,6 +17820,8 @@ namespace quxlang
                                                        .local_index = get_local_index(param_idx),
                                                    });
                                                });
+                state.positional_arguments.push_back(argument);
+                return argument;
             };
 
             auto register_parameter_lookup_name = [&](std::optional< std::string > const& local_name, std::string const& api_name, value_index arg_idx) -> void
@@ -17278,12 +18105,72 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_functanoid(instanciation_reference func) -> co_type< vmir2::functanoid_routine3 >
+        /** Establishes the execution frame and logical ownership of the callable's parameters. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_begin_functanoid(instanciation_reference const& func, std::optional< type_symbol > receiver_type = std::nullopt) -> co_type< void >
         {
             assert(!type_is_contextual(func));
-            co_await this->co_generate_arg_info(func);
+            std::optional< ast2_function_declaration > const& declaration = co_await rpnx::querygraph::request< function_declaration_query >(func.temploid);
+            if (declaration.has_value() && declaration->header.execution_kind == function_execution_kind::coroutine)
+            {
+                this->state.coroutine = vmir2::coroutine_body{.specialization = func, .cancellation_mode = declaration->header.cancellation_mode};
+            }
+            co_await this->co_generate_arg_info(func, std::move(receiver_type));
+            if (this->state.coroutine.has_value())
+            {
+                value_index frame = this->create_local_value(make_mref(coroutine_frame_symbol(func)));
+                this->state.params.named["__FRAME"] = vmir2::routine_parameter{.type = make_mref(coroutine_frame_symbol(func)), .local_index = get_local_index(frame)};
+                this->state.coroutine_frame = frame;
+                this->state.coroutine_controller = this->state.top_level_lookups.at("CONTROLLER");
+                if (declaration->header.controller_parameter->name.has_value())
+                {
+                    this->state.top_level_lookups[*declaration->header.controller_parameter->name] = *this->state.coroutine_controller;
+                }
+                this->state.coroutine->frame = get_local_index(frame);
+                this->state.coroutine->controller = get_local_index(*this->state.coroutine_controller);
+                if (state.coroutine->cancellation_mode != coroutine_cancellation_mode::none)
+                {
+                    value_index request = create_local_value(int_type{.bits = 8, .has_sign = false});
+                    state.coroutine_cancellation_state = request;
+                    state.coroutine->cancellation_state = get_local_index(request);
+                }
+            }
             this->generate_entry_block();
+            if (state.coroutine.has_value() && func.temploid.templexoid.template type_is< submember >())
+            {
+                submember const& operation = func.temploid.templexoid.template get_as< submember >();
+                if (keywords::is_constructor_name(operation.name) && operation.name != "SUBOBJECT_CONSTRUCTOR" &&
+                    (co_await rpnx::querygraph::request< class_type_query >(operation.of)) == class_kind::struct_ &&
+                    (co_await rpnx::querygraph::request< struct_runtime_requirements_query >(operation.of)).polymorphism != struct_polymorphism_kind::none)
+                {
+                    value_index phase = create_local_value(address_type{});
+                    block_index entry(0);
+                    emit(entry, vmir2::struct_phase_enter{
+                        .on_value = get_local_index(local_value_direct_lookup(block_index(0), "THIS").value()),
+                        .saved_phase = get_local_index(phase),
+                        .kind = struct_phase_kind::construction,
+                        .publish_on_normal_exit = true,
+                    });
+                }
+            }
+            if (state.coroutine_cancellation_state.has_value())
+            {
+                vmir2::slot_state request{.stage = vmir2::slot_stage::full, .storage_valid = true};
+                local_index slot = get_local_index(*state.coroutine_cancellation_state);
+                state.blocks.front().entry_state[slot] = request;
+                state.blocks.front().current_state[slot] = request;
+            }
+            co_return;
+        }
+
+        [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_functanoid(instanciation_reference func) -> co_type< vmir2::functanoid_routine3 >
+        {
+            co_await co_begin_functanoid(func);
             block_index current_block(0);
+            std::optional< std::pair< value_index, block_index > > exception_region;
+            if (state.coroutine.has_value())
+            {
+                exception_region = co_await co_begin_coroutine_exception_region(current_block);
+            }
             if (this->state.named_rest_name.has_value())
             {
                 composite_type type;
@@ -17325,9 +18212,69 @@ namespace quxlang
 
                 co_await co_generate_body(current_block, func);
             }
+            if (exception_region.has_value()) co_await co_finish_coroutine_exception_region(*exception_region);
             co_await co_generate_dtors();
 
+            if (state.coroutine.has_value()) co_await co_expand_coroutine_cleanup(*this);
+
             co_return get_result();
+        }
+
+        /** Establishes owned exception capture before coroutine body or lifecycle execution. */
+        auto co_begin_coroutine_exception_region(block_index& current) -> co_type< std::pair< value_index, block_index > >
+        {
+            type_symbol exception_type = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_PTR"};
+            value_index exception = co_await co_gen_call_ctor(current, exception_type, {});
+            block_index report = generate_subblock(current, "coroutine_exception_report");
+            state.catcher = vmir2::exception_catcher{.exception = get_local_index(exception), .handler = report};
+            co_return std::pair< value_index, block_index >{exception, report};
+        }
+
+        /** Emits shielded reporting and nonrecursive propagation after mandatory cleanup. */
+        auto co_finish_coroutine_exception_region(std::pair< value_index, block_index > region) -> co_type< void >
+        {
+            value_index exception = region.first;
+            block_index report = region.second;
+            type_symbol exception_type = current_type(report, exception);
+            state.catcher.reset();
+            if (state.is_noexcept)
+            {
+                set_terminator(report, vmir2::panic{.message = "Exception escaped a NOEXCEPT coroutine"});
+                state.coroutine_shielded = false;
+                co_return;
+            }
+
+            value_index reporting_exception = co_await co_gen_call_ctor(report, exception_type, {});
+            block_index propagate = generate_subblock(report, "coroutine_exception_propagate");
+            state.catcher = vmir2::exception_catcher{.exception = get_local_index(reporting_exception), .handler = propagate};
+            block_index report_body = generate_subblock(report, "coroutine_exception_operation");
+            generate_jump(report, report_body);
+            state.coroutine_shielded = true;
+            block_index reported = generate_subblock(report_body, "coroutine_exception_operation_complete");
+            value_index exception_reference = create_reference(report_body, exception, make_cref(exception_type));
+            value_index operation = co_await co_coroutine_hook(report_body, "CO_EXCEPTION", codegen_invocation_args{.named = {{"ARG", exception_reference}}});
+            value_index result = co_await co_coroutine_await(report_body, operation);
+            if (current_type(report_body, result) != type_symbol(void_type{}))
+            {
+                throw semantic_compilation_error("CO_EXCEPTION operation must complete with VOID");
+            }
+            generate_jump(report_body, reported);
+            report_body = reported;
+            set_terminator(report_body, vmir2::co_complete{.exceptional_exit = true});
+            state.catcher.reset();
+            state.coroutine_shielded = false;
+
+            initialization_reference rethrow;
+            rethrow.lookup_kind = function_lookup_kind::invocation;
+            rethrow.initializee = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "THROW_EXCEPTION_PTR"};
+            rethrow.parameters.named["ARG"] = make_type_instantiation(make_cref(exception_type));
+            std::optional< instanciation_reference > propagation = co_await rpnx::querygraph::request< instanciation_query >(std::move(rethrow));
+            if (!propagation.has_value())
+            {
+                throw compiler_bug("Coroutine exception propagation requires THROW_EXCEPTION_PTR");
+            }
+            set_terminator(propagate, vmir2::co_complete{.exception = get_local_index(reporting_exception), .exception_function = *propagation, .exceptional_exit = true});
+            co_return;
         }
 
         /** Generates a test entry calling its ordinary function body under a stable function identity. */
@@ -17346,17 +18293,28 @@ namespace quxlang
             state.non_trivial_dtors[type] = dtor;
         }
 
+        /** Registers cleanup for owned locals and completed outputs until successful ownership transfer. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_dtors() -> co_type< void >
         {
-            // Loop through all local slots and check if they have non-trivial dtors, then add
-            // dtor references to non_trivial_dtors if they do.
-            for (auto const& slot : this->state.locals)
+            for (std::size_t index = 0; index < state.locals.size(); ++index)
             {
+                vmir2::local_type const& slot = state.locals[index];
+                if (!state.coroutine.has_value())
+                {
+                    type_destruction_capabilities const& capabilities = co_await rpnx::querygraph::request< type_destruction_capabilities_query >(slot.type);
+                    if (capabilities.is_async_only)
+                    {
+                        state.asynchronous_cleanup_slots.insert(local_index(index));
+                        continue;
+                    }
+                }
                 if (typeis< storage >(slot.type) || typeis< aligned_storage >(slot.type))
                 {
                     continue;
                 }
-                auto dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(slot.type);
+                std::optional< type_symbol > dtor;
+                if (state.coroutine.has_value()) dtor = co_await co_select_default_destructor_entry(slot.type, false);
+                else dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(slot.type);
                 if (dtor.has_value())
                 {
                     assert(!this->state.non_trivial_dtors.contains(slot.type) || this->state.non_trivial_dtors[slot.type] == *dtor);
@@ -17754,7 +18712,7 @@ namespace quxlang
                 args.named["THIS"] = delegates.fields.named.at(fld.name);
                 args.named["OTHER"] = other_field;
                 co_await this->co_gen_call_functum(temporary_block, field_copy_ctor_functum, args);
-                std::optional< type_symbol > const destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(field_type);
+                std::optional< type_symbol > const destructor = co_await co_select_default_destructor_entry(field_type, false);
                 if (destructor.has_value())
                 {
                     emit_deferred_destructor(temporary_block, delegates.fields.named.at(fld.name), *destructor);
@@ -18203,7 +19161,7 @@ namespace quxlang
                 args.named["THIS"] = delegates.fields.named.at(fld.name);
                 args.named["OTHER"] = other_field;
                 co_await this->co_gen_call_functum(temporary_block, field_ctor_functum, args);
-                std::optional< type_symbol > const destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(field_type);
+                std::optional< type_symbol > const destructor = co_await co_select_default_destructor_entry(field_type, false);
                 if (destructor.has_value())
                 {
                     emit_deferred_destructor(temporary_block, delegates.fields.named.at(fld.name), *destructor);
@@ -18441,7 +19399,7 @@ namespace quxlang
                 }
                 type_symbol field_constructor = co_await co_select_constructor_entry(*field_storage_type, false);
                 co_await this->co_gen_call_functum(current_block, std::move(field_constructor), arguments);
-                std::optional< type_symbol > const destructor = co_await rpnx::querygraph::request< class_default_dtor_query >(*field_storage_type);
+                std::optional< type_symbol > const destructor = co_await co_select_default_destructor_entry(*field_storage_type, false);
                 if (destructor.has_value())
                 {
                     emit_deferred_destructor(current_block, fields_args.named.at(fld.name), *destructor);
@@ -18523,8 +19481,9 @@ namespace quxlang
                     auto element = this->create_local_value(element_type);
                     this->emit(current_block, vmir2::array_init_element{.initializer = get_local_index(initiailizer), .target = get_local_index(element)});
 
-                    auto const& parameter = this->state.params.positional.at(i);
-                    auto argument = this->get_value_index(parameter.local_index);
+                    value_index source = state.positional_arguments.at(i);
+                    std::map< value_index, value_index >::const_iterator owned = state.generated_owned_parameters.find(source);
+                    value_index argument = owned == state.generated_owned_parameters.end() ? source : owned->second;
                     codegen_invocation_args args;
                     args.named["THIS"] = element;
                     args.named["OTHER"] = argument;
@@ -18731,5 +19690,7 @@ namespace quxlang
     };
 
 } // namespace quxlang
+
+#include <quxlang/co_coroutine_cleanup.hpp>
 
 #endif // QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD

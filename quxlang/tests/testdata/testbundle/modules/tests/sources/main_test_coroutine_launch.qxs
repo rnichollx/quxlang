@@ -1,0 +1,199 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_launch_tests NAMESPACE
+{
+  ::scheduler STRUCT
+  {
+    .observed VAR MUT->coroutine_call_tests::observations;
+
+    .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: I32
+    {
+      .observed->.calls += 1;
+      VAR adapted coroutine_call_tests::controller;
+      adapted.observed := .observed;
+      VAR frame child#(@CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+      frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+      RETURN adapted.result;
+    }
+  }
+
+  ::value FUNCTION(@VALUE I32): I32 { RETURN -1; }
+  ::value COROUTINE(@VALUE I32): I32 { RETURN VALUE + 1; }
+  ::argument FUNCTION(@COUNT MUT& I32): I32 { COUNT += 1; RETURN 9; }
+  ::argument COROUTINE(@COUNT MUT& I32): I32 { RETURN unavailable_argument_coroutine(); }
+  ::receiver_ref FUNCTION(@RECEIVER MUT& coroutine_call_tests::receiver, @COUNT MUT& I32): MUT& coroutine_call_tests::receiver
+  {
+    COUNT += 1;
+    RETURN RECEIVER;
+  }
+  ::select_scheduler FUNCTION(@COUNT MUT& I32, @execution MUT& scheduler): MUT& scheduler
+  {
+    TEST_ASSERT(COUNT == 0);
+    COUNT += 1;
+    RETURN execution;
+  }
+
+  DOC <$ RUN evaluates the scheduler and arguments once and permits the adapter to rebind the selected coroutine. $>
+  ::explicit_run DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR execution scheduler;
+    execution.observed := observed<-;
+    VAR count I32;
+    VAR result AUTO := ON(select_scheduler(@COUNT count, @execution execution)) RUN value(@VALUE argument(@COUNT count));
+    TEST_ASSERT(count == 2);
+    TEST_ASSERT(result == 10);
+    TEST_ASSERT(observed.calls == 1);
+    TEST_ASSERT(value(@VALUE 9) == -1);
+  }
+
+  DOC <$ RUN preserves member receivers and ordinary arithmetic precedence. $>
+  ::member_run DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR execution scheduler;
+    execution.observed := observed<-;
+    VAR receiver coroutine_call_tests::receiver;
+    receiver.base := 20;
+    VAR count I32;
+    VAR result AUTO := ON(execution) RUN receiver_ref(@RECEIVER receiver, @COUNT count).increase(@VALUE 3) + 4;
+    TEST_ASSERT(result == 27);
+    TEST_ASSERT(count == 1);
+  }
+
+  ::launch_gate STRUCT
+  {
+    .ready VAR BOOL;
+    .value VAR I32;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .ready; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN TRUE; }
+    .AWAIT_RESUME FUNCTION() CONST: coroutine_call_tests::completed_value
+    {
+      VAR result coroutine_call_tests::completed_value;
+      result.value := .value;
+      RETURN result;
+    }
+  }
+
+  ::controller STRUCT
+  {
+    .entry VAR scheduler;
+    .ready VAR BOOL;
+    .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
+    {
+      VAR value AUTO := .entry.CO_RUN(@COROUTINE child, @ARGUMENTS arguments);
+      STATIC_IF(SAME_TYPES(child#(@CONTROLLER coroutine_call_tests::controller)::RETURN_TYPE, VOID))
+      {
+        VAR gate void_launch_gate;
+        gate.ready := .ready;
+        RETURN gate;
+      }
+      STATIC_ELSE
+      {
+        VAR gate launch_gate;
+        gate.ready := .ready;
+        gate.value := value;
+        RETURN gate;
+      }
+    }
+    .CO_AWAIT FUNCTION(@ARG AUTO& launch_gate): MUT& launch_gate { RETURN ARG AS MUT& launch_gate; }
+    .CO_AWAIT FUNCTION(@ARG AUTO& void_launch_gate): MUT& void_launch_gate { RETURN ARG AS MUT& void_launch_gate; }
+    .CO_AWAIT FUNCTION(@ARG AUTO& coroutine_call_tests::completed_value): MUT& coroutine_call_tests::completed_value { RETURN ARG AS MUT& coroutine_call_tests::completed_value; }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_call_tests::immediate_awaiter { RETURN coroutine_call_tests::immediate_awaiter(); }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+  }
+
+  ::void_launch_gate STRUCT
+  {
+    .ready VAR BOOL;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .ready; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN TRUE; }
+    .AWAIT_RESUME FUNCTION() {}
+  }
+
+  ::nothing COROUTINE() {}
+  ::void_parent COROUTINE(@result MUT& I32)
+  {
+    GO nothing();
+    result := ON(CONTROLLER.entry) RUN value(@VALUE 3);
+  }
+
+  DOC <$ A VOID launch gate can suspend the caller and RUN can return directly within a coroutine. $>
+  ::void_go_and_nested_run DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR execution controller;
+    execution.entry.observed := observed<-;
+    VAR result I32;
+    VAR frame void_parent#(@result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER execution) == FALSE);
+    TEST_ASSERT(observed.calls == 1);
+    TEST_ASSERT(result == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER execution));
+    TEST_ASSERT(observed.calls == 2);
+    TEST_ASSERT(result == 4);
+  }
+
+  ::parent COROUTINE(@result MUT& I32)
+  {
+    VAR task AUTO := GO value(@VALUE 9);
+    result := task.value;
+    result += AWAIT(task);
+  }
+
+  DOC <$ GO awaits the launch gate once and preserves an awaitable result for a subsequent explicit await. $>
+  ::go_launch_policy DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR execution controller;
+    execution.entry.observed := observed<-;
+    VAR result I32;
+    VAR frame parent#(@result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER execution) == FALSE);
+    TEST_ASSERT(observed.calls == 1);
+    TEST_ASSERT(result == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER execution));
+    TEST_ASSERT(result == 20);
+    execution.ready := TRUE;
+    result := 0;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER execution));
+    TEST_ASSERT(result == 20);
+    TEST_ASSERT(observed.calls == 2);
+  }
+
+  DOC <$ GO requires an enclosing coroutine controller. $>
+  ::go_without_controller STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    GO value(@VALUE 9);
+  }
+
+  ::ordinary FUNCTION() {}
+
+  ::missing_launch_hook STRUCT {}
+
+  DOC <$ A root launch requires the selected controller's CO_RUN hook. $>
+  ::missing_run_hook STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR execution missing_launch_hook;
+    ON(execution) RUN value(@VALUE 9);
+  }
+
+  DOC <$ Explicit launch diagnoses an ordinary target. $>
+  ::run_ordinary_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR execution scheduler;
+    ON(execution) RUN ordinary();
+  }
+
+  DOC <$ Discarded branches do not require coroutine launch hooks. $>
+  ::discarded_launch DUAL_TEST
+  {
+    STATIC_IF(FALSE) { ON(unknown_scheduler) RUN unknown_coroutine(); }
+    TEST_ASSERT(TRUE);
+  }
+}

@@ -4,7 +4,7 @@
 #include <quxlang/data/basic_types.hpp>
 namespace quxlang
 {
-    /** Reports availability and exception behavior of a selected lifecycle operation. */
+    /** Reports availability and exception behavior of a selected synchronous lifecycle operation. */
     struct type_operation_is_noexcept_query
     {
         static constexpr auto query_id = "type_operation_is_noexcept";

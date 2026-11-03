@@ -6,6 +6,7 @@
 #include <quxlang/backends/asm/x64_asm_converter.hpp>
 #include <quxlang/bytemath.hpp>
 #include <quxlang/cpu_attributes.hpp>
+#include <quxlang/data/array_initializer_placement.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/manipulators/llvm_lookup.hpp>
 #include <quxlang/manipulators/code_alignment.hpp>
@@ -153,7 +154,10 @@ namespace quxlang::llvm_backend::detail
     struct local_slot_state
     {
         llvm::Value* storage = nullptr;
-        llvm::Value* aliased_value_address = nullptr;
+        /// Addresses the persistent field independently of the current activation state.
+        llvm::Value* retained_address = nullptr;
+        /// Holds the current projection address across CFG joins before SSA promotion.
+        llvm::AllocaInst* alias_pointer_storage = nullptr;
     };
 
     /** Associates a source loop alignment hint with its native control flow. */
@@ -1590,36 +1594,6 @@ namespace quxlang::llvm_backend::detail
         auto bool_storage_type() -> llvm::IntegerType*
         {
             return i8_type();
-        }
-
-        /**
-         * Returns the backend-owned placement for the internal array-initializer runtime record.
-         */
-        auto array_initializer_storage_placement() const -> quxlang::class_placement_info
-        {
-            std::uint64_t const pointer_size = input.machine_target.machine.pointer_size_bytes();
-            std::uint64_t const pointer_align = input.machine_target.machine.pointer_align();
-            std::uint64_t const integer64_size = 8;
-            std::uint64_t const integer64_align = input.machine_target.machine.integer_alignment_for_bits(64);
-
-            std::uint64_t const record_align = std::max(pointer_align, integer64_align);
-            std::uint64_t record_size = pointer_size;
-            if (record_size % integer64_align != 0)
-            {
-                record_size += integer64_align - (record_size % integer64_align);
-            }
-            record_size += integer64_size;
-            if (record_size % integer64_align != 0)
-            {
-                record_size += integer64_align - (record_size % integer64_align);
-            }
-            record_size += integer64_size;
-            if (record_size % record_align != 0)
-            {
-                record_size += record_align - (record_size % record_align);
-            }
-
-            return quxlang::class_placement_info{.size = record_size, .alignment = record_align};
         }
 
         /**
@@ -4584,13 +4558,80 @@ namespace quxlang::llvm_backend::detail
             builder.SetCurrentDebugLocation(llvm::DILocation::get(context, static_cast< unsigned >(position.line), static_cast< unsigned >(position.column), state.function->getSubprogram()));
         }
 
-        auto value_address(function_codegen_state& state, quxlang::vmir2::local_index slot) -> llvm::Value*
+        /** Loads the current object address at the use site so projection bindings can merge across CFG paths. */
+        auto value_address(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
         {
             std::size_t const slot_index = local_slot_index(slot);
             local_slot_state& local_state = state.locals.at(slot_index);
-            if (local_state.aliased_value_address != nullptr)
+            std::map< quxlang::vmir2::local_index, quxlang::vmir2::retained_storage_binding >::const_iterator const binding = state.routine->retained_bindings.find(slot);
+            quxlang::vmir2::state_map::const_iterator const current = state.current_state.find(slot);
+            if (binding != state.routine->retained_bindings.end())
             {
-                return local_state.aliased_value_address;
+                bool const completed_element = current != state.current_state.end() && current->second.stage == quxlang::vmir2::slot_stage::full && !current->second.owns_subobject_lifetime;
+                if (binding->second.kind == quxlang::vmir2::retained_storage_kind::object) return local_state.retained_address;
+                if (binding->second.kind == quxlang::vmir2::retained_storage_kind::reference)
+                    return ir_builder.CreateLoad(opaque_pointer_type(), local_state.retained_address);
+                if (binding->second.kind == quxlang::vmir2::retained_storage_kind::captured_alias_reference)
+                {
+                    quxlang::vmir2::state_map::const_iterator const saved = state.current_state.find(binding->second.saved_reference.value());
+                    if (saved != state.current_state.end() && saved->second.alive())
+                        return ir_builder.CreateLoad(opaque_pointer_type(), local_state.retained_address);
+                }
+                if (binding->second.kind == quxlang::vmir2::retained_storage_kind::completed_array_reference && completed_element)
+                {
+                    quxlang::vmir2::state_map::const_iterator const saved = state.current_state.find(binding->second.saved_reference.value());
+                    if (saved != state.current_state.end() && saved->second.stage == quxlang::vmir2::slot_stage::full)
+                        return ir_builder.CreateLoad(opaque_pointer_type(), local_state.retained_address);
+                    return ir_builder.CreateLoad(opaque_pointer_type(), local_state.alias_pointer_storage);
+                }
+            }
+            if (current != state.current_state.end() && current->second.retained_storage)
+            {
+                quxlang::vmir2::slot_state const& lifetime = current->second;
+                if (lifetime.delegate_of.has_value() && lifetime.struct_delegate_selector.has_value())
+                {
+                    quxlang::vmir2::local_index const owner = *lifetime.delegate_of;
+                    quxlang::type_symbol const owner_type = quxlang::remove_ref(state.routine->local_types.at(owner).type);
+                    quxlang::struct_layout const& layout = input.struct_layouts.at(owner_type).get();
+                    std::int64_t offset = 0;
+                    quxlang::vmir2::struct_init_selector const& selector = *lifetime.struct_delegate_selector;
+                    if (selector.type_is< quxlang::vmir2::struct_init_field_selector >())
+                    {
+                        std::size_t const ordinal = selector.get_as< quxlang::vmir2::struct_init_field_selector >().field_ordinal;
+                        offset = std::ranges::find(layout.fields, ordinal, &quxlang::struct_field_info::declaration_ordinal)->offset;
+                    }
+                    else if (selector.type_is< quxlang::vmir2::struct_init_direct_base_selector >())
+                    {
+                        std::size_t const ordinal = selector.get_as< quxlang::vmir2::struct_init_direct_base_selector >().direct_base_ordinal;
+                        offset = std::ranges::find(layout.direct_bases, ordinal, &quxlang::struct_base_layout_info::declaration_ordinal)->offset;
+                    }
+                    else
+                    {
+                        std::size_t const ordinal = selector.get_as< quxlang::vmir2::struct_init_virtual_base_selector >().virtual_base_ordinal;
+                        offset = std::ranges::find(layout.virtual_bases, ordinal, &quxlang::struct_virtual_base_layout_info::virtual_ordinal)->offset;
+                    }
+                    return ir_builder.CreateGEP(i8_type(), value_address(state, ir_builder, owner), llvm::ConstantInt::getSigned(i64_type(), offset));
+                }
+                if (lifetime.array_delegate_of_initializer.has_value())
+                {
+                    quxlang::vmir2::local_index const initializer = *lifetime.array_delegate_of_initializer;
+                    quxlang::type_symbol const& initializer_type = state.routine->local_types.at(initializer).type;
+                    llvm::Value* const storage = value_address(state, ir_builder, initializer);
+                    llvm::Value* const base = ir_builder.CreateLoad(opaque_pointer_type(), ir_builder.CreateStructGEP(value_storage_type(initializer_type), storage, 0));
+                    llvm::Value* const index = ir_builder.CreateLoad(i64_type(), ir_builder.CreateStructGEP(value_storage_type(initializer_type), storage, 1));
+                    llvm::Value* const offset = ir_builder.CreateMul(index, llvm::ConstantInt::get(i64_type(), slot_cell_size(initializer_type.get_as< quxlang::array_initializer_type >().element_type)));
+                    return ir_builder.CreateGEP(i8_type(), base, offset);
+                }
+                if (lifetime.storage_origin.has_value())
+                {
+                    quxlang::vmir2::state_map::const_iterator const origin = state.current_state.find(*lifetime.storage_origin);
+                    if (origin != state.current_state.end() && origin->second.alive())
+                        return load_reference_pointer(state, ir_builder, *lifetime.storage_origin);
+                }
+            }
+            if (local_state.alias_pointer_storage != nullptr)
+            {
+                return ir_builder.CreateLoad(opaque_pointer_type(), local_state.alias_pointer_storage);
             }
             if (local_state.storage == nullptr)
             {
@@ -4642,7 +4683,7 @@ namespace quxlang::llvm_backend::detail
         auto fusion_object_pointer(function_codegen_state& state, quxlang::vmir2::local_index slot) -> llvm::Value*
         {
             quxlang::type_symbol const& slot_type = state.routine->local_types.at(local_slot_index(slot)).type;
-            return quxlang::is_ref(slot_type) ? load_reference_pointer(state, builder, slot) : value_address(state, slot);
+            return quxlang::is_ref(slot_type) ? load_reference_pointer(state, builder, slot) : value_address(state, builder, slot);
         }
 
         /** Returns a byte-offset address within one fusion object. */
@@ -4726,7 +4767,7 @@ namespace quxlang::llvm_backend::detail
         auto load_slot_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
         {
             quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(slot)).type;
-            return load_typed_value(ir_builder, type, value_address(state, slot));
+            return load_typed_value(ir_builder, type, value_address(state, ir_builder, slot));
         }
 
         void store_slot_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, llvm::Value* value)
@@ -4736,7 +4777,7 @@ namespace quxlang::llvm_backend::detail
             {
                 value = logical_atomic_value_to_storage(ir_builder, type, value);
             }
-            store_typed_value(ir_builder, type, value, value_address(state, slot));
+            store_typed_value(ir_builder, type, value, value_address(state, ir_builder, slot));
         }
 
         auto load_reference_pointer(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
@@ -4747,11 +4788,6 @@ namespace quxlang::llvm_backend::detail
         void store_reference_pointer(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, llvm::Value* pointer_value)
         {
             store_slot_value(state, ir_builder, slot, pointer_value);
-        }
-
-        auto output_argument_pointer(function_codegen_state& state, quxlang::vmir2::local_index slot) -> llvm::Value*
-        {
-            return value_address(state, slot);
         }
 
         void store_boolean(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, llvm::Value* condition)
@@ -4801,36 +4837,36 @@ namespace quxlang::llvm_backend::detail
         }
 
         /** Applies one fixed-capacity descriptor-assignment transition without a runtime hierarchy search. */
-        void apply_struct_phase_transition(llvm::Value* transition_pointer, llvm::Value* active_pointer)
+        void apply_struct_phase_transition(ir_builder_t& ir_builder, llvm::Value* transition_pointer, llvm::Value* active_pointer)
         {
             llvm::ArrayType* const transition_type = struct_phase_transition_type();
             llvm::StructType* const assignment_type = struct_phase_assignment_type();
             for (std::size_t assignment_index = 0; assignment_index < struct_phase_assignment_capacity; ++assignment_index)
             {
-                llvm::Value* const assignment_pointer = builder.CreateInBoundsGEP(transition_type, transition_pointer, {
+                llvm::Value* const assignment_pointer = ir_builder.CreateInBoundsGEP(transition_type, transition_pointer, {
                     llvm::ConstantInt::get(i64_type(), 0),
                     llvm::ConstantInt::get(i64_type(), assignment_index),
                 });
-                llvm::Value* const offset_pointer = builder.CreateStructGEP(assignment_type, assignment_pointer, 0);
-                llvm::Value* const descriptor_pointer = builder.CreateStructGEP(assignment_type, assignment_pointer, 1);
-                llvm::Value* const offset = builder.CreateLoad(i64_type(), offset_pointer, "struct.phase.header.offset");
-                llvm::Value* const selected_descriptor = builder.CreateLoad(opaque_pointer_type(), descriptor_pointer, "struct.phase.descriptor");
-                llvm::Value* const header_pointer = builder.CreateGEP(i8_type(), active_pointer, offset);
-                llvm::Value* const previous_descriptor = builder.CreateLoad(opaque_pointer_type(), header_pointer);
-                llvm::Value* const descriptor_is_null = builder.CreateICmpEQ(selected_descriptor, llvm::ConstantPointerNull::get(opaque_pointer_type()));
-                builder.CreateStore(builder.CreateSelect(descriptor_is_null, previous_descriptor, selected_descriptor), header_pointer);
+                llvm::Value* const offset_pointer = ir_builder.CreateStructGEP(assignment_type, assignment_pointer, 0);
+                llvm::Value* const descriptor_pointer = ir_builder.CreateStructGEP(assignment_type, assignment_pointer, 1);
+                llvm::Value* const offset = ir_builder.CreateLoad(i64_type(), offset_pointer, "struct.phase.header.offset");
+                llvm::Value* const selected_descriptor = ir_builder.CreateLoad(opaque_pointer_type(), descriptor_pointer, "struct.phase.descriptor");
+                llvm::Value* const header_pointer = ir_builder.CreateGEP(i8_type(), active_pointer, offset);
+                llvm::Value* const previous_descriptor = ir_builder.CreateLoad(opaque_pointer_type(), header_pointer);
+                llvm::Value* const descriptor_is_null = ir_builder.CreateICmpEQ(selected_descriptor, llvm::ConstantPointerNull::get(opaque_pointer_type()));
+                ir_builder.CreateStore(ir_builder.CreateSelect(descriptor_is_null, previous_descriptor, selected_descriptor), header_pointer);
             }
         }
 
         /** Reinstalls every runtime header represented by one active phase group. */
-        void apply_struct_phase_group(llvm::Value* group_pointer, llvm::Value* active_pointer)
+        void apply_struct_phase_group(ir_builder_t& ir_builder, llvm::Value* group_pointer, llvm::Value* active_pointer)
         {
-            llvm::Value* const transition_pointer = builder.CreateStructGEP(struct_phase_group_type(), group_pointer, 0);
-            apply_struct_phase_transition(transition_pointer, active_pointer);
+            llvm::Value* const transition_pointer = ir_builder.CreateStructGEP(struct_phase_group_type(), group_pointer, 0);
+            apply_struct_phase_transition(ir_builder, transition_pointer, active_pointer);
         }
 
         /** Selects and applies one field or base transition by its compile-time selector and ordinal. */
-        void apply_struct_delegate_phase_transition(llvm::Value* group_pointer, llvm::Value* active_pointer, quxlang::vmir2::struct_init_selector const& selector)
+        void apply_struct_delegate_phase_transition(ir_builder_t& ir_builder, llvm::Value* group_pointer, llvm::Value* active_pointer, quxlang::vmir2::struct_init_selector const& selector)
         {
             unsigned transitions_field = 0;
             std::size_t ordinal = 0;
@@ -4850,14 +4886,14 @@ namespace quxlang::llvm_backend::detail
                 ordinal = quxlang::as< quxlang::vmir2::struct_init_virtual_base_selector >(selector).virtual_base_ordinal;
             }
             llvm::Value* const ordinal_value = llvm::ConstantInt::get(pointer_integer_type(), ordinal);
-            llvm::Value* const transitions_pointer_address = builder.CreateStructGEP(struct_phase_group_type(), group_pointer, transitions_field);
-            llvm::Value* const transitions_pointer = builder.CreateLoad(opaque_pointer_type(), transitions_pointer_address);
-            llvm::Value* const transition_pointer = builder.CreateInBoundsGEP(struct_phase_transition_type(), transitions_pointer, ordinal_value);
-            apply_struct_phase_transition(transition_pointer, active_pointer);
+            llvm::Value* const transitions_pointer_address = ir_builder.CreateStructGEP(struct_phase_group_type(), group_pointer, transitions_field);
+            llvm::Value* const transitions_pointer = ir_builder.CreateLoad(opaque_pointer_type(), transitions_pointer_address);
+            llvm::Value* const transition_pointer = ir_builder.CreateInBoundsGEP(struct_phase_transition_type(), transitions_pointer, ordinal_value);
+            apply_struct_phase_transition(ir_builder, transition_pointer, active_pointer);
         }
 
         /** Installs one statically known complete-object phase and optionally its owned virtual bases. */
-        void install_struct_phase_descriptors(quxlang::type_symbol const& complete_type, llvm::Value* complete_pointer, quxlang::struct_phase_kind phase_kind, bool include_virtual_bases)
+        void install_struct_phase_descriptors(ir_builder_t& ir_builder, quxlang::type_symbol const& complete_type, llvm::Value* complete_pointer, quxlang::struct_phase_kind phase_kind, bool include_virtual_bases)
         {
             quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_runtime_info >::const_iterator const runtime = input.struct_runtime_infos.find(complete_type);
             if (runtime == input.struct_runtime_infos.end())
@@ -4885,8 +4921,30 @@ namespace quxlang::llvm_backend::detail
                 {
                     throw quxlang::compiler_bug("Missing emitted struct phase descriptor for " + quxlang::to_string(complete_type));
                 }
-                llvm::Value* const header_pointer = subobject.offset == 0 ? complete_pointer : builder.CreateGEP(i8_type(), complete_pointer, llvm::ConstantInt::getSigned(i64_type(), subobject.offset));
-                builder.CreateStore(llvm::ConstantExpr::getBitCast(descriptor->second, opaque_pointer_type()), header_pointer);
+                llvm::Value* const header_pointer = subobject.offset == 0 ? complete_pointer : ir_builder.CreateGEP(i8_type(), complete_pointer, llvm::ConstantInt::getSigned(i64_type(), subobject.offset));
+                ir_builder.CreateStore(llvm::ConstantExpr::getBitCast(descriptor->second, opaque_pointer_type()), header_pointer);
+            }
+        }
+
+        /** Restores a scoped lifecycle phase after normal completion or mandatory cleanup. */
+        void emit_struct_phase_leave(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index saved_phase, bool completed)
+        {
+            quxlang::vmir2::struct_lifecycle_phase const& phase = state.current_state.at(saved_phase).lifecycle_phase.value();
+            quxlang::type_symbol const& slot_type = state.routine->local_types.at(phase.on_value).type;
+            quxlang::type_symbol const object_type = quxlang::remove_ref(slot_type);
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_runtime_info >::const_iterator const runtime = input.struct_runtime_infos.find(object_type);
+            if (runtime == input.struct_runtime_infos.end() || runtime->second.get().requirements.polymorphism == quxlang::struct_polymorphism_kind::none) return;
+            if (phase.subobject_context.has_value())
+            {
+                quxlang::vmir2::local_index const owner = phase.subobject_context->enclosing_object;
+                quxlang::type_symbol const& owner_type = state.routine->local_types.at(owner).type;
+                llvm::Value* const pointer = quxlang::is_ref(owner_type) ? load_reference_pointer(state, ir_builder, owner) : value_address(state, ir_builder, owner);
+                apply_struct_phase_group(ir_builder, load_slot_value(state, ir_builder, saved_phase), pointer);
+            }
+            else if (completed && phase.kind == quxlang::struct_phase_kind::construction)
+            {
+                llvm::Value* const pointer = quxlang::is_ref(slot_type) ? load_reference_pointer(state, ir_builder, phase.on_value) : value_address(state, ir_builder, phase.on_value);
+                install_struct_phase_descriptors(ir_builder, object_type, pointer, quxlang::struct_phase_kind::steady, true);
             }
         }
 
@@ -4972,7 +5030,7 @@ namespace quxlang::llvm_backend::detail
             }
             if (type.type_is< quxlang::array_initializer_type >())
             {
-                return array_initializer_storage_placement().alignment;
+                return quxlang::array_initializer_placement(input.machine_target.machine).alignment;
             }
             if (type.type_is< quxlang::int_type >())
             {
@@ -5006,7 +5064,7 @@ namespace quxlang::llvm_backend::detail
             }
             if (type.type_is< quxlang::array_initializer_type >())
             {
-                return array_initializer_storage_placement().size;
+                return quxlang::array_initializer_placement(input.machine_target.machine).size;
             }
             if (type.type_is< quxlang::bool_type >() || type.type_is< quxlang::byte_type >())
             {
@@ -5210,7 +5268,7 @@ namespace quxlang::llvm_backend::detail
         auto stored_value_field_address(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index base_slot, std::string const& field_name, quxlang::type_symbol const& field_type) -> llvm::Value*
         {
             quxlang::type_symbol const& base_type = state.routine->local_types.at(local_slot_index(base_slot)).type;
-            return field_address_from_base_pointer(state, ir_builder, value_address(state, base_slot), base_type, field_name, field_type);
+            return field_address_from_base_pointer(state, ir_builder, value_address(state, ir_builder, base_slot), base_type, field_name, field_type);
         }
 
         /**
@@ -5347,14 +5405,14 @@ namespace quxlang::llvm_backend::detail
         {
             if (is_output_slot_type(param_type))
             {
-                return output_argument_pointer(state, arg_slot);
+                return value_address(state, ir_builder, arg_slot);
             }
 
             if (!abi_passes_by_value(param_type))
             {
-                return value_address(state, arg_slot);
+                return value_address(state, ir_builder, arg_slot);
             }
-            return load_abi_value(ir_builder, param_type, value_address(state, arg_slot));
+            return load_abi_value(ir_builder, param_type, value_address(state, ir_builder, arg_slot));
         }
 
         auto ordered_call_arguments(function_codegen_state& state, ir_builder_t& ir_builder, callable_abi const& abi, quxlang::vmir2::invocation_args const& args) -> std::vector< llvm::Value* >
@@ -5450,7 +5508,7 @@ namespace quxlang::llvm_backend::detail
         void poison_slot_storage(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot)
         {
             quxlang::type_symbol const& slot_type = state.routine->local_types.at(local_slot_index(slot)).type;
-            ir_builder.CreateStore(llvm::PoisonValue::get(value_storage_type(slot_type)), value_address(state, slot));
+            ir_builder.CreateStore(llvm::PoisonValue::get(value_storage_type(slot_type)), value_address(state, ir_builder, slot));
         }
 
         /** Destroys the completed prefix of an abandoned array initializer in reverse order. */
@@ -5461,7 +5519,7 @@ namespace quxlang::llvm_backend::detail
             if (destructor == state.routine->non_trivial_dtors.end()) return;
             callable_abi abi = callable_abi_from_instanciation_reference(destructor->second.get_as< quxlang::instanciation_reference >(), std::nullopt);
             llvm::Function* callee = get_or_create_external_function(destructor->second, abi);
-            llvm::Value* storage = state.locals.at(local_slot_index(slot)).storage;
+            llvm::Value* storage = value_address(state, ir_builder, slot);
             llvm::Type* storage_type = value_storage_type(state.routine->local_types.at(local_slot_index(slot)).type);
             llvm::Value* base_field = ir_builder.CreateStructGEP(storage_type, storage, 0);
             llvm::Value* index_field = ir_builder.CreateStructGEP(storage_type, storage, 1);
@@ -5483,7 +5541,7 @@ namespace quxlang::llvm_backend::detail
             {
                 llvm::IRBuilderBase::InsertPointGuard insertion(builder);
                 builder.SetInsertPoint(ir_builder.GetInsertBlock());
-                install_struct_phase_descriptors(initializer.element_type, object, quxlang::struct_phase_kind::destruction, true);
+                install_struct_phase_descriptors(builder, initializer.element_type, object, quxlang::struct_phase_kind::destruction, true);
             }
             llvm::BasicBlock* continuation = ir_builder.GetInsertBlock();
             emit_unwindable_call(state, continuation, abi, callee, {object}, {}, false);
@@ -5496,6 +5554,10 @@ namespace quxlang::llvm_backend::detail
          */
         void emit_slot_destructor_call(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot)
         {
+            if (state.current_state.contains(slot) && state.current_state.at(slot).destruction_started)
+            {
+                return;
+            }
             quxlang::type_symbol const& slot_type = state.routine->local_types.at(local_slot_index(slot)).type;
             if (slot_type.type_is< quxlang::array_initializer_type >())
             {
@@ -5504,7 +5566,7 @@ namespace quxlang::llvm_backend::detail
             }
             quxlang::type_symbol dtor_symbol;
             quxlang::vmir2::invocation_args args;
-            std::map< quxlang::vmir2::local_index, quxlang::vmir2::slot_state >::const_iterator const slot_state = state.current_state.find(slot);
+            quxlang::vmir2::state_map::const_iterator const slot_state = state.current_state.find(slot);
             if (slot_state != state.current_state.end() && slot_state->second.nontrivial_dtor.has_value())
             {
                 dtor_symbol = slot_state->second.nontrivial_dtor->func;
@@ -5545,17 +5607,17 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::vmir2::local_index const owner = subobject_context->enclosing_object;
                 quxlang::type_symbol const& owner_type = state.routine->local_types.at(local_slot_index(owner)).type;
-                enclosing_pointer = quxlang::is_ref(owner_type) ? load_reference_pointer(state, ir_builder, owner) : value_address(state, owner);
+                enclosing_pointer = quxlang::is_ref(owner_type) ? load_reference_pointer(state, ir_builder, owner) : value_address(state, ir_builder, owner);
                 llvm::Value* const enclosing_descriptor = load_struct_runtime_descriptor(enclosing_pointer);
                 enclosing_group = load_struct_runtime_descriptor_field(enclosing_descriptor, 8, opaque_pointer_type(), "struct.phase.group");
-                apply_struct_delegate_phase_transition(enclosing_group, enclosing_pointer, subobject_context->selector);
+                apply_struct_delegate_phase_transition(ir_builder, enclosing_group, enclosing_pointer, subobject_context->selector);
             }
             else
             {
                 if (is_polymorphic_destructor)
                 {
-                    llvm::Value* const object_pointer = quxlang::is_ref(slot_type) ? load_reference_pointer(state, ir_builder, slot) : value_address(state, slot);
-                    install_struct_phase_descriptors(destruction_type, object_pointer, quxlang::struct_phase_kind::destruction, true);
+                    llvm::Value* const object_pointer = quxlang::is_ref(slot_type) ? load_reference_pointer(state, ir_builder, slot) : value_address(state, ir_builder, slot);
+                    install_struct_phase_descriptors(ir_builder, destruction_type, object_pointer, quxlang::struct_phase_kind::destruction, true);
                 }
             }
 
@@ -5595,7 +5657,7 @@ namespace quxlang::llvm_backend::detail
             state.current_state = std::move(saved_state);
             if (enclosing_group != nullptr)
             {
-                apply_struct_phase_group(enclosing_group, enclosing_pointer);
+                apply_struct_phase_group(ir_builder, enclosing_group, enclosing_pointer);
             }
         }
 
@@ -5624,11 +5686,16 @@ namespace quxlang::llvm_backend::detail
             {
                 switch (action.kind)
                 {
+                case quxlang::vmir2::lifetime_action_kind::require_asynchronous_cleanup:
+                    throw quxlang::semantic_compilation_error("Synchronous cleanup cannot destroy completed async-only object " + quxlang::to_string(state.routine->local_types.at(action.slot).type));
                 case quxlang::vmir2::lifetime_action_kind::destroy_object:
                     emit_slot_destructor_call(state, ir_builder, action.slot);
                     break;
                 case quxlang::vmir2::lifetime_action_kind::destroy_array_prefix:
                     emit_array_initializer_cleanup(state, ir_builder, action.slot, state.routine->local_types.at(action.slot).type.as< quxlang::array_initializer_type >());
+                    break;
+                case quxlang::vmir2::lifetime_action_kind::restore_phase:
+                    emit_struct_phase_leave(state, ir_builder, action.slot, action.completed);
                     break;
                 case quxlang::vmir2::lifetime_action_kind::abort_initguard:
                     emit_initguard_runtime_call(state, ir_builder, action.slot, true);
@@ -5643,7 +5710,7 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Advances an array initializer after its current element alias transitions from dead to alive.
+         * Advances an array initializer after its current element finishes construction.
          */
         void emit_post_instruction_array_initializer_progress(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::state_map const& previous_state, quxlang::vmir2::state_map const& current_state)
         {
@@ -5651,20 +5718,20 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::vmir2::local_index const slot = slot_entry.first;
                 quxlang::vmir2::slot_state const& current_slot_state = slot_entry.second;
-                if (!current_slot_state.array_delegate_of_initializer.has_value() || !current_slot_state.alive())
+                if (!current_slot_state.array_delegate_of_initializer.has_value() || current_slot_state.owns_subobject_lifetime || current_slot_state.stage != quxlang::vmir2::slot_stage::full)
                 {
                     continue;
                 }
 
-                std::map< quxlang::vmir2::local_index, quxlang::vmir2::slot_state >::const_iterator previous_iter = previous_state.find(slot);
-                if (previous_iter == previous_state.end() || previous_iter->second.alive())
+                quxlang::vmir2::state_map::const_iterator previous_iter = previous_state.find(slot);
+                if (previous_iter == previous_state.end() || previous_iter->second.stage == quxlang::vmir2::slot_stage::full)
                 {
                     continue;
                 }
 
                 quxlang::vmir2::local_index const initializer_slot = *current_slot_state.array_delegate_of_initializer;
                 quxlang::type_symbol const initializer_type = state.routine->local_types.at(local_slot_index(initializer_slot)).type;
-                llvm::Value* initializer_storage = state.locals.at(local_slot_index(initializer_slot)).storage;
+                llvm::Value* initializer_storage = value_address(state, ir_builder, initializer_slot);
                 llvm::Value* index_field = ir_builder.CreateStructGEP(value_storage_type(initializer_type), initializer_storage, 1);
                 llvm::Value* index_value = ir_builder.CreateLoad(i64_type(), index_field);
                 ir_builder.CreateStore(ir_builder.CreateAdd(index_value, llvm::ConstantInt::get(i64_type(), 1)), index_field);
@@ -5677,7 +5744,8 @@ namespace quxlang::llvm_backend::detail
          */
         void emit_post_instruction_poison_cleanup(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::state_map const& previous_state, quxlang::vmir2::state_map const& current_state, quxlang::vmir2::vm_instruction const& instruction)
         {
-            if (instruction.type_is< quxlang::vmir2::destroy >() || instruction.type_is< quxlang::vmir2::end_lifetime >())
+            if (instruction.type_is< quxlang::vmir2::destroy >() || instruction.type_is< quxlang::vmir2::end_lifetime >() ||
+                instruction.type_is< quxlang::vmir2::lifetime_transfer >() || instruction.type_is< quxlang::vmir2::lifetime_import >())
             {
                 return;
             }
@@ -5688,42 +5756,12 @@ namespace quxlang::llvm_backend::detail
         /**
          * Emits cleanup calls required before a normal return by transitioning into the state-engine normal-exit state.
          */
-        void emit_return_cleanup(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::state_map const& current_state)
+        void emit_return_cleanup(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::state_map const& current_state, bool retain_storage)
         {
             quxlang::vmir2::state_map exit_state;
             quxlang::vmir2::codegen_state_engine state_engine(exit_state, state.routine->local_types, state.routine->parameters);
             state_engine.apply_normal_exit();
-            emit_transition_cleanup(state, ir_builder, current_state, exit_state, quxlang::vmir2::lifetime_transition_kind::normal_exit);
-        }
-
-        /**
-         * Returns a transition block name of the form <src>.transition.<dest>,
-         * adding a numeric suffix only when that exact name already exists.
-         */
-        auto transition_block_name(function_codegen_state const& state, llvm::BasicBlock* source_block, llvm::BasicBlock* target_block) -> std::string
-        {
-            std::string const base_name = source_block->getName().str() + ".transition." + target_block->getName().str();
-            std::string block_name = base_name;
-            std::size_t duplicate_index = 1;
-            for (;;)
-            {
-                bool collision = false;
-                for (llvm::BasicBlock const& existing_block : *state.function)
-                {
-                    if (existing_block.getName() == block_name)
-                    {
-                        collision = true;
-                        break;
-                    }
-                }
-
-                if (!collision)
-                {
-                    return block_name;
-                }
-
-                block_name = base_name + "." + std::to_string(duplicate_index++);
-            }
+            emit_transition_cleanup(state, ir_builder, current_state, exit_state, retain_storage ? quxlang::vmir2::lifetime_transition_kind::retained_exit : quxlang::vmir2::lifetime_transition_kind::normal_exit);
         }
 
         /**
@@ -5736,7 +5774,9 @@ namespace quxlang::llvm_backend::detail
                 return target_block;
             }
 
-            std::string const block_name = transition_block_name(state, source_block, target_block);
+            // LLVM's value symbol table assigns deterministic suffixes without
+            // scanning every existing block for each generated cleanup edge.
+            std::string block_name = source_block->getName().str() + ".transition." + target_block->getName().str();
             llvm::BasicBlock* cleanup_block = llvm::BasicBlock::Create(context, block_name, state.function);
             llvm::IRBuilderBase::InsertPoint const saved_insert_point = builder.saveIP();
             builder.SetInsertPoint(cleanup_block);
@@ -6095,9 +6135,15 @@ namespace quxlang::llvm_backend::detail
             return llvm::ConstantStruct::get(struct_type, fields);
         }
 
+        /** Publishes one projection address into its promotable control-flow storage. */
         void assign_slot_alias(function_codegen_state& state, quxlang::vmir2::local_index slot, llvm::Value* address)
         {
-            state.locals.at(local_slot_index(slot)).aliased_value_address = address;
+            llvm::AllocaInst* alias = state.locals.at(local_slot_index(slot)).alias_pointer_storage;
+            if (alias == nullptr)
+            {
+                throw quxlang::compiler_bug("VMIR projection has no reserved address slot");
+            }
+            builder.CreateStore(address, alias);
         }
 
         /**
@@ -6122,7 +6168,8 @@ namespace quxlang::llvm_backend::detail
                                  llvm::Value* callee, std::vector< llvm::Value* > arguments,
                                  quxlang::vmir2::invocation_args const& invocation, bool consumes_arguments = true) -> llvm::CallBase*
         {
-            if (state.unwinding && !abi.is_noexcept)
+            bool const terminates = state.unwinding || (state.catcher.has_value() && state.catcher->terminate_before_capture);
+            if (terminates && !abi.is_noexcept)
             {
                 using quxlang::llvm_backend::runtime_procedure;
                 state.function->setPersonalityFn(get_or_create_runtime_function(runtime_procedure::exception_personality));
@@ -6198,7 +6245,7 @@ namespace quxlang::llvm_backend::detail
                 QUXLANG_COMPILER_BUG_IF(frame_field == layout.fields.end(), "Runtime unwind record is missing its owned frame");
                 llvm::Value* frame_address = builder.CreateGEP(i8_type(), record, llvm::ConstantInt::get(pointer_integer_type(), frame_field->offset));
                 llvm::Value* frame = builder.CreateLoad(opaque_pointer_type(), frame_address);
-                builder.CreateStore(frame, value_address(state, catcher.exception));
+                builder.CreateStore(frame, value_address(state, builder, catcher.exception));
                 builder.CreateStore(llvm::ConstantPointerNull::get(opaque_pointer_type()), frame_address);
                 llvm::Function* release = get_or_create_runtime_function(runtime_procedure::exception_record_release);
                 builder.CreateCall(release, {record});
@@ -6397,7 +6444,7 @@ namespace quxlang::llvm_backend::detail
                 return;
             }
             std::map< std::string, quxlang::vmir2::local_index >::const_iterator const this_argument = inst.args.named.find("THIS");
-            std::map< quxlang::vmir2::local_index, quxlang::vmir2::slot_state >::const_iterator delegate_state = state.current_state.end();
+            quxlang::vmir2::state_map::const_iterator delegate_state = state.current_state.end();
             llvm::Value* enclosing_group = nullptr;
             llvm::Value* enclosing_pointer = nullptr;
             bool is_struct_constructor = false;
@@ -6417,17 +6464,17 @@ namespace quxlang::llvm_backend::detail
                 if (delegate_state != state.current_state.end() && delegate_state->second.delegate_of.has_value() && delegate_state->second.struct_delegate_selector.has_value() && !quxlang::typeis< quxlang::vmir2::struct_init_field_selector >(*delegate_state->second.struct_delegate_selector))
                 {
                     quxlang::vmir2::local_index const owner = *delegate_state->second.delegate_of;
-                    enclosing_pointer = value_address(state, owner);
+                    enclosing_pointer = value_address(state, builder, owner);
                     llvm::Value* const enclosing_descriptor = load_struct_runtime_descriptor(enclosing_pointer);
                     enclosing_group = load_struct_runtime_descriptor_field(enclosing_descriptor, 8, opaque_pointer_type(), "struct.phase.group");
-                    apply_struct_delegate_phase_transition(enclosing_group, enclosing_pointer, *delegate_state->second.struct_delegate_selector);
+                    apply_struct_delegate_phase_transition(builder, enclosing_group, enclosing_pointer, *delegate_state->second.struct_delegate_selector);
                 }
                 else
                 {
                     quxlang::type_symbol const& this_slot_type = state.routine->local_types.at(local_slot_index(this_argument->second)).type;
                     if (!quxlang::is_ref(this_slot_type) && !quxlang::is_ptr(this_slot_type))
                     {
-                        install_struct_phase_descriptors(constructor_type, value_address(state, this_argument->second), quxlang::struct_phase_kind::construction, true);
+                        install_struct_phase_descriptors(builder, constructor_type, value_address(state, builder, this_argument->second), quxlang::struct_phase_kind::construction, true);
                     }
                 }
             }
@@ -6462,14 +6509,14 @@ namespace quxlang::llvm_backend::detail
             {
                 if (enclosing_group != nullptr)
                 {
-                    apply_struct_phase_group(enclosing_group, enclosing_pointer);
+                    apply_struct_phase_group(builder, enclosing_group, enclosing_pointer);
                 }
                 else
                 {
                     quxlang::type_symbol const& this_slot_type = state.routine->local_types.at(local_slot_index(this_argument->second)).type;
                     if (!quxlang::is_ref(this_slot_type) && !quxlang::is_ptr(this_slot_type))
                     {
-                        install_struct_phase_descriptors(constructor_type, value_address(state, this_argument->second), quxlang::struct_phase_kind::steady, true);
+                        install_struct_phase_descriptors(builder, constructor_type, value_address(state, builder, this_argument->second), quxlang::struct_phase_kind::steady, true);
                     }
                 }
             }
@@ -6508,7 +6555,7 @@ namespace quxlang::llvm_backend::detail
                 llvm::Value* const complete_adjustment = load_struct_runtime_descriptor_field(descriptor, 1, i64_type(), "struct.complete.adjustment");
                 llvm::Value* const complete_pointer = builder.CreateGEP(i8_type(), receiver_pointer, complete_adjustment);
                 llvm::Value* const destruction_group = load_struct_runtime_descriptor_field(descriptor, 9, opaque_pointer_type(), "struct.destruction.group");
-                apply_struct_phase_group(destruction_group, complete_pointer);
+                apply_struct_phase_group(builder, destruction_group, complete_pointer);
             }
             llvm::Value* const slots_pointer = load_struct_runtime_descriptor_field(descriptor, 6, opaque_pointer_type(), "struct.virtual.slots");
             llvm::Value* const function_pointer_address = builder.CreateGEP(opaque_pointer_type(), slots_pointer, llvm::ConstantInt::get(pointer_integer_type(), selected_slot->slot_ordinal));
@@ -6606,7 +6653,7 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             quxlang::vmir2::make_reference const& inst = instruction;
-            store_reference_pointer(state, builder, inst.reference_index, value_address(state, inst.value_index));
+            store_reference_pointer(state, builder, inst.reference_index, value_address(state, builder, inst.value_index));
             return;
         }
 
@@ -7119,7 +7166,7 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             quxlang::vmir2::make_pointer_to const& inst = instruction;
             quxlang::type_symbol const& source_type = state.routine->local_types.at(local_slot_index(inst.of_index)).type;
-            llvm::Value* pointer_value = quxlang::is_ref(source_type) ? load_reference_pointer(state, builder, inst.of_index) : value_address(state, inst.of_index);
+            llvm::Value* pointer_value = quxlang::is_ref(source_type) ? load_reference_pointer(state, builder, inst.of_index) : value_address(state, builder, inst.of_index);
             store_slot_value(state, builder, inst.pointer_index, pointer_value);
             return;
         }
@@ -7174,6 +7221,24 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Rejects a continuation checkpoint that escaped coroutine lowering. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::co_save const& instruction)
+        {
+            throw quxlang::compiler_bug("Unlowered coroutine checkpoint in LLVM emission");
+        }
+
+        /** Rejects cleanup storage access that escaped coroutine lowering. */
+        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::co_cleanup_storage const&)
+        {
+            throw quxlang::compiler_bug("Unlowered coroutine cleanup storage in LLVM emission");
+        }
+
+        /** Rejects cleanup retirement changes that escaped coroutine lowering. */
+        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::co_cleanup_mark const&)
+        {
+            throw quxlang::compiler_bug("Unlowered coroutine cleanup retirement in LLVM emission");
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::storage_init_start const& instruction)
         {
             (void)current_block;
@@ -7188,6 +7253,37 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* storage_pointer = load_reference_pointer(state, builder, instruction.on_storage);
             assign_slot_alias(state, instruction.target_value, storage_pointer);
             return;
+        }
+
+        /** Restores value and subobject addresses from retained typed storage. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::storage_rebind const& instruction)
+        {
+            llvm::Value* storage_pointer = load_reference_pointer(state, builder, instruction.on_storage);
+            assign_slot_alias(state, instruction.target_value, storage_pointer);
+            if (instruction.struct_delegates.has_value())
+            {
+                emit_instruction_ovl(state, current_block, quxlang::vmir2::struct_init_start{
+                    .on_value = instruction.target_value,
+                    .delegates = *instruction.struct_delegates,
+                });
+            }
+            for (quxlang::vmir2::storage_delegate_rebind const& binding : instruction.nested_delegates)
+            {
+                if (binding.array_delegate_of_initializer.has_value())
+                {
+                    emit_instruction_ovl(state, current_block, quxlang::vmir2::array_init_element{
+                        .initializer = *binding.array_delegate_of_initializer,
+                        .target = binding.target_value,
+                    });
+                }
+                if (binding.struct_delegates.has_value())
+                {
+                    emit_instruction_ovl(state, current_block, quxlang::vmir2::struct_init_start{
+                        .on_value = binding.target_value,
+                        .delegates = *binding.struct_delegates,
+                    });
+                }
+            }
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::storage_pun const& instruction)
@@ -8809,17 +8905,65 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Ownership transfer changes semantic state while physical frame storage remains in place. */
+        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::lifetime_transfer const&) {}
+
+        /** Retained addresses are resolved at their use sites after the imported state is published. */
+        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::lifetime_import const&) {}
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_phase_enter const& instruction)
+        {
+            (void)current_block;
+            quxlang::type_symbol const& slot_type = state.routine->local_types.at(instruction.on_value).type;
+            quxlang::type_symbol const object_type = quxlang::remove_ref(slot_type);
+            llvm::Value* saved_group = llvm::ConstantPointerNull::get(opaque_pointer_type());
+            quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_runtime_info >::const_iterator const runtime = input.struct_runtime_infos.find(object_type);
+            if (runtime != input.struct_runtime_infos.end() && runtime->second.get().requirements.polymorphism != quxlang::struct_polymorphism_kind::none)
+            {
+                if (instruction.subobject_context.has_value())
+                {
+                    quxlang::vmir2::local_index const owner = instruction.subobject_context->enclosing_object;
+                    quxlang::type_symbol const& owner_type = state.routine->local_types.at(owner).type;
+                    llvm::Value* const pointer = quxlang::is_ref(owner_type) ? load_reference_pointer(state, builder, owner) : value_address(state, builder, owner);
+                    saved_group = load_struct_runtime_descriptor_field(load_struct_runtime_descriptor(pointer), 8, opaque_pointer_type(), "struct.phase.group");
+                    apply_struct_delegate_phase_transition(builder, saved_group, pointer, instruction.subobject_context->selector);
+                }
+                else
+                {
+                    llvm::Value* const pointer = quxlang::is_ref(slot_type) ? load_reference_pointer(state, builder, instruction.on_value) : value_address(state, builder, instruction.on_value);
+                    install_struct_phase_descriptors(builder, object_type, pointer, instruction.kind, true);
+                }
+            }
+            store_slot_value(state, builder, instruction.saved_phase, saved_group);
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_phase_leave const& instruction)
+        {
+            (void)current_block;
+            emit_struct_phase_leave(state, builder, instruction.saved_phase, instruction.completed);
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::defer_nontrivial_dtor const& instruction)
         {
             (void)current_block;
             return;
         }
 
+        /** Destruction transfer changes semantic ownership without generating native instructions. */
+        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::begin_destruction const&)
+        {
+        }
+
+        /** Initialization publication changes semantic lifetime state after the constructor operation returns. */
+        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::complete_initialization const&)
+        {
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_init_start const& instruction)
         {
             (void)current_block;
             quxlang::vmir2::struct_init_start const& inst = instruction;
-            llvm::Value* base_pointer = value_address(state, inst.on_value);
+            llvm::Value* base_pointer = value_address(state, builder, inst.on_value);
             quxlang::type_symbol base_type = state.routine->local_types.at(local_slot_index(inst.on_value)).type;
             quxlang::llvm_backend::llvm_borrowed_type_map< quxlang::struct_layout >::const_iterator layout_iter = input.struct_layouts.find(base_type);
             if (layout_iter == input.struct_layouts.end())
@@ -9447,7 +9591,7 @@ namespace quxlang::llvm_backend::detail
                                             using source_type = std::decay_t< decltype(source) >;
                                             if constexpr (std::is_same_v< source_type, quxlang::vmir2::local_index >)
                                             {
-                                                base_pointer = value_address(state, source);
+                                                base_pointer = value_address(state, builder, source);
                                                 quxlang::array_type const& array = state.routine->local_types.at(local_slot_index(source)).type.template get_as< quxlang::array_type >();
                                                 std::uint64_t count = std::stoull(array.element_count.get_as< quxlang::expression_numeric_literal >().value);
                                                 count_value = llvm::ConstantInt::get(i64_type(), count);
@@ -9458,7 +9602,7 @@ namespace quxlang::llvm_backend::detail
                                                 count_value = builder.CreateZExtOrTrunc(load_slot_value(state, builder, source.count), i64_type());
                                             }
                                         });
-            llvm::Value* init_storage = state.locals.at(local_slot_index(inst.initializer)).storage;
+            llvm::Value* init_storage = value_address(state, builder, inst.initializer);
             llvm::Value* base_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 0);
             llvm::Value* index_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 1);
             llvm::Value* count_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 2);
@@ -9473,7 +9617,7 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             quxlang::vmir2::array_init_index const& inst = instruction;
             quxlang::type_symbol initializer_type = state.routine->local_types.at(local_slot_index(inst.initializer)).type;
-            llvm::Value* init_storage = state.locals.at(local_slot_index(inst.initializer)).storage;
+            llvm::Value* init_storage = value_address(state, builder, inst.initializer);
             llvm::Value* index_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 1);
             llvm::Value* index_value = builder.CreateLoad(i64_type(), index_field);
             quxlang::type_symbol const& result_type = state.routine->local_types.at(local_slot_index(inst.result)).type;
@@ -9487,7 +9631,7 @@ namespace quxlang::llvm_backend::detail
             quxlang::vmir2::array_init_element const& inst = instruction;
             quxlang::type_symbol initializer_type = state.routine->local_types.at(local_slot_index(inst.initializer)).type;
             quxlang::array_initializer_type const& array_info = initializer_type.get_as< quxlang::array_initializer_type >();
-            llvm::Value* init_storage = state.locals.at(local_slot_index(inst.initializer)).storage;
+            llvm::Value* init_storage = value_address(state, builder, inst.initializer);
             llvm::Value* base_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 0);
             llvm::Value* index_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 1);
             llvm::Value* base_value = builder.CreateLoad(opaque_pointer_type(), base_field);
@@ -9504,12 +9648,26 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        /** Transfers the final initialized array element into a destruction alias. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::array_deinit_previous const& instruction)
+        {
+            quxlang::type_symbol initializer_type = state.routine->local_types.at(local_slot_index(instruction.initializer)).type;
+            llvm::Value* initializer_storage = value_address(state, builder, instruction.initializer);
+            llvm::Value* count_field = builder.CreateStructGEP(value_storage_type(initializer_type), initializer_storage, 1);
+            llvm::Value* count = builder.CreateLoad(i64_type(), count_field);
+            builder.CreateStore(builder.CreateSub(count, llvm::ConstantInt::get(i64_type(), 1)), count_field);
+            emit_instruction_ovl(state, current_block, quxlang::vmir2::array_init_element{
+                .initializer = instruction.initializer,
+                .target = instruction.target,
+            });
+        }
+
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::array_init_more const& instruction)
         {
             (void)current_block;
             quxlang::vmir2::array_init_more const& inst = instruction;
             quxlang::type_symbol initializer_type = state.routine->local_types.at(local_slot_index(inst.initializer)).type;
-            llvm::Value* init_storage = state.locals.at(local_slot_index(inst.initializer)).storage;
+            llvm::Value* init_storage = value_address(state, builder, inst.initializer);
             llvm::Value* index_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 1);
             llvm::Value* count_field = builder.CreateStructGEP(value_storage_type(initializer_type), init_storage, 2);
             llvm::Value* index_value = builder.CreateLoad(i64_type(), index_field);
@@ -9520,6 +9678,10 @@ namespace quxlang::llvm_backend::detail
 
         void emit_terminator(function_codegen_state& state, llvm::BasicBlock* current_block, quxlang::vmir2::vm_terminator const& terminator)
         {
+            if (terminator.type_is< quxlang::vmir2::co_suspend >() || terminator.type_is< quxlang::vmir2::co_complete >())
+            {
+                throw quxlang::compiler_bug("Unlowered coroutine terminator in LLVM emission");
+            }
             builder.SetInsertPoint(current_block);
             apply_debug_location(state, quxlang::vmir2::get_location(terminator));
             if (terminator.type_is< quxlang::vmir2::jump >())
@@ -9560,13 +9722,20 @@ namespace quxlang::llvm_backend::detail
                 }
 
                 llvm::BasicBlock* const default_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(inst.default_target)).entry_state, state.blocks.at(inst.default_target));
-                llvm::SwitchInst* const switch_instruction = builder.CreateSwitch(ordinal, default_target, static_cast< unsigned >(inst.targets.size()));
+                std::size_t case_count = std::ranges::count_if(inst.targets,
+                    [&](quxlang::vmir2::block_index target) { return target != inst.default_target; });
+                llvm::SwitchInst* const switch_instruction = builder.CreateSwitch(ordinal, default_target, static_cast< unsigned >(case_count));
                 llvm::IntegerType* const ordinal_type = llvm::cast< llvm::IntegerType >(ordinal->getType());
+                std::map< quxlang::vmir2::block_index, llvm::BasicBlock* > cleanup_targets;
                 for (std::size_t i = 0; i < inst.targets.size(); ++i)
                 {
-                    quxlang::vmir2::block_index const target = inst.targets[i];
-                    llvm::BasicBlock* const edge_target = cleanup_edge_target(state, current_block, state.current_state, state.routine->blocks.at(block_slot_index(target)).entry_state, state.blocks.at(target));
-                    switch_instruction->addCase(llvm::ConstantInt::get(ordinal_type, i), edge_target);
+                    quxlang::vmir2::block_index target = inst.targets[i];
+                    if (target == inst.default_target) continue;
+                    std::pair< decltype(cleanup_targets)::iterator, bool > edge = cleanup_targets.try_emplace(target, nullptr);
+                    if (edge.second)
+                        edge.first->second = cleanup_edge_target(state, current_block, state.current_state,
+                            state.routine->blocks.at(block_slot_index(target)).entry_state, state.blocks.at(target));
+                    switch_instruction->addCase(llvm::ConstantInt::get(ordinal_type, i), edge.first->second);
                 }
                 return;
             }
@@ -9580,11 +9749,11 @@ namespace quxlang::llvm_backend::detail
             }
             if (terminator.type_is< quxlang::vmir2::ret >())
             {
-                emit_return_cleanup(state, builder, state.current_state);
+                emit_return_cleanup(state, builder, state.current_state, terminator.as< quxlang::vmir2::ret >().retain_storage);
                 if (state.abi != nullptr && state.abi->return_source_index.has_value())
                 {
                     quxlang::vmir2::local_index const return_slot = source_argument_slot(*state.abi, routine_parameter_invocation_args(state), *state.abi->return_source_index);
-                    builder.CreateRet(load_abi_value(builder, state.routine->local_types.at(local_slot_index(return_slot)).type, value_address(state, return_slot)));
+                    builder.CreateRet(load_abi_value(builder, state.routine->local_types.at(local_slot_index(return_slot)).type, value_address(state, builder, return_slot)));
                 }
                 else
                 {
@@ -9695,6 +9864,53 @@ namespace quxlang::llvm_backend::detail
             }
             std::set< quxlang::vmir2::local_index > const native_reachable_locals = quxlang::vmir2::reachable_local_slots(routine, quxlang::dependency_set::native);
 
+            auto reserve_alias = [&](quxlang::vmir2::local_index slot)
+            {
+                local_slot_state& local = state.locals.at(local_slot_index(slot));
+                if (local.alias_pointer_storage != nullptr) return;
+                local.alias_pointer_storage = prologue.CreateAlloca(opaque_pointer_type(), nullptr, "alias" + std::to_string(slot));
+                local.alias_pointer_storage->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
+            };
+            for (std::size_t index = 0; index < routine.blocks.size(); ++index)
+            {
+                if (!native_reachable_blocks[index]) continue;
+                for (quxlang::vmir2::vm_instruction const& instruction : routine.blocks[index].instructions)
+                {
+                    rpnx::apply_visitor< void >(instruction, [&](auto& selected)
+                    {
+                        using instruction_type = std::remove_cvref_t< decltype(selected) >;
+                        if constexpr (std::is_same_v< instruction_type, quxlang::vmir2::storage_init_start > || std::is_same_v< instruction_type, quxlang::vmir2::storage_deinit_start >)
+                        {
+                            reserve_alias(selected.target_value);
+                        }
+                        else if constexpr (std::is_same_v< instruction_type, quxlang::vmir2::struct_init_start >)
+                        {
+                            for (quxlang::vmir2::struct_init_delegate const& delegate : selected.delegates) reserve_alias(delegate.value);
+                        }
+                        else if constexpr (std::is_same_v< instruction_type, quxlang::vmir2::array_init_element > || std::is_same_v< instruction_type, quxlang::vmir2::array_deinit_previous >)
+                        {
+                            reserve_alias(selected.target);
+                        }
+                        else if constexpr (std::is_same_v< instruction_type, quxlang::vmir2::storage_rebind >)
+                        {
+                            reserve_alias(selected.target_value);
+                            if (selected.struct_delegates.has_value())
+                            {
+                                for (quxlang::vmir2::struct_init_delegate const& delegate : *selected.struct_delegates) reserve_alias(delegate.value);
+                            }
+                            for (quxlang::vmir2::storage_delegate_rebind const& binding : selected.nested_delegates)
+                            {
+                                if (binding.array_delegate_of_initializer.has_value()) reserve_alias(binding.target_value);
+                                if (binding.struct_delegates.has_value())
+                                {
+                                    for (quxlang::vmir2::struct_init_delegate const& delegate : *binding.struct_delegates) reserve_alias(delegate.value);
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
             std::vector< routine_abi_parameter > const params = ordered_routine_parameters(routine);
             std::map< std::size_t, bool > caller_provided_slots;
             for (std::size_t source_index = 0; source_index < params.size(); ++source_index)
@@ -9756,6 +9972,28 @@ namespace quxlang::llvm_backend::detail
                 store_typed_value(prologue, param.parameter_type, &arg, state.locals.at(local_slot_index(param.local)).storage);
             }
 
+            std::map< quxlang::type_symbol, std::map< std::string, std::uint64_t > > retained_field_offsets;
+            for (std::pair< quxlang::vmir2::local_index const, quxlang::vmir2::retained_storage_binding > const& entry : routine.retained_bindings)
+            {
+                quxlang::type_symbol const frame_type = quxlang::remove_ref(routine.local_types.at(entry.second.frame).type);
+                if (!retained_field_offsets.contains(frame_type))
+                {
+                    std::map< std::string, std::uint64_t >& offsets = retained_field_offsets[frame_type];
+                    for (quxlang::struct_field_info const& field : input.struct_layouts.at(frame_type).get().fields) offsets.emplace(field.name, field.offset);
+                }
+                llvm::Value* const frame_pointer = load_reference_pointer(state, prologue, entry.second.frame);
+                std::uint64_t const offset = retained_field_offsets.at(frame_type).at(entry.second.field_name);
+                state.locals.at(entry.first).retained_address = prologue.CreateGEP(i8_type(), frame_pointer, llvm::ConstantInt::get(i64_type(), offset));
+            }
+
+            for (local_slot_state const& local : state.locals)
+            {
+                if (local.alias_pointer_storage != nullptr && local.storage != nullptr)
+                {
+                    prologue.CreateStore(local.storage, local.alias_pointer_storage);
+                }
+            }
+
             for (std::size_t i = 0; i < routine.blocks.size(); ++i)
             {
                 if (!native_reachable_blocks[i])
@@ -9797,7 +10035,8 @@ namespace quxlang::llvm_backend::detail
                     quxlang::vmir2::state_map const previous_state = state.current_state;
                     emit_instruction(state, current_block, inst);
                     state_engine.apply(inst);
-                    emit_post_instruction_array_initializer_progress(state, builder, previous_state, state.current_state);
+                    if (!inst.type_is< quxlang::vmir2::lifetime_transfer >() && !inst.type_is< quxlang::vmir2::lifetime_import >())
+                        emit_post_instruction_array_initializer_progress(state, builder, previous_state, state.current_state);
                     emit_post_instruction_poison_cleanup(state, builder, previous_state, state.current_state, inst);
                     current_block = builder.GetInsertBlock();
                 }

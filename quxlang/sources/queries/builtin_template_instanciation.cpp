@@ -141,6 +141,8 @@ rpnx::querygraph::coroutine< quxlang::builtin_template_instanciation_spec > quxl
         .params = std::move(actual_params),
         .adaptations = allowed_adaptations::none,
         .type_of_this = type_of_this,
+        .lookup_kind = input.lookup_kind,
+        .implicit_named_arguments = input.implicit_named_arguments,
     });
     if (!params.has_value())
     {

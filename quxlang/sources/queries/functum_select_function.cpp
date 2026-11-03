@@ -249,6 +249,8 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             .params = input.parameters,
             .adaptations = input.adaptations,
             .type_of_this = selection_type_of_this,
+            .lookup_kind = input.lookup_kind,
+            .implicit_named_arguments = input.implicit_named_arguments,
         });
 
         if (candidate && typeis< submember >(input.initializee))
@@ -265,22 +267,36 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             }
         }
 
-        // Evaluate ENABLE_IF in the proper context after instantiation
         if (candidate && o.ensig.enable_if)
         {
-            constexpr_input cx_input;
-            cx_input.expr = *o.ensig.enable_if;
-            temploid_reference tr{
-                .templexoid = input.initializee,
-                .overload_id = o.overload_id,
-            };
-            instanciation_reference inst{.temploid = tr, .params = *candidate};
-            // Use the instantiated function context so pack type inspection can see the expanded parameters.
-            cx_input.context = inst;
-            bool include = co_await rpnx::querygraph::request< constexpr_bool_query >(cx_input);
-            if (!include)
+            std::optional< ast2_function_declaration > const& declaration = co_await rpnx::querygraph::request< function_declaration_query >(
+                temploid_reference{.templexoid = input.initializee, .overload_id = o.overload_id});
+            bool deferred_controller = declaration.has_value() && declaration->header.execution_kind == function_execution_kind::coroutine &&
+                is_template(parameter_instantiation_type(candidate->named.at("CONTROLLER")));
+            if (deferred_controller)
             {
-                candidate.reset();
+                type_symbol controller = remove_ref(parameter_instantiation_type(candidate->named.at("CONTROLLER")));
+                if (controller.type_is< instanciation_reference >() || controller.type_is< subsymbol >())
+                {
+                    deferred_controller = (co_await rpnx::querygraph::request< symbol_type_query >(controller)) != symbol_kind::class_;
+                }
+            }
+            if (!deferred_controller)
+            {
+                constexpr_input cx_input;
+                cx_input.expr = *o.ensig.enable_if;
+                temploid_reference tr{
+                    .templexoid = input.initializee,
+                    .overload_id = o.overload_id,
+                };
+                instanciation_reference inst{.temploid = tr, .params = *candidate};
+                // Use the instantiated function context so pack type inspection can see the expanded parameters.
+                cx_input.context = inst;
+                bool include = co_await rpnx::querygraph::request< constexpr_bool_query >(cx_input);
+                if (!include)
+                {
+                    candidate.reset();
+                }
             }
         }
 
@@ -334,6 +350,21 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                     auto const& arg_type = parameter_instantiation_type(arg);
                     type_symbol candidate_param = ranked_this_param_type(ranked_this_param_type, candidate.ensig.interface.named.contains(name) ? candidate.ensig.interface.named.at(name).type : arg_type);
                     type_symbol other_param = ranked_this_param_type(ranked_this_param_type, other.ensig.interface.named.contains(name) ? other.ensig.interface.named.at(name).type : arg_type);
+                    // Execution controllers constrain the referent type while preserving the incoming borrow category for ranking.
+                    if (is_ref(arg_type))
+                    {
+                        ptrref_type reference = arg_type.get_as< ptrref_type >();
+                        if (candidate.ensig.interface.named.contains(name) && candidate.ensig.interface.named.at(name).is_execution_controller)
+                        {
+                            reference.target = std::move(candidate_param);
+                            candidate_param = reference;
+                        }
+                        if (other.ensig.interface.named.contains(name) && other.ensig.interface.named.at(name).is_execution_controller)
+                        {
+                            reference.target = std::move(other_param);
+                            other_param = reference;
+                        }
+                    }
 
                     auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,

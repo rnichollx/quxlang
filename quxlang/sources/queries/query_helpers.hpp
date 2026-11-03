@@ -71,9 +71,9 @@ namespace quxlang::detail
     /** Implementation helpers for functum overload selection. */
     struct functum_select_function_helpers;
     /** Implementation helpers for constexpr evaluation. */
-    struct constexpr_eval_helpers;
+    struct constexpr_layout_scan;
     /** Implementation helpers for antestatal constexpr evaluation. */
-    struct constexpr_eval_antestatal_helpers;
+    struct constexpr_antestatal_materialization;
     /** Implementation helpers for constexpr boolean extraction. */
     struct constexpr_bool_helpers;
     /** Implementation helpers for constexpr unsigned extraction. */

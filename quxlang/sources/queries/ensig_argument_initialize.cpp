@@ -56,7 +56,9 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
         co_return templated;
     }
 
-    if (typeis< attached_type_reference >(from) || typeis< attached_type_reference >(to) || typeis< nvalue_slot >(from) || typeis< nvalue_slot >(to))
+    bool runtime_attachment = (typeis< attached_type_reference >(from) || typeis< attached_type_reference >(to)) &&
+        (parameter_runtime_type(from).has_value() || parameter_runtime_type(to).has_value());
+    if (runtime_attachment || typeis< nvalue_slot >(from) || typeis< nvalue_slot >(to))
     {
         co_return std::nullopt;
     }

@@ -10,36 +10,51 @@
 #include <optional>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
+#include <quxlang/vmir2/lifetime_transition_graph.hpp>
 #include <vector>
-
-/** Selects the lifetime contract applied at a transition boundary. */
-RPNX_ENUM(quxlang::vmir2, lifetime_transition_kind, std::uint8_t, control_flow, normal_exit, exceptional_exit, instruction);
-
-/** Identifies one semantic cleanup operation in execution order. */
-RPNX_ENUM(quxlang::vmir2, lifetime_action_kind, std::uint8_t, destroy_object, destroy_array_prefix, abort_initguard, end_lifetime);
 
 namespace quxlang::vmir2
 {
 
-    using state_map = std::map< vmir2::local_index, slot_state >;
     using slot_vec = std::vector< vm_slot >;
     using state_diff = std::map< vmir2::local_index, std::pair< slot_state, slot_state > >;
-
-    /** Associates a cleanup operation with its slot in the source state. */
-    struct lifetime_action
-    {
-        lifetime_action_kind kind;
-        local_index slot;
-    };
 
     class codegen_state_engine
     {
       private:
-        std::map< vmir2::local_index, vmir2::slot_state >& state;
+        state_map& state;
         std::vector< vmir2::local_type > const& slot_info;
         vmir2::routine_parameters const& routine_params;
+        /// Suppresses repeated whole-state validation while replaying validated instructions.
+        bool validated_replay = false;
 
       public:
+        /** Lists represented construction aliases in parent-before-child order. */
+        static auto retained_storage_bindings(state_map const& current, local_index root) -> std::vector< local_index >
+        {
+            std::vector< local_index > pending{root};
+            std::vector< local_index > bindings;
+            for (std::size_t ordinal = 0; ordinal < pending.size(); ++ordinal)
+            {
+                local_index index = pending.at(ordinal);
+                state_map::const_iterator represented = current.find(index);
+                if (represented == current.end()) continue;
+                bindings.push_back(index);
+                slot_state const& binding = represented->second;
+                if (binding.struct_delegates.has_value())
+                {
+                    for (struct_init_delegate const& delegate : *binding.struct_delegates) pending.push_back(delegate.value);
+                }
+                if (binding.array_delegates.has_value())
+                {
+                    for (local_index child : binding.array_delegates->positional) pending.push_back(child);
+                    for (std::pair< std::string const, local_index > const& entry : binding.array_delegates->named) pending.push_back(entry.second);
+                }
+                pending.insert(pending.end(), binding.array_element_delegates.begin(), binding.array_element_delegates.end());
+            }
+            return bindings;
+        }
+
         /** Verifies that an output contains a complete value or a complete set of construction delegates. */
         static bool initialization_completed(state_map const& states, local_index slot)
         {
@@ -84,83 +99,27 @@ namespace quxlang::vmir2
                     return;
                 }
                 bool initialized = initialization_completed(current, parameter.local_index);
-                if (kind == lifetime_transition_kind::normal_exit && !initialized)
+                if (!initialized)
                 {
                     throw invalid_instruction_transition_error("VMIR normal return requires initialization of parameter slot " + std::to_string(parameter.local_index) + " of type " + to_string(parameter.type));
                 }
             };
-            for (routine_parameter const& parameter : routine.parameters.positional)
-            {
-                validate_initialization_parameter(parameter);
-            }
-            for (std::pair< std::string const, routine_parameter > const& parameter : routine.parameters.named)
-            {
-                validate_initialization_parameter(parameter.second);
-            }
-            std::vector< lifetime_action > actions;
-            auto survives = [&](local_index slot) -> bool
-            {
-                state_map::const_iterator entry = target.find(slot);
-                return entry != target.end() && entry->second.alive();
-            };
-            std::set< local_index > destroy_parameters;
-            if (kind == lifetime_transition_kind::normal_exit || kind == lifetime_transition_kind::exceptional_exit)
+            if (kind == lifetime_transition_kind::normal_exit)
             {
                 for (routine_parameter const& parameter : routine.parameters.positional)
                 {
-                    if (parameter.type.type_is< dvalue_slot >()) destroy_parameters.insert(parameter.local_index);
+                    validate_initialization_parameter(parameter);
                 }
-                for (std::pair< std::string const, routine_parameter > const& entry : routine.parameters.named)
+                for (std::pair< std::string const, routine_parameter > const& parameter : routine.parameters.named)
                 {
-                    if (entry.second.type.type_is< dvalue_slot >()) destroy_parameters.insert(entry.second.local_index);
+                    validate_initialization_parameter(parameter.second);
                 }
             }
-
-            if (kind != lifetime_transition_kind::instruction)
-            {
-                for (state_map::const_reverse_iterator entry = current.crbegin(); entry != current.crend(); ++entry)
-                {
-                    slot_state const& slot = entry->second;
-                    if (!survives(entry->first) && slot.delegate_of.has_value() && slot.struct_delegate_selector.has_value() &&
-                        slot.dtor_enabled() && slot.nontrivial_dtor.has_value() && !survives(*slot.delegate_of))
-                    {
-                        actions.push_back({lifetime_action_kind::destroy_object, entry->first});
-                    }
-                }
-            }
-
-            for (state_map::const_reverse_iterator entry = current.crbegin(); entry != current.crend(); ++entry)
-            {
-                local_index index = entry->first;
-                slot_state const& slot = entry->second;
-                if (!slot.alive() || survives(index)) continue;
-                type_symbol const& type = routine.local_types.at(index).type;
-                bool alias = slot.delegate_of.has_value() || slot.array_delegate_of_initializer.has_value() || slot.destroy_delegate || slot.is_projection;
-                if (kind != lifetime_transition_kind::instruction && type.type_is< array_initializer_type >())
-                {
-                    actions.push_back({lifetime_action_kind::destroy_array_prefix, index});
-                }
-                else if (!alias && kind != lifetime_transition_kind::instruction)
-                {
-                    if (type.type_is< initguard_lock_type >())
-                    {
-                        actions.push_back({lifetime_action_kind::abort_initguard, index});
-                    }
-                    else if (slot.dtor_enabled() && (slot.nontrivial_dtor.has_value() || routine.non_trivial_dtors.contains(type)) &&
-                             !destroy_parameters.contains(index))
-                    {
-                        actions.push_back({lifetime_action_kind::destroy_object, index});
-                    }
-                }
-                if (!alias)
-                {
-                    actions.push_back({lifetime_action_kind::end_lifetime, index});
-                }
-            }
-            return actions;
+            lifetime_transition_graph graph(routine);
+            return graph.flatten(graph.select(current, target, kind));
         }
 
-        codegen_state_engine(std::map< vmir2::local_index, vmir2::slot_state >& state, std::vector< vmir2::local_type > const& slot_info, vmir2::routine_parameters const& params) : state(state), slot_info(slot_info), routine_params(params)
+        codegen_state_engine(state_map& state, std::vector< vmir2::local_type > const& slot_info, vmir2::routine_parameters const& params) : state(state), slot_info(slot_info), routine_params(params)
         {
         }
 
@@ -173,6 +132,23 @@ namespace quxlang::vmir2
                     apply_internal(x);
                     check_state_valid();
                 });
+        }
+
+        /** Replays an instruction whose complete state invariants have already been validated. */
+        void apply_validated(vmir2::vm_instruction const& instruction)
+        {
+            bool previous = validated_replay;
+            validated_replay = true;
+            try
+            {
+                rpnx::apply_visitor< void >(instruction, [&](auto& concrete) { apply_internal(concrete); });
+            }
+            catch (...)
+            {
+                validated_replay = previous;
+                throw;
+            }
+            validated_replay = previous;
         }
 
         void apply_entry()
@@ -342,10 +318,13 @@ namespace quxlang::vmir2
 
         void check_state_valid()
         {
-            for (auto const& [index, st] : state)
+#ifndef NDEBUG
+            if (validated_replay) return;
+            for (state_map::value_type const& entry : state)
             {
-                assert(st.valid());
+                assert(entry.second.valid());
             }
+#endif
         }
 
       private:
@@ -358,6 +337,21 @@ namespace quxlang::vmir2
         void apply_internal(vmir2::assume const& instruction)
         {
             consume(instruction.condition);
+        }
+
+        /** Publishes active ownership after transferring omitted objects to retained storage. */
+        void apply_internal(vmir2::lifetime_transfer const& instruction)
+        {
+            state = instruction.state;
+        }
+
+        /** Reattaches one existing retained object under its selected logical ownership. */
+        void apply_internal(vmir2::lifetime_import const& instruction)
+        {
+            if (!instruction.state.valid())
+                throw invalid_instruction_transition_error("lifetime import requires a valid ownership state");
+            if (!instruction.state.storage_valid) state.erase(instruction.slot);
+            else state[instruction.slot] = instruction.state;
         }
 
         /** Code alignment has no lifetime or value effects. */
@@ -741,6 +735,20 @@ namespace quxlang::vmir2
         {
             output(sin.storage);
         }
+        /** A logical continuation checkpoint preserves the current object lifetimes. */
+        void apply_internal(vmir2::co_save const&)
+        {
+        }
+        /** Publishes a borrowed pointer to compiler-owned cleanup state. */
+        void apply_internal(vmir2::co_cleanup_storage const& instruction)
+        {
+            output(instruction.result);
+        }
+        /** Changes cleanup progress without accessing the associated logical object. */
+        void apply_internal(vmir2::co_cleanup_mark const& instruction)
+        {
+            if (instruction.status > 2) throw invalid_instruction_transition_error("Invalid coroutine cleanup retirement status");
+        }
         void apply_internal(vmir2::storage_init_start const& sis)
         {
             readonly(sis.on_storage);
@@ -749,9 +757,103 @@ namespace quxlang::vmir2
                 throw invalid_instruction_transition_error("storage init delegate already alive");
             }
             state[sis.target_value].destroy_delegate = false;
-            state[sis.target_value].is_projection = true;
+            state[sis.target_value].is_projection = !sis.owns_lifetime;
+            state[sis.target_value].retained_storage = sis.persistent;
+            state[sis.target_value].storage_origin = sis.on_storage;
+            state[sis.target_value].persistent_storage = sis.persistent && !sis.owns_lifetime;
             state[sis.target_value].storage_valid = true;
             state[sis.target_value].stage = slot_stage::dead;
+        }
+        /** Restores initialization metadata for one already bound retained object. */
+        void restore_storage_delegates(storage_delegate_rebind const& instruction, bool persistent, bool retained)
+        {
+            if (instruction.struct_delegates.has_value() && instruction.struct_delegates->size() != instruction.struct_delegate_stages.size())
+            {
+                throw invalid_instruction_transition_error("storage rebind delegate stages do not match delegates");
+            }
+            slot_state& target = state[instruction.target_value];
+            if (instruction.array_delegate_of_initializer.has_value())
+            {
+                readonly(*instruction.array_delegate_of_initializer);
+                target.storage_valid = true;
+                target.array_delegate_of_initializer = instruction.array_delegate_of_initializer;
+                state[*instruction.array_delegate_of_initializer].array_element_delegates.insert(instruction.target_value);
+            }
+            if (!target.storage_valid)
+            {
+                throw invalid_instruction_transition_error("storage rebind delegate has no enclosing object binding");
+            }
+            target.stage = instruction.stage;
+            target.owns_subobject_lifetime = instruction.owns_subobject_lifetime;
+            target.persistent_storage = persistent;
+            target.retained_storage = retained;
+            target.nontrivial_dtor = instruction.nontrivial_dtor;
+            target.lifecycle_phase = instruction.lifecycle_phase;
+            target.destruction_started = instruction.destruction_started;
+            target.construction_pending = instruction.construction_pending;
+            target.struct_delegates = instruction.struct_delegates;
+            target.array_delegates = instruction.array_delegates;
+            if (instruction.struct_delegates.has_value())
+            {
+                for (std::size_t ordinal = 0; ordinal < instruction.struct_delegates->size(); ++ordinal)
+                {
+                    struct_init_delegate const& delegate = instruction.struct_delegates->at(ordinal);
+                    if (state[delegate.value].alive())
+                    {
+                        throw invalid_instruction_transition_error("storage rebind struct delegate already alive");
+                    }
+                    slot_state& binding = state[delegate.value];
+                    binding = slot_state{};
+                    binding.stage = instruction.struct_delegate_stages.at(ordinal);
+                    binding.storage_valid = true;
+                    binding.delegate_of = instruction.target_value;
+                    binding.struct_delegate_selector = delegate.selector;
+                    binding.persistent_storage = persistent;
+                    binding.retained_storage = retained;
+                }
+            }
+            if (instruction.array_delegates.has_value())
+            {
+                local_index initializer = instruction.array_delegates->named.at("INIT");
+                if (state[initializer].stage != slot_stage::full || !state[initializer].storage_valid)
+                {
+                    throw invalid_instruction_transition_error("storage rebind requires an existing array initializer binding");
+                }
+                slot_state& binding = state[initializer];
+                binding.delegate_of = instruction.target_value;
+                binding.persistent_storage = persistent;
+                binding.retained_storage = retained;
+            }
+        }
+        /** Reattaches externally owned storage without transferring its lifetime to the activation. */
+        void apply_internal(vmir2::storage_rebind const& instruction)
+        {
+            readonly(instruction.on_storage);
+            if (state[instruction.target_value].alive())
+            {
+                throw invalid_instruction_transition_error("storage rebind target already alive");
+            }
+            slot_state& target = state[instruction.target_value];
+            target = slot_state{};
+            target.storage_valid = true;
+            target.storage_origin = instruction.on_storage;
+            target.destroy_delegate = instruction.destroy_delegate;
+            target.is_projection = !instruction.destroy_delegate && !instruction.owns_lifetime;
+            restore_storage_delegates(storage_delegate_rebind{
+                .target_value = instruction.target_value,
+                .stage = instruction.stage,
+                .struct_delegates = instruction.struct_delegates,
+                .struct_delegate_stages = instruction.struct_delegate_stages,
+                .array_delegates = instruction.array_delegates,
+                .nontrivial_dtor = instruction.nontrivial_dtor,
+                .lifecycle_phase = instruction.lifecycle_phase,
+                .destruction_started = instruction.destruction_started,
+                .construction_pending = instruction.construction_pending,
+            }, !instruction.destroy_delegate && !instruction.owns_lifetime, true);
+            for (storage_delegate_rebind const& binding : instruction.nested_delegates)
+            {
+                restore_storage_delegates(binding, !instruction.destroy_delegate && !instruction.owns_lifetime, true);
+            }
         }
         void apply_internal(vmir2::storage_deinit_start const& sds)
         {
@@ -762,6 +864,9 @@ namespace quxlang::vmir2
             }
             state[sds.target_value].destroy_delegate = true;
             state[sds.target_value].is_projection = false;
+            state[sds.target_value].persistent_storage = false;
+            state[sds.target_value].retained_storage = false;
+            state[sds.target_value].storage_origin = sds.on_storage;
             state[sds.target_value].storage_valid = true;
             state[sds.target_value].stage = slot_stage::full;
         }
@@ -894,7 +999,15 @@ namespace quxlang::vmir2
         }
         void apply_internal(vmir2::make_reference const& mrf)
         {
-            readonly(mrf.value_index);
+            if (mrf.storage_only)
+            {
+                state[mrf.value_index].storage_valid = true;
+                state[mrf.value_index].construction_pending = true;
+            }
+            else
+            {
+                readonly(mrf.value_index);
+            }
             output(mrf.reference_index);
         }
         void apply_internal(vmir2::cast_ptrref const& crf)
@@ -1435,6 +1548,8 @@ namespace quxlang::vmir2
                 state[delegate.value].delegate_of = dlg.on_value;
                 state[delegate.value].struct_delegate_selector = delegate.selector;
                 state[delegate.value].is_projection = false;
+                state[delegate.value].persistent_storage = state[dlg.on_value].persistent_storage;
+                state[delegate.value].retained_storage = state[dlg.on_value].retained_storage;
                 state[delegate.value].storage_valid = true;
                 state[delegate.value].stage = slot_stage::dead;
             }
@@ -1445,12 +1560,8 @@ namespace quxlang::vmir2
 
         void apply_internal(vmir2::struct_init_finish const& scn)
         {
-            std::vector< vmir2::struct_init_delegate > delegates = state[scn.on_value].struct_delegates.value();
-
-            for (vmir2::struct_init_delegate const& delegate : delegates)
-            {
-                state.erase(delegate.value);
-            }
+            std::vector< local_index > bindings = retained_storage_bindings(state, scn.on_value);
+            for (std::size_t index = 1; index < bindings.size(); ++index) state.erase(bindings[index]);
             state[scn.on_value].struct_delegates.reset();
 
             state[scn.on_value].stage = slot_stage::full;
@@ -1461,13 +1572,81 @@ namespace quxlang::vmir2
             readonly(cpr.from_index);
             output(cpr.to_index);
         }
+        /** Initializes a scoped phase guard before invoking lifecycle code. */
+        void apply_internal(vmir2::struct_phase_enter const& instruction)
+        {
+            if (instruction.kind == struct_phase_kind::steady || !slot_info.at(instruction.saved_phase).type.type_is< address_type >())
+            {
+                throw invalid_instruction_transition_error("lifecycle entry requires an ADDRESS guard and construction or destruction phase");
+            }
+            if (!state[instruction.on_value].storage_valid)
+            {
+                throw invalid_instruction_transition_error("lifecycle entry requires allocated object storage");
+            }
+            if (instruction.subobject_context.has_value())
+            {
+                if (!state[instruction.subobject_context->enclosing_object].storage_valid)
+                    throw invalid_instruction_transition_error("lifecycle entry requires allocated enclosing object storage");
+            }
+            output(instruction.saved_phase);
+            state[instruction.saved_phase].lifecycle_phase = struct_lifecycle_phase{
+                .on_value = instruction.on_value, .kind = instruction.kind, .subobject_context = instruction.subobject_context,
+                .publish_on_normal_exit = instruction.publish_on_normal_exit};
+        }
+        /** Consumes a phase guard after its operation and mandatory cleanup complete. */
+        void apply_internal(vmir2::struct_phase_leave const& instruction)
+        {
+            readonly(instruction.saved_phase);
+            if (!state[instruction.saved_phase].lifecycle_phase.has_value())
+                throw invalid_instruction_transition_error("lifecycle completion requires an active phase guard");
+            consume(instruction.saved_phase);
+        }
+        /** Publishes a completed borrowed construction while preserving enclosing object ownership. */
+        void apply_internal(vmir2::complete_initialization const& instruction)
+        {
+            if (!state[instruction.of].storage_valid || !state[instruction.of].construction_pending)
+            {
+                throw invalid_instruction_transition_error("initialization completion requires a pending borrowed destination");
+            }
+            if (instruction.finalize_partial)
+            {
+                if (!initialization_completed(state, instruction.of))
+                {
+                    throw invalid_instruction_transition_error("initialization completion requires every owned subobject to be initialized");
+                }
+                std::vector< local_index > bindings = retained_storage_bindings(state, instruction.of);
+                for (std::size_t index = 1; index < bindings.size(); ++index) state.erase(bindings[index]);
+                slot_state& value = state[instruction.of];
+                value.struct_delegates.reset();
+                value.array_delegates.reset();
+                value.stage = slot_stage::dead;
+            }
+            output(instruction.of);
+        }
+        /** Disarms repeated destructor selection after an owned operation accepts the object. */
+        void apply_internal(vmir2::begin_destruction const& instruction)
+        {
+            readonly(instruction.of);
+            if (state[instruction.of].stage != slot_stage::full)
+            {
+                throw invalid_instruction_transition_error("destruction transfer requires a complete object or reference");
+            }
+            state[instruction.of].destruction_started = true;
+        }
         void apply_internal(vmir2::destroy const& dst)
         {
-            consume(dst.of);
+            consume(dst.of, false, dst.initialization_rollback);
         }
         void apply_internal(vmir2::end_lifetime const& elt)
         {
-            consume(elt.of);
+            if (!state[elt.of].retained_storage)
+            {
+                consume(elt.of, elt.initialization_rollback, elt.initialization_rollback);
+                return;
+            }
+            std::vector< local_index > bindings = retained_storage_bindings(state, elt.of);
+            consume(elt.of, true, elt.initialization_rollback);
+            for (local_index index : bindings) state[index] = slot_state{};
         }
         void apply_internal(vmir2::pointer_arith const& par)
         {
@@ -1493,6 +1672,8 @@ namespace quxlang::vmir2
                                                 arguments.named["INIT"] = ain.initializer;
                                                 state[source].array_delegates = arguments;
                                                 state[ain.initializer].delegate_of = source;
+                                                state[ain.initializer].persistent_storage = state[source].persistent_storage;
+                                                state[ain.initializer].retained_storage = state[source].retained_storage;
                                                 state[source].storage_valid = true;
                                                 state[source].stage = slot_stage::partial;
                                             }
@@ -1525,9 +1706,30 @@ namespace quxlang::vmir2
             // Mark target as an array delegate of the initializer; not alive yet, but storage is valid.
             readonly(aiv.initializer);
             state[aiv.target].array_delegate_of_initializer = aiv.initializer;
+            state[aiv.initializer].array_element_delegates.insert(aiv.target);
             state[aiv.target].is_projection = false;
+            state[aiv.target].persistent_storage = state[aiv.initializer].persistent_storage;
+            state[aiv.target].retained_storage = state[aiv.initializer].retained_storage;
             state[aiv.target].storage_valid = true;
             state[aiv.target].stage = slot_stage::dead;
+        }
+
+        /** Transfers the last completed prefix element into an independently cleaned alias. */
+        void apply_internal(vmir2::array_deinit_previous const& instruction)
+        {
+            readonly(instruction.initializer);
+            if (state[instruction.target].alive())
+            {
+                throw invalid_instruction_transition_error("array deinitialization target already alive");
+            }
+            slot_state& target = state[instruction.target];
+            target = slot_state{};
+            target.stage = slot_stage::full;
+            target.storage_valid = true;
+            target.retained_storage = true;
+            target.array_delegate_of_initializer = instruction.initializer;
+            target.owns_subobject_lifetime = true;
+            state[instruction.initializer].array_element_delegates.insert(instruction.target);
         }
 
         void apply_internal(vmir2::array_init_finish const& aic)
@@ -1545,6 +1747,7 @@ namespace quxlang::vmir2
                 {
                     state.erase(idx);
                 }
+                for (local_index element : it->second.array_element_delegates) state.erase(element);
                 // Finalize the array value that owns this initializer
                 auto const& s = it->second;
                 if (s.delegate_of.has_value())
@@ -1582,11 +1785,11 @@ namespace quxlang::vmir2
             }
             target_state.stage = slot_stage::full;
         }
-        void consume(local_index idx)
+        void consume(local_index idx, bool end_partial_storage = false, bool initialization_rollback = false)
         {
             auto validate_parameter = [&](routine_parameter const& parameter)
             {
-                if (parameter.local_index == idx && parameter.type.type_is< nvalue_slot >())
+                if (!initialization_rollback && parameter.local_index == idx && parameter.type.type_is< nvalue_slot >())
                 {
                     throw invalid_instruction_transition_error("An initialization output cannot be consumed before normal return");
                 }
@@ -1599,19 +1802,26 @@ namespace quxlang::vmir2
             {
                 validate_parameter(parameter.second);
             }
-            if (state[idx].delegate_of.has_value())
+            if (!initialization_rollback && state[idx].delegate_of.has_value())
             {
                 throw invalid_instruction_transition_error("delegates are not consumable");
             }
-            if (state[idx].stage != slot_stage::full || !state[idx].storage_valid) [[unlikely]]
+            if ((!end_partial_storage && state[idx].stage != slot_stage::full) || !state[idx].storage_valid) [[unlikely]]
             {
-                throw invalid_instruction_transition_error("consume input not alive state");
+                throw invalid_instruction_transition_error("consume input slot " + std::to_string(idx) + " has stage " +
+                    std::to_string(static_cast< unsigned >(state[idx].stage)) + " and storage " + (state[idx].storage_valid ? "allocated" : "unallocated"));
             }
             state[idx].stage = slot_stage::dead;
             state[idx].storage_valid = false;
             state[idx].nontrivial_dtor.reset();
+            state[idx].lifecycle_phase.reset();
+            state[idx].destruction_started = false;
+            state[idx].construction_pending = false;
             state[idx].destroy_delegate = false;
             state[idx].is_projection = false;
+            state[idx].persistent_storage = false;
+            state[idx].retained_storage = false;
+            state[idx].storage_origin.reset();
         }
         void output(local_index idx)
         {
@@ -1619,7 +1829,7 @@ namespace quxlang::vmir2
             {
                 throw invalid_instruction_transition_error("output already set");
             }
-            if (state[idx].is_projection)
+            if (state[idx].is_projection && !state[idx].retained_storage)
             {
                 if (!state[idx].storage_valid) [[unlikely]]
                 {
@@ -1633,6 +1843,8 @@ namespace quxlang::vmir2
                 state[idx].is_projection = false;
             }
             state[idx].stage = slot_stage::full;
+            state[idx].destruction_started = false;
+            state[idx].construction_pending = false;
             if (!state[idx].storage_valid && state[idx].delegate_of.has_value()) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("output not valid");

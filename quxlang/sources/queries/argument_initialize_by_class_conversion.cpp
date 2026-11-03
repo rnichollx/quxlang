@@ -176,6 +176,7 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_class_conversion_sp
             .initializee = constructor_functum,
             .parameters = instatype_from_invotype(invotype{.named = {{"OTHER", probe.type}, {"THIS", nvalue_slot{.target = destination_value_type}}}}),
             .adaptations = allowed_adaptations::source_rebinding,
+            .lookup_kind = function_lookup_kind::invocation,
         };
 
         if ((co_await rpnx::querygraph::request< functum_initialize_query >(init)).has_value())

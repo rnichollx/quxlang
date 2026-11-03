@@ -122,6 +122,7 @@ rpnx::querygraph::coroutine< quxlang::bindable_by_reference_objectization_spec >
             .initializee = constructor_functum,
             .parameters = instatype_from_invotype(invotype{.named = {{"OTHER", probe.type}, {"THIS", nvalue_slot{.target = to}}}}),
             .adaptations = allowed_adaptations::none,
+            .lookup_kind = function_lookup_kind::invocation,
         };
 
         if ((co_await rpnx::querygraph::request< functum_initialize_query >(init)).has_value())

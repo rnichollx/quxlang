@@ -8,6 +8,8 @@
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/function_builtin.hpp>
 #include <quxlang/queries/builtin_vm_procedure3.hpp>
+#include <quxlang/queries/coroutine_destructor.hpp>
+#include <quxlang/queries/instanciation_concrete_params.hpp>
 #include <rpnx/querygraph/querygraph.hpp>
 namespace quxlang
 {
@@ -15,7 +17,7 @@ namespace quxlang
     struct functanoid_is_noexcept_spec
     {
         using query = functanoid_is_noexcept_query;
-        using dependencies = rpnx::typelist< user_default_dtor_exists_query, functum_initialize_query, function_declaration_query, constexpr_bool_query, function_builtin_query, builtin_vm_procedure3_query, functanoid_is_noexcept_query >;
+        using dependencies = rpnx::typelist< user_default_dtor_exists_query, functum_initialize_query, function_declaration_query, constexpr_bool_query, function_builtin_query, builtin_vm_procedure3_query, coroutine_destructor_query, instanciation_concrete_params_query, functanoid_is_noexcept_query >;
     };
     /** Reports the exception contract of a functanoid. */
     rpnx::querygraph::coroutine< functanoid_is_noexcept_spec > functanoid_is_noexcept_impl(instanciation_reference input);

@@ -1,0 +1,29 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_frame_density_tests NAMESPACE
+{
+  ::local_reads COROUTINE(@VALUE:value MUT& I32)
+  {
+    {
+      VAR scratch [64]I32;
+      scratch[0] := 11;
+      value += scratch[0];
+    }
+    AWAIT(FALSE);
+    value += 1;
+  }
+
+  DOC <$ Intrinsic borrows that end before suspension do not retain their source array in the frame. $>
+  ::activation_local_array DUAL_TEST
+  {
+    VAR driver coroutine_frame_tests::controller;
+    VAR value I32 := 0;
+    VAR frame local_reads#(@VALUE MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    TEST_ASSERT(SIZEOF(DECLTYPE(frame)) < SIZEOF([64]I32));
+    frame.INITIALIZE(@VALUE value);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(value == 11);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(value == 12);
+  }
+}

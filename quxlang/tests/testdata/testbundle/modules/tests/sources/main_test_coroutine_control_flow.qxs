@@ -1,0 +1,154 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_control_flow_tests NAMESPACE
+{
+  ::cycle COROUTINE(@right:right BOOL, @visits:visits MUT& I32)
+  {
+    VAR remaining I32 := 4;
+    IF(right) { GOTO :right; }
+    LABEL :left;
+    visits := visits * 10 + 1;
+    AWAIT(FALSE);
+    remaining -= 1;
+    IF(remaining == 0) { RETURN; }
+    GOTO :right;
+    LABEL :right;
+    visits := visits * 10 + 2;
+    AWAIT(FALSE);
+    remaining -= 1;
+    IF(remaining != 0) { GOTO :left; }
+  }
+
+  DOC <$ Both entries of a cyclic control-flow region preserve loop-carried values across suspension. $>
+  ::irreducible_cycle DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR visits I32;
+    VAR frame cycle#(@right BOOL, @visits MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@right FALSE, @visits visits);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(visits == 1212);
+    visits := 0;
+    frame.INITIALIZE(@right TRUE, @visits visits);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(visits == 2121);
+  }
+
+  ::addressed COROUTINE(@result:result MUT& I32)
+  {
+    VAR value I32 := 17;
+    VAR address MUT->I32 := value<-;
+    AWAIT(FALSE);
+    TEST_ASSERT(address == value<-);
+    address-> += 6;
+    AWAIT(FALSE);
+    TEST_ASSERT(address == value<-);
+    result := value;
+  }
+
+  DOC <$ An addressable object retains its identity and storage throughout its suspension-spanning lifetime. $>
+  ::stable_address DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR result I32;
+    VAR frame addressed#(@result MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(result == 23);
+  }
+
+  ::jump_cleanup COROUTINE(@events:events MUT& I32)
+  {
+    {
+      DEFER events := events * 10 + 2;
+      events := events * 10 + 1;
+      AWAIT(FALSE);
+      GOTO :after;
+    }
+    LABEL :after;
+    events := events * 10 + 3;
+  }
+
+  DOC <$ A jump from a resumed scope executes its registered cleanup before entering the destination. $>
+  ::cleanup_on_jump DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR events I32;
+    VAR frame jump_cleanup#(@events MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(events == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(events == 123);
+  }
+
+  ::handler COROUTINE(@result:result MUT& I32)
+  {
+    TRY { THROW I32(@OTHER 73); }
+    CATCH error CONST& I32
+    {
+      TEST_ASSERT(error == 73);
+      TEST_ASSERT(CURRENT_EXCEPTION()??);
+      AWAIT(FALSE);
+      TEST_ASSERT(error == 73);
+      TEST_ASSERT(CURRENT_EXCEPTION()??);
+      TRY { RETHROW; }
+      CATCH nested CONST& I32 { result := nested; }
+    }
+  }
+
+  DOC <$ A suspended handler retains its exception and restores the active caller's handler chain on every drive. $>
+  ::handler_context DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR result I32;
+    VAR frame handler#(@result MUT& I32, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TRY { THROW I32(@OTHER 17); }
+    CATCH caller CONST& I32
+    {
+      TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+      TEST_ASSERT(caller == 17);
+      TEST_ASSERT(CURRENT_EXCEPTION()??);
+    }
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+    TEST_ASSERT(result == 73);
+    TEST_ASSERT((CURRENT_EXCEPTION()??) == FALSE);
+  }
+
+  ::failure COROUTINE()
+  {
+    AWAIT(FALSE);
+    THROW I32(@OTHER 29);
+  }
+
+  DOC <$ An escaping terminal exception leaves the frame completed and permits a new invocation. $>
+  ::terminal_exception DUAL_TEST
+  {
+    VAR controller coroutine_frame_tests::controller;
+    VAR frame failure#(@CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    VAR caught BOOL;
+    TRY { frame.RESUME(@CONTROLLER controller); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 29); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TRY { frame.RESUME(@CONTROLLER controller); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 29); }
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller));
+  }
+}

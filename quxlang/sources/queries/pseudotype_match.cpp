@@ -266,6 +266,7 @@ namespace quxlang
                 initialization_reference const& pseudotype = as< initialization_reference >(pseudotype_symbol);
                 initialization_reference const& candidate = as< initialization_reference >(candidate_symbol);
                 if (pseudotype.arguments != candidate.arguments || pseudotype.adaptations != candidate.adaptations
+                    || pseudotype.lookup_kind != candidate.lookup_kind || pseudotype.implicit_named_arguments != candidate.implicit_named_arguments
                     || pseudotype.context.has_value() != candidate.context.has_value())
                 {
                     return false;

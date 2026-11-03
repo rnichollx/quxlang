@@ -51,7 +51,7 @@ namespace quxlang::detail
                     result.runtime_dependencies.insert(vmir_runtime_dependency::exception_resume);
                     result.runtime_dependencies.insert(vmir_runtime_dependency::exception_terminate);
                 }
-                if (block.catcher)
+                if (block.catcher && !block.catcher->terminate_before_capture)
                 {
                     result.runtime_dependencies.insert(vmir_runtime_dependency::exception_record_release);
                     result.struct_layouts.insert(subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "EXCEPTION_UNWIND_RECORD"});

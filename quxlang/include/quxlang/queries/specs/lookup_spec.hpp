@@ -11,11 +11,13 @@
 #include <quxlang/queries/function_declaration.hpp>
 #include <quxlang/queries/function_pack_info.hpp>
 #include <quxlang/queries/instanciation.hpp>
+#include <quxlang/queries/instanciation_concrete_params.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/public_struct_field_declaration_list.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_ast.hpp>
 #include <quxlang/queries/subtag_binding.hpp>
+#include <quxlang/queries/struct_constructor_forms.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/type_is_stringlike.hpp>
@@ -30,7 +32,7 @@ namespace quxlang
     struct lookup_spec
     {
         using query = lookup_query;
-        using dependencies = rpnx::typelist< body_parent, published_name_info, vm_procedure3_query, functanoid_return_type_query, constexpr_eval_v3_query, constexpr_routine_v3_query, constexpr_u64_query, declaration_is_accessible_query, exists_query, function_declaration_query, function_pack_info_query, instanciation_query, lookup_query, machine_info_query, module_ast_query, public_struct_field_declaration_list_query, subtag_binding_query, symboid_query, symbol_type_query, type_is_stringlike_query >;
+        using dependencies = rpnx::typelist< body_parent, published_name_info, vm_procedure3_query, functanoid_return_type_query, constexpr_eval_v3_query, constexpr_routine_v3_query, constexpr_u64_query, declaration_is_accessible_query, exists_query, function_declaration_query, function_pack_info_query, instanciation_query, instanciation_concrete_params_query, lookup_query, machine_info_query, module_ast_query, public_struct_field_declaration_list_query, struct_constructor_forms_query, subtag_binding_query, symboid_query, symbol_type_query, type_is_stringlike_query >;
     };
 
     /** @brief Resolves a type reference using exhaustive variant dispatch. */

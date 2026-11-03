@@ -8,6 +8,7 @@
 #include <quxlang/data/enum_flagset_info.hpp>
 #include <quxlang/data/fusion_info.hpp>
 #include <quxlang/data/fusion_layout.hpp>
+#include <quxlang/data/class_placement_info.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/constexpr_types.hpp"
 #include "vmir2.hpp"
@@ -35,6 +36,10 @@ namespace quxlang
           public:
             ir2_constexpr_interpreter();
             ~ir2_constexpr_interpreter();
+            /** Requires authoritative target geometry for physical storage addresses. */
+            void require_physical_layout();
+            /** Registers the target byte extent and alignment of one concrete runtime type. */
+            void add_type_placement(type_symbol type, class_placement_info placement);
             /** Adds the semantic fields of a struct without requiring physical target layout. */
             void add_struct_definition(type_symbol name, std::vector< struct_field > fields);
             /** Adds the semantic fields and physical target alignment of a laid-out struct. */

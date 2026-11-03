@@ -267,6 +267,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
                 },
             .context = runtime_context,
             .adaptations = allowed_adaptations::none,
+            .lookup_kind = function_lookup_kind::invocation,
         };
         if (dependency == vmir_runtime_dependency::assert_fail)
         {
@@ -334,6 +335,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
             {
                 empty_call.initializee = *resolved;
             }
+            empty_call.lookup_kind = function_lookup_kind::invocation;
             entry = co_await rpnx::querygraph::request< instanciation_query >(std::move(empty_call));
         }
         if (!entry.has_value())
@@ -394,6 +396,7 @@ rpnx::querygraph::coroutine< quxlang::output_cortado_input_spec > quxlang::outpu
         {
             main_initialization.initializee = *resolved_main;
         }
+        main_initialization.lookup_kind = function_lookup_kind::invocation;
         std::optional< instanciation_reference > const unit_test_main = resolved_main->type_is< instanciation_reference >() ? std::optional< instanciation_reference >(resolved_main->get_as< instanciation_reference >()) : co_await rpnx::querygraph::request< instanciation_query >(std::move(main_initialization));
         if (!unit_test_main.has_value())
         {

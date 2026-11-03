@@ -17,6 +17,7 @@ using namespace quxlang;
 
 rpnx::querygraph::coroutine< quxlang::functum_exists_and_is_callable_with_spec > quxlang::functum_exists_and_is_callable_with_impl(initialization_reference input)
 {
+    input.lookup_kind = function_lookup_kind::invocation;
     auto ol = co_await rpnx::querygraph::request< functum_initialize_query >(input);
 
     co_return ol.has_value();

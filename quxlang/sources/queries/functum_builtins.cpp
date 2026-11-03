@@ -29,6 +29,26 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     std::set< builtin_function_info > allowed_operations;
     machine_target_info const machine = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+    bool generated_coroutine_lifecycle = false;
+
+    auto coroutine_overload = [](builtin_function_info& operation)
+    {
+        operation.execution_kind = function_execution_kind::coroutine;
+        operation.overload.interface.named.emplace("CONTROLLER", argif{.type = auto_temploidic{}, .is_defaulted = true, .is_execution_controller = true});
+        for (std::size_t index = 0; index < operation.overload.interface.positional.size(); ++index)
+        {
+            argif& parameter = operation.overload.interface.positional[index];
+            if (is_ref(parameter.type) || parameter.type.type_is< nvalue_slot >() || parameter.type.type_is< dvalue_slot >()) continue;
+            operation.owned_positional_parameters.insert(index);
+            parameter.type = ptrref_type{.target = std::move(parameter.type), .ptr_class = pointer_class::ref, .qual = qualifier::auto_, .is_ibc = false};
+        }
+        for (std::pair< std::string const, argif >& parameter : operation.overload.interface.named)
+        {
+            if (parameter.first == "CONTROLLER" || is_ref(parameter.second.type) || parameter.second.type.type_is< nvalue_slot >() || parameter.second.type.type_is< dvalue_slot >()) continue;
+            operation.owned_named_parameters.insert(parameter.first);
+            parameter.second.type = ptrref_type{.target = std::move(parameter.second.type), .ptr_class = pointer_class::ref, .qual = qualifier::auto_, .is_ibc = false};
+        }
+    };
 
     auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type, std::optional< std::int32_t > priority = std::nullopt)
     {
@@ -62,7 +82,13 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         {
             return_type.as< ptrref_type >().is_ibc = std::nullopt;
         }
-        allowed_operations.insert(make_overload(positionals, named, return_type, priority));
+        builtin_function_info operation = make_overload(positionals, named, return_type, priority);
+        allowed_operations.insert(operation);
+        if (generated_coroutine_lifecycle)
+        {
+            coroutine_overload(operation);
+            allowed_operations.insert(std::move(operation));
+        }
     };
 
     auto atomic_mode_from_type = [](type_symbol const& type) -> std::optional< atomic_access_mode >
@@ -583,6 +609,11 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     bool const parent_is_struct = parent_class_kind == class_kind::struct_;
     bool const parent_is_fusion = parent_class_kind == class_kind::union_ || parent_class_kind == class_kind::variant;
     bool const parent_is_owning_generic = parent_class_kind == class_kind::generic;
+    if ((parent_is_struct || parent_is_fusion || typeis< array_type >(parent)) &&
+        (keywords::is_constructor_name(name) || name == "OPERATOR:=" || name == "OPERATOR<->"))
+    {
+        generated_coroutine_lifecycle = co_await rpnx::querygraph::request< type_has_coroutine_lifecycle_query >(parent);
+    }
     bool uses_split_lifetime = false;
     if (parent_is_struct)
     {
@@ -593,7 +624,17 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     {
         if ((name == "CONSTRUCTOR") != uses_split_lifetime)
         {
-            co_return co_await rpnx::querygraph::request< list_builtin_constructors_query >(parent);
+            std::set< builtin_function_info > const& constructors = co_await rpnx::querygraph::request< list_builtin_constructors_query >(parent);
+            allowed_operations.insert(constructors.begin(), constructors.end());
+            if (generated_coroutine_lifecycle)
+            {
+                for (builtin_function_info operation : constructors)
+                {
+                    coroutine_overload(operation);
+                    allowed_operations.insert(std::move(operation));
+                }
+            }
+            co_return allowed_operations;
         }
         co_return allowed_operations;
     }

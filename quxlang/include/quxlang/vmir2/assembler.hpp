@@ -111,6 +111,28 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::make_pointer_to inst);
         std::string to_string_internal(vmir2::storage_init inst);
         std::string to_string_internal(vmir2::storage_init_start inst);
+        /** Prints a persistent storage binding and its expected lifetime stage. */
+        std::string to_string_internal(vmir2::storage_rebind inst);
+        /** Renders a reverse transfer from an initialized array prefix. */
+        std::string to_string_internal(vmir2::array_deinit_previous inst);
+        /** Renders destruction transfer to an owned operation. */
+        std::string to_string_internal(vmir2::struct_phase_enter inst);
+        std::string to_string_internal(vmir2::struct_phase_leave inst);
+        std::string to_string_internal(vmir2::begin_destruction inst);
+        /** Renders publication of construction through a borrowed destination. */
+        std::string to_string_internal(vmir2::complete_initialization inst);
+        /** Renders a logical coroutine continuation checkpoint. */
+        std::string to_string_internal(vmir2::co_save inst);
+        /** Renders access to compiler-owned coroutine cleanup storage. */
+        std::string to_string_internal(vmir2::co_cleanup_storage const& instruction);
+        /** Renders retirement of a logical cleanup identity. */
+        std::string to_string_internal(vmir2::co_cleanup_mark const& instruction);
+        std::string to_string_internal(vmir2::lifetime_transfer const& instruction);
+        std::string to_string_internal(vmir2::lifetime_import const& instruction);
+        /** Renders a logical coroutine suspension. */
+        std::string to_string_internal(vmir2::co_suspend inst);
+        /** Renders logical coroutine completion. */
+        std::string to_string_internal(vmir2::co_complete inst);
         std::string to_string_internal(vmir2::storage_deinit_start inst);
         std::string to_string_internal(vmir2::storage_pun inst);
         std::string to_string_internal(vmir2::get_underyling_storage inst);

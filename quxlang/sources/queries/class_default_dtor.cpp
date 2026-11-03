@@ -11,6 +11,10 @@
 
 rpnx::querygraph::coroutine< quxlang::class_default_dtor_spec > quxlang::class_default_dtor_impl(type_symbol input)
 {
+    if (co_await rpnx::querygraph::request< type_is_async_only_query >(input))
+    {
+        throw semantic_compilation_error("Synchronous destruction is unavailable for async-only type " + to_string(input));
+    }
     symbol_kind const input_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
     class_kind const concrete_kind = input_kind == symbol_kind::class_ ? co_await rpnx::querygraph::request< class_type_query >(input) : class_kind::noexist;
     bool uses_split_destructor = false;
@@ -25,6 +29,7 @@ rpnx::querygraph::coroutine< quxlang::class_default_dtor_spec > quxlang::class_d
     init.initializee = dtor_symbol;
     init.parameters = instatype_from_invotype(invotype{.named{{"THIS", dvalue_slot{input}}}});
     init.adaptations = allowed_adaptations::destination_rebinding;
+    init.lookup_kind = function_lookup_kind::invocation;
 
     auto dtor_inst = co_await rpnx::querygraph::request< functum_initialize_query >(init);
 

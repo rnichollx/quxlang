@@ -1,0 +1,190 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_return_transfer_tests NAMESPACE
+{
+  ::transfer_awaiter STRUCT
+  {
+    .source VAR CONST->I32;
+    .destination VAR MUT->I32;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN FALSE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO) CONST: BOOL
+    {
+      CONTROLLER.registrations += 1;
+      RETURN TRUE;
+    }
+    .AWAIT_RESUME FUNCTION() CONST
+    {
+      .destination-> := .source->;
+    }
+  }
+
+  ::controller STRUCT
+  {
+    .result VAR I32;
+    .registrations VAR I32;
+    .CO_AWAIT FUNCTION(@ARG CONST& transfer_awaiter): CONST& transfer_awaiter { RETURN ARG; }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_await_lifetime_tests::ready_awaiter
+    {
+      VAR result coroutine_await_lifetime_tests::ready_awaiter;
+      result.ready := ARG;
+      RETURN result;
+    }
+    .CO_RETURN FUNCTION(@ARG CONST& I32) MUT: transfer_awaiter
+    {
+      VAR transfer transfer_awaiter;
+      transfer.source := ARG<-;
+      transfer.destination := .result<-;
+      RETURN transfer;
+    }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  ::produce COROUTINE(): I32
+  {
+    RETURN 42;
+  }
+
+  ::cancellable_produce COROUTINE() CANCELLABLE: I32
+  {
+    RETURN 43;
+  }
+
+  DOC <$ Cancellation preserves a suspended return transfer until its authorized continuation arrives. $>
+  ::return_transfer_shield DUAL_TEST
+  {
+    VAR driver controller;
+    VAR frame cancellable_produce#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(driver.result == 0);
+    TEST_ASSERT(driver.registrations == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.result == 43);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER driver));
+  }
+
+  DOC <$ A return awaiter may borrow the ready completion value until asynchronous transfer finishes. $>
+  ::ready_value_survives_transfer DUAL_TEST
+  {
+    VAR driver controller;
+    VAR frame produce#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(driver.registrations == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(driver.registrations == 1);
+    TEST_ASSERT(driver.result == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.result == 42);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.registrations == 1);
+  }
+}
+
+::coroutine_exception_transfer_tests NAMESPACE
+{
+  ::transfer_awaiter STRUCT
+  {
+    .source VAR CONST->EXCEPTION_PTR;
+    .destination VAR MUT->EXCEPTION_PTR;
+    .fail VAR BOOL;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN FALSE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO) CONST: BOOL
+    {
+      CONTROLLER.registrations += 1;
+      RETURN TRUE;
+    }
+    .AWAIT_RESUME FUNCTION() CONST
+    {
+      IF (.fail) { THROW I32(@OTHER 97); }
+      .destination-> := .source->;
+    }
+  }
+
+  ::controller STRUCT
+  {
+    .failure VAR EXCEPTION_PTR;
+    .reports VAR I32;
+    .registrations VAR I32;
+    .fail VAR BOOL;
+    .CO_AWAIT FUNCTION(@ARG CONST& transfer_awaiter): CONST& transfer_awaiter { RETURN ARG; }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_await_lifetime_tests::ready_awaiter
+    {
+      VAR result coroutine_await_lifetime_tests::ready_awaiter;
+      result.ready := ARG;
+      RETURN result;
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR) MUT: transfer_awaiter
+    {
+      .reports += 1;
+      VAR transfer transfer_awaiter;
+      transfer.source := ARG<-;
+      transfer.destination := .failure<-;
+      transfer.fail := .fail;
+      RETURN transfer;
+    }
+  }
+
+  ::produce COROUTINE() { THROW I32(@OTHER 71); }
+
+  ::cancellable_produce COROUTINE() CANCELLABLE { THROW I32(@OTHER 73); }
+
+  DOC <$ Cancellation preserves suspended exception reporting until its authorized continuation arrives. $>
+  ::exception_transfer_shield DUAL_TEST
+  {
+    VAR driver controller;
+    VAR frame cancellable_produce#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(driver.failure!?);
+    TEST_ASSERT(driver.reports == 1);
+    TEST_ASSERT(driver.registrations == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    VAR caught BOOL;
+    TRY { THROW_EXCEPTION_PTR(driver.failure); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 73); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER driver));
+    TEST_ASSERT(driver.reports == 1);
+  }
+
+  DOC <$ Exception reporting retains the owned exception until a suspended transfer completes. $>
+  ::borrowed_exception_transfer DUAL_TEST
+  {
+    VAR driver controller;
+    VAR frame produce#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(driver.reports == 1);
+    TEST_ASSERT(driver.registrations == 1);
+    TEST_ASSERT(driver.failure!?);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.failure??);
+    VAR caught BOOL;
+    TRY { THROW_EXCEPTION_PTR(driver.failure); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 71); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.reports == 1);
+  }
+
+  DOC <$ Failure of a suspended exception-reporting operation completes the frame without repeated reporting. $>
+  ::reporting_failure DUAL_TEST
+  {
+    VAR driver controller;
+    driver.fail := TRUE;
+    VAR frame produce#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    VAR caught BOOL;
+    TRY { frame.RESUME(@CONTROLLER driver); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 97); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(driver.failure!?);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.reports == 1);
+  }
+}

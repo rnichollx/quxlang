@@ -2,6 +2,32 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::exception_tests NAMESPACE
 {
+  DOC <$ Empty exception handles compare equal when no handler is active. $>
+  ::empty_exception_equality DUAL_TEST
+  {
+    VAR empty EXCEPTION_PTR;
+    TEST_ASSERT(CURRENT_EXCEPTION() == empty);
+    TRY { THROW I32(@OTHER 17); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 17); }
+    TEST_ASSERT(CURRENT_EXCEPTION() == empty);
+  }
+
+  ::zero_pointer_state STRUCT
+  {
+    .pointer VAR MUT->I32;
+    .elements VAR [2]MUT->I32;
+  }
+
+  ::zero_pointer_values VAR PER_THREAD CONSTEXPR_OK zero_pointer_state;
+
+  DOC <$ Zero-initialized global aggregates contain typed null pointer fields and array elements. $>
+  ::zero_pointer_representation DUAL_TEST
+  {
+    TEST_ASSERT(zero_pointer_values.pointer == NULL);
+    TEST_ASSERT(zero_pointer_values.elements[0] == NULL);
+    TEST_ASSERT(zero_pointer_values.elements[1] == zero_pointer_values.pointer);
+  }
+
   DOC <$ Reads the active handler from a separately called function. $>
   ::read_current FUNCTION() NOEXCEPT: EXCEPTION_PTR
   {

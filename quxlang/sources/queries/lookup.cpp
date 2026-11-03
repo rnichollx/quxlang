@@ -265,7 +265,7 @@ namespace quxlang::detail
             }
         }
 
-        if (fb.name == "EXCEPTION_PTR" || fb.name == "CURRENT_EXCEPTION" || fb.name == "THROW_EXCEPTION_PTR" || fb.name == "ARITHMETIC_OVERFLOW" || fb.name == "TEST_FAILED")
+        if (fb.name == "EXCEPTION_PTR" || fb.name == "CURRENT_EXCEPTION" || fb.name == "THROW_EXCEPTION_PTR" || fb.name == "ARITHMETIC_OVERFLOW" || fb.name == "TEST_FAILED" || fb.name == "COROUTINE_CANCELLATION_MODE" || fb.name == "COROUTINE_CANCELLED")
         {
             co_return co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                 .context = input.context,
@@ -383,6 +383,32 @@ namespace quxlang::detail
         }
 
         auto parent_canonical = parent_canonical_opt.value();
+        if (parent_canonical.type_is< attached_type_reference >() &&
+            parent_canonical.get_as< attached_type_reference >().carrying_type.type_is< void_type >())
+        {
+            type_symbol attached_symbol = parent_canonical.get_as< attached_type_reference >().attached_symbol;
+            parent_canonical = std::move(attached_symbol);
+        }
+        if (parent_canonical.type_is< instanciation_reference >() &&
+            (sub.name == "FRAME_TYPE" || sub.name == "CONTROLLER_TYPE" || sub.name == "RETURN_TYPE" || sub.name == "CANCELLATION_MODE"))
+        {
+            instanciation_reference const& coroutine = parent_canonical.get_as< instanciation_reference >();
+            std::optional< ast2_function_declaration > declaration = co_await rpnx::querygraph::request< function_declaration_query >(coroutine.temploid);
+            if (!declaration.has_value() || declaration->header.execution_kind != function_execution_kind::coroutine)
+            {
+                throw semantic_compilation_error("Coroutine metadata requires a coroutine specialization");
+            }
+            if (sub.name == "FRAME_TYPE") co_return subsymbol{.of = parent_canonical, .name = sub.name};
+            if (sub.name == "CONTROLLER_TYPE") co_return remove_ref(parameter_instantiation_type(coroutine.params.named.at("CONTROLLER")));
+            if (sub.name == "CANCELLATION_MODE")
+            {
+                std::string mode = "NONE";
+                if (declaration->header.cancellation_mode == coroutine_cancellation_mode::cooperative) mode = "COOPERATIVE";
+                else if (declaration->header.cancellation_mode == coroutine_cancellation_mode::instant) mode = "INSTANT";
+                co_return subsymbol{.of = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "COROUTINE_CANCELLATION_MODE"}, .name = mode};
+            }
+            co_return co_await rpnx::querygraph::request< functanoid_return_type_query >(coroutine);
+        }
 
         auto parent_canonical_str = to_string(parent_canonical);
         assert(!type_is_contextual(parent_canonical));
@@ -436,6 +462,8 @@ namespace quxlang::detail
     {
         initialization_reference output;
         output.adaptations = param_set.adaptations;
+        output.lookup_kind = param_set.lookup_kind;
+        output.implicit_named_arguments = param_set.implicit_named_arguments;
         output.context = param_set.context.value_or(input.context);
         output.arguments = param_set.arguments;
         output.parameters = param_set.parameters;
@@ -450,8 +478,52 @@ namespace quxlang::detail
         }
 
         output.initializee = callee_canonical.value();
+        if (output.initializee.type_is< attached_type_reference >() &&
+            output.initializee.get_as< attached_type_reference >().carrying_type.type_is< void_type >())
+        {
+            type_symbol attached_symbol = output.initializee.get_as< attached_type_reference >().attached_symbol;
+            output.initializee = std::move(attached_symbol);
+        }
 
         auto initializee_kind = co_await rpnx::querygraph::request< symbol_type_query >(output.initializee);
+        if (output.initializee.type_is< instanciation_reference >())
+        {
+            instanciation_reference const& descriptor = output.initializee.get_as< instanciation_reference >();
+            std::optional< ast2_function_declaration > declaration = co_await rpnx::querygraph::request< function_declaration_query >(descriptor.temploid);
+            if (declaration.has_value() && declaration->header.execution_kind == function_execution_kind::coroutine)
+            {
+                instatype parameters = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(descriptor);
+                for (std::pair< std::string const, parameter_instantiation > const& parameter : output.parameters.named)
+                {
+                    parameters.named[parameter.first] = parameter.second;
+                }
+                if (!output.parameters.positional.empty()) parameters.positional = output.parameters.positional;
+                output.parameters = std::move(parameters);
+                output.initializee = descriptor.temploid;
+                initializee_kind = symbol_kind::function;
+            }
+        }
+        if (initializee_kind == symbol_kind::functum || initializee_kind == symbol_kind::function)
+        {
+            for (expression_arg const& argument : output.arguments)
+            {
+                constexpr_input_v3 evaluation;
+                evaluation.expr = argument.value;
+                evaluation.context = *output.context;
+                constexpr_result_v3 result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(std::move(evaluation));
+                if (!result.type_binding_result.has_value())
+                {
+                    throw semantic_compilation_error("Coroutine specialization arguments must name types");
+                }
+                parameter_instantiation parameter = make_type_instantiation(*result.type_binding_result);
+                if (argument.name.has_value()) output.parameters.named[*argument.name] = std::move(parameter);
+                else output.parameters.positional.push_back(std::move(parameter));
+            }
+            output.arguments.clear();
+            std::optional< instanciation_reference > specialization = co_await rpnx::querygraph::request< instanciation_query >(output);
+            if (!specialization.has_value()) co_return std::nullopt;
+            co_return *specialization;
+        }
         if (initializee_kind == symbol_kind::templex || initializee_kind == symbol_kind::template_)
         {
             auto inst = co_await rpnx::querygraph::request< instanciation_query >(output);
@@ -556,6 +628,15 @@ namespace quxlang::detail
 
         assert(!type_is_contextual(*parent_canonical));
         type_symbol selected_declaration = submember{*parent_canonical, sub.name};
+        if (sub.name == "CONSTRUCTOR")
+        {
+            ast2_symboid const& owner = co_await rpnx::querygraph::request< symboid_query >(*parent_canonical);
+            if (owner.type_is< ast2_struct_declaration >() &&
+                (co_await rpnx::querygraph::request< struct_constructor_forms_query >(*parent_canonical)).uses_split_abi)
+            {
+                selected_declaration = submember{*parent_canonical, "FULLOBJECT_CONSTRUCTOR"};
+            }
+        }
         co_await require_accessible_declaration(input, selected_declaration);
         co_return selected_declaration;
     }

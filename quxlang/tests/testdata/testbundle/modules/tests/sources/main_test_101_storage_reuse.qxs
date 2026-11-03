@@ -2,6 +2,33 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::storage_reuse_tests NAMESPACE
 {
+  DOC <$ Pointer conversion preserves the address of typed storage across different payload lifetimes. $>
+  ::alternative_pointer_identity DUAL_TEST
+  {
+    VAR slot TYPED_STORAGE(I32, U32);
+    VAR first ->I32 := PLACE AT(slot) I32 := 17;
+    VAR address ->VOID := first AS REINTERPRET ->VOID;
+    DESTROY AT(slot) I32;
+    VAR second ->U32 := PLACE AT(slot) U32 := 29;
+    TEST_ASSERT(address == (second AS REINTERPRET ->VOID));
+    TEST_ASSERT((address <=> (second AS REINTERPRET ->VOID)) == ORDER::EQUAL);
+    DESTROY AT(slot) U32;
+  }
+
+  DOC <$ Array payloads reuse physical byte positions across element types with different strides. $>
+  ::array_byte_offset_identity DUAL_TEST
+  {
+    VAR slot TYPED_STORAGE([4]U8, [2]U16);
+    VAR first -> [4]U8 := PLACE AT(slot) [4]U8;
+    VAR middle ->VOID := (first->)[2]<- AS REINTERPRET ->VOID;
+    VAR earlier ->VOID := (first->)[1]<- AS REINTERPRET ->VOID;
+    DESTROY AT(slot) [4]U8;
+    VAR second -> [2]U16 := PLACE AT(slot) [2]U16;
+    TEST_ASSERT(middle == ((second->)[1]<- AS REINTERPRET ->VOID));
+    TEST_ASSERT(earlier != ((second->)[1]<- AS REINTERPRET ->VOID));
+    DESTROY AT(slot) [2]U16;
+  }
+
   DOC <$ Reusing typed storage starts a fresh owned lifetime each time and explicit destruction runs exactly once. $>
   ::repeated_owned_lifetimes DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
   {

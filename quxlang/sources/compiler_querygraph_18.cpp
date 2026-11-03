@@ -3,6 +3,10 @@
 #include "compiler_querygraph_internal.hpp"
 #include <quxlang/queries/specs/functanoid_is_noexcept_spec.hpp>
 #include <quxlang/queries/specs/type_operation_is_noexcept_spec.hpp>
+#include <quxlang/queries/specs/type_is_async_only_spec.hpp>
+#include <quxlang/queries/specs/type_has_coroutine_lifecycle_spec.hpp>
+#include <quxlang/queries/specs/type_destruction_capabilities_spec.hpp>
+#include <quxlang/queries/specs/coroutine_destructor_spec.hpp>
 
 #include <quxlang/queries/specs/type_is_serialoid_spec.hpp>
 #include <quxlang/queries/specs/type_is_stringlike_spec.hpp>
@@ -19,6 +23,10 @@ auto quxlang::detail::register_compiler_querygraph_handlers_16(compiler_querygra
     auto& graph = querygraph.raw_graph();
     graph.register_handler_function< functanoid_is_noexcept_spec >(functanoid_is_noexcept_impl);
     graph.register_handler_function< type_operation_is_noexcept_spec >(type_operation_is_noexcept_impl);
+    graph.register_handler_function< type_is_async_only_spec >(type_is_async_only_impl);
+    graph.register_handler_function< type_has_coroutine_lifecycle_spec >(type_has_coroutine_lifecycle_impl);
+    graph.register_handler_function< type_destruction_capabilities_spec >(type_destruction_capabilities_impl);
+    graph.register_handler_function< coroutine_destructor_spec >(coroutine_destructor_impl);
     graph.register_handler_function< type_is_serialoid_spec >(type_is_serialoid_impl);
     graph.register_handler_function< type_is_stringlike_spec >(type_is_stringlike_impl);
     graph.register_handler_function< type_is_trivially_default_constructible_spec >(type_is_trivially_default_constructible_impl);

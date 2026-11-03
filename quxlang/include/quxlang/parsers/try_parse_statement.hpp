@@ -241,6 +241,18 @@ namespace quxlang::parsers
         {
             return parse_return_statement(ctx);
         }
+        else if (skip_keyword_if_is(pos, end, "YIELD"))
+        {
+            function_yield_statement statement;
+            statement.value = parse_expression(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw syntax_compilation_error("Expected ';' after YIELD expression");
+            }
+            statement.location = ctx.get_location_optional(begin, pos);
+            return statement;
+        }
         else if (kw == "RETURN_UNEQUAL")
         {
             return parse_return_unequal_statement(ctx);

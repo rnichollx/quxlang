@@ -22,7 +22,8 @@
 
 namespace quxlang::detail
 {
-    struct constexpr_eval_antestatal_helpers
+    /** Resolves type dependencies and encoded values for constant materialization. */
+    struct constexpr_antestatal_materialization
     {
         /// Returns true when the type symbol represents the compiler's readonly STRING_CONSTANT type.
         static auto is_string_constant_type(type_symbol const& type) -> bool
@@ -100,6 +101,16 @@ namespace quxlang::detail
             pending.push_back(type.get_as< quxlang::ptrref_type >().target);
             return;
         }
+        if (type.type_is< quxlang::attached_type_reference >())
+        {
+            pending.push_back(type.get_as< quxlang::attached_type_reference >().carrying_type);
+            return;
+        }
+        if (type.type_is< quxlang::readonly_constant >())
+        {
+            pending.push_back(ptrref_type{.target = int_type{.bits = 8, .has_sign = false}, .ptr_class = pointer_class::array, .qual = qualifier::constant});
+            return;
+        }
         if (type.type_is< quxlang::array_type >())
         {
             pending.push_back(type.get_as< quxlang::array_type >().element_type);
@@ -140,11 +151,15 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     interp.set_source_index(indexed_source_bundle);
     machine_target_info machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
     bool layoutless_target = cpu_is_layoutless(machine_info.cpu_type);
+    if (!layoutless_target)
+    {
+        interp.require_physical_layout();
+    }
 
     interp.set_constexpr_result_global_symbol(input.antestatal_global_symbol);
 
     std::set< type_symbol > layout_types;
-    std::set< type_symbol > loaded_layouts;
+    std::set< type_symbol > loaded_types;
     std::vector< instanciation_reference > pending_functanoids;
     std::set< type_symbol > queued_functanoids;
     std::set< type_symbol > loaded_functanoids;
@@ -215,14 +230,23 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
                 type_symbol type = std::move(pending.back());
                 pending.pop_back();
 
-                detail::constexpr_eval_antestatal_helpers::add_type_for_layout_scan(pending, type);
+                if (!loaded_types.insert(type).second)
+                {
+                    continue;
+                }
+                if (!layoutless_target && !typeis< nvalue_slot >(type) && !typeis< dvalue_slot >(type) && !typeis< virtual_storage >(type))
+                {
+                    class_placement_info const& placement = co_await rpnx::querygraph::request< class_placement_info_query >(type);
+                    interp.add_type_placement(type, placement);
+                }
 
-                if (!detail::constexpr_eval_antestatal_helpers::type_might_have_layout(type) || loaded_layouts.contains(type))
+                detail::constexpr_antestatal_materialization::add_type_for_layout_scan(pending, type);
+
+                if (!detail::constexpr_antestatal_materialization::type_might_have_layout(type))
                 {
                     continue;
                 }
 
-                loaded_layouts.insert(type);
                 class_kind const kind = co_await rpnx::querygraph::request< class_type_query >(type);
                 if (kind == class_kind::enum_)
                 {
@@ -279,6 +303,14 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
                     {
                         pending.push_back(field.type);
                     }
+                    for (struct_base_layout_info const& base : layout.direct_bases)
+                    {
+                        pending.push_back(base.type);
+                    }
+                    for (struct_virtual_base_layout_info const& base : layout.virtual_bases)
+                    {
+                        pending.push_back(base.type);
+                    }
                     interp.add_struct_layout(type, std::move(layout));
                 }
             }
@@ -298,6 +330,9 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         antestatal_value value = co_await rpnx::querygraph::request< antestatal_static_value_query >(symbol);
         dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
             direct_dependencies_input{.symbol = symbol, .set = dependency_set::constexpr_});
+        enqueue_layouts(dependencies.type_placements);
+        enqueue_layouts(dependencies.struct_layouts);
+        enqueue_layouts(dependencies.fusion_layouts);
         std::set< type_symbol > value_functanoids;
         for (auto const& [functanoid, _] : dependencies.functanoids) value_functanoids.insert(functanoid);
         std::set< type_symbol > value_antestatal_globals = dependencies.antestatal_globals;
@@ -329,6 +364,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     {
         layout_types.insert(*input.expected_result_type);
     }
+    enqueue_layouts(root_dependencies.type_placements);
     enqueue_layouts(root_dependencies.struct_layouts);
     enqueue_layouts(root_dependencies.fusion_layouts);
     for (auto const& [functanoid, _] : root_dependencies.functanoids) enqueue_functanoid(functanoid);
@@ -340,6 +376,9 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         constexpr_static localdata = co_await co_find_body_static< rpnx::querygraph::coroutine< constexpr_eval_v3_spec > >(input.context, symbol);
         if (!input.mutable_statics) localdata.mutation_result_id.reset();
         layout_types.insert(localdata.type);
+        enqueue_layouts(local_dependencies.type_placements);
+        enqueue_layouts(local_dependencies.struct_layouts);
+        enqueue_layouts(local_dependencies.fusion_layouts);
         loaded_antestatal_globals.insert(type_symbol(symbol));
         if (typeis< antestatal_value >(localdata.value))
         {
@@ -435,6 +474,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
                 direct_dependencies_input{.symbol = funcname, .set = dependency_set::constexpr_});
             interp.add_functanoid3(funcname, ir2_other, dependencies.static_snapshots);
             loaded_functanoids.insert(funcname);
+            enqueue_layouts(dependencies.type_placements);
             enqueue_layouts(dependencies.struct_layouts);
             enqueue_layouts(dependencies.fusion_layouts);
             enqueue_antestatal_globals(dependencies.antestatal_globals);
@@ -473,7 +513,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     }
     bool inferred_string = routine_result.deduced_type.has_value() && typeis< string_literal_type >(*routine_result.deduced_type);
     bool inferred_numeric = routine_result.deduced_type.has_value() && typeis< numeric_literal_type >(*routine_result.deduced_type);
-    bool const expects_string_result = inferred_string || (input.expected_result_type.has_value() && detail::constexpr_eval_antestatal_helpers::is_string_constant_type(*input.expected_result_type));
+    bool const expects_string_result = inferred_string || (input.expected_result_type.has_value() && detail::constexpr_antestatal_materialization::is_string_constant_type(*input.expected_result_type));
     bool const expects_numeric_result = inferred_numeric || (input.expected_result_type.has_value() &&
         quxlang::typeis< quxlang::readonly_constant >(*input.expected_result_type) &&
         quxlang::as< quxlang::readonly_constant >(*input.expected_result_type).kind == quxlang::constant_kind::numeric);
@@ -481,12 +521,12 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     {
         if (expects_string_result && id == constexpr_primary_result_id)
         {
-            result.values[id] = constexpr_value(detail::constexpr_eval_antestatal_helpers::decode_uintany_string(value.bytes));
+            result.values[id] = constexpr_value(detail::constexpr_antestatal_materialization::decode_uintany_string(value.bytes));
         }
         else if (expects_numeric_result && id == constexpr_primary_result_id)
         {
             quxlang::constexpr_numeric numeric_result;
-            numeric_result.bytes = detail::constexpr_eval_antestatal_helpers::decode_uintany_string(value.bytes).bytes;
+            numeric_result.bytes = detail::constexpr_antestatal_materialization::decode_uintany_string(value.bytes).bytes;
             result.values[id] = constexpr_value(std::move(numeric_result));
         }
         else
@@ -510,7 +550,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
 /// Adapts multi-result antestatal constexpr evaluation to the legacy single-result query.
 rpnx::querygraph::coroutine< quxlang::constexpr_eval_antestatal_spec > quxlang::constexpr_eval_antestatal_impl(constexpr_input2 input)
 {
-    auto result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(detail::constexpr_eval_antestatal_helpers::make_v3_input(std::move(input)));
+    auto result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(detail::constexpr_antestatal_materialization::make_v3_input(std::move(input)));
     if (result.values.contains(constexpr_primary_result_id))
     {
         co_return constexpr_value_as_antestatal(result.values.at(constexpr_primary_result_id));

@@ -1,6 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/function_instanciation_spec.hpp>
 
 #include "quxlang/macros.hpp"
@@ -49,6 +50,8 @@ rpnx::querygraph::coroutine< quxlang::function_instanciation_spec > quxlang::fun
                                                                        .params = input.parameters,
                                                                        .adaptations = input.adaptations,
                                                                        .type_of_this = type_of_this,
+                                                                       .lookup_kind = input.lookup_kind,
+                                                                       .implicit_named_arguments = input.implicit_named_arguments,
                                                                    });
 
     if (!call_set)
@@ -123,6 +126,25 @@ rpnx::querygraph::coroutine< quxlang::function_instanciation_spec > quxlang::fun
         }
     }
 
-    auto result = instanciation_reference{.temploid = sel_ref, .params = std::move(canonical_params)};
+    instanciation_reference result{.temploid = sel_ref, .params = std::move(canonical_params)};
+    bool deferred_controller = declaration.has_value() && declaration->header.execution_kind == function_execution_kind::coroutine &&
+        is_template(parameter_instantiation_type(result.params.named.at("CONTROLLER")));
+    if (deferred_controller)
+    {
+        // A nominal controller may contain a partial coroutine descriptor as a template argument.
+        type_symbol controller = remove_ref(parameter_instantiation_type(result.params.named.at("CONTROLLER")));
+        if (controller.type_is< instanciation_reference >() || controller.type_is< subsymbol >())
+        {
+            deferred_controller = (co_await rpnx::querygraph::request< symbol_type_query >(controller)) != symbol_kind::class_;
+        }
+    }
+    if (formal_ensig->enable_if.has_value() && !deferred_controller)
+    {
+        constexpr_input condition{.expr = *formal_ensig->enable_if, .context = result};
+        if (!(co_await rpnx::querygraph::request< constexpr_bool_query >(std::move(condition))))
+        {
+            co_return std::nullopt;
+        }
+    }
     co_return result;
 }

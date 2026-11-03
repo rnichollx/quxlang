@@ -2,8 +2,10 @@
 
 #include "quxlang/data/machine.hpp"
 #include "quxlang/parsers/parse_int.hpp"
+#include <quxlang/data/array_initializer_placement.hpp>
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/manipulators/struct_math.hpp>
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/class_placement_info_spec.hpp>
 
 rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class_placement_info_impl(type_symbol input)
@@ -64,7 +66,8 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         throw quxlang::compiler_bug("Unimplemented atomic class_placement_info for: " + quxlang::to_string(type));
     }
 
-    if (type.template type_is< void_type >() || typeis< numeric_literal_type >(type) || typeis< string_literal_type >(type))
+    if (type.template type_is< void_type >() || typeis< numeric_literal_type >(type) || typeis< string_literal_type >(type) ||
+        (is_ref(type) && !parameter_runtime_type(type).has_value()))
     {
         co_return validate_placement(class_placement_info{.size = 0, .alignment = 1});
     }
@@ -168,6 +171,10 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         auto element_placement = co_await rpnx::querygraph::request< class_placement_info_query >(array.element_type);
         auto element_count = expr_u64(array.element_count);
         co_return validate_placement(class_placement_info{.size = multiply_object_extent(element_placement.cell_size(maximum_extent), element_count, maximum_extent), .alignment = element_placement.alignment});
+    }
+    else if (type.template type_is< array_initializer_type >())
+    {
+        co_return validate_placement(array_initializer_placement(machine_info));
     }
     else if (type.template type_is< initguard_type >() || type.template type_is< initguard_lock_type >())
     {

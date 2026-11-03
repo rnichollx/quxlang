@@ -25,6 +25,7 @@ rpnx::querygraph::coroutine< quxlang::type_operation_is_noexcept_spec > quxlang:
         .initializee = submember{.of = input.of_type, .name = member},
         .parameters = instatype_from_invotype(arguments),
         .adaptations = allowed_adaptations::destination_rebinding,
+        .lookup_kind = function_lookup_kind::invocation,
     });
     if (!selected.has_value())
     {

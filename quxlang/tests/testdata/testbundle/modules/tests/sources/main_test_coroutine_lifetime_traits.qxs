@@ -1,0 +1,234 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_lifetime_trait_tests NAMESPACE
+{
+  ::asynchronous STRUCT
+  {
+    .DESTRUCTOR COROUTINE() {}
+  }
+
+  ::dual_lifetime STRUCT
+  {
+    .DESTRUCTOR COROUTINE() {}
+    .DESTRUCTOR FUNCTION() {}
+  }
+
+  ::disabled_synchronous STRUCT
+  {
+    .DESTRUCTOR COROUTINE() {}
+    .DESTRUCTOR FUNCTION() ENABLE_IF(FALSE) {}
+  }
+
+  ::inactive_coroutine STRUCT
+  {
+    .DESTRUCTOR INCLUDE_IF(FALSE) COROUTINE() {}
+  }
+
+  ::owned_field STRUCT { .value VAR asynchronous; }
+  ::owned_base STRUCT { .base BASE asynchronous; }
+  ::owned_array STRUCT { .values VAR [3]asynchronous; }
+  ::dual_field STRUCT { .value VAR dual_lifetime; }
+  ::inactive_field STRUCT { .value INCLUDE_IF(FALSE) VAR asynchronous; }
+  ::borrowed_field STRUCT { .value VAR MUT->asynchronous; }
+  ::unused_storage STRUCT { .slot VAR TYPED_STORAGE(asynchronous); }
+
+  ::ordinary_body_async_member STRUCT
+  {
+    .value VAR asynchronous;
+    .DESTRUCTOR FUNCTION() {}
+  }
+
+  ::inline_alternatives INLINE_VARIANT [I32 DEFAULT, asynchronous];
+  ::boxed_alternatives VARIANT VALUELESS_DEFAULT [I32, asynchronous];
+  ::recursive_boxed UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .next OPTION recursive_boxed;
+  }
+  ::recursive_async_boxed UNION
+  {
+    .empty OPTION DEFAULT VOID;
+    .next OPTION recursive_async_boxed;
+    .resource OPTION asynchronous;
+  }
+
+  DOC <$ Asynchronous destruction propagates through owned subobjects and active alternatives. $>
+  ::owning_capabilities STATIC_TEST
+  {
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(asynchronous));
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(disabled_synchronous));
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(owned_field));
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(owned_base));
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(owned_array));
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY([2]asynchronous));
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(ordinary_body_async_member));
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(inline_alternatives));
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(boxed_alternatives));
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(recursive_async_boxed));
+  }
+
+  DOC <$ Borrowed objects and unoccupied storage do not impose asynchronous destruction. $>
+  ::synchronous_capabilities STATIC_TEST
+  {
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(I32) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(VOID) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(dual_lifetime) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(dual_field) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(inactive_coroutine) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(inactive_field) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(borrowed_field) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(unused_storage) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(TYPED_STORAGE(asynchronous)) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(MUT->asynchronous) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(CONST& asynchronous) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(recursive_boxed) == FALSE);
+  }
+
+  ::ordinary_local_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value asynchronous;
+  }
+
+  ::ordinary_member_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value owned_field;
+  }
+
+  ::ordinary_body_cannot_skip_member_cleanup STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value ordinary_body_async_member;
+  }
+
+  ::synchronous_destructor_remains_available DUAL_TEST
+  {
+    VAR value dual_lifetime;
+    VAR aggregate dual_field;
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(DECLTYPE(value)) == FALSE);
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(DECLTYPE(aggregate)) == FALSE);
+  }
+
+  ::void_constructor STRUCT
+  {
+    .CONSTRUCTOR COROUTINE() {}
+  }
+
+  DOC <$ Direct lifecycle descriptors expose VOID completion independently of frame execution. $>
+  ::direct_constructor_completion STATIC_TEST
+  {
+    TEST_ASSERT(SAME_TYPES(void_constructor::.CONSTRUCTOR#(@THIS NVALUE[void_constructor], @CONTROLLER coroutine_frame_tests::controller)::RETURN_TYPE, VOID));
+  }
+
+  ::nonvoid_constructor STRUCT
+  {
+    .CONSTRUCTOR COROUTINE(): I32 { RETURN 1; }
+  }
+
+  ::nonvoid_destructor STRUCT
+  {
+    .DESTRUCTOR COROUTINE(): I32 { RETURN 1; }
+  }
+
+  ::deduced_nonvoid_destructor STRUCT
+  {
+    .DESTRUCTOR COROUTINE(): AUTO { RETURN 1; }
+  }
+
+  DOC <$ A direct constructor descriptor rejects a non-VOID completion before frame execution. $>
+  ::direct_nonvoid_constructor STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame nonvoid_constructor::.CONSTRUCTOR#(@THIS NVALUE[nonvoid_constructor], @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+  }
+
+  DOC <$ A direct destructor descriptor rejects a non-VOID completion before frame execution. $>
+  ::direct_nonvoid_destructor STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame nonvoid_destructor::.DESTRUCTOR#(@THIS MUT& nonvoid_destructor, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+  }
+
+  DOC <$ Deduced lifecycle completion obeys the same VOID contract as an explicit completion type. $>
+  ::direct_deduced_nonvoid_destructor STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame deduced_nonvoid_destructor::.DESTRUCTOR#(@THIS MUT& deduced_nonvoid_destructor, @CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+  }
+
+  ::virtual_coroutine STRUCT POLYMORPHIC
+  {
+    .execute COROUTINE() CONST VIRTUAL {}
+  }
+
+  DOC <$ Virtual coroutine declarations require a coroutine dispatch ABI and are diagnosed. $>
+  ::virtual_coroutine_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TEST_ASSERT(SIZEOF(virtual_coroutine) > 0);
+  }
+
+  ::virtual_coroutine_constructor STRUCT POLYMORPHIC
+  {
+    .CONSTRUCTOR COROUTINE() VIRTUAL {}
+  }
+
+  DOC <$ Coroutine constructors cannot declare virtual dispatch slots. $>
+  ::virtual_coroutine_constructor_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TEST_ASSERT(SIZEOF(virtual_coroutine_constructor) > 0);
+  }
+
+  ::overriding_coroutine_constructor STRUCT POLYMORPHIC
+  {
+    .CONSTRUCTOR COROUTINE() VIRTUAL(OVERRIDE) {}
+  }
+
+  DOC <$ Coroutine constructors cannot override virtual dispatch slots. $>
+  ::overriding_coroutine_constructor_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TEST_ASSERT(SIZEOF(overriding_coroutine_constructor) > 0);
+  }
+
+  ::virtual_async_destructor STRUCT POLYMORPHIC
+  {
+    .DESTRUCTOR COROUTINE() {}
+  }
+
+  DOC <$ Coroutine-only destruction cannot implicitly populate an ordinary virtual destructor slot. $>
+  ::implicit_virtual_async_destructor_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TEST_ASSERT(SIZEOF(virtual_async_destructor) > 0);
+  }
+
+  ::dual_virtual_destructor STRUCT POLYMORPHIC
+  {
+    .DESTRUCTOR FUNCTION() {}
+    .DESTRUCTOR COROUTINE() {}
+  }
+
+  DOC <$ A synchronous destructor alternative supplies ordinary virtual destruction. $>
+  ::ordinary_virtual_destructor_alternative DUAL_TEST
+  {
+    VAR object dual_virtual_destructor;
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(dual_virtual_destructor) == FALSE);
+  }
+
+  ::nonvirtual_async_destructor STRUCT POLYMORPHIC
+  {
+    .DESTRUCTOR COROUTINE() NONVIRTUAL {}
+  }
+
+  DOC <$ A statically selected NONVIRTUAL coroutine destructor remains available on a polymorphic type. $>
+  ::nonvirtual_async_destructor_metadata STATIC_TEST
+  {
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(nonvirtual_async_destructor));
+    TEST_ASSERT(SIZEOF(nonvirtual_async_destructor) > 0);
+  }
+
+  ::invalid_polymorphic_constructor_forms STRUCT POLYMORPHIC
+  {
+    .FULLOBJECT_CONSTRUCTOR COROUTINE() {}
+    .SUBOBJECT_CONSTRUCTOR COROUTINE() {}
+  }
+
+  DOC <$ Explicit complete-object and subobject coroutine constructors require virtual polymorphism. $>
+  ::polymorphic_split_constructor_forms_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TEST_ASSERT(SIZEOF(invalid_polymorphic_constructor_forms) > 0);
+  }
+}

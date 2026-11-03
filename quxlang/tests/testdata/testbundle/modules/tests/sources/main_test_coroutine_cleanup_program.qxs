@@ -1,0 +1,156 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_cleanup_program_tests NAMESPACE
+{
+  DOC <$ Cleanup preserves shared lifetime subtrees and visits only the departing ownership. $>
+  ::shared_subtrees_survive DUAL_TEST
+  {
+    VAR nodes [72]U64;
+    nodes[16] := 1;
+    nodes[19] := 32;
+    nodes[26] := 1;
+    nodes[28] := 1;
+    nodes[31] := 32;
+    nodes[36] := 1;
+    nodes[37] := 2;
+    nodes[39] := 1;
+    nodes[50] := 2;
+    nodes[52] := 1;
+    nodes[55] := 32;
+    nodes[60] := 3;
+    nodes[61] := 4;
+    nodes[63] := 2;
+    VAR cursor [8]U64 :[5, 3, 3, 0, 0, 0, 0, 3];
+    VAR retired [3]U8;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 70);
+    retired[2] := 2;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 0);
+    cursor[1] := 5;
+    cursor[2] := 3;
+    cursor[3] := 0;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 0);
+  }
+
+  DOC <$ A failed cleanup retargets remaining ownership without invoking an accepted destructor again. $>
+  ::retarget_after_destruction_acceptance DUAL_TEST
+  {
+    VAR nodes [48]U64;
+    nodes[14] := 0;
+    nodes[16] := 1;
+    nodes[19] := 32;
+    nodes[26] := 1;
+    nodes[28] := 1;
+    nodes[31] := 33;
+    nodes[36] := 1;
+    nodes[37] := 2;
+    nodes[39] := 1;
+    VAR cursor [8]U64 :[3, 1, 2, 0, 0, 0, 0, 2];
+    VAR retired [2]U8;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 33);
+    retired[1] := 1;
+    cursor[1] := 0;
+    cursor[2] := 2;
+    cursor[3] := 0;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 38);
+    retired[1] := 2;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 22);
+    retired[0] := 2;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 0);
+  }
+
+  DOC <$ Constructor publication follows ordinary parameter cleanup. $>
+  ::publication_follows_cleanup DUAL_TEST
+  {
+    VAR nodes [48]U64;
+    nodes[14] := 0;
+    nodes[16] := 1;
+    nodes[20] := 17179869184;
+    nodes[26] := 1;
+    nodes[28] := 1;
+    nodes[32] := 32;
+    nodes[36] := 1;
+    nodes[37] := 2;
+    nodes[39] := 1;
+    VAR cursor [8]U64 :[3, 0, 2, 0, 1, 0, 0, 2];
+    VAR retired [2]U8;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 38);
+    retired[1] := 2;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 25);
+    retired[0] := 2;
+    TEST_ASSERT(RUNTIME_MODULE::COROUTINE_CLEANUP_NEXT(@RECORD nodes.BEGIN(), @STATE cursor, @GUARD retired.BEGIN()) == 0);
+  }
+}
+
+::coroutine_cleanup_context_tests NAMESPACE
+{
+  ::propagation_is_owned DUAL_TEST
+  {
+    VAR contexts [2]RUNTIME_MODULE::COROUTINE_CLEANUP_CONTEXT;
+    VAR depth U64;
+    VAR saved EXCEPTION_PTR;
+    TRY { THROW I32(@OTHER 17); }
+    CATCH error CONST& I32 { saved := CURRENT_EXCEPTION(); }
+    VAR current MUT->RUNTIME_MODULE::COROUTINE_CLEANUP_CONTEXT := RUNTIME_MODULE::COROUTINE_CLEANUP_PUSH(
+      @RECORD contexts.BEGIN(), @COUNT depth, @INPUT 3, @OUTPUT 1, @KIND 0,
+      @DESTINATION 4, @VALUE 0, @OTHER 5, @STATE NULL, @EXCEPTION NULL,
+      @ARG saved<-, @GUARD TRUE, @SIZE 11);
+    TEST_ASSERT(depth == 1);
+    TEST_ASSERT(current->.exception == saved);
+    saved := EXCEPTION_PTR();
+    VAR caught BOOL;
+    TRY { THROW_EXCEPTION_PTR(current->.exception); }
+    CATCH value CONST& I32 { caught := value == 17; }
+    TEST_ASSERT(caught);
+    current := RUNTIME_MODULE::COROUTINE_CLEANUP_POP(@RECORD contexts.BEGIN(), @COUNT depth);
+    TEST_ASSERT(current == NULL);
+    TEST_ASSERT(depth == 0);
+    TEST_ASSERT(contexts[0].exception!?);
+    TEST_ASSERT(contexts[0].pending!?);
+  }
+
+  ::nested_pending_and_retry DUAL_TEST
+  {
+    VAR contexts [2]RUNTIME_MODULE::COROUTINE_CLEANUP_CONTEXT;
+    VAR depth U64;
+    VAR current MUT->RUNTIME_MODULE::COROUTINE_CLEANUP_CONTEXT := RUNTIME_MODULE::COROUTINE_CLEANUP_PUSH(
+      @RECORD contexts.BEGIN(), @COUNT depth, @INPUT 3, @OUTPUT 1, @KIND 1,
+      @DESTINATION 4, @VALUE 2, @OTHER 5, @STATE NULL, @EXCEPTION NULL,
+      @ARG NULL, @GUARD FALSE, @SIZE 11);
+    TRY { THROW I32(@OTHER 23); }
+    CATCH error CONST& I32 { current->.pending := CURRENT_EXCEPTION(); }
+    VAR first EXCEPTION_PTR := current->.pending;
+    current := RUNTIME_MODULE::COROUTINE_CLEANUP_PUSH(
+      @RECORD contexts.BEGIN(), @COUNT depth, @INPUT 5, @OUTPUT 2, @KIND 0,
+      @DESTINATION 6, @VALUE 1, @OTHER 7, @STATE NULL, @EXCEPTION NULL,
+      @ARG contexts[0].pending<-, @GUARD TRUE, @SIZE 17);
+    TEST_ASSERT(depth == 2);
+    TEST_ASSERT(current->.exception == first);
+    TEST_ASSERT(contexts[0].pending == first);
+    TRY { THROW I32(@OTHER 37); }
+    CATCH error CONST& I32 { current->.pending := CURRENT_EXCEPTION(); }
+    TEST_ASSERT(current->.pending != first);
+    current := RUNTIME_MODULE::COROUTINE_CLEANUP_POP(@RECORD contexts.BEGIN(), @COUNT depth);
+    TEST_ASSERT(depth == 1);
+    TEST_ASSERT(contexts[1].exception!?);
+    TEST_ASSERT(contexts[1].pending!?);
+    TEST_ASSERT(current->.pending == first);
+    RUNTIME_MODULE::COROUTINE_CLEANUP_RETRY(@ARG current->);
+    TEST_ASSERT(current->.exception == first);
+    TEST_ASSERT((current->.pending??) == FALSE);
+    TEST_ASSERT(current->.unwinding);
+    TEST_ASSERT(current->.destination == 5);
+    TEST_ASSERT(current->.cursor[1] == 2);
+    TEST_ASSERT(current->.cursor[2] == 11);
+    TEST_ASSERT(current->.cursor[3] == 0);
+    TEST_ASSERT(current->.cursor[4] == 0);
+    current := RUNTIME_MODULE::COROUTINE_CLEANUP_POP(@RECORD contexts.BEGIN(), @COUNT depth);
+    TEST_ASSERT(depth == 0);
+    current := RUNTIME_MODULE::COROUTINE_CLEANUP_PUSH(
+      @RECORD contexts.BEGIN(), @COUNT depth, @INPUT 3, @OUTPUT 1, @KIND 0,
+      @DESTINATION 4, @VALUE 0, @OTHER 5, @STATE NULL, @EXCEPTION NULL,
+      @ARG NULL, @GUARD FALSE, @SIZE 11);
+    TEST_ASSERT(current->.exception!?);
+    TEST_ASSERT(current->.pending!?);
+    current := RUNTIME_MODULE::COROUTINE_CLEANUP_POP(@RECORD contexts.BEGIN(), @COUNT depth);
+  }
+}

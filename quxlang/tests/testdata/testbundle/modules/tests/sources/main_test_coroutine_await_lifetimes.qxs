@@ -1,0 +1,165 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_await_lifetime_tests NAMESPACE
+{
+  ::operation STRUCT MOVE_ONLY
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@events:events MUT& I32)
+    {
+      .events := events<-;
+      events += 1;
+    }
+    .DESTRUCTOR FUNCTION() { .events-> += 1; }
+  }
+
+  ::ready_awaiter STRUCT
+  {
+    .ready VAR BOOL;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .ready; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN TRUE; }
+    .AWAIT_RESUME FUNCTION() {}
+  }
+
+  ::read_awaiter STRUCT
+  {
+    .value VAR CONST->operation;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN FALSE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN TRUE; }
+    .AWAIT_RESUME FUNCTION() CONST: I32
+    {
+      TEST_ASSERT(.value->.events-> == 1);
+      RETURN 23;
+    }
+  }
+
+  ::controller STRUCT
+  {
+    .CO_AWAIT FUNCTION(@ARG CONST& operation): read_awaiter
+    {
+      VAR result read_awaiter;
+      result.value := ARG<-;
+      RETURN result;
+    }
+    .CO_AWAIT FUNCTION(@ARG BOOL): ready_awaiter
+    {
+      VAR result ready_awaiter;
+      result.ready := ARG;
+      RETURN result;
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  ::borrowed_state COROUTINE(@events:events MUT& I32, @result:result MUT& I32)
+  {
+    result := AWAIT(operation(@events events));
+    TEST_ASSERT(events == 2);
+  }
+
+  DOC <$ Borrowed await state keeps its operand alive through delivery and destroys the operand at full-expression exit. $>
+  ::operand_survives_suspension DUAL_TEST
+  {
+    VAR driver controller;
+    VAR events I32;
+    VAR result I32;
+    VAR frame borrowed_state#(@events MUT& I32, @result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events, @result result);
+    TEST_ASSERT(events == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(events == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(events == 2);
+    TEST_ASSERT(result == 23);
+  }
+
+  ::throwing_awaiter STRUCT
+  {
+    .ready VAR BOOL;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .ready; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& throwing_controller, @FRAME MUT& AUTO): BOOL
+    {
+      CONTROLLER.attempts += 1;
+      THROW I32(@OTHER 31);
+    }
+    .AWAIT_RESUME FUNCTION() {}
+  }
+
+  ::throwing_controller STRUCT
+  {
+    .attempts VAR I32;
+    .CO_AWAIT FUNCTION(@ARG BOOL): throwing_awaiter
+    {
+      VAR result throwing_awaiter;
+      result.ready := ARG;
+      RETURN result;
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  ::failed_registration COROUTINE(@result:result MUT& I32)
+  {
+    TRY { AWAIT(FALSE); }
+    CATCH error CONST& I32 { result := error; }
+  }
+
+  DOC <$ A registration exception follows ordinary handler control flow within the active drive. $>
+  ::throwing_suspend DUAL_TEST
+  {
+    VAR driver throwing_controller;
+    VAR result I32;
+    VAR frame failed_registration#(@result MUT& I32, @CONTROLLER throwing_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 31);
+    TEST_ASSERT(driver.attempts == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.attempts == 1);
+  }
+
+  ::borrowed_awaiter STRUCT ROOTED
+  {
+    .deliveries VAR I32;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN FALSE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN TRUE; }
+    .AWAIT_RESUME FUNCTION() MUT: I32
+    {
+      .deliveries += 1;
+      RETURN 41;
+    }
+  }
+
+  ::reference_controller STRUCT
+  {
+    .CO_AWAIT FUNCTION(@ARG MUT& borrowed_awaiter): MUT& borrowed_awaiter { RETURN ARG; }
+    .CO_AWAIT FUNCTION(@ARG BOOL): ready_awaiter
+    {
+      VAR result ready_awaiter;
+      result.ready := ARG;
+      RETURN result;
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  ::await_reference COROUTINE(@awaiter MUT& borrowed_awaiter, @result MUT& I32)
+  {
+    result := AWAIT(awaiter);
+  }
+
+  DOC <$ A controller may return a reference to an existing rooted awaiter whose identity survives suspension. $>
+  ::reference_awaiter DUAL_TEST
+  {
+    VAR driver reference_controller;
+    VAR awaited borrowed_awaiter;
+    VAR result I32;
+    VAR frame await_reference#(@awaiter MUT& borrowed_awaiter, @result MUT& I32, @CONTROLLER reference_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@awaiter awaited, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(awaited.deliveries == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(awaited.deliveries == 1);
+    TEST_ASSERT(result == 41);
+  }
+}

@@ -4,6 +4,7 @@
 #include <quxlang/queries/specs/functanoid_return_type_spec.hpp>
 #include "quxlang/ast2/source_location.hpp"
 #include "quxlang/exception.hpp"
+#include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include <exception>
@@ -86,13 +87,23 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
     {
         try
         {
-            co_return co_await rpnx::querygraph::subquery_request< functanoid_deduced_return_type >(input, std::monostate{});
+            decl_type = co_await rpnx::querygraph::subquery_request< functanoid_deduced_return_type >(input, std::monostate{});
         }
         catch (rpnx::querygraph::subquery_parent_failed const& error)
         {
             // Preserve source diagnostics when an invalid body cannot publish its return type.
             std::rethrow_if_nested(error);
             throw;
+        }
+    }
+
+    if (decl->header.execution_kind == function_execution_kind::coroutine && selected_function.templexoid.type_is< submember >())
+    {
+        std::string const& name = selected_function.templexoid.get_as< submember >().name;
+        bool lifecycle = keywords::is_constructor_name(name) || name == "DESTRUCTOR" || name == "FULLOBJECT_DESTRUCTOR" || name == "SUBOBJECT_DESTRUCTOR";
+        if (lifecycle && !decl_type->type_is< void_type >())
+        {
+            throw semantic_compilation_error("Coroutine lifecycle functions must complete with VOID");
         }
     }
 

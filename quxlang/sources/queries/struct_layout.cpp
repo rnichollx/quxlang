@@ -3,6 +3,7 @@
 #include <quxlang/queries/specs/struct_layout_spec.hpp>
 
 #include "quxlang/data/struct_field_declaration.hpp"
+#include <quxlang/data/coroutine_types.hpp>
 #include "quxlang/manipulators/struct_math.hpp"
 
 #include <quxlang/manipulators/declaration_alignment.hpp>
@@ -13,6 +14,17 @@
 
 rpnx::querygraph::coroutine< quxlang::struct_layout_spec > quxlang::struct_layout_impl(type_symbol input)
 {
+    if (std::optional< instanciation_reference > coroutine = coroutine_frame_specialization(input))
+    {
+        coroutine_frame_info const& frame = co_await rpnx::querygraph::request< coroutine_frame_query >(*coroutine);
+        struct_layout layout;
+        layout.fields = frame.layout_fields;
+        layout.nonvirtual_size = frame.size;
+        layout.complete_size = frame.size;
+        layout.nonvirtual_align = frame.alignment;
+        layout.complete_align = frame.alignment;
+        co_return layout;
+    }
     class_kind const input_kind = co_await rpnx::querygraph::request< class_type_query >(input);
     if (input_kind != class_kind::struct_ && input_kind != class_kind::generic && input_kind != class_kind::generic_ref)
     {

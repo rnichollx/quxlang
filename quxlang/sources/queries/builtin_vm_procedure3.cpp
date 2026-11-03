@@ -39,11 +39,21 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
             .params = std::move(params),
         };
     };
+    std::optional< builtin_function_info > const& selected_operation = co_await rpnx::querygraph::request< function_primitive_query >(input.temploid);
     auto co_matches_builtin_pattern =
         [&](type_symbol const& pattern) -> rpnx::querygraph::coroutine< builtin_vm_procedure3_spec >::cosubroutine< std::optional< pseudotype_match_result > >
     {
         auto normalized_input = input;
         normalized_input.temploid.overload_id = std::nullopt;
+        normalized_input.params.named.erase("CONTROLLER");
+        if (selected_operation.has_value())
+        {
+            for (std::string const& name : selected_operation->owned_named_parameters)
+            {
+                parameter_instantiation& parameter = normalized_input.params.named.at(name);
+                parameter = make_type_instantiation(remove_ref(parameter_instantiation_type(parameter)));
+            }
+        }
         co_return co_await rpnx::querygraph::request< pseudotype_match_query >(pseudotype_match_input{
             .pseudotype = pattern,
             .type = normalized_input,

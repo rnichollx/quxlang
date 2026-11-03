@@ -1,0 +1,534 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_call_tests NAMESPACE
+{
+  ::observations STRUCT
+  {
+    .calls VAR I32;
+    .constructions VAR I32;
+    .destructions VAR I32;
+    .integer_yields VAR I32;
+    .boolean_yields VAR I32;
+    .exceptions VAR I32;
+    .fail_return VAR BOOL;
+    .fail_destroy VAR BOOL;
+  }
+
+  ::immediate_awaiter STRUCT
+  {
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN TRUE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN FALSE; }
+    .AWAIT_RESUME FUNCTION() {}
+  }
+
+  ::completed_value STRUCT
+  {
+    .value VAR I32;
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN TRUE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN FALSE; }
+    .AWAIT_RESUME FUNCTION() CONST: I32 { RETURN .value; }
+  }
+
+  DOC <$ Drives immediately completing children in caller-owned storage and keeps each child's return value in its external controller. $>
+  ::controller STRUCT
+  {
+    .observed VAR MUT->observations;
+    .result VAR I32;
+
+    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
+    {
+      .observed->.calls += 1;
+      VAR adapted controller;
+      adapted.observed := .observed;
+      VAR frame child#(@CONTROLLER controller)::FRAME_TYPE;
+      frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+      STATIC_IF(SAME_TYPES(child#(@CONTROLLER controller)::RETURN_TYPE, VOID)) { RETURN TRUE; }
+      STATIC_ELSE
+      {
+        VAR operation completed_value;
+        operation.value := adapted.result;
+        RETURN operation;
+      }
+    }
+
+    .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: BOOL
+    {
+      .observed->.destructions += 1;
+      VAR adapted controller;
+      adapted.observed := .observed;
+      VAR frame child#(@CONTROLLER controller)::FRAME_TYPE;
+      frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+      IF(.observed->.fail_destroy)
+      {
+        .observed->.fail_destroy := FALSE;
+        THROW I32(@OTHER 61);
+      }
+      RETURN TRUE;
+    }
+
+    .CO_CALL_CTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO, @DESTINATION:destination MUT& AUTO) MUT: BOOL
+    {
+      .observed->.constructions += 1;
+      VAR adapted controller;
+      adapted.observed := .observed;
+      VAR frame child#(@CONTROLLER controller)::FRAME_TYPE;
+      frame.INITIALIZE(@RECEIVER destination, COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+      RETURN TRUE;
+    }
+
+    .CO_AWAIT FUNCTION(@ARG BOOL): immediate_awaiter { RETURN immediate_awaiter(); }
+    .CO_AWAIT FUNCTION(@ARG AUTO& completed_value): MUT& completed_value { RETURN ARG AS MUT& completed_value; }
+    .CO_RETURN FUNCTION() MUT: BOOL
+    {
+      IF(.observed->.fail_return)
+      {
+        .observed->.fail_return := FALSE;
+        THROW I32(@OTHER 53);
+      }
+      RETURN TRUE;
+    }
+    .CO_RETURN FUNCTION(@ARG CONST& I32) MUT: BOOL { .result := ARG; RETURN TRUE; }
+    .CO_YIELD FUNCTION(@ARG CONST& I32) MUT: BOOL { .observed->.integer_yields += ARG; RETURN TRUE; }
+    .CO_YIELD FUNCTION(@ARG CONST& BOOL) MUT: BOOL { IF(ARG) { .observed->.boolean_yields += 1; } RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR) MUT: BOOL
+    {
+      .observed->.exceptions += 1;
+      THROW_EXCEPTION_PTR(@ARG ARG);
+    }
+  }
+
+  ::value COROUTINE(@VALUE:value I32): I32
+  {
+    YIELD value;
+    YIELD TRUE;
+    RETURN value + 1;
+  }
+
+  ::parent COROUTINE(@result:result MUT& I32)
+  {
+    result := value(@VALUE 17);
+  }
+
+  DOC <$ Child specialization selects its controller while each yield retains its operand type. $>
+  ::nested_calls_and_yields DUAL_TEST
+  {
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR result I32;
+    VAR frame parent#(@result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(result == 18);
+    TEST_ASSERT(observed.calls == 1);
+    TEST_ASSERT(observed.integer_yields == 17);
+    TEST_ASSERT(observed.boolean_yields == 1);
+  }
+
+  ::receiver STRUCT
+  {
+    .base VAR I32;
+    .increase COROUTINE(@VALUE:value I32): I32 { RETURN .base + value; }
+  }
+
+  ::constructor_only STRUCT
+  {
+    .value VAR I32;
+    .CONSTRUCTOR COROUTINE() { .value := 23; }
+  }
+
+  ::constructed_aggregate STRUCT
+  {
+    .element VAR constructor_only;
+  }
+
+  ::generated_construction COROUTINE(@result:result MUT& I32)
+  {
+    VAR aggregate constructed_aggregate;
+    VAR elements [2]constructor_only;
+    result := aggregate.element.value + elements[0].value + elements[1].value;
+  }
+
+  DOC <$ Generated aggregate and array construction selects coroutine-only constructors while ordinary destruction remains available. $>
+  ::generated_constructor_capability DUAL_TEST
+  {
+    TEST_ASSERT(TYPE_IS_ASYNC_ONLY(constructor_only) == FALSE);
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR result I32;
+    VAR frame generated_construction#(@result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(result == 69);
+    TEST_ASSERT(observed.constructions == 5);
+  }
+
+  ::reported_construction STRUCT
+  {
+    .observed VAR MUT->observations;
+    .CONSTRUCTOR COROUTINE(@observed:observed MUT& observations, @path I32 DEFAULT(0))
+    {
+      .observed := observed<-;
+      IF(path == 3) { THROW I32(@OTHER 53); }
+      observed.fail_return := TRUE;
+      IF(path == 1) { RETURN; }
+      IF(path == 2) { RETURN; }
+    }
+    .DESTRUCTOR FUNCTION() { .observed->.destructions += 1; }
+  }
+
+  ::construct_report_failure COROUTINE(@observed:observed MUT& observations)
+  {
+    TRY { VAR object reported_construction :(@observed observed); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 53); }
+  }
+
+  DOC <$ Failure during constructor completion reporting destroys the fully constructed output before the parent catches the error. $>
+  ::completed_output_rollback DUAL_TEST
+  {
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR frame construct_report_failure#(@observed MUT& observations, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@observed observed);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(observed.destructions == 1);
+    TEST_ASSERT(observed.exceptions == 1);
+  }
+
+  ::construct_branch_failure COROUTINE(@observed MUT& observations, @path I32)
+  {
+    TRY { VAR object reported_construction :(@observed observed, @path path); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 53); }
+  }
+
+  ::verify_constructor_failure FUNCTION(@path I32, @destructions I32)
+  {
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR frame construct_branch_failure#(@observed MUT& observations, @path I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@observed observed, @path path);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(observed.destructions == destructions);
+    TEST_ASSERT(observed.exceptions == 1);
+  }
+
+  DOC <$ Explicit constructor returns complete the output before reporting, while failure inside the constructor body rolls back its initialized subobjects. $>
+  ::constructor_exit_ownership DUAL_TEST
+  {
+    verify_constructor_failure(@path 1, @destructions 1);
+    verify_constructor_failure(@path 2, @destructions 1);
+    verify_constructor_failure(@path 3, @destructions 0);
+  }
+
+  ::incomplete_constructor STRUCT
+  {
+    .CONSTRUCTOR COROUTINE(@output NVALUE[I32]) {}
+  }
+
+  DOC <$ Constructor completion rejects an uninitialized output before return reporting. $>
+  ::incomplete_constructor_output STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TEST_ASSERT(SIZEOF(incomplete_constructor::.CONSTRUCTOR#(@THIS NVALUE[incomplete_constructor], @output NVALUE[I32], @CONTROLLER controller)::FRAME_TYPE) > 0);
+  }
+
+  ::literal_argument STRUCT
+  {
+    .value VAR I32;
+    .CONSTRUCTOR COROUTINE(@OTHER:source AUTO) { .value := source AS I32; }
+  }
+
+  ::type_argument STRUCT
+  {
+    .value VAR I32;
+    .CONSTRUCTOR COROUTINE(@OTHER:source AUTO) { .value := SIZEOF(source) AS I32; }
+  }
+
+  ::type_size FUNCTION(@ARG:source AUTO& AUTO): I32 { RETURN SIZEOF(source) AS I32; }
+  ::forward_type_size FUNCTION(@ARG:source AUTO& AUTO): I32 { RETURN type_size(@ARG FORWARD(source)); }
+
+  DOC <$ Borrowed compile-time type symbols preserve forwarding without runtime argument storage. $>
+  ::static_symbol_forwarding DUAL_TEST
+  {
+    TEST_ASSERT(forward_type_size(@ARG I32) == SIZEOF(I32));
+    TEST_ASSERT(forward_type_size(@ARG I64) == SIZEOF(I64));
+  }
+
+  ::default_value FUNCTION(): I32 { RETURN 29; }
+  ::default_capture COROUTINE(@value:value I32 DEFAULT(default_value()), @result:result MUT& I32)
+  {
+    result := value;
+  }
+
+  ::default_scope NAMESPACE
+  {
+    ::default_value FUNCTION(): I32 { RETURN 91; }
+
+    DOC <$ INITIALIZE evaluates declaration defaults in the coroutine's lexical scope before the body runs. $>
+    ::initialize_defaults DUAL_TEST
+    {
+      VAR observed observations;
+      VAR adapted controller;
+      adapted.observed := observed<-;
+      VAR result I32 := 7;
+      VAR frame default_capture#(@result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+      frame.INITIALIZE(@result result);
+      TEST_ASSERT(result == 7);
+      TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+      TEST_ASSERT(result == 29);
+    }
+  }
+
+  ::construct_argument_arrays COROUTINE(@result:result MUT& I32)
+  {
+    VAR literals [2]literal_argument :[3, 5];
+    VAR types [2]type_argument :[I32, I64];
+    result := literals[0].value + literals[1].value + types[0].value + types[1].value;
+  }
+
+  DOC <$ Generated constructor packs preserve literal values and attached type symbols without requiring runtime capture storage. $>
+  ::generated_argument_values DUAL_TEST
+  {
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR result I32;
+    VAR frame construct_argument_arrays#(@result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(result == 20);
+  }
+
+  ::member_parent COROUTINE(@result:result MUT& I32)
+  {
+    VAR object receiver;
+    object.base := 7;
+    result := object.increase(@VALUE 9);
+  }
+
+  DOC <$ Member coroutine adaptation forwards its borrowed receiver through the invocation argument pack. $>
+  ::member_call_receiver DUAL_TEST
+  {
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR result I32;
+    VAR frame member_parent#(@result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(result == 16);
+    TEST_ASSERT(observed.calls == 1);
+  }
+
+  ::resource STRUCT
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR COROUTINE(@events:events MUT& I32)
+    {
+      .events := events<-;
+      events := events * 10 + 1;
+      AWAIT(TRUE);
+    }
+    .DESTRUCTOR COROUTINE()
+    {
+      .events-> := .events-> * 10 + 2;
+      AWAIT(TRUE);
+      .events-> := .events-> * 10 + 3;
+    }
+  }
+
+  ::lifetime COROUTINE(@events:events MUT& I32)
+  {
+    VAR value resource :(@events events);
+    events := events * 10 + 4;
+  }
+
+  DOC <$ Coroutine construction receives borrowed destination storage and scope cleanup prefers coroutine destruction. $>
+  ::construction_and_destruction DUAL_TEST
+  {
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR events I32;
+    VAR frame lifetime#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(events == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 1423);
+    TEST_ASSERT(observed.constructions == 1);
+    TEST_ASSERT(observed.destructions == 1);
+  }
+
+  DOC <$ An eager destruction adapter retains teardown responsibility when it throws after the child completes. $>
+  ::eager_destruction_failure DUAL_TEST
+  {
+    VAR observed observations;
+    observed.fail_destroy := TRUE;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR events I32;
+    VAR caught BOOL;
+    VAR frame lifetime#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TRY { frame.RESUME(@CONTROLLER adapted); }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 61); caught := TRUE; }
+    TEST_ASSERT(caught);
+    TEST_ASSERT(events == 1423);
+    TEST_ASSERT(observed.destructions == 1);
+    TEST_ASSERT(observed.exceptions == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(observed.destructions == 1);
+  }
+
+  ::fixed_destructor STRUCT
+  {
+    .events VAR MUT->I32;
+    .DESTRUCTOR COROUTINE(@CONTROLLER controller)
+    {
+      .events-> += 17;
+    }
+  }
+
+  ::fixed_lifetime COROUTINE(@events:events MUT& I32)
+  {
+    VAR value fixed_destructor;
+    value.events := events<-;
+  }
+
+  DOC <$ An explicitly typed destructor controller constrains specialization independently of its borrowed execution parameter. $>
+  ::explicit_destructor_controller DUAL_TEST
+  {
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR events I32;
+    VAR frame fixed_lifetime#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 17);
+  }
+
+  ::unrelated_destructor_controller STRUCT
+  {
+    .CO_AWAIT FUNCTION(@ARG BOOL): immediate_awaiter { RETURN immediate_awaiter(); }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  ::disabled_async_destructor STRUCT
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@events MUT& I32) { .events := events<-; }
+    .DESTRUCTOR FUNCTION() { .events-> += 1; }
+    .DESTRUCTOR COROUTINE() ENABLE_IF(FALSE) { .events-> += 100; }
+  }
+
+  ::constrained_async_destructor STRUCT
+  {
+    .events VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@events MUT& I32) { .events := events<-; }
+    .DESTRUCTOR FUNCTION() { .events-> += 1; }
+    .DESTRUCTOR COROUTINE(@CONTROLLER unrelated_destructor_controller) { .events-> += 100; }
+  }
+
+  ::disabled_destructor_scope COROUTINE(@events MUT& I32)
+  {
+    VAR value disabled_async_destructor :(@events events);
+  }
+
+  ::constrained_destructor_scope COROUTINE(@events MUT& I32)
+  {
+    VAR value constrained_async_destructor :(@events events);
+  }
+
+  DOC <$ The adapted child controller selects an ordinary destructor when its coroutine overload is disabled. $>
+  ::disabled_destructor_selection DUAL_TEST
+  {
+    VAR events I32;
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR frame disabled_destructor_scope#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 1);
+    TEST_ASSERT(observed.destructions == 1);
+  }
+
+  DOC <$ The adapted child controller selects an ordinary destructor when its coroutine overload is incompatible. $>
+  ::constrained_destructor_selection DUAL_TEST
+  {
+    VAR events I32;
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR frame constrained_destructor_scope#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 1);
+    TEST_ASSERT(observed.destructions == 1);
+  }
+
+  ::disabled_async_parent STRUCT
+  {
+    .child VAR fixed_destructor;
+    .DESTRUCTOR FUNCTION() { .child.events-> += 1; }
+    .DESTRUCTOR COROUTINE() ENABLE_IF(FALSE) { .child.events-> += 100; }
+  }
+
+  ::disabled_parent_scope COROUTINE(@events MUT& I32)
+  {
+    VAR value disabled_async_parent;
+    value.child.events := events<-;
+  }
+
+  DOC <$ A disabled parent coroutine destructor preserves asynchronous destruction of owning fields. $>
+  ::disabled_parent_async_field DUAL_TEST
+  {
+    VAR events I32;
+    VAR observed observations;
+    VAR adapted controller;
+    adapted.observed := observed<-;
+    VAR frame disabled_parent_scope#(@events MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 18);
+    TEST_ASSERT(observed.destructions == 2);
+  }
+
+  ::redirecting_destructor_controller STRUCT
+  {
+    .observed VAR MUT->observations;
+    .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: BOOL
+    {
+      .observed->.destructions += 1;
+      VAR adapted unrelated_destructor_controller;
+      VAR frame child#(@CONTROLLER unrelated_destructor_controller)::FRAME_TYPE;
+      frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+      RETURN TRUE;
+    }
+    .CO_AWAIT FUNCTION(@ARG BOOL): immediate_awaiter { RETURN immediate_awaiter(); }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  DOC <$ The destruction adapter selects the child controller before its constrained coroutine body is resolved. $>
+  ::destructor_child_controller_selection DUAL_TEST
+  {
+    VAR events I32;
+    VAR observed observations;
+    VAR adapted redirecting_destructor_controller;
+    adapted.observed := observed<-;
+    VAR frame constrained_destructor_scope#(@events MUT& I32, @CONTROLLER redirecting_destructor_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 100);
+    TEST_ASSERT(observed.destructions == 1);
+  }
+}

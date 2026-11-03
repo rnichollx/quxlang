@@ -17,5 +17,7 @@ rpnx::querygraph::coroutine< quxlang::templex_initialize_spec > quxlang::templex
         .arguments = input.arguments,
         .parameters = input.parameters,
         .adaptations = input.adaptations,
+        .lookup_kind = input.lookup_kind,
+        .implicit_named_arguments = input.implicit_named_arguments,
     });
 }

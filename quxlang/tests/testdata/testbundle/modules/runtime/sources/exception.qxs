@@ -163,6 +163,22 @@ DOC <$ Restores the previous dynamically active exception when a handler exits. 
   }
 }
 
+DOC <$ Detaches a coroutine's handler chain from the current driving thread. $>
+::COROUTINE_DETACH_HANDLER FUNCTION(@ARG CONST->EXCEPTION_HANDLER) NOEXCEPT
+{
+  IF (ARG??) { current_exception_frame := ARG->.previous; }
+}
+
+DOC <$ Attaches a retained handler chain relative to the current caller. $>
+::COROUTINE_ATTACH_HANDLER FUNCTION(@STATE MUT->EXCEPTION_HANDLER, @EXCEPTION CONST->EXCEPTION_PTR) NOEXCEPT
+{
+  IF (STATE??)
+  {
+    STATE->.previous := current_exception_frame;
+    current_exception_frame := EXCEPTION->.frame;
+  }
+}
+
 DOC <$ Returns the matching exception subobject while the supplied handle owns its lifetime. $>
 ::EXCEPTION_MATCH TEMPLATE(@T TYPE AUTO) FUNCTION(@EXCEPTION:exception CONST& EXCEPTION_PTR) NOEXCEPT: MUT->T
 {

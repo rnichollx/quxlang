@@ -1,0 +1,82 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Retains one lexical cleanup cursor and its exception-transfer context. $>
+::COROUTINE_CLEANUP_CONTEXT STRUCT MOVE_ONLY
+{
+  .cursor VAR [8]U64;
+  .destination VAR U64;
+  .failure_target VAR U64;
+  .failure_destination VAR U64;
+  .exception VAR EXCEPTION_PTR;
+  .pending VAR EXCEPTION_PTR;
+  .handler VAR MUT->EXCEPTION_HANDLER;
+  .handler_exception VAR CONST->EXCEPTION_PTR;
+  .unwinding VAR BOOL;
+}
+
+DOC <$ Starts a nested lexical cleanup context in caller-owned frame storage. $>
+::COROUTINE_CLEANUP_PUSH FUNCTION(
+  @RECORD:contexts MUT =>> COROUTINE_CLEANUP_CONTEXT,
+  @COUNT:depth MUT& U64,
+  @INPUT:source U64,
+  @OUTPUT:target U64,
+  @KIND:kind U64,
+  @DESTINATION:destination U64,
+  @VALUE:failure_target U64,
+  @OTHER:failure_destination U64,
+  @STATE:handler MUT->EXCEPTION_HANDLER,
+  @EXCEPTION:handler_exception CONST->EXCEPTION_PTR,
+  @ARG:propagating CONST->EXCEPTION_PTR,
+  @GUARD:unwinding BOOL,
+  @SIZE:local_count U64) NOEXCEPT: MUT->COROUTINE_CLEANUP_CONTEXT
+{
+  VAR selected MUT->COROUTINE_CLEANUP_CONTEXT := ((contexts + coroutine_cleanup_offset(@ARG depth))->)<-;
+  depth += 1;
+  selected->.cursor[0] := source;
+  selected->.cursor[1] := target;
+  selected->.cursor[2] := local_count;
+  selected->.cursor[3] := 0;
+  selected->.cursor[4] := kind;
+  selected->.cursor[5] := 0;
+  selected->.cursor[6] := 0;
+  selected->.cursor[7] := local_count;
+  selected->.destination := destination;
+  selected->.failure_target := failure_target;
+  selected->.failure_destination := failure_destination;
+  selected->.handler := handler;
+  selected->.handler_exception := handler_exception;
+  selected->.unwinding := unwinding;
+  IF(propagating??) { selected->.exception := propagating->; }
+  RETURN selected;
+}
+
+DOC <$ Transfers the first captured failure into an empty owned exception slot before retargeting mandatory cleanup. $>
+::COROUTINE_CLEANUP_RETRY FUNCTION(@ARG:context MUT& COROUTINE_CLEANUP_CONTEXT) NOEXCEPT
+{
+  context.exception <-> context.pending;
+  context.cursor[1] := context.failure_target;
+  context.destination := context.failure_destination;
+  context.cursor[2] := context.cursor[7];
+  context.cursor[3] := 0;
+  context.cursor[4] := 0;
+  context.cursor[5] := 0;
+  context.cursor[6] := 0;
+  context.unwinding := TRUE;
+}
+
+DOC <$ Releases one completed lexical context and selects its suspended parent. $>
+::COROUTINE_CLEANUP_POP FUNCTION(
+  @RECORD:contexts MUT =>> COROUTINE_CLEANUP_CONTEXT,
+  @COUNT:depth MUT& U64) NOEXCEPT: MUT->COROUTINE_CLEANUP_CONTEXT
+{
+  depth -= 1;
+  VAR selected MUT->COROUTINE_CLEANUP_CONTEXT := ((contexts + coroutine_cleanup_offset(@ARG depth))->)<-;
+  selected->.exception := EXCEPTION_PTR();
+  selected->.pending := EXCEPTION_PTR();
+  IF(depth == 0)
+  {
+    VAR empty MUT->COROUTINE_CLEANUP_CONTEXT;
+    RETURN empty;
+  }
+  RETURN ((contexts + coroutine_cleanup_offset(@ARG depth - 1))->)<-;
+}

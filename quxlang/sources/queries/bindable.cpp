@@ -8,7 +8,8 @@ rpnx::querygraph::coroutine< quxlang::bindable_spec > quxlang::bindable_impl(imp
     auto const& from = input.from;
     auto const& to = input.to;
 
-    assert((!typeis< attached_type_reference >(from) && !typeis< attached_type_reference >(to) && !typeis< attached_type_reference >(remove_ref(from)) && !typeis< attached_type_reference >(remove_ref(to))) && "Bindable resolver does not support symbol-attached types.");
+    bool storage_free = !parameter_runtime_type(from).has_value() && !parameter_runtime_type(to).has_value();
+    assert((storage_free || (!typeis< attached_type_reference >(from) && !typeis< attached_type_reference >(to) && !typeis< attached_type_reference >(remove_ref(from)) && !typeis< attached_type_reference >(remove_ref(to)))) && "Bindable resolver does not support runtime symbol-attached types.");
 
     if (from == to)
     {
@@ -32,6 +33,7 @@ rpnx::querygraph::coroutine< quxlang::bindable_spec > quxlang::bindable_impl(imp
 
     if (is_ref(from) && !is_ref(to))
     {
+        if (storage_free) co_return true;
         co_return co_await rpnx::querygraph::request< bindable_by_reference_objectization_query >(input);
     }
 

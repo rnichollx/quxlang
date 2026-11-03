@@ -4,6 +4,10 @@
 #define QUXLANG_CO_VMIR_GENERATOR2_DEPS_HEADER_GUARD
 
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
+#include <quxlang/queries/type_is_async_only.hpp>
+#include <quxlang/queries/type_destruction_capabilities.hpp>
+#include <quxlang/queries/coroutine_destructor.hpp>
+#include <quxlang/queries/coroutine_frame.hpp>
 #include <quxlang/queries/functanoid_is_noexcept.hpp>
 #include <quxlang/queries/type_operation_is_noexcept.hpp>
 #include <quxlang/queries/body_parent.hpp>
@@ -163,6 +167,10 @@ namespace quxlang
         type_is_serialoid_query,
         type_is_stringlike_query,
         type_is_trivially_relocatable_query,
+        type_is_async_only_query,
+        type_destruction_capabilities_query,
+        coroutine_destructor_query,
+        coroutine_frame_query,
         functanoid_is_noexcept_query,
         type_operation_is_noexcept_query,
         pseudotype_match_query,
@@ -238,6 +246,10 @@ namespace quxlang
         type_is_serialoid_query,
         type_is_stringlike_query,
         type_is_trivially_relocatable_query,
+        type_is_async_only_query,
+        type_destruction_capabilities_query,
+        coroutine_destructor_query,
+        coroutine_frame_query,
         functanoid_is_noexcept_query,
         type_operation_is_noexcept_query,
         pseudotype_match_query,

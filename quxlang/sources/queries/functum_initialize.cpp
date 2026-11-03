@@ -26,6 +26,8 @@ rpnx::querygraph::coroutine< quxlang::functum_initialize_spec > quxlang::functum
             .initializee = *selection,
             .parameters = input.parameters,
             .adaptations = input.adaptations,
+            .lookup_kind = input.lookup_kind,
+            .implicit_named_arguments = input.implicit_named_arguments,
         });
     }
 

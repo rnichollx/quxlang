@@ -123,12 +123,16 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         interp.set_source_index(indexed_source_bundle);
         machine_target_info machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
         bool layoutless_target = cpu_is_layoutless(machine_info.cpu_type);
+        if (!layoutless_target)
+        {
+            interp.require_physical_layout();
+        }
 
         std::unordered_set< type_symbol, rpnx::serial4::hash > functanoids;
         std::unordered_set< type_symbol, rpnx::serial4::hash > antestatal_globals;
         std::unordered_set< type_symbol, rpnx::serial4::hash > layout_types;
         std::unordered_set< type_symbol, rpnx::serial4::hash > runtime_info_types;
-        std::unordered_set< type_symbol, rpnx::serial4::hash > loaded_layouts;
+        std::unordered_set< type_symbol, rpnx::serial4::hash > loaded_types;
         std::unordered_set< type_symbol, rpnx::serial4::hash > loaded_functanoids;
         std::set< type_symbol > asm_procedure_symbols;
         std::vector< type_symbol > functanoid_list;
@@ -139,11 +143,12 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         antestatal_globals.reserve(64);
         layout_types.reserve(64);
         runtime_info_types.reserve(64);
-        loaded_layouts.reserve(64);
+        loaded_types.reserve(64);
         loaded_functanoids.reserve(64);
 
         dependencies const& root_dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
             direct_dependencies_input{.symbol = input, .set = dependency_set::constexpr_});
+        layout_types.insert(root_dependencies.type_placements.begin(), root_dependencies.type_placements.end());
         for (type_symbol const& type : root_dependencies.struct_layouts)
         {
             run_under_profiling_void("run_static_test seed layout_types insert",
@@ -254,6 +259,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                                      }
                                                  });
                     }
+                    layout_types.insert(dependencies.type_placements.begin(), dependencies.type_placements.end());
                     for (type_symbol const& type : dependencies.struct_layouts)
                     {
                         run_under_profiling_void("run_static_test required layout loop body",
@@ -324,6 +330,9 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
                 dependencies const& dependencies = co_await rpnx::querygraph::request< direct_dependencies_query >(
                     direct_dependencies_input{.symbol = symbol, .set = dependency_set::constexpr_});
+                layout_types.insert(dependencies.type_placements.begin(), dependencies.type_placements.end());
+                layout_types.insert(dependencies.struct_layouts.begin(), dependencies.struct_layouts.end());
+                layout_types.insert(dependencies.fusion_layouts.begin(), dependencies.fusion_layouts.end());
                 for (auto const& [dependency, _] : dependencies.functanoids)
                 {
                     run_under_profiling_void("run_static_test antestatal functanoid loop body",
@@ -389,6 +398,16 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                 type_symbol type = std::move(pending.back());
                 pending.pop_back();
 
+                if (!loaded_types.insert(type).second)
+                {
+                    continue;
+                }
+                if (!layoutless_target && !typeis< nvalue_slot >(type) && !typeis< dvalue_slot >(type) && !typeis< virtual_storage >(type))
+                {
+                    class_placement_info const& placement = co_await rpnx::querygraph::request< class_placement_info_query >(type);
+                    interp.add_type_placement(type, placement);
+                }
+
                 run_under_profiling_void("run_static_test layout expansion loop body",
                                          [&]
                                          {
@@ -404,6 +423,14 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                              {
                                                  pending.push_back(type.get_as< ptrref_type >().target);
                                              }
+                                             else if (type.type_is< attached_type_reference >())
+                                             {
+                                                 pending.push_back(type.get_as< attached_type_reference >().carrying_type);
+                                             }
+                                             else if (type.type_is< readonly_constant >())
+                                             {
+                                                 pending.push_back(ptrref_type{.target = int_type{.bits = 8, .has_sign = false}, .ptr_class = pointer_class::array, .qual = qualifier::constant});
+                                             }
                                              else if (type.type_is< array_type >())
                                              {
                                                  pending.push_back(type.get_as< array_type >().element_type);
@@ -418,16 +445,11 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                                          });
 
                 bool const is_builtin_enum = type.type_is< builtin_symbol >() && is_builtin_enum_name(type.get_as< builtin_symbol >().name);
-                if (!(type.type_is< composite_type >() || type.type_is< subsymbol >() || type.type_is< submember >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() || is_builtin_enum) || loaded_layouts.contains(type))
+                if (!(type.type_is< composite_type >() || type.type_is< subsymbol >() || type.type_is< submember >() || type.type_is< subtag_type >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >() || is_builtin_enum))
                 {
                     continue;
                 }
 
-                run_under_profiling_void("run_static_test loaded_layouts insert",
-                                         [&]
-                                         {
-                                             loaded_layouts.insert(type);
-                                         });
                 class_kind const kind = co_await rpnx::querygraph::request< class_type_query >(type);
                 if (kind == class_kind::enum_)
                 {

@@ -4,6 +4,7 @@
 #define QUXLANG_QUERIES_SPECS_CONSTEXPR_EVAL_V3_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/antestatal_static_value.hpp>
+#include <quxlang/queries/class_placement_info.hpp>
 #include <quxlang/queries/struct_layout.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_routine_v3.hpp>
@@ -34,7 +35,7 @@ namespace quxlang
     struct constexpr_eval_v3_spec
     {
         using query = constexpr_eval_v3_query;
-        using dependencies = rpnx::typelist< body_parent, published_name_info, antestatal_static_value_query, struct_layout_query, constexpr_routine_v3_query, enum_info_query, flagset_info_query, fusion_alternatives_list_query, fusion_layout_query, global_init_type_query, global_is_antestatal_static_query, indexed_source_bundle_query, machine_info_query, struct_field_list_query, symboid_query, class_type_query, union_info_query, variable_type_query, variant_info_query, vm_procedure3_query, direct_dependencies_query >;
+        using dependencies = rpnx::typelist< class_placement_info_query, body_parent, published_name_info, antestatal_static_value_query, struct_layout_query, constexpr_routine_v3_query, enum_info_query, flagset_info_query, fusion_alternatives_list_query, fusion_layout_query, global_init_type_query, global_is_antestatal_static_query, indexed_source_bundle_query, machine_info_query, struct_field_list_query, symboid_query, class_type_query, union_info_query, variable_type_query, variant_info_query, vm_procedure3_query, direct_dependencies_query >;
     };
 
     /// Evaluates a constexpr v3 expression and returns all requested result IDs.

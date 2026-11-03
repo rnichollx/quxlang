@@ -2,10 +2,15 @@
 
 #include <quxlang/queries/specs/struct_field_list_spec.hpp>
 #include <quxlang/manipulators/declaration_alignment.hpp>
+#include <quxlang/data/coroutine_types.hpp>
 
 rpnx::querygraph::coroutine< quxlang::struct_field_list_spec > quxlang::struct_field_list_impl(type_symbol input)
 {
-
+    if (std::optional< instanciation_reference > coroutine = coroutine_frame_specialization(input))
+    {
+        coroutine_frame_info const& frame = co_await rpnx::querygraph::request< coroutine_frame_query >(*coroutine);
+        co_return frame.fields;
+    }
     if (input.template type_is< readonly_constant >())
     {
         auto field_type = ptrref_type{ .target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant };

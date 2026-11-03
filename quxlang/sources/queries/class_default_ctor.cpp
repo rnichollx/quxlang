@@ -16,6 +16,7 @@ rpnx::querygraph::coroutine< quxlang::class_default_ctor_spec > quxlang::class_d
     init.initializee = ctor_symbol;
     init.parameters = instatype_from_invotype(invotype{.named{{"THIS", nvalue_slot{input}}}});
     init.adaptations = allowed_adaptations::destination_rebinding;
+    init.lookup_kind = function_lookup_kind::invocation;
 
     auto ctor_inst = co_await rpnx::querygraph::request< functum_initialize_query >(init);
 

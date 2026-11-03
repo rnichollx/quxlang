@@ -101,6 +101,16 @@ namespace quxlang::vmir2::detail
             {
                 pending.push_back(current.get_as< quxlang::attached_type_reference >().carrying_type);
             }
+            else if (current.type_is< quxlang::initguard_lock_type >())
+            {
+                pending.push_back(quxlang::initguard_type{});
+            }
+            else if (current.type_is< quxlang::procedure_type >())
+            {
+                quxlang::procedure_type identity_type;
+                identity_type.calling_convention = current.get_as< quxlang::procedure_type >().calling_convention;
+                pending.push_back(std::move(identity_type));
+            }
             else if (current.type_is< quxlang::array_type >())
             {
                 pending.push_back(current.get_as< quxlang::array_type >().element_type);
@@ -505,6 +515,12 @@ auto quxlang::vmir2::reachable_local_slots(functanoid_routine3 const& routine, d
         result.insert(parameter.second.local_index);
     }
 
+    for (std::pair< local_index const, retained_storage_binding > const& binding : routine.retained_bindings)
+    {
+        result.insert(binding.first);
+        result.insert(binding.second.frame);
+    }
+
     auto record_state = [&](state_map const& state)
     {
         for (std::pair< local_index const, slot_state > const& entry : state)
@@ -608,6 +624,10 @@ void quxlang::vmir2::validate_dependency_path(functanoid_routine3 const& routine
             {
                 throw lowering_compilation_error(instruction.as< lowering_error >().message);
             }
+            if (instruction.type_is< co_cleanup_storage >() || instruction.type_is< co_cleanup_mark >())
+            {
+                throw compiler_bug("Unlowered coroutine cleanup instruction in dependency collection");
+            }
         }
     }
 }
@@ -619,6 +639,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
 
     auto add_slot_destructor = [&](local_index slot, slot_state const& state)
     {
+        if (state.destruction_started) return;
         if (state.nontrivial_dtor.has_value())
         {
             add_functanoid(result, state.nontrivial_dtor->func);
@@ -714,6 +735,21 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
             {
                 add_functanoid(result, instruction.as< defer_nontrivial_dtor >().func);
             }
+            else if (instruction.type_is< storage_rebind >())
+            {
+                storage_rebind const& binding = instruction.as< storage_rebind >();
+                if (binding.nontrivial_dtor.has_value())
+                {
+                    add_functanoid(result, binding.nontrivial_dtor->func);
+                }
+                for (storage_delegate_rebind const& nested : binding.nested_delegates)
+                {
+                    if (nested.nontrivial_dtor.has_value())
+                    {
+                        add_functanoid(result, nested.nontrivial_dtor->func);
+                    }
+                }
+            }
             else if (instruction.type_is< destroy >())
             {
                 local_index const slot = instruction.as< destroy >().of;
@@ -723,12 +759,15 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
             if (arithmetic_mode == overflow_mode::checked || instruction.type_is< invoke >() || instruction.type_is< invoke_indirect >() ||
                 instruction.type_is< invoke_virtual >() || instruction.type_is< interface_invoke >())
             {
-                state_map exceptional_exit;
-                codegen_state_engine(exceptional_exit, routine.local_types, routine.parameters).apply_exception_exit();
-                add_edge_destructors(exit_state, exceptional_exit, lifetime_transition_kind::exceptional_exit);
-                if (block.catcher.has_value())
+                if (!block.catcher.has_value() || !block.catcher->terminate_before_capture)
                 {
-                    add_edge_destructors(exit_state, routine.blocks.at(static_cast< std::uint64_t >(block.catcher->handler)).entry_state, lifetime_transition_kind::control_flow);
+                    state_map exceptional_exit;
+                    codegen_state_engine(exceptional_exit, routine.local_types, routine.parameters).apply_exception_exit();
+                    add_edge_destructors(exit_state, exceptional_exit, lifetime_transition_kind::exceptional_exit);
+                    if (block.catcher.has_value())
+                    {
+                        add_edge_destructors(exit_state, routine.blocks.at(static_cast< std::uint64_t >(block.catcher->handler)).entry_state, lifetime_transition_kind::control_flow);
+                    }
                 }
             }
 
@@ -754,7 +793,7 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
         {
             state_map normal_exit;
             codegen_state_engine(normal_exit, routine.local_types, routine.parameters).apply_normal_exit();
-            add_edge_destructors(exit_state, normal_exit, lifetime_transition_kind::normal_exit);
+            add_edge_destructors(exit_state, normal_exit, terminator.as< ret >().retain_storage ? lifetime_transition_kind::retained_exit : lifetime_transition_kind::normal_exit);
             continue;
         }
 
@@ -964,9 +1003,27 @@ auto quxlang::vmir2::directly_required_struct_runtime_infos(functanoid_routine3 
                     }
                     add_slot_object_type(this_argument->second);
                 }
-                else if constexpr (std::is_same_v< instruction_type, struct_init_start >)
+                else if constexpr (std::is_same_v< instruction_type, struct_init_start > || std::is_same_v< instruction_type, struct_phase_enter >)
                 {
                     add_slot_object_type(concrete.on_value);
+                }
+                else if constexpr (std::is_same_v< instruction_type, lifetime_import >)
+                {
+                    if (concrete.state.struct_delegates.has_value()) add_slot_object_type(concrete.slot);
+                }
+                else if constexpr (std::is_same_v< instruction_type, storage_rebind >)
+                {
+                    if (concrete.struct_delegates.has_value())
+                    {
+                        add_slot_object_type(concrete.target_value);
+                    }
+                    for (storage_delegate_rebind const& binding : concrete.nested_delegates)
+                    {
+                        if (binding.struct_delegates.has_value())
+                        {
+                            add_slot_object_type(binding.target_value);
+                        }
+                    }
                 }
             });
         }

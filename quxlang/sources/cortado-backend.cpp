@@ -1334,6 +1334,10 @@ namespace quxlang::cortado_backend
             /** Emits and validates the static JVM method body for this routine. */
             auto emit(std::string const& class_name) -> rpnx::cortado::class_file
             {
+                if (!m_routine.retained_bindings.empty())
+                {
+                    throw lowering_compilation_error("Quxlang's Cortado backend does not support retained native frame bindings");
+                }
                 if (m_routine.blocks.empty())
                 {
                     throw compiler_bug("Quxlang's Cortado backend received a routine without VMIR blocks: " + to_string(m_symbol));
@@ -1356,6 +1360,10 @@ namespace quxlang::cortado_backend
                     }
                     m_code.bind(m_block_labels.at(block_index));
                     vmir2::executable_block const& block = m_routine.blocks.at(block_index);
+                    if (block.catcher.has_value() && block.catcher->terminate_before_capture)
+                    {
+                        throw lowering_compilation_error("Quxlang's Cortado backend does not support terminating exception boundaries");
+                    }
                     vmir2::state_map current_state = block.entry_state;
                     if (block_index == 0 && current_state.empty())
                     {
@@ -1377,8 +1385,12 @@ namespace quxlang::cortado_backend
                                 .subobject_context = deferred.subobject_context,
                             };
                         }
-                        emit_completed_array_elements(previous_state, current_state);
-                        emit_completed_struct_fields(previous_state, current_state);
+                        if (!instruction.type_is< vmir2::lifetime_transfer >() && !instruction.type_is< vmir2::lifetime_import >())
+                        {
+                            emit_completed_array_elements(previous_state, current_state);
+                            emit_completed_struct_fields(previous_state, current_state);
+                            emit_completed_storage_values(previous_state, current_state);
+                        }
                     }
                     if (!block.terminator.has_value())
                     {
@@ -1520,6 +1532,7 @@ namespace quxlang::cortado_backend
                 m_reference_aliases.resize(m_routine.local_types.size());
                 m_storage_initializers.resize(m_routine.local_types.size());
                 m_storage_deinitializers.resize(m_routine.local_types.size());
+                m_persistent_storage_references.resize(m_routine.local_types.size());
                 m_array_element_reference_slots.resize(m_routine.local_types.size());
                 m_scalar_reference_owner_slots.resize(m_routine.local_types.size());
                 std::uint16_t next_slot = m_routine_infos.at(m_symbol).argument_frame_class_name.has_value() ? 1 : 0;
@@ -1561,7 +1574,7 @@ namespace quxlang::cortado_backend
                                                     [&](auto&& selected) -> void
                                                     {
                                                         using instruction_type = std::remove_cvref_t< decltype(selected) >;
-                                                        if constexpr (std::is_same_v< instruction_type, vmir2::array_init_element >)
+                                                        if constexpr (std::is_same_v< instruction_type, vmir2::array_init_element > || std::is_same_v< instruction_type, vmir2::array_deinit_previous >)
                                                         {
                                                             std::optional< local_variable_index >& reference_slot = m_array_element_reference_slots.at(local_slot(selected.target));
                                                             if (reference_slot.has_value())
@@ -1574,6 +1587,20 @@ namespace quxlang::cortado_backend
                                                             }
                                                             reference_slot = local_variable_index{next_slot};
                                                             ++next_slot;
+                                                        }
+                                                        else if constexpr (std::is_same_v< instruction_type, vmir2::storage_rebind >)
+                                                        {
+                                                            for (vmir2::storage_delegate_rebind const& binding : selected.nested_delegates)
+                                                            {
+                                                                if (!binding.array_delegate_of_initializer.has_value()) continue;
+                                                                std::optional< local_variable_index >& reference_slot = m_array_element_reference_slots.at(local_slot(binding.target_value));
+                                                                if (reference_slot.has_value()) continue;
+                                                                if (next_slot == std::numeric_limits< std::uint16_t >::max())
+                                                                {
+                                                                    throw lowering_compilation_error("Quxlang's Cortado backend has no JVM local slot available for retained array initialization: " + to_string(m_symbol));
+                                                                }
+                                                                reference_slot = local_variable_index{next_slot++};
+                                                            }
                                                         }
                                                         else if constexpr (std::is_same_v< instruction_type, vmir2::swap > || std::is_same_v< instruction_type, vmir2::fusion_swap_boxed_state >)
                                                         {
@@ -1672,6 +1699,7 @@ namespace quxlang::cortado_backend
                                                             using instruction_type = std::decay_t< decltype(selected) >;
                                                             if constexpr (std::is_same_v< instruction_type, vmir2::make_reference >)
                                                             {
+                                                                if (selected.storage_only) m_storage_only_references.insert(selected.reference_index);
                                                                 std::optional< vmir2::local_index >& alias = m_reference_aliases.at(local_slot(selected.reference_index));
                                                                 if (alias != selected.value_index)
                                                                 {
@@ -1681,6 +1709,7 @@ namespace quxlang::cortado_backend
                                                             }
                                                             else if constexpr (std::is_same_v< instruction_type, vmir2::copy_reference >)
                                                             {
+                                                                if (m_storage_only_references.contains(selected.from_index) && m_storage_only_references.insert(selected.to_index).second) changed = true;
                                                                 if (local_has_value_storage(selected.to_index))
                                                                 {
                                                                     return;
@@ -1694,6 +1723,7 @@ namespace quxlang::cortado_backend
                                                             }
                                                             else if constexpr (std::is_same_v< instruction_type, vmir2::cast_ptrref >)
                                                             {
+                                                                if (m_storage_only_references.contains(selected.source_index) && m_storage_only_references.insert(selected.target_index).second) changed = true;
                                                                 if (local_has_value_storage(selected.target_index))
                                                                 {
                                                                     return;
@@ -1710,6 +1740,27 @@ namespace quxlang::cortado_backend
                                                                 vmir2::local_index const storage_local = resolved_reference(selected.on_storage);
                                                                 m_storage_initializers.at(local_slot(storage_local)) = selected.target_value;
                                                                 m_storage_initializer_targets.insert(selected.target_value);
+                                                                if (selected.persistent)
+                                                                {
+                                                                    m_persistent_storage_references.at(local_slot(selected.target_value)) = selected.on_storage;
+                                                                    m_storage_deinitializers.at(local_slot(selected.target_value)) = selected.on_storage;
+                                                                }
+                                                            }
+                                                            else if constexpr (std::is_same_v< instruction_type, vmir2::storage_rebind >)
+                                                            {
+                                                                type_symbol const source_type = unwrapped_type(remove_ref(m_routine.local_types.at(local_slot(selected.on_storage)).type));
+                                                                type_symbol const target_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.target_value)).type);
+                                                                bool const typed_storage = source_type.type_is< storage >() || source_type.type_is< aligned_storage >();
+                                                                bool const composite = m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || is_semantic_fusion_type(m_input, target_type);
+                                                                m_storage_initializer_targets.insert(selected.target_value);
+                                                                if (!typed_storage && composite) return;
+                                                                vmir2::local_index const storage_local = resolved_reference(selected.on_storage);
+                                                                m_storage_initializers.at(local_slot(storage_local)) = selected.target_value;
+                                                                m_storage_deinitializers.at(local_slot(selected.target_value)) = selected.on_storage;
+                                                                if (!selected.destroy_delegate)
+                                                                {
+                                                                    m_persistent_storage_references.at(local_slot(selected.target_value)) = selected.on_storage;
+                                                                }
                                                             }
                                                             else if constexpr (std::is_same_v< instruction_type, vmir2::storage_deinit_start >)
                                                             {
@@ -1831,6 +1882,7 @@ namespace quxlang::cortado_backend
                 }
                 emit_load(m_code, from_kind, jvm_slot(from));
                 emit_store(m_code, to_kind, jvm_slot(to));
+                publish_retained_storage_value(to);
             }
 
             /** Returns whether a pointer addresses a declared TYPED_STORAGE value. */
@@ -2096,7 +2148,7 @@ namespace quxlang::cortado_backend
                     return;
                 }
 
-                emit_scalar_reference_owner_value(target);
+                if (!m_storage_only_references.contains(argument)) emit_scalar_reference_owner_value(target);
                 std::optional< local_variable_index > const& owner_slot = m_scalar_reference_owner_slots.at(local_slot(target));
                 m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(*owner_slot).append< opcode::lconst_0 >();
                 m_code.invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V");
@@ -2135,6 +2187,7 @@ namespace quxlang::cortado_backend
                 emit_unboxed_value(kind);
                 emit_store(m_code, kind, jvm_slot(target));
                 canonicalize_integer(target);
+                publish_retained_storage_value(target);
                 m_code.branch< opcode::goto_ >(finished).bind(not_initialized).bind(finished);
             }
 
@@ -2573,12 +2626,12 @@ namespace quxlang::cortado_backend
                 {
                     vmir2::local_index const target = entry.first;
                     vmir2::slot_state const& current = entry.second;
-                    if (!current.array_delegate_of_initializer.has_value() || !current.alive())
+                    if (!current.array_delegate_of_initializer.has_value() || current.owns_subobject_lifetime || current.stage != vmir2::slot_stage::full)
                     {
                         continue;
                     }
                     vmir2::state_map::const_iterator const previous = previous_state.find(target);
-                    if (previous == previous_state.end() || previous->second.alive())
+                    if (previous == previous_state.end() || previous->second.stage == vmir2::slot_stage::full)
                     {
                         continue;
                     }
@@ -2590,6 +2643,7 @@ namespace quxlang::cortado_backend
                     store_managed_reference_from_jvm_slot(*reference_slot, target);
                     vmir2::local_index const initializer = *current.array_delegate_of_initializer;
                     m_code.new_("quxlang/runtime/QuxlangReference").append< opcode::dup >().aload(jvm_slot(initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").aload(jvm_slot(initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J").template append< opcode::lconst_1 >().template append< opcode::ladd >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(initializer));
+                    publish_retained_storage_value(initializer);
                 }
             }
 
@@ -2627,6 +2681,94 @@ namespace quxlang::cortado_backend
                         store_aggregate_field(initializer.target, aggregate_field_index(initializer.target, field->first), field->second);
                         field = initializer.fields.erase(field);
                     }
+                }
+            }
+
+            /** Publishes completed values into storage retained by an enclosing activation. */
+            void emit_completed_storage_values(vmir2::state_map const& previous_state, vmir2::state_map const& current_state)
+            {
+                for (std::pair< vmir2::local_index const, vmir2::slot_state > const& entry : current_state)
+                {
+                    if (entry.second.stage != vmir2::slot_stage::full)
+                    {
+                        continue;
+                    }
+                    vmir2::state_map::const_iterator const previous = previous_state.find(entry.first);
+                    if (previous != previous_state.end() && previous->second.stage == vmir2::slot_stage::full)
+                    {
+                        continue;
+                    }
+                    publish_retained_storage_value(entry.first);
+                }
+            }
+
+            /** Publishes a completed or mutated value into its retained managed storage. */
+            void publish_retained_storage_value(vmir2::local_index value)
+            {
+                std::optional< vmir2::local_index > const& storage = m_persistent_storage_references.at(local_slot(value));
+                if (!storage.has_value()) return;
+                emit_storage_owner(*storage);
+                m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                emit_storage_index(*storage);
+                emit_boxed_value(value);
+                m_code.append< opcode::aastore >();
+                emit_storage_owner(*storage);
+                m_code.getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
+                emit_storage_index(*storage);
+                m_code.append< opcode::iconst_1 >().append< opcode::bastore >();
+            }
+
+            /** Restores managed subobject values and construction delegates from a retained aggregate. */
+            void emit_storage_delegates(vmir2::storage_delegate_rebind const& binding, vmir2::state_map const& current_state)
+            {
+                if (binding.array_delegate_of_initializer.has_value())
+                {
+                    vmir2::local_index const initializer = *binding.array_delegate_of_initializer;
+                    std::optional< local_variable_index > const& reference_slot = m_array_element_reference_slots.at(local_slot(binding.target_value));
+                    if (!reference_slot.has_value())
+                    {
+                        throw compiler_bug("STORAGE_REBIND array delegate has no managed-reference local");
+                    }
+                    m_code.aload(jvm_slot(initializer)).astore(*reference_slot);
+                    m_code.aload(jvm_slot(initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                    m_code.aload(jvm_slot(initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J").append< opcode::l2i >().append< opcode::aaload >();
+                    jvm_value_kind const kind = kind_of(binding.target_value);
+                    emit_unboxed_value(kind);
+                    emit_store(m_code, kind, jvm_slot(binding.target_value));
+                }
+                if (binding.struct_delegates.has_value())
+                {
+                    if (binding.struct_delegates->size() != binding.struct_delegate_stages.size())
+                    {
+                        throw compiler_bug("STORAGE_REBIND has mismatched delegate stages");
+                    }
+                    type_symbol const target_type = unwrapped_type(m_routine.local_types.at(local_slot(binding.target_value)).type);
+                    std::vector< struct_field > const& fields = m_input.struct_definitions.at(target_type);
+                    for (std::size_t index = 0; index < binding.struct_delegates->size(); ++index)
+                    {
+                        vmir2::struct_init_delegate const& delegate = binding.struct_delegates->at(index);
+                        if (!typeis< vmir2::struct_init_field_selector >(delegate.selector))
+                        {
+                            throw lowering_compilation_error("Quxlang's Cortado backend does not yet lower inheritance subobject construction");
+                        }
+                        if (binding.struct_delegate_stages.at(index) == vmir2::slot_stage::dead)
+                        {
+                            continue;
+                        }
+                        std::size_t const ordinal = as< vmir2::struct_init_field_selector >(delegate.selector).field_ordinal;
+                        std::size_t const field_index = aggregate_field_index(binding.target_value, fields.at(ordinal).name);
+                        emit_composite_object(binding.target_value);
+                        m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                        emit_int_constant(m_code, static_cast< std::uint32_t >(field_index));
+                        m_code.append< opcode::aaload >();
+                        jvm_value_kind const field_kind = kind_of(delegate.value);
+                        emit_unboxed_value(field_kind);
+                        emit_store(m_code, field_kind, jvm_slot(delegate.value));
+                    }
+                    emit_instruction(vmir2::struct_init_start{
+                        .on_value = binding.target_value,
+                        .delegates = *binding.struct_delegates,
+                    }, current_state);
                 }
             }
 
@@ -3027,6 +3169,7 @@ namespace quxlang::cortado_backend
                 }
                 emit_integer_canonicalization(m_routine.local_types.at(local_slot(target)).type, kind);
                 emit_store(m_code, kind, jvm_slot(target));
+                publish_retained_storage_value(target);
             }
 
             /** Emits a nonatomic mutating integer division on a direct JVM local alias. */
@@ -3080,6 +3223,7 @@ namespace quxlang::cortado_backend
                 }
                 emit_integer_canonicalization(m_routine.local_types.at(local_slot(target)).type, kind);
                 emit_store(m_code, kind, jvm_slot(target));
+                publish_retained_storage_value(target);
             }
 
             /** Emits a nonatomic mutating floating-point operation on a direct JVM local alias. */
@@ -3103,6 +3247,7 @@ namespace quxlang::cortado_backend
                     throw compiler_bug("Quxlang's Cortado backend mutating floating-point operation received a non-floating value");
                 }
                 emit_store(m_code, kind, jvm_slot(target));
+                publish_retained_storage_value(target);
             }
 
             /** Emits a nonatomic mutating implication on a direct JVM local alias. */
@@ -3142,6 +3287,7 @@ namespace quxlang::cortado_backend
                 }
                 emit_integer_canonicalization(m_routine.local_types.at(local_slot(target)).type, kind);
                 emit_store(m_code, kind, jvm_slot(target));
+                publish_retained_storage_value(target);
             }
 
             /** Emits a nonatomic mutating integer operation through managed storage. */
@@ -4479,6 +4625,7 @@ namespace quxlang::cortado_backend
             /** Invokes the destructor selected for one live VMIR slot. */
             void emit_slot_destructor_call(vmir2::local_index slot, vmir2::slot_state const& state)
             {
+                if (state.destruction_started) return;
                 type_symbol destructor;
                 vmir2::invocation_args arguments;
                 if (state.nontrivial_dtor.has_value())
@@ -4543,12 +4690,16 @@ namespace quxlang::cortado_backend
                 {
                     switch (action.kind)
                     {
+                    case vmir2::lifetime_action_kind::require_asynchronous_cleanup:
+                        throw semantic_compilation_error("Synchronous cleanup cannot destroy a completed async-only object");
                     case vmir2::lifetime_action_kind::destroy_object:
                         emit_slot_destructor_call(action.slot, current_state.at(action.slot));
                         break;
                     case vmir2::lifetime_action_kind::destroy_array_prefix:
                         emit_array_initializer_cleanup(action.slot);
                         break;
+                    case vmir2::lifetime_action_kind::restore_phase:
+                        throw lowering_compilation_error("Quxlang's Cortado backend does not yet lower inheritance runtime operations");
                     case vmir2::lifetime_action_kind::abort_initguard:
                         emit_runtime_initguard_call(vmir_runtime_dependency::initguard_abort, action.slot);
                         break;
@@ -4567,12 +4718,12 @@ namespace quxlang::cortado_backend
             }
 
             /** Emits cleanup required before a routine's normal return. */
-            void emit_return_cleanup(vmir2::state_map const& current_state)
+            void emit_return_cleanup(vmir2::state_map const& current_state, bool retain_storage)
             {
                 vmir2::state_map normal_exit;
                 vmir2::codegen_state_engine state_engine(normal_exit, m_routine.local_types, m_routine.parameters);
                 state_engine.apply_normal_exit();
-                emit_transition_cleanup(current_state, normal_exit, vmir2::lifetime_transition_kind::normal_exit);
+                emit_transition_cleanup(current_state, normal_exit, retain_storage ? vmir2::lifetime_transition_kind::retained_exit : vmir2::lifetime_transition_kind::normal_exit);
             }
 
             /** Loads an arithmetic operand as an exact integer, including values behind references. */
@@ -4662,6 +4813,14 @@ namespace quxlang::cortado_backend
             /** Lowers one supported VMIR instruction into JVM bytecode. */
             void emit_instruction(vmir2::vm_instruction const& instruction, vmir2::state_map const& current_state)
             {
+                if (instruction.type_is< vmir2::co_save >())
+                {
+                    throw compiler_bug("Unlowered coroutine checkpoint in Cortado emission");
+                }
+                if (instruction.type_is< vmir2::co_cleanup_storage >() || instruction.type_is< vmir2::co_cleanup_mark >())
+                {
+                    throw compiler_bug("Unlowered coroutine cleanup instruction in Cortado emission");
+                }
                 rpnx::apply_visitor< void >(instruction,
                                             [&](auto& selected) -> void
                                             {
@@ -4994,12 +5153,63 @@ namespace quxlang::cortado_backend
                                                     emit_unboxed_value(target_kind);
                                                     emit_store(m_code, target_kind, jvm_slot(selected.target_value));
                                                 }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::storage_rebind >)
+                                                {
+                                                    type_symbol const source_type = unwrapped_type(remove_ref(m_routine.local_types.at(local_slot(selected.on_storage)).type));
+                                                    type_symbol const target_type = unwrapped_type(m_routine.local_types.at(local_slot(selected.target_value)).type);
+                                                    bool const typed_storage = source_type.type_is< storage >() || source_type.type_is< aligned_storage >();
+                                                    bool const composite = m_input.struct_definitions.contains(target_type) || target_type.type_is< array_type >() || is_semantic_fusion_type(m_input, target_type);
+                                                    if (!typed_storage && composite)
+                                                    {
+                                                        emit_composite_object(selected.on_storage);
+                                                        m_code.astore(jvm_slot(selected.target_value));
+                                                    }
+                                                    else if (composite || selected.stage != vmir2::slot_stage::dead)
+                                                    {
+                                                        emit_storage_owner(selected.on_storage);
+                                                        m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                                                        emit_storage_index(selected.on_storage);
+                                                        m_code.append< opcode::aaload >();
+                                                        jvm_value_kind const target_kind = kind_of(selected.target_value);
+                                                        emit_unboxed_value(target_kind);
+                                                        emit_store(m_code, target_kind, jvm_slot(selected.target_value));
+                                                    }
+                                                    emit_storage_delegates(vmir2::storage_delegate_rebind{
+                                                        .target_value = selected.target_value,
+                                                        .stage = selected.stage,
+                                                        .struct_delegates = selected.struct_delegates,
+                                                        .struct_delegate_stages = selected.struct_delegate_stages,
+                                                        .array_delegates = selected.array_delegates,
+                                                        .nontrivial_dtor = selected.nontrivial_dtor,
+                                                        .destruction_started = selected.destruction_started,
+                                                        .construction_pending = selected.construction_pending,
+                                                    }, current_state);
+                                                    for (vmir2::storage_delegate_rebind const& binding : selected.nested_delegates)
+                                                    {
+                                                        emit_storage_delegates(binding, current_state);
+                                                    }
+                                                }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::canonicalize_float >)
                                                 {
                                                     emit_canonicalize_float(selected);
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::newtype > || std::is_same_v< instruction_type, vmir2::struct_init_finish > || std::is_same_v< instruction_type, vmir2::end_lifetime > || std::is_same_v< instruction_type, vmir2::defer_nontrivial_dtor >)
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::newtype > || std::is_same_v< instruction_type, vmir2::begin_destruction > || std::is_same_v< instruction_type, vmir2::complete_initialization > || std::is_same_v< instruction_type, vmir2::struct_init_finish > || std::is_same_v< instruction_type, vmir2::defer_nontrivial_dtor >)
                                                 {
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::end_lifetime >)
+                                                {
+                                                    std::optional< vmir2::local_index > const& storage_reference = m_storage_deinitializers.at(local_slot(selected.of));
+                                                    if (storage_reference.has_value())
+                                                    {
+                                                        emit_storage_owner(*storage_reference);
+                                                        m_code.getfield("quxlang/runtime/QuxlangObject", "values", "[Ljava/lang/Object;");
+                                                        emit_storage_index(*storage_reference);
+                                                        m_code.append< opcode::aconst_null >().append< opcode::aastore >();
+                                                        emit_storage_owner(*storage_reference);
+                                                        m_code.getfield("quxlang/runtime/QuxlangObject", "initialized", "[Z");
+                                                        emit_storage_index(*storage_reference);
+                                                        m_code.append< opcode::iconst_0 >().append< opcode::bastore >();
+                                                    }
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::destroy >)
                                                 {
@@ -5339,6 +5549,16 @@ namespace quxlang::cortado_backend
                                                         emit_new_composite_object(element_type);
                                                         m_code.astore(jvm_slot(selected.target));
                                                     }
+                                                }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::array_deinit_previous >)
+                                                {
+                                                    m_code.new_("quxlang/runtime/QuxlangReference").template append< opcode::dup >().aload(jvm_slot(selected.initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "owner", "Lquxlang/runtime/QuxlangObject;").aload(jvm_slot(selected.initializer)).checkcast("quxlang/runtime/QuxlangReference").getfield("quxlang/runtime/QuxlangReference", "index", "J").template append< opcode::lconst_1 >().template append< opcode::lsub >().invokespecial("quxlang/runtime/QuxlangReference", "<init>", "(Lquxlang/runtime/QuxlangObject;J)V").astore(jvm_slot(selected.initializer));
+                                                    publish_retained_storage_value(selected.initializer);
+                                                    emit_storage_delegates(vmir2::storage_delegate_rebind{
+                                                        .target_value = selected.target,
+                                                        .array_delegate_of_initializer = selected.initializer,
+                                                        .owns_subobject_lifetime = true,
+                                                    }, current_state);
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::array_init_index >)
                                                 {
@@ -6276,11 +6496,15 @@ namespace quxlang::cortado_backend
                                                     };
                                                     emit_comparison_boolean(relation);
                                                 }
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::lifetime_transfer > || std::is_same_v< instruction_type, vmir2::lifetime_import >)
+                                                {
+                                                    // Retained storage owns the payload while logical ownership is transferred.
+                                                }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::invoke >)
                                                 {
                                                     emit_direct_invoke(selected);
                                                 }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::invoke_virtual > || std::is_same_v< instruction_type, vmir2::inheritance_cast > || std::is_same_v< instruction_type, vmir2::struct_dynamic_cast > || std::is_same_v< instruction_type, vmir2::struct_type_is > || std::is_same_v< instruction_type, vmir2::struct_dynamic_type > || std::is_same_v< instruction_type, vmir2::struct_alloc_info >)
+                                                else if constexpr (std::is_same_v< instruction_type, vmir2::struct_phase_enter > || std::is_same_v< instruction_type, vmir2::struct_phase_leave > || std::is_same_v< instruction_type, vmir2::invoke_virtual > || std::is_same_v< instruction_type, vmir2::inheritance_cast > || std::is_same_v< instruction_type, vmir2::struct_dynamic_cast > || std::is_same_v< instruction_type, vmir2::struct_type_is > || std::is_same_v< instruction_type, vmir2::struct_dynamic_type > || std::is_same_v< instruction_type, vmir2::struct_alloc_info >)
                                                 {
                                                     throw lowering_compilation_error("Quxlang's Cortado backend does not yet lower inheritance runtime operations");
                                                 }
@@ -6473,6 +6697,10 @@ namespace quxlang::cortado_backend
             /** Lowers one VMIR block terminator while preserving empty boundary stacks. */
             void emit_terminator(vmir2::vm_terminator const& terminator, vmir2::state_map const& current_state)
             {
+                if (terminator.type_is< vmir2::co_suspend >() || terminator.type_is< vmir2::co_complete >())
+                {
+                    throw compiler_bug("Unlowered coroutine terminator in Cortado emission");
+                }
                 rpnx::apply_visitor< void >(terminator,
                                             [&](auto& selected) -> void
                                             {
@@ -6558,7 +6786,7 @@ namespace quxlang::cortado_backend
                                                 }
                                                 else if constexpr (std::is_same_v< terminator_type, vmir2::ret >)
                                                 {
-                                                    emit_return_cleanup(current_state);
+                                                    emit_return_cleanup(current_state, selected.retain_storage);
                                                     std::map< std::string, vmir2::routine_parameter >::const_iterator const return_iter = m_routine.parameters.named.find("RETURN");
                                                     if (return_iter == m_routine.parameters.named.end())
                                                     {
@@ -6595,7 +6823,10 @@ namespace quxlang::cortado_backend
             std::vector< std::optional< vmir2::local_index > > m_reference_aliases;
             std::vector< std::optional< vmir2::local_index > > m_storage_initializers;
             std::vector< std::optional< vmir2::local_index > > m_storage_deinitializers;
+            std::vector< std::optional< vmir2::local_index > > m_persistent_storage_references;
             std::set< vmir2::local_index > m_storage_initializer_targets;
+            /// Records generated destination references that do not publish an initialized scalar value.
+            std::set< vmir2::local_index > m_storage_only_references;
             std::vector< std::optional< local_variable_index > > m_array_element_reference_slots;
             std::vector< std::optional< local_variable_index > > m_scalar_reference_owner_slots;
             std::vector< pending_struct_initializer > m_pending_struct_initializers;

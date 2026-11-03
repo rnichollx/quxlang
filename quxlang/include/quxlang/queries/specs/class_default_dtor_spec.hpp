@@ -8,6 +8,7 @@
 #include <quxlang/queries/functum_initialize.hpp>
 #include <quxlang/queries/struct_tags.hpp>
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/type_is_async_only.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -17,7 +18,7 @@ namespace quxlang
     struct class_default_dtor_spec
     {
         using query = class_default_dtor_query;
-        using dependencies = rpnx::typelist< class_type_query, functum_initialize_query, struct_tags_query, symbol_type_query >;
+        using dependencies = rpnx::typelist< class_type_query, functum_initialize_query, struct_tags_query, symbol_type_query, type_is_async_only_query >;
     };
 
     rpnx::querygraph::coroutine< class_default_dtor_spec > class_default_dtor_impl(type_symbol input);

@@ -61,6 +61,13 @@ RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, class_, value);
 RPNX_ENUM(quxlang, lambda_capture_mode, std::uint8_t, reference, value);
 /** Selects the source statement that completes a callable body. */
 RPNX_ENUM(quxlang, function_completion, std::uint8_t, return_, continue_);
+/** Selects ordinary invocation or controller-driven coroutine execution. */
+RPNX_ENUM(quxlang, function_execution_kind, std::uint8_t, ordinary, coroutine);
+RPNX_ENUM(quxlang, function_lookup_kind, std::uint8_t, specialization, invocation);
+/** Selects ordinary call adaptation, explicit root launch, or awaited coroutine launch. */
+RPNX_ENUM(quxlang, call_execution_mode, std::uint8_t, ordinary, run, go);
+/** Identifies the cancellation contract declared by a coroutine. */
+RPNX_ENUM(quxlang, coroutine_cancellation_mode, std::uint8_t, none, cooperative, instant);
 /** Identifies whether a direct struct base is embedded or shared virtually. */
 RPNX_ENUM(quxlang, inheritance_kind, std::uint8_t, nonvirtual, virtual_);
 /** Identifies whether a constructor delegate selects an ordinary member/base or a canonical virtual base. */
@@ -357,14 +364,16 @@ namespace quxlang
     {
         /// Accepted type for this parameter or positional pack element.
         type_symbol type;
-        /// True when this parameter can be omitted and initialized from a default expression.
+        /// True when omission has a default expression or a descriptor-specialization default.
         bool is_defaulted = false;
         /// True when this parameter is a variadic pack.
         bool is_pack = false;
         /// Template-parameter category, or no value for an ordinary function parameter.
         std::optional< template_parameter_kind > template_parameter;
+        /** Identifies an implicit coroutine controller whose borrowed argument specializes its unreferenced type. */
+        bool is_execution_controller = false;
 
-        RPNX_MEMBER_METADATA(argif, type, is_defaulted, is_pack, template_parameter);
+        RPNX_MEMBER_METADATA(argif, type, is_defaulted, is_pack, template_parameter, is_execution_controller);
     };
 
     // Interface type - used in things like overload resolution
@@ -749,8 +758,12 @@ namespace quxlang
          * When this is VOID, THISTYPE is left as-is during ensig matching.
          */
         type_symbol type_of_this;
+        /** Invocation requires execution-controller arguments; specialization permits their descriptor defaults. */
+        function_lookup_kind lookup_kind = function_lookup_kind::invocation;
+        /** Implicit arguments require matching named formals and cannot enter a named-rest pack. */
+        std::set< std::string > implicit_named_arguments;
 
-        RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, adaptations, type_of_this);
+        RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, adaptations, type_of_this, lookup_kind, implicit_named_arguments);
     };
 
     struct initialization_reference
@@ -760,8 +773,12 @@ namespace quxlang
         std::vector< expression_arg > arguments;
         instatype parameters;
         allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
+        /** Distinguishes explicit descriptor specialization from selection for an actual invocation. */
+        function_lookup_kind lookup_kind = function_lookup_kind::specialization;
+        /** Names supplied by the execution context rather than an explicit source argument. */
+        std::set< std::string > implicit_named_arguments;
 
-        RPNX_MEMBER_METADATA(initialization_reference, initializee, context, arguments, parameters, adaptations);
+        RPNX_MEMBER_METADATA(initialization_reference, initializee, context, arguments, parameters, adaptations, lookup_kind, implicit_named_arguments);
     };
 
     /// Reference to a selected overload instantiated with canonical formal template arguments.
@@ -1339,6 +1356,7 @@ namespace quxlang
     struct function_runtime_statement;
     struct function_policy_statement;
     struct function_return_statement;
+    struct function_yield_statement;
     struct function_return_unequal_statement;
     struct function_static_eval_statement;
     struct function_code_align_statement;
@@ -1356,7 +1374,7 @@ namespace quxlang
     struct function_try_statement;
     struct function_rethrow_statement;
 
-    using function_statement = rpnx::variant< function_benchmark_loop, function_measure_statement, function_block, function_expression_statement, function_init_statement, function_if_statement, function_loop_statement, function_var_statement, function_return_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_policy_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement, function_code_align_statement >;
+    using function_statement = rpnx::variant< function_benchmark_loop, function_measure_statement, function_block, function_expression_statement, function_init_statement, function_if_statement, function_loop_statement, function_var_statement, function_return_statement, function_yield_statement, function_return_unequal_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_panic_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_policy_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement, function_match_statement, function_visit_statement, function_defer_statement, function_throw_statement, function_try_statement, function_rethrow_statement, function_code_align_statement >;
 
     struct function_block
     {
@@ -1747,6 +1765,14 @@ namespace quxlang
         QUX_AST_METADATA(function_return_statement, expr);
     };
 
+    /** Passes one operand to the current coroutine controller's yield operation. */
+    struct function_yield_statement
+    {
+        expression value;
+
+        QUX_AST_METADATA(function_yield_statement, value);
+    };
+
     /** Returns a non-equal ordering from one expression or a comparison of two expressions. */
     struct function_return_unequal_statement
     {
@@ -1877,7 +1903,12 @@ namespace quxlang
         /** Present for APPLY, whose fields supply the named call arguments. */
         std::optional< expression > composite_arguments;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_call, callee, args, composite_arguments);
+        /** Launch policy selected by RUN or GO; ordinary calls use contextual adaptation. */
+        call_execution_mode execution_mode = call_execution_mode::ordinary;
+        /** Explicit ON operand, evaluated before the target receiver and arguments. */
+        std::optional< expression > controller;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_call, callee, args, composite_arguments, execution_mode, controller);
     };
 
     /** Represents a `BIT n` numeric-literal expression. */
@@ -1945,6 +1976,14 @@ namespace quxlang
         type_symbol of_type;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_type_is_polymorphic, of_type);
+    };
+
+    /** Tests whether owning destruction of a type requires coroutine execution. */
+    struct expression_type_is_async_only
+    {
+        type_symbol of_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_type_is_async_only, of_type);
     };
 
     struct expression_same_types
@@ -2136,6 +2175,14 @@ namespace quxlang
         expression false_expr;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_static_choose, condition, true_expr, false_expr);
+    };
+
+    /** Awaits one operation through the current coroutine controller. */
+    struct expression_await
+    {
+        expression operand;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_await, operand);
     };
 
     struct expression_snapshot

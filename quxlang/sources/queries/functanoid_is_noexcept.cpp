@@ -7,6 +7,18 @@
 rpnx::querygraph::coroutine< quxlang::functanoid_is_noexcept_spec > quxlang::functanoid_is_noexcept_impl(instanciation_reference input)
 {
     temploid_reference const& function = input.temploid;
+    if (function.templexoid.type_is< subsymbol >())
+    {
+        subsymbol const& symbol = function.templexoid.get_as< subsymbol >();
+        if (symbol.name == "__COROUTINE_DESTRUCTOR" || symbol.name == "__COROUTINE_SUBOBJECT_DESTRUCTOR")
+        {
+            instatype const& parameters = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(input);
+            type_symbol controller_type = remove_ref(parameter_instantiation_type(parameters.named.at("CONTROLLER")));
+            coroutine_destructor_selection const& selected = co_await rpnx::querygraph::request< coroutine_destructor_query >(
+                coroutine_destructor_request{.object_type = symbol.of, .controller_type = std::move(controller_type)});
+            co_return !selected.operation.has_value() || co_await rpnx::querygraph::request< functanoid_is_noexcept_query >(*selected.operation);
+        }
+    }
     bool is_destructor = false;
     if (typeis< submember >(function.templexoid))
     {
@@ -39,6 +51,7 @@ rpnx::querygraph::coroutine< quxlang::functanoid_is_noexcept_spec > quxlang::fun
             .initializee = submember{.of = owner, .name = "DESTRUCTOR"},
             .parameters = instatype_from_invotype(invotype{.named = {{"THIS", make_mref(owner)}}}),
             .adaptations = allowed_adaptations::none,
+            .lookup_kind = function_lookup_kind::invocation,
         });
         co_return !body.has_value() || (co_await rpnx::querygraph::request< functanoid_is_noexcept_query >(*body));
     }

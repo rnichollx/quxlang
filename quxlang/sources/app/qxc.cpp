@@ -284,6 +284,7 @@ class qxc_implementation
             empty_call.initializee = *resolved_entry;
         }
 
+        empty_call.lookup_kind = quxlang::function_lookup_kind::invocation;
         auto instanciation = graph.make_request< quxlang::instanciation_query >(std::move(empty_call));
         if (!instanciation.has_value())
         {

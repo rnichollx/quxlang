@@ -27,6 +27,7 @@ rpnx::querygraph::coroutine< quxlang::user_default_ctor_exists_spec > quxlang::u
             .params = instatype_from_invotype(ctor_call_type),
             .adaptations = allowed_adaptations::none,
             .type_of_this = input,
+            .lookup_kind = function_lookup_kind::specialization,
         });
 
         if (candidate)

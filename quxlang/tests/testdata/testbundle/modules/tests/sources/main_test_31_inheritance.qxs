@@ -133,6 +133,37 @@ DOC <$ Exercises base subobjects, virtual dispatch, construction, and destructio
     TEST_ASSERT(call_secondary_virtual_value(@object object.right) == 82);
   }
 
+  ::secondary_override_left STRUCT POLYMORPHIC {}
+
+  ::secondary_override_derived STRUCT POLYMORPHIC
+  {
+    .left BASE secondary_override_left;
+    .right BASE secondary_dispatch_right;
+    .value FUNCTION() CONST VIRTUAL(OVERRIDE): I32 { RETURN 42; }
+  }
+
+  ::secondary_override_final STRUCT POLYMORPHIC
+  {
+    .base_part BASE secondary_override_derived;
+    .value FUNCTION() CONST VIRTUAL(OVERRIDE): I32 { RETURN 43; }
+  }
+
+  ::call_secondary_override FUNCTION(@object CONST& secondary_override_derived): I32
+  {
+    RETURN object.value();
+  }
+
+  DOC <$ A derived receiver dispatches an override whose virtual slot belongs to a secondary base. $>
+  ::secondary_override_direct_receiver DUAL_TEST KNOWN_BROKEN_IF(ARCH_IS_JVM)
+  {
+    VAR object secondary_override_derived;
+    TEST_ASSERT(object.value() == 42);
+    TEST_ASSERT(object.right.value() == 42);
+    VAR further_derived secondary_override_final;
+    TEST_ASSERT(further_derived.value() == 43);
+    TEST_ASSERT(call_secondary_override(@object further_derived) == 43);
+  }
+
   ::construction_phase_base STRUCT POLYMORPHIC
   {
     .observed_value VAR I32;

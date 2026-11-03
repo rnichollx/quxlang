@@ -1,0 +1,345 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_protocol_tests NAMESPACE
+{
+  ::awaiter STRUCT
+  {
+    .ready VAR BOOL;
+    .driver VAR MUT->controller;
+    .AWAIT_READY FUNCTION() CONST: BOOL
+    {
+      .driver->.readiness += 1;
+      RETURN .ready;
+    }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& controller, @FRAME MUT& AUTO): BOOL
+    {
+      CONTROLLER.registration += 1;
+      RETURN FALSE;
+    }
+    .AWAIT_RESUME FUNCTION() { .driver->.delivery += 1; }
+  }
+
+  ::controller STRUCT
+  {
+    .readiness VAR I32;
+    .registration VAR I32;
+    .delivery VAR I32;
+    .CO_AWAIT FUNCTION(@ARG BOOL) MUT: awaiter
+    {
+      VAR result awaiter;
+      result.ready := ARG;
+      result.driver := THIS<-;
+      RETURN result;
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  ::inline_completion COROUTINE(@VALUE:value MUT& I32, @CONTROLLER controller)
+  {
+    AWAIT(TRUE);
+    AWAIT(FALSE);
+    value += 1;
+  }
+
+  DOC <$ A ready operation skips registration; a declined suspension delivers inline without repeating readiness. $>
+  ::ready_and_declined_suspend DUAL_TEST
+  {
+    VAR driver controller;
+    VAR value I32;
+    VAR frame inline_completion#(@VALUE MUT& I32)::FRAME_TYPE;
+    frame.INITIALIZE(@VALUE value);
+    TEST_ASSERT(driver.readiness == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(value == 1);
+    TEST_ASSERT(driver.readiness == 3);
+    TEST_ASSERT(driver.registration == 1);
+    TEST_ASSERT(driver.delivery == 3);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.delivery == 3);
+  }
+
+  ::queued_awaiter STRUCT
+  {
+    .ready VAR BOOL;
+    .owner VAR MUT->queued_controller;
+    .AWAIT_READY FUNCTION() CONST: BOOL
+    {
+      .owner->.readiness += 1;
+      RETURN .ready;
+    }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& queued_controller, @FRAME MUT& AUTO): BOOL
+    {
+      TEST_ASSERT(CONTROLLER.registered == FALSE);
+      CONTROLLER.generation += 1;
+      CONTROLLER.pending_generation := CONTROLLER.generation;
+      CONTROLLER.registered := TRUE;
+      CONTROLLER.queued := TRUE;
+      RETURN TRUE;
+    }
+    .AWAIT_RESUME FUNCTION() { .owner->.deliveries += 1; }
+  }
+
+  ::queued_controller STRUCT
+  {
+    .readiness VAR I32;
+    .deliveries VAR I32;
+    .generation VAR I32;
+    .pending_generation VAR I32;
+    .registered VAR BOOL;
+    .queued VAR BOOL;
+    .CO_AWAIT FUNCTION(@ARG BOOL) MUT: queued_awaiter
+    {
+      VAR result queued_awaiter;
+      result.ready := ARG;
+      result.owner := THIS<-;
+      RETURN result;
+    }
+    .CO_RETURN FUNCTION(): BOOL
+    {
+      TEST_ASSERT(.registered == FALSE);
+      RETURN TRUE;
+    }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+    .claim FUNCTION(@generation I32) MUT: BOOL
+    {
+      IF(.registered && .queued && generation == .pending_generation)
+      {
+        .registered := FALSE;
+        .queued := FALSE;
+        RETURN TRUE;
+      }
+      RETURN FALSE;
+    }
+  }
+
+  DOC <$ Notifications queued during registration are claimed after the drive returns, and retired generations cannot drive a reused frame. $>
+  ::queued_notification_and_reuse DUAL_TEST
+  {
+    VAR driver queued_controller;
+    VAR value I32;
+    VAR frame coroutine_frame_tests::count#(@VALUE MUT& I32, @CONTROLLER queued_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@VALUE value);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(driver.queued);
+    TEST_ASSERT(value == 1);
+    VAR first_generation I32 := driver.pending_generation;
+    TEST_ASSERT(driver.claim(@generation first_generation));
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(value == 2);
+    TEST_ASSERT(driver.readiness == 2);
+    TEST_ASSERT(driver.deliveries == 2);
+    TEST_ASSERT(driver.claim(@generation first_generation) == FALSE);
+    frame.INITIALIZE(@VALUE value);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(driver.pending_generation != first_generation);
+    TEST_ASSERT(driver.claim(@generation first_generation) == FALSE);
+    TEST_ASSERT(value == 3);
+    TEST_ASSERT(driver.claim(@generation driver.pending_generation));
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(value == 4);
+    TEST_ASSERT(driver.readiness == 4);
+    TEST_ASSERT(driver.deliveries == 4);
+  }
+
+  ::counter STRUCT
+  {
+    .value VAR I32;
+    .step COROUTINE(@CONTROLLER controller) MUT
+    {
+      .value += 1;
+      AWAIT(FALSE);
+      .value += 1;
+    }
+  }
+
+  DOC <$ A member coroutine captures its receiver through the generated INITIALIZE interface. $>
+  ::member_receiver DUAL_TEST
+  {
+    VAR driver controller;
+    VAR object counter;
+    VAR frame counter::.step#(@THIS MUT& counter)::FRAME_TYPE;
+    frame.INITIALIZE(@RECEIVER object);
+    TEST_ASSERT(object.value == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(object.value == 2);
+  }
+
+  ::compile_time_branch COROUTINE()
+  {
+    STATIC_IF(FALSE)
+    {
+      YIELD FALSE;
+      AWAIT(missing_operation());
+    }
+  }
+
+  DOC <$ Discarded compile-time branches impose no controller hook requirements. $>
+  ::discarded_hooks DUAL_TEST
+  {
+    VAR driver controller;
+    VAR frame compile_time_branch#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+  }
+
+  ::required_yield COROUTINE() { YIELD FALSE; }
+
+  DOC <$ An instantiated yield requires a matching CO_YIELD hook on the selected controller. $>
+  ::missing_yield_hook STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame required_yield#(@CONTROLLER controller)::FRAME_TYPE;
+  }
+
+  DOC <$ Coroutine descriptors expose completion and cancellation metadata and distinguish controller specializations. $>
+  ::descriptor_metadata STATIC_TEST
+  {
+    TEST_ASSERT(SAME_TYPES(inline_completion#(@VALUE MUT& I32)::CONTROLLER_TYPE, controller));
+    TEST_ASSERT(SAME_TYPES(inline_completion#(@VALUE MUT& I32)::RETURN_TYPE, VOID));
+    TEST_ASSERT(inline_completion#(@VALUE MUT& I32)::CANCELLATION_MODE == COROUTINE_CANCELLATION_MODE::NONE);
+    TEST_ASSERT(coroutine_cancellation_tests::cooperative#(@VALUE MUT& I32, @CONTROLLER controller)::CANCELLATION_MODE == COROUTINE_CANCELLATION_MODE::COOPERATIVE);
+    TEST_ASSERT(coroutine_cancellation_tests::instant#(@VALUE MUT& I32, @CONTROLLER controller)::CANCELLATION_MODE == COROUTINE_CANCELLATION_MODE::INSTANT);
+    TEST_ASSERT(SAME_TYPES(
+      compile_time_branch#(@CONTROLLER controller)::FRAME_TYPE,
+      compile_time_branch#(@CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE) == FALSE);
+  }
+
+  ::ordinary_call_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    compile_time_branch();
+  }
+
+  ::restricted COROUTINE(@CONTROLLER AUTO(controller_type)) ENABLE_IF(SAME_TYPES(controller_type, controller)) {}
+  ::restricted_descriptor ALIAS restricted#();
+
+  DOC <$ A deferred coroutine descriptor evaluates its constraints after controller adaptation. $>
+  ::deferred_controller_constraint DUAL_TEST
+  {
+    VAR driver controller;
+    VAR frame restricted_descriptor#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+  }
+
+  DOC <$ Adapting a selected descriptor to a controller must satisfy its declaration constraints. $>
+  ::rebound_controller_constraint STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame restricted_descriptor#(@CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+  }
+
+  ::await_outside_coroutine STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    AWAIT(TRUE);
+  }
+
+  ::yield_outside_coroutine STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    YIELD TRUE;
+  }
+
+  ::wrong_controller STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame inline_completion#(@VALUE MUT& I32, @CONTROLLER I32)::FRAME_TYPE;
+  }
+
+  ::immediate STRUCT
+  {
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN TRUE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN FALSE; }
+    .AWAIT_RESUME FUNCTION() {}
+  }
+
+  ::category_controller STRUCT
+  {
+    .mutable_yields VAR I32;
+    .constant_yields VAR I32;
+    .temporary_yields VAR I32;
+    .CO_AWAIT FUNCTION(@ARG BOOL): immediate { RETURN immediate(); }
+    .CO_YIELD FUNCTION(@ARG MUT& I32) MUT: BOOL { .mutable_yields += 1; RETURN TRUE; }
+    .CO_YIELD FUNCTION(@ARG CONST& I32) MUT: BOOL { .constant_yields += 1; RETURN TRUE; }
+    .CO_YIELD FUNCTION(@ARG TEMP& I32) MUT: BOOL { .temporary_yields += 1; RETURN TRUE; }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  ::yield_categories COROUTINE()
+  {
+    VAR value I32 := 7;
+    YIELD value;
+    YIELD value AS CONST& I32;
+    YIELD I32(@OTHER 11);
+  }
+
+  DOC <$ Each yield selects its controller overload using the operand's reference category. $>
+  ::yield_reference_categories DUAL_TEST
+  {
+    VAR driver category_controller;
+    VAR frame yield_categories#(@CONTROLLER category_controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.mutable_yields == 1);
+    TEST_ASSERT(driver.constant_yields == 1);
+    TEST_ASSERT(driver.temporary_yields == 1);
+  }
+
+  ::value_yield_controller STRUCT
+  {
+    .yields VAR I32;
+    .total VAR I32;
+    .CO_AWAIT FUNCTION(@ARG BOOL): immediate { RETURN immediate(); }
+    .CO_YIELD FUNCTION(@ARG I32) MUT: BOOL
+    {
+      .yields += 1;
+      .total += ARG;
+      RETURN TRUE;
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  DOC <$ A by-value yield hook receives each operand once, including temporary values. $>
+  ::yield_values DUAL_TEST
+  {
+    VAR driver value_yield_controller;
+    VAR frame yield_categories#(@CONTROLLER value_yield_controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.yields == 3);
+    TEST_ASSERT(driver.total == 25);
+  }
+
+  ::frame_owner TEMPLATE(@T:descriptor TYPE AUTO) STRUCT ROOTED
+  {
+    .frame VAR descriptor#(@CONTROLLER frame_owner#descriptor)::FRAME_TYPE;
+    .returns VAR I32;
+    .CO_AWAIT FUNCTION(@ARG BOOL): immediate { RETURN immediate(); }
+    .CO_RETURN FUNCTION() MUT: BOOL { .returns += 1; RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
+  }
+
+  DOC <$ A descriptor-specialized controller may own its frame because the frame retains no controller object. $>
+  ::controller_owns_frame DUAL_TEST
+  {
+    VAR owner frame_owner#(compile_time_branch#());
+    owner.frame.INITIALIZE();
+    TEST_ASSERT(owner.returns == 0);
+    TEST_ASSERT(owner.frame.RESUME(@CONTROLLER owner));
+    TEST_ASSERT(owner.returns == 1);
+    owner.frame.INITIALIZE();
+    TEST_ASSERT(owner.frame.RESUME(@CONTROLLER owner));
+    TEST_ASSERT(owner.returns == 2);
+  }
+
+  ::recursive_owner STRUCT ROOTED
+  {
+    .frame VAR recursive_capture#(@VALUE recursive_owner, @CONTROLLER controller)::FRAME_TYPE;
+  }
+
+  ::recursive_capture COROUTINE(@VALUE recursive_owner) {}
+
+  DOC <$ A frame cannot capture an object that owns that same frame by value. $>
+  ::recursive_frame_size_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TEST_ASSERT(SIZEOF(recursive_owner) > 0);
+  }
+}

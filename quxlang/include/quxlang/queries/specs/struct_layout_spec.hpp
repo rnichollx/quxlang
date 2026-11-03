@@ -4,6 +4,7 @@
 #define QUXLANG_QUERIES_SPECS_STRUCT_LAYOUT_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/struct_layout.hpp>
+#include <quxlang/queries/coroutine_frame.hpp>
 #include <quxlang/queries/class_type.hpp>
 #include <quxlang/queries/struct_field_list.hpp>
 #include <quxlang/queries/class_placement_info.hpp>
@@ -22,7 +23,7 @@ namespace quxlang
     struct struct_layout_spec
     {
         using query = struct_layout_query;
-        using dependencies = rpnx::typelist< constexpr_u64_query, class_type_query, struct_field_list_query, class_placement_info_query, machine_info_query, struct_inheritance_info_query, struct_layout_query, struct_runtime_requirements_query, symboid_query >;
+        using dependencies = rpnx::typelist< coroutine_frame_query, constexpr_u64_query, class_type_query, struct_field_list_query, class_placement_info_query, machine_info_query, struct_inheritance_info_query, struct_layout_query, struct_runtime_requirements_query, symboid_query >;
     };
 
     rpnx::querygraph::coroutine< struct_layout_spec > struct_layout_impl(type_symbol input);
