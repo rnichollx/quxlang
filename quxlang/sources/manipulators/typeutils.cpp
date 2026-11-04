@@ -406,6 +406,12 @@ namespace quxlang
             return result + ")";
         }
 
+        /** Formats a member-name availability query. */
+        std::string operator()(expression_type_has_member const& expr) const
+        {
+            return "TYPE_HAS_MEMBER(" + to_string(expr.subject_type) + ", " + expr_to_string(expr.name) + ")";
+        }
+
         /** Formats a public field projection and its selector. */
         std::string operator()(expression_public_field_get const& expr) const
         {
@@ -2317,6 +2323,11 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                 {
                     value.selector = strip_source_locations(std::move(*value.selector));
                 }
+            }
+            else if constexpr (std::is_same_v< value_type, expression_type_has_member >)
+            {
+                value.subject_type = strip_source_locations(std::move(value.subject_type));
+                value.name = strip_source_locations(std::move(value.name));
             }
             else if constexpr (std::is_same_v< value_type, expression_public_field_get >)
             {

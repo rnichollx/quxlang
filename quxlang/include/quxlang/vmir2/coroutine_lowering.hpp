@@ -16,6 +16,9 @@ namespace quxlang::vmir2
 
     /** Lowers a cancellable coroutine into a TRY_CANCEL procedure that claims only cancellation continuations. */
     [[nodiscard]] auto lower_coroutine_try_cancel(functanoid_routine3 const& logical, coroutine_frame_info const& frame) -> functanoid_routine3;
+
+    /** Lowers explicit destruction into direct synchronous cleanup from an initialized or unshielded suspended state. */
+    [[nodiscard]] auto lower_coroutine_destroy(functanoid_routine3 const& logical, coroutine_frame_info const& frame) -> functanoid_routine3;
 }
 
 #endif // QUXLANG_VMIR2_COROUTINE_LOWERING_HEADER_GUARD

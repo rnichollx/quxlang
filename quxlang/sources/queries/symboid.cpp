@@ -112,7 +112,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             throw semantic_compilation_error("FRAME_TYPE requires a concrete CONTROLLER specialization");
         }
-        for (std::string const& name : {std::string("RESUME"), std::string("TRY_CANCEL")})
+        for (std::string const& name : {std::string("RESUME"), std::string("TRY_CANCEL"), std::string("DESTROY")})
         {
             if (name == "TRY_CANCEL" && source->header.cancellation_mode == coroutine_cancellation_mode::none) continue;
             ast2_function_declaration driver;

@@ -432,6 +432,20 @@ namespace quxlang::parsers
             }
             *value_bind_point = std::move(intrinsic);
         }
+        else if (kw_pre_translate == "TYPE_HAS_MEMBER")
+        {
+            skip_keyword_if_is(pos, end, kw_pre_translate);
+            expression_type_has_member intrinsic;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after TYPE_HAS_MEMBER");
+            intrinsic.subject_type = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ",")) throw syntax_compilation_error("Expected member name in TYPE_HAS_MEMBER");
+            intrinsic.name = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after TYPE_HAS_MEMBER");
+            *value_bind_point = std::move(intrinsic);
+        }
         else if (kw_pre_translate == "PUBLIC_FIELD_COUNT" || kw_pre_translate == "PUBLIC_FIELD_NAME" || kw_pre_translate == "PUBLIC_FIELD_CONTAINS")
         {
             skip_keyword_if_is(pos, end, kw_pre_translate);

@@ -275,8 +275,10 @@ namespace quxlang
             block_index resume;
             local_index awaiter;
             std::optional< block_index > cancellation;
+            /// Direct cleanup entry after the caller has retired the suspension registration.
+            std::optional< block_index > destruction;
             bool shielded = false;
-            RPNX_MEMBER_METADATA(coroutine_continuation, resume, awaiter, cancellation, shielded);
+            RPNX_MEMBER_METADATA(coroutine_continuation, resume, awaiter, cancellation, destruction, shielded);
         };
 
         /** Records coroutine execution parameters independently of physical frame layout. */
@@ -289,7 +291,9 @@ namespace quxlang
             coroutine_cancellation_mode cancellation_mode = coroutine_cancellation_mode::none;
             /// Compiler-owned U8 capture: zero is unused, one is pending, and two is delivered.
             std::optional< local_index > cancellation_state;
-            RPNX_MEMBER_METADATA(coroutine_body, specialization, frame, controller, continuations, cancellation_mode, cancellation_state);
+            /// Direct cleanup of captured parameters before the first activation.
+            std::optional< block_index > destruction;
+            RPNX_MEMBER_METADATA(coroutine_body, specialization, frame, controller, continuations, cancellation_mode, cancellation_state, destruction);
         };
 
         /** Transfers a runtime-owned frame reference to native or constexpr propagation. */

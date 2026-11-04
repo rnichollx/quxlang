@@ -1,0 +1,402 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE)
+{
+  DOC <$ Stores erased invocation and promise pointers with concrete drive and destruction operations. $>
+  ::cpp_coroutine_control STRUCT ROOTED
+  {
+    .allocation VAR MUT->VOID;
+    .promise_pointer VAR MUT->VOID;
+    .drive VAR CONST->PROCEDURE(@state MUT& cpp_coroutine_control: MUT->cpp_coroutine_control);
+    .release VAR CONST->PROCEDURE(@state MUT& cpp_coroutine_control);
+    .complete VAR BOOL;
+    .transfer VAR MUT->cpp_coroutine_control;
+  }
+}
+
+DOC <$ Refers to a coroutine with promise type promise_type without owning its allocation. Copies refer to the same invocation. destroy explicitly releases the invocation and invalidates every referring handle. VOID erases promise access. $>
+::cpp_coroutine_handle TEMPLATE(@T:promise_type TYPE) STRUCT
+{
+  PRIVATE(MODULE)
+  {
+    .control VAR MUT->cpp_coroutine_control;
+
+    DOC <$ Binds an existing invocation control object. $>
+    .CONSTRUCTOR FUNCTION(@control MUT->cpp_coroutine_control) { .control := control; }
+  }
+
+  DOC <$ Constructs a null handle. $>
+  .CONSTRUCTOR FUNCTION() {}
+
+  DOC <$ Constructs a null handle from NULL. $>
+  .CONSTRUCTOR FUNCTION(@OTHER NULL_TYPE) {}
+
+  DOC <$ Copies the invocation reference without transferring ownership. $>
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& cpp_coroutine_handle#promise_type) { .control := OTHER.control; }
+
+  DOC <$ Rebinds the handle without destroying the previously referenced invocation. $>
+  .OPERATOR:= FUNCTION(@OTHER CONST& cpp_coroutine_handle#promise_type) MUT { .control := OTHER.control; }
+
+  DOC <$ Clears the handle without destroying its invocation. $>
+  .OPERATOR:= FUNCTION(@OTHER NULL_TYPE) MUT { .control := NULL; }
+
+  DOC <$ Erases the promise type while preserving invocation identity. $>
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& cpp_coroutine_handle#AUTO(other_promise))
+    ENABLE_IF(SAME_TYPES(promise_type, VOID) && SAME_TYPES(other_promise, VOID) == FALSE)
+  {
+    .control := OTHER.control;
+  }
+
+  DOC <$ Reports whether the handle refers to an invocation. $>
+  .OPERATOR?? FUNCTION() CONST: BOOL { RETURN .control??; }
+
+  DOC <$ Returns the invocation identity, or the null address for an empty handle. $>
+  .address FUNCTION() CONST: MUT->VOID { RETURN .control AS REINTERPRET MUT->VOID; }
+
+  DOC <$ Reconstructs a handle from an address returned by address. The promise type must match the original invocation unless promise_type is VOID. $>
+  ::from_address FUNCTION(@address MUT->VOID): cpp_coroutine_handle#promise_type
+  {
+    RETURN cpp_coroutine_handle#promise_type(@control address AS REINTERPRET MUT->cpp_coroutine_control);
+  }
+
+  DOC <$ Reports final suspension. The handle must refer to a suspended invocation. $>
+  .done FUNCTION() CONST: BOOL { RETURN .control->.complete; }
+
+  DOC <$ Resumes a suspended invocation and follows any coroutine-handle transfers after the current drive returns. $>
+  .resume FUNCTION() CONST
+  {
+    VAR current MUT->cpp_coroutine_control := .control;
+    LOOP WHILE(current??) DO
+    {
+      current := current->.drive(@state current->);
+    };
+  }
+
+  DOC <$ Resumes the invocation through the call operator. $>
+  .OPERATOR() FUNCTION() CONST { .resume(); }
+
+  DOC <$ Destroys a suspended invocation. The caller must retire external registrations before destruction. $>
+  .destroy FUNCTION() CONST { .control->.release(@state .control->); }
+
+  DOC <$ Returns the promise associated with this invocation. The handle must be non-null. $>
+  .promise FUNCTION() CONST ENABLE_IF(SAME_TYPES(promise_type, VOID) == FALSE): MUT& promise_type
+  {
+    VAR result MUT->promise_type := .control->.promise_pointer AS REINTERPRET MUT->promise_type;
+    RETURN result->;
+  }
+
+  DOC <$ Compares invocation identities across promise types. $>
+  .OPERATOR== FUNCTION(@OTHER CONST& cpp_coroutine_handle#AUTO(other_promise)) CONST: BOOL
+  {
+    RETURN .control == OTHER.control;
+  }
+}
+
+DOC <$ Supplies a C++-style awaiter that always suspends. $>
+::cpp_suspend_always STRUCT
+{
+  DOC <$ Reports that suspension is required. $>
+  .await_ready FUNCTION() CONST NOEXCEPT: BOOL { RETURN FALSE; }
+  DOC <$ Retains suspension until the caller arranges a subsequent resume. $>
+  .await_suspend FUNCTION(@handle cpp_coroutine_handle#AUTO(promise_type)) CONST NOEXCEPT {}
+  DOC <$ Completes the suspension without a result. $>
+  .await_resume FUNCTION() CONST NOEXCEPT {}
+}
+
+DOC <$ Supplies a C++-style awaiter that completes synchronously. $>
+::cpp_suspend_never STRUCT
+{
+  DOC <$ Reports immediate readiness. $>
+  .await_ready FUNCTION() CONST NOEXCEPT: BOOL { RETURN TRUE; }
+  DOC <$ Performs no continuation registration. $>
+  .await_suspend FUNCTION(@handle cpp_coroutine_handle#AUTO(promise_type)) CONST NOEXCEPT {}
+  DOC <$ Completes without a result. $>
+  .await_resume FUNCTION() CONST NOEXCEPT {}
+}
+
+PRIVATE(MODULE)
+{
+  DOC <$ Adapts a C++-style awaiter while retaining its original ownership or reference qualification. $>
+  ::cpp_coroutine_awaiter TEMPLATE(@T:awaiter_type TYPE AUTO) STRUCT
+  {
+    .value VAR awaiter_type;
+    DOC <$ Captures an owned awaiter or retains an existing awaiter reference. $>
+    .CONSTRUCTOR FUNCTION(@ARG AUTO& AUTO) :> .value:(@OTHER FORWARD(ARG)) {}
+    DOC <$ Queries the underlying awaiter's readiness. $>
+    .AWAIT_READY FUNCTION() MUT: BOOL { RETURN .value.await_ready(); }
+    DOC <$ Registers suspension with the typed promise handle and records symmetric transfer for the outer driver. $>
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO) MUT: BOOL
+    {
+      RETURN .suspend(@handle CONTROLLER.handle());
+    }
+    DOC <$ Invokes the C++ suspension operation and normalizes VOID, BOOL, and handle results. $>
+    .suspend FUNCTION(@handle cpp_coroutine_handle#AUTO(promise_type)) MUT: BOOL
+    {
+      STATIC_IF(SAME_TYPES(TYPEOF(.value.await_suspend(@handle handle)), VOID))
+      {
+        .value.await_suspend(@handle handle);
+        RETURN TRUE;
+      }
+      STATIC_ELSE
+      {
+        VAR result AUTO := .value.await_suspend(@handle handle);
+        STATIC_IF(SAME_TYPES(DECLTYPE(result), BOOL)) { RETURN result; }
+        STATIC_ELSE { handle.control->.transfer := result.control; RETURN TRUE; }
+      }
+    }
+    DOC <$ Returns the underlying awaiter's result with its reference qualification. $>
+    .AWAIT_RESUME FUNCTION() MUT: TT { RETURN .value.await_resume(); }
+    DOC <$ Accepts cancellation after the caller has retired all external continuation registrations. $>
+    .TRY_CANCEL FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO) MUT NOEXCEPT: BOOL { RETURN TRUE; }
+  }
+
+  DOC <$ Preserves lvalue awaiters and owns expiring awaiters. $>
+  ::cpp_coroutine_wrap FUNCTION(@ARG AUTO& DECAY(awaiter_type)): cpp_coroutine_awaiter#awaiter_type
+  {
+    RETURN cpp_coroutine_awaiter#awaiter_type(@ARG FORWARD(ARG));
+  }
+
+  DOC <$ Applies a member awaiter conversion when present and preserves the selected awaiter's ownership. $>
+  ::cpp_coroutine_adapt FUNCTION(@ARG AUTO& AUTO(awaitable_type)): AUTO
+  {
+    STATIC_IF(TYPE_HAS_MEMBER(awaitable_type, "operator_co_await"))
+    {
+      RETURN cpp_coroutine_wrap(@ARG ARG.operator_co_await());
+    }
+    STATIC_ELSE { RETURN cpp_coroutine_wrap(@ARG FORWARD(ARG)); }
+  }
+
+  DOC <$ Represents synchronous promise notification in the native controller protocol. $>
+  ::cpp_coroutine_completion STRUCT
+  {
+    DOC <$ Reports immediate completion. $>
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN TRUE; }
+    DOC <$ Declines suspension. $>
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN FALSE; }
+    DOC <$ Completes without a value. $>
+    .AWAIT_RESUME FUNCTION() {}
+  }
+
+  DOC <$ Returns a launched coroutine's return object from the implicit call await protocol. $>
+  ::cpp_coroutine_call_result TEMPLATE(@T:result_type TYPE) STRUCT MOVE_ONLY
+  {
+    .value VAR result_type;
+    DOC <$ Takes ownership of the child's return object. $>
+    .CONSTRUCTOR FUNCTION(@value TEMP& result_type) :> .value:(@OTHER FORWARD(value)) {}
+    DOC <$ Reports that the return object is available. $>
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN TRUE; }
+    DOC <$ Declines suspension while delivering the return object. $>
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN FALSE; }
+    DOC <$ Transfers the return object to the calling coroutine. $>
+    .AWAIT_RESUME FUNCTION() MUT: result_type
+    {
+      VAR result MUT& result_type := .value;
+      RETURN MOVE(result);
+    }
+  }
+
+  DOC <$ Selects a partial coroutine descriptor from the complete binding and unevaluated argument types. $>
+  ::cpp_coroutine_select FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  {
+    STATIC_IF(COMPOSITE_CONTAINS(TYPEOF(arguments), "RECEIVER"))
+    {
+      RETURN child#(@CONTROLLER AUTO, @THIS COMPOSITE_FIELD_TYPE(TYPEOF(arguments), "RECEIVER"),
+        COMPOSITE_UNPACK(TYPEOF(COMPOSITE_EXCLUDE(arguments, "RECEIVER"))));
+    }
+    STATIC_ELSE { RETURN child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments))); }
+  }
+
+  DOC <$ Adapts one coroutine specialization to the promise supplied by its declared return type. $>
+  ::cpp_coroutine_controller TEMPLATE(@T:descriptor_type TYPE AUTO) STRUCT
+  {
+    ::promise_type ALIAS descriptor_type::RETURN_TYPE::promise_type;
+    .promise VAR MUT->promise_type;
+    .control VAR MUT->cpp_coroutine_control;
+    DOC <$ Refers to the current invocation through its promise type. $>
+    .handle FUNCTION() CONST: cpp_coroutine_handle#promise_type
+    {
+      RETURN cpp_coroutine_handle#promise_type(@control .control);
+    }
+    DOC <$ Preserves native awaiters and applies optional promise transformation to C++-style await operands. $>
+    .CO_AWAIT FUNCTION(@ARG AUTO& AUTO(awaitable_type)): DECAY
+    {
+      STATIC_IF(TYPE_HAS_MEMBER(awaitable_type, "AWAIT_READY")) { RETURN FORWARD(ARG); }
+      STATIC_ELSE
+      {
+        STATIC_IF(TYPE_HAS_MEMBER(promise_type, "await_transform"))
+        {
+          RETURN cpp_coroutine_adapt(@ARG .promise->.await_transform(@value FORWARD(ARG)));
+        }
+        STATIC_ELSE { RETURN cpp_coroutine_adapt(@ARG FORWARD(ARG)); }
+      }
+    }
+    DOC <$ Passes a value return operand to the promise. $>
+    .CO_RETURN FUNCTION(@ARG AUTO& AUTO): cpp_coroutine_completion
+    {
+      .promise->.return_value(@value FORWARD(ARG));
+      RETURN cpp_coroutine_completion();
+    }
+    DOC <$ Reports completion without a value to the promise. $>
+    .CO_RETURN FUNCTION(): cpp_coroutine_completion
+    {
+      .promise->.return_void();
+      RETURN cpp_coroutine_completion();
+    }
+    DOC <$ Adapts the promise's yield awaitable without applying await_transform. $>
+    .CO_YIELD FUNCTION(@ARG AUTO& AUTO): AUTO
+    {
+      RETURN cpp_coroutine_adapt(@ARG .promise->.yield_value(@value FORWARD(ARG)));
+    }
+    DOC <$ Calls unhandled_exception while the body exception is current. $>
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): cpp_coroutine_completion
+    {
+      TRY { THROW_EXCEPTION_PTR(ARG); }
+      CATCH DEFAULT { .promise->.unhandled_exception(); }
+      RETURN cpp_coroutine_completion();
+    }
+    DOC <$ Completes an instant cancellation notification without a value. $>
+    .CO_CANCELLED FUNCTION(@ARG MUT& AUTO) NOEXCEPT {}
+    DOC <$ Launches a child with the promise controller selected by its own return type. $>
+    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+    {
+      VAR scheduler cpp_style_coroutine_base;
+      VAR result AUTO := scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+      RETURN cpp_coroutine_call_result#DECLTYPE(result)(@value MOVE(result));
+    }
+    DOC <$ Launches a child and returns its ownership object through the call protocol. $>
+    .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+    {
+      RETURN .CO_CALL_CORT(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+    }
+  }
+
+  DOC <$ Owns a promise, its controller, and its concrete frame at stable addresses. $>
+  ::cpp_coroutine_invocation TEMPLATE(@T:descriptor_type TYPE AUTO, @initial_type TYPE, @final_type TYPE) STRUCT ROOTED
+  {
+    ::return_type ALIAS descriptor_type::RETURN_TYPE;
+    ::promise_type ALIAS descriptor_type::RETURN_TYPE::promise_type;
+    ::controller_type ALIAS cpp_coroutine_controller#descriptor_type;
+    ::descriptor ALIAS descriptor_type#(@CONTROLLER controller_type);
+    ::invocation_type ALIAS cpp_coroutine_invocation#(@T descriptor_type, @initial_type initial_type, @final_type final_type);
+    .promise VAR promise_type;
+    .control VAR cpp_coroutine_control;
+    .controller VAR controller_type;
+    .frame VAR descriptor::FRAME_TYPE;
+    .initial VAR optional#initial_type;
+    .final VAR optional#final_type;
+    .started VAR BOOL;
+
+    DOC <$ Captures coroutine arguments and connects the concrete operations to the erased control object. $>
+    .CONSTRUCTOR FUNCTION(@ARGUMENTS:arguments AUTO& AUTO)
+    {
+      .control.allocation := THIS<- AS REINTERPRET MUT->VOID;
+      .control.promise_pointer := .promise<- AS REINTERPRET MUT->VOID;
+      .control.drive := drive<-;
+      .control.release := release<-;
+      .controller.promise := .promise<-;
+      .controller.control := .control<-;
+      .frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+    }
+
+    DOC <$ Starts initial suspension after the return object has been obtained. $>
+    .start FUNCTION() MUT
+    {
+      .initial.emplace(@OTHER cpp_coroutine_adapt(@ARG .controller.promise->.initial_suspend()));
+      IF (.initial.value().AWAIT_READY() || .initial.value().suspend(@handle .controller.handle()) == FALSE)
+      {
+        .controller.handle().resume();
+      }
+      ELSE
+      {
+        VAR transfer MUT->cpp_coroutine_control := .control.transfer;
+        .control.transfer := NULL;
+        IF (transfer??) { cpp_coroutine_handle#VOID(@control transfer).resume(); }
+      }
+    }
+
+    DOC <$ Drives initial resumption, the body, and final suspension, then returns a pending transfer. $>
+    ::drive FUNCTION(@state MUT& cpp_coroutine_control): MUT->cpp_coroutine_control
+    {
+      VAR invocation MUT->invocation_type := state.allocation AS REINTERPRET MUT->invocation_type;
+      VAR completed BOOL;
+      IF (invocation->.started == FALSE)
+      {
+        invocation->.started := TRUE;
+        TRY
+        {
+          invocation->.initial.value().AWAIT_RESUME();
+          invocation->.initial.reset();
+        }
+        CATCH DEFAULT
+        {
+          invocation->.initial.reset();
+          invocation->.frame.DESTROY(@CONTROLLER invocation->.controller);
+          invocation->.controller.promise->.unhandled_exception();
+          completed := TRUE;
+        }
+      }
+      IF (completed == FALSE) { completed := invocation->.frame.RESUME(@CONTROLLER invocation->.controller); }
+      IF (completed)
+      {
+        state.complete := TRUE;
+        invocation->.final.emplace(@OTHER cpp_coroutine_adapt(@ARG invocation->.controller.promise->.final_suspend()));
+        IF (invocation->.final.value().AWAIT_READY() || invocation->.final.value().suspend(@handle invocation->.controller.handle()) == FALSE)
+        {
+          invocation->.final.value().AWAIT_RESUME();
+          DELETE invocation;
+          RETURN NULL;
+        }
+      }
+      VAR next MUT->cpp_coroutine_control := state.transfer;
+      state.transfer := NULL;
+      RETURN next;
+    }
+
+    DOC <$ Releases the initial or final awaiter and directly destroys any suspended body before freeing the allocation. $>
+    ::release FUNCTION(@state MUT& cpp_coroutine_control)
+    {
+      VAR invocation MUT->invocation_type := state.allocation AS REINTERPRET MUT->invocation_type;
+      invocation->.initial.reset();
+      invocation->.final.reset();
+      IF (state.complete == FALSE) { invocation->.frame.DESTROY(@CONTROLLER invocation->.controller); }
+      DELETE invocation;
+    }
+  }
+}
+
+DOC <$ Launches coroutines using the declared return type's promise_type and C++-style promise and awaiter operations. The scheduler has no retained state. $>
+::cpp_style_coroutine_base STRUCT
+{
+  DOC <$ Allocates stable invocation storage, obtains the promise's return object, and starts initial suspension. $>
+  .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  {
+    VAR descriptor AUTO := cpp_coroutine_select(@COROUTINE child, @ARGUMENTS arguments);
+    RETURN cpp_coroutine_launch#descriptor(@ARGUMENTS COMPOSITE_FORWARD(arguments));
+  }
+}
+
+PRIVATE(MODULE)
+{
+  DOC <$ Passes the invocation handle to the promise and releases the invocation if return-object construction throws. $>
+  ::cpp_coroutine_return_object FUNCTION(@invocation MUT->AUTO(invocation_type)): invocation_type::return_type
+  {
+    TRY { RETURN invocation->.controller.promise->.get_return_object(@handle invocation->.controller.handle()); }
+    CATCH DEFAULT
+    {
+      invocation_type::release(@state invocation->.control);
+      RETHROW;
+    }
+  }
+
+  DOC <$ Constructs a selected invocation and starts it after obtaining its return object. $>
+  ::cpp_coroutine_launch TEMPLATE(@T:descriptor_type TYPE AUTO) FUNCTION(@ARGUMENTS:arguments AUTO& AUTO): AUTO
+  {
+    VAR initial_type AUTO := TYPEOF(cpp_coroutine_adapt(@ARG descriptor_type::RETURN_TYPE::promise_type().initial_suspend()));
+    VAR final_type AUTO := TYPEOF(cpp_coroutine_adapt(@ARG descriptor_type::RETURN_TYPE::promise_type().final_suspend()));
+    VAR invocation_type AUTO := cpp_coroutine_invocation#(@T descriptor_type, @initial_type initial_type, @final_type final_type);
+    VAR invocation MUT->invocation_type := NEW invocation_type:(@ARGUMENTS COMPOSITE_FORWARD(arguments));
+    VAR result descriptor_type::RETURN_TYPE := cpp_coroutine_return_object(@invocation invocation);
+    invocation->.start();
+    RETURN MOVE(result);
+  }
+}

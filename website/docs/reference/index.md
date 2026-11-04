@@ -38,6 +38,7 @@ throughout these pages.
 | Topic | Contents |
 | --- | --- |
 | [Functions](functions-and-parameters.md) | Function declarations, parameters, receivers, and return types |
+| [C++-style Coroutines](cpp-style-coroutines.md) | Promise operations, awaiter adaptation, typed handles, and invocation ownership |
 | [`RETURN` Statements](return-statements.md) | Value returns, reference returns, conditional returns, and ordering returns |
 | [Call Arguments](call-arguments.md) | Named and positional groups, evaluation, forwarding, and construction |
 | [Default Arguments](default-arguments.md) | Declaration context, omission, and overload participation |

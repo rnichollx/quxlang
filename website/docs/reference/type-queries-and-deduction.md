@@ -89,6 +89,14 @@ example](../overview/type-queries-and-deduction.md#runtime-type-identification).
 
 ## Public struct fields
 
+`TYPE_HAS_MEMBER(T, name)` tests instance-member name lookup on a structure or
+generic type, including inherited names. The name is a compile-time string.
+References are stripped from `T`; other type categories return `FALSE`.
+The query reports name presence before overload selection or access checking.
+An ordinary use of the member still checks ambiguity, accessibility, and
+argument compatibility. This permits optional customization such as a promise's
+`await_transform` without requiring a common base class.
+
 [Public Field Reflection](public-field-reflection.md) inspects the fields of
 named structs. `PUBLIC_FIELD_COUNT`, `PUBLIC_FIELD_NAME`, and
 `PUBLIC_FIELD_CONTAINS` inspect the public field list; `PUBLIC_FIELD_TYPE`

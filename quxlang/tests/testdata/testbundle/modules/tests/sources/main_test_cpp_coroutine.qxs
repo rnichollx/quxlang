@@ -1,0 +1,396 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::cpp_coroutine_tests NAMESPACE
+{
+  ::task STRUCT MOVE_ONLY
+  {
+    ::promise_type STRUCT
+    {
+      .value VAR I32;
+      .error VAR EXCEPTION_PTR;
+      .get_return_object FUNCTION(@handle std::cpp_coroutine_handle#promise_type) MUT: task
+      {
+        TEST_ASSERT(handle.promise()<- == THIS<-);
+        RETURN task(@handle handle);
+      }
+      .initial_suspend FUNCTION(): std::cpp_suspend_always { RETURN std::cpp_suspend_always(); }
+      .final_suspend FUNCTION() NOEXCEPT: std::cpp_suspend_always { RETURN std::cpp_suspend_always(); }
+      .return_value FUNCTION(@value I32) MUT { .value := value; }
+      .unhandled_exception FUNCTION() MUT { .error := CURRENT_EXCEPTION(); }
+    }
+    .handle VAR std::cpp_coroutine_handle#promise_type;
+    .CONSTRUCTOR FUNCTION(@handle std::cpp_coroutine_handle#promise_type) { .handle := handle; }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& task) { .handle := OTHER.handle; OTHER.handle := NULL; }
+    .DESTRUCTOR FUNCTION() { IF (.handle??) { .handle.destroy(); } }
+  }
+
+  ::value FUNCTION(@input I32): I32 { RETURN -1; }
+  ::value COROUTINE(@input I32): task { RETURN input + 1; }
+
+  DOC <$ Empty handles preserve their identity through a typed VOID pointer during constant evaluation. $>
+  ::empty_handle_identity DUAL_TEST
+  {
+    VAR handle std::cpp_coroutine_handle#VOID;
+    TEST_ASSERT(SAME_TYPES(TYPEOF(handle.address()), MUT->VOID));
+    VAR identity MUT->VOID := handle.address();
+    TEST_ASSERT(identity!?);
+    VAR restored AUTO := std::cpp_coroutine_handle#(VOID)::from_address(@address identity);
+    TEST_ASSERT(restored == handle);
+    TEST_ASSERT(restored!?);
+  }
+
+  DOC <$ A standalone scheduler uses an unrelated promise type and preserves typed and erased handle identity. $>
+  ::typed_handle DUAL_TEST
+  {
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR pending AUTO := ON(scheduler) RUN value(@input 41);
+    TEST_ASSERT(pending.handle.done() == FALSE);
+    VAR erased std::cpp_coroutine_handle#VOID := pending.handle;
+    TEST_ASSERT(erased == pending.handle);
+    VAR restored AUTO := std::cpp_coroutine_handle#(task::promise_type)::from_address(@address pending.handle.address());
+    TEST_ASSERT(restored == pending.handle);
+    TEST_ASSERT(restored.promise()<- == pending.handle.promise()<-);
+    erased.resume();
+    TEST_ASSERT(pending.handle.done());
+    TEST_ASSERT(pending.handle.promise().value == 42);
+    TEST_ASSERT(pending.handle.promise().error!?);
+  }
+
+  ::pause COROUTINE(@steps MUT& I32): task
+  {
+    steps += 1;
+    AWAIT(std::cpp_suspend_always());
+    steps += 1;
+    RETURN steps;
+  }
+
+  DOC <$ Initial suspension delays the body, and a C++ awaiter suspends the same typed invocation until its next resume. $>
+  ::suspension DUAL_TEST
+  {
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR steps I32;
+    VAR pending AUTO := ON(scheduler) RUN pause(@steps steps);
+    TEST_ASSERT(steps == 0);
+    pending.handle.resume();
+    TEST_ASSERT(steps == 1 && pending.handle.done() == FALSE);
+    pending.handle();
+    TEST_ASSERT(steps == 2 && pending.handle.done());
+    TEST_ASSERT(pending.handle.promise().value == 2);
+  }
+
+  ::fail COROUTINE(): task { THROW I32(@OTHER 17); }
+
+  DOC <$ An unhandled body exception reaches the promise's ordinary exception hook and completes at final suspension. $>
+  ::exception_delivery DUAL_TEST
+  {
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR pending AUTO := ON(scheduler) RUN fail();
+    pending.handle.resume();
+    TEST_ASSERT(pending.handle.done());
+    TEST_ASSERT(pending.handle.promise().error??);
+    VAR caught BOOL;
+    TRY { THROW_EXCEPTION_PTR(pending.handle.promise().error); }
+    CATCH error CONST& I32 { caught := error == 17; }
+    TEST_ASSERT(caught);
+  }
+
+  ::tracked STRUCT MOVE_ONLY
+  {
+    .destroyed VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@destroyed MUT& I32) { .destroyed := destroyed<-; }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& tracked) { .destroyed := OTHER.destroyed; OTHER.destroyed := NULL; }
+    .DESTRUCTOR FUNCTION() { IF (.destroyed??) { .destroyed-> += 1; } }
+  }
+
+  ::owned COROUTINE(@capture tracked, @destroyed MUT& I32): task
+  {
+    VAR local tracked := tracked(@destroyed destroyed);
+    TRY
+    {
+      AWAIT(std::cpp_suspend_always());
+      destroyed += 100;
+    }
+    CATCH DEFAULT { destroyed += 1000; }
+    RETURN 42;
+  }
+
+  DOC <$ Explicit destruction releases captures before first resume and releases live locals at suspension without entering body catch handlers. $>
+  ::destroy_suspended DUAL_TEST
+  {
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR destroyed I32;
+    {
+      VAR pending AUTO := ON(scheduler) RUN owned(@capture tracked(@destroyed destroyed), @destroyed destroyed);
+    }
+    TEST_ASSERT(destroyed == 1);
+    {
+      VAR pending AUTO := ON(scheduler) RUN owned(@capture tracked(@destroyed destroyed), @destroyed destroyed);
+      pending.handle.resume();
+      TEST_ASSERT(pending.handle.done() == FALSE);
+    }
+    TEST_ASSERT(destroyed == 3);
+  }
+
+  ::raw_awaiter_base STRUCT
+  {
+    .AWAIT_READY FUNCTION(): BOOL { RETURN FALSE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN TRUE; }
+    .AWAIT_RESUME FUNCTION() {}
+  }
+  ::raw_awaiter STRUCT { .base BASE raw_awaiter_base; }
+  ::raw_controller_base STRUCT
+  {
+    .CO_AWAIT FUNCTION(@ARG BOOL): raw_awaiter { RETURN raw_awaiter(); }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+  }
+  ::raw_controller STRUCT { .base BASE raw_controller_base; }
+  ::raw COROUTINE(@destroyed MUT& I32)
+  {
+    VAR local tracked := tracked(@destroyed destroyed);
+    AWAIT(FALSE);
+    destroyed += 100;
+  }
+
+  DOC <$ Frame destruction performs synchronous cleanup without requiring a cancellation contract or an awaiter cancellation hook. $>
+  ::frame_destruction DUAL_TEST
+  {
+    VAR controller raw_controller;
+    VAR destroyed I32;
+    VAR frame raw#(@destroyed MUT& I32, @CONTROLLER raw_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@destroyed destroyed);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER controller) == FALSE);
+    TEST_ASSERT(frame.DESTROY(@CONTROLLER controller));
+    TEST_ASSERT(destroyed == 1);
+  }
+
+  ::member_base STRUCT
+  {
+    .operation FUNCTION() {}
+    PRIVATE(CLASS) .hidden FUNCTION() {}
+  }
+  ::member_derived STRUCT { .base BASE member_base; }
+
+  DOC <$ Member detection finds inherited names before overload selection and returns false for primitive types and absent names. $>
+  ::member_detection STATIC_TEST
+  {
+    TEST_ASSERT(TYPE_HAS_MEMBER(member_derived, "operation"));
+    TEST_ASSERT(TYPE_HAS_MEMBER(member_derived, "hidden"));
+    TEST_ASSERT(TYPE_HAS_MEMBER(CONST& member_derived, "operation"));
+    TEST_ASSERT(TYPE_HAS_MEMBER(member_derived, "absent") == FALSE);
+    TEST_ASSERT(TYPE_HAS_MEMBER(I32, "operation") == FALSE);
+  }
+
+  ::generator STRUCT MOVE_ONLY
+  {
+    ::promise_type STRUCT
+    {
+      .value VAR I32;
+      .transforms VAR I32;
+      .get_return_object FUNCTION(@handle std::cpp_coroutine_handle#promise_type) MUT: generator
+      {
+        RETURN generator(@handle handle);
+      }
+      .initial_suspend FUNCTION(): std::cpp_suspend_always { RETURN std::cpp_suspend_always(); }
+      .final_suspend FUNCTION() NOEXCEPT: std::cpp_suspend_always { RETURN std::cpp_suspend_always(); }
+      .return_void FUNCTION() {}
+      .yield_value FUNCTION(@value I32) MUT: std::cpp_suspend_always
+      {
+        .value := value;
+        RETURN std::cpp_suspend_always();
+      }
+      .await_transform FUNCTION(@value I32) MUT: std::cpp_suspend_never
+      {
+        .transforms += value;
+        RETURN std::cpp_suspend_never();
+      }
+      .unhandled_exception FUNCTION() { THROW_EXCEPTION_PTR(CURRENT_EXCEPTION()); }
+    }
+    .handle VAR std::cpp_coroutine_handle#promise_type;
+    .CONSTRUCTOR FUNCTION(@handle std::cpp_coroutine_handle#promise_type) { .handle := handle; }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& generator) { .handle := OTHER.handle; OTHER.handle := NULL; }
+    .DESTRUCTOR FUNCTION() { IF (.handle??) { .handle.destroy(); } }
+  }
+
+  ::sequence COROUTINE(): generator
+  {
+    AWAIT(I32(@OTHER 3));
+    YIELD I32(@OTHER 11);
+    YIELD I32(@OTHER 17);
+  }
+
+  DOC <$ await_transform applies to explicit awaits while yield and initial/final suspension use their own awaitables directly. $>
+  ::yield_and_transform DUAL_TEST
+  {
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR pending AUTO := ON(scheduler) RUN sequence();
+    pending.handle.resume();
+    TEST_ASSERT(pending.handle.promise().value == 11);
+    TEST_ASSERT(pending.handle.promise().transforms == 3);
+    pending.handle.resume();
+    TEST_ASSERT(pending.handle.promise().value == 17);
+    pending.handle.resume();
+    TEST_ASSERT(pending.handle.done());
+  }
+
+  ::false_suspend STRUCT
+  {
+    .value VAR MUT->I32;
+    .await_ready FUNCTION(): BOOL { RETURN FALSE; }
+    .await_suspend FUNCTION(@handle std::cpp_coroutine_handle#AUTO(promise_type)): BOOL { RETURN FALSE; }
+    .await_resume FUNCTION(): MUT& I32 { RETURN .value->; }
+  }
+  ::convertible_awaitable STRUCT
+  {
+    .value VAR MUT->I32;
+    .operator_co_await FUNCTION(): false_suspend
+    {
+      VAR result false_suspend;
+      result.value := .value;
+      RETURN result;
+    }
+  }
+  ::reference COROUTINE(@value MUT& I32): task
+  {
+    VAR operation convertible_awaitable;
+    operation.value := value<-;
+    VAR result MUT& I32 := AWAIT(operation);
+    result += 1;
+    RETURN result;
+  }
+
+  DOC <$ Member awaiter conversion preserves a reference result and a false suspension result continues within the current activation. $>
+  ::awaiter_conversion DUAL_TEST
+  {
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR value I32 := 41;
+    VAR pending AUTO := ON(scheduler) RUN reference(@value value);
+    pending.handle.resume();
+    TEST_ASSERT(pending.handle.done());
+    TEST_ASSERT(value == 42 && pending.handle.promise().value == 42);
+  }
+
+  ::child_call COROUTINE(): task
+  {
+    VAR child AUTO := value(@input 41);
+    child.handle.resume();
+    RETURN child.handle.promise().value + 1;
+  }
+  ::inherited_scheduler STRUCT { .base BASE std::cpp_style_coroutine_base; }
+  ::producer STRUCT
+  {
+    .offset VAR I32;
+    .produce COROUTINE(@input I32 DEFAULT(40)) CONST: task { RETURN .offset + input; }
+  }
+
+  DOC <$ A derived scheduler and nested mixed binding select the child's promise controller while preserving the ordinary return object. $>
+  ::nested_call DUAL_TEST
+  {
+    VAR scheduler inherited_scheduler;
+    VAR pending AUTO := ON(scheduler) RUN child_call();
+    pending.handle.resume();
+    TEST_ASSERT(pending.handle.done());
+    TEST_ASSERT(pending.handle.promise().value == 43);
+    VAR source producer;
+    source.offset := 2;
+    VAR member AUTO := ON(scheduler) RUN source.produce();
+    member.handle.resume();
+    TEST_ASSERT(member.handle.done());
+    TEST_ASSERT(member.handle.promise().value == 42);
+  }
+
+  ::transfer_awaiter STRUCT
+  {
+    .target VAR std::cpp_coroutine_handle#VOID;
+    .CONSTRUCTOR FUNCTION(@target std::cpp_coroutine_handle#VOID) { .target := target; }
+    .await_ready FUNCTION(): BOOL { RETURN FALSE; }
+    .await_suspend FUNCTION(@handle std::cpp_coroutine_handle#AUTO(promise_type)): std::cpp_coroutine_handle#VOID { RETURN .target; }
+    .await_resume FUNCTION() {}
+  }
+  ::start_child STRUCT
+  {
+    .child VAR std::cpp_coroutine_handle#task::promise_type;
+    .parent VAR MUT->std::cpp_coroutine_handle#VOID;
+    .await_ready FUNCTION(): BOOL { RETURN FALSE; }
+    .await_suspend FUNCTION(@handle std::cpp_coroutine_handle#AUTO(promise_type)): std::cpp_coroutine_handle#task::promise_type
+    {
+      .parent-> := std::cpp_coroutine_handle#VOID(@OTHER handle);
+      RETURN .child;
+    }
+    .await_resume FUNCTION() {}
+  }
+  ::bounce COROUTINE(@parent CONST& std::cpp_coroutine_handle#VOID): task
+  {
+    AWAIT(transfer_awaiter(@target parent));
+    RETURN 0;
+  }
+  ::transfer_parent COROUTINE(): task
+  {
+    VAR parent std::cpp_coroutine_handle#VOID;
+    VAR child AUTO := bounce(@parent parent);
+    VAR operation start_child;
+    operation.child := child.handle;
+    operation.parent := parent<-;
+    AWAIT(operation);
+    RETURN 99;
+  }
+
+  DOC <$ Handle-returning suspension transfers to a child and back after each active driver has returned. $>
+  ::symmetric_transfer DUAL_TEST
+  {
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR pending AUTO := ON(scheduler) RUN transfer_parent();
+    pending.handle.resume();
+    TEST_ASSERT(pending.handle.done());
+    TEST_ASSERT(pending.handle.promise().value == 99);
+  }
+
+  ::eager_result STRUCT
+  {
+    ::promise_type STRUCT
+    {
+      .destroyed VAR MUT->I32;
+      .get_return_object FUNCTION(@handle std::cpp_coroutine_handle#promise_type): eager_result { RETURN eager_result(); }
+      .initial_suspend FUNCTION(): std::cpp_suspend_never { RETURN std::cpp_suspend_never(); }
+      .final_suspend FUNCTION() NOEXCEPT: std::cpp_suspend_never { RETURN std::cpp_suspend_never(); }
+      .return_value FUNCTION(@value MUT& I32) MUT { .destroyed := value<-; }
+      .unhandled_exception FUNCTION() { THROW_EXCEPTION_PTR(CURRENT_EXCEPTION()); }
+      .DESTRUCTOR FUNCTION() { IF (.destroyed??) { .destroyed-> += 1; } }
+    }
+  }
+  ::eager COROUTINE(@destroyed MUT& I32): eager_result { RETURN destroyed; }
+
+  DOC <$ Immediate initial and final suspension run the body and release the promise before RUN returns. $>
+  ::eager_release DUAL_TEST
+  {
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR destroyed I32;
+    VAR result AUTO := ON(scheduler) RUN eager(@destroyed destroyed);
+    TEST_ASSERT(destroyed == 1);
+  }
+
+  ::failed_result STRUCT
+  {
+    ::promise_type STRUCT
+    {
+      .get_return_object FUNCTION(@handle std::cpp_coroutine_handle#promise_type): failed_result { THROW I32(@OTHER 23); }
+      .initial_suspend FUNCTION(): std::cpp_suspend_always { RETURN std::cpp_suspend_always(); }
+      .final_suspend FUNCTION() NOEXCEPT: std::cpp_suspend_always { RETURN std::cpp_suspend_always(); }
+      .return_void FUNCTION() {}
+      .unhandled_exception FUNCTION() { THROW_EXCEPTION_PTR(CURRENT_EXCEPTION()); }
+    }
+  }
+  ::fail_creation COROUTINE(@capture tracked): failed_result {}
+
+  DOC <$ Failed return-object construction releases captured arguments and the invocation allocation before propagating. $>
+  ::return_object_failure DUAL_TEST
+  {
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR destroyed I32;
+    VAR caught BOOL;
+    TRY { VAR result AUTO := ON(scheduler) RUN fail_creation(@capture tracked(@destroyed destroyed)); }
+    CATCH error CONST& I32 { caught := error == 23; }
+    TEST_ASSERT(caught && destroyed == 1);
+  }
+}

@@ -4003,14 +4003,14 @@ namespace quxlang
             co_return result;
         }
 
-        /** Evaluates a compile-time string used to name a public field. */
-        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_public_field_name(expression const& selector) -> co_type< std::string >
+        /** Evaluates a compile-time string used to name a member. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_constexpr_member_name(expression const& selector) -> co_type< std::string >
         {
             constexpr_result_v3 evaluated = co_await co_eval_static_expression(selector, type_symbol(readonly_constant{.kind = constant_kind::string}), static_eval_access::readonly_view);
             std::map< std::uint64_t, constexpr_value >::const_iterator result = evaluated.values.find(constexpr_primary_result_id);
             if (result == evaluated.values.end() || !result->second.template type_is< constexpr_string >())
             {
-                throw semantic_compilation_error("Public field name must be a compile-time string");
+                throw semantic_compilation_error("Member name must be a compile-time string");
             }
             std::string name;
             for (std::byte byte : result->second.template get_as< constexpr_string >().bytes)
@@ -4036,7 +4036,7 @@ namespace quxlang
             }
             if (string_selector)
             {
-                std::string name = co_await co_public_field_name(selector);
+                std::string name = co_await co_constexpr_member_name(selector);
                 std::vector< struct_field_declaration >::const_iterator field = std::find_if(fields.begin(), fields.end(), [&](struct_field_declaration const& candidate) { return candidate.name == name; });
                 if (field == fields.end())
                 {
@@ -4063,7 +4063,7 @@ namespace quxlang
                 co_return create_numeric_literal(std::to_string(fields.size()));
             case public_field_operation::contains:
             {
-                std::string name = co_await co_public_field_name(expr.selector.value());
+                std::string name = co_await co_constexpr_member_name(expr.selector.value());
                 bool found = std::any_of(fields.begin(), fields.end(), [&](struct_field_declaration const& field) { return field.name == name; });
                 co_return create_bool_value(block, found);
             }
@@ -4078,6 +4078,19 @@ namespace quxlang
             }
             }
             throw compiler_bug("Unknown public field metadata operation");
+        }
+
+        /** Tests member-name presence before optional customization overload resolution. */
+        auto co_generate(block_index& block, expression_type_has_member const& expr) -> co_type< value_index >
+        {
+            type_symbol owner = remove_ref(co_await co_resolve_type_symbol(block, expr.subject_type));
+            std::string name = co_await co_constexpr_member_name(expr.name);
+            class_kind kind = co_await rpnx::querygraph::request< class_type_query >(owner);
+            if (kind != class_kind::struct_ && kind != class_kind::generic && kind != class_kind::generic_ref)
+                co_return create_bool_value(block, false);
+            struct_member_lookup_result const& result = co_await rpnx::querygraph::request< struct_member_lookup_query >(
+                struct_member_lookup_input{.static_type = owner, .member_name = std::move(name)});
+            co_return create_bool_value(block, !result.candidates.empty());
         }
 
         /** Projects a validated public field, evaluating the source exactly once. */
@@ -8497,6 +8510,10 @@ namespace quxlang
                         {
                             co_await co_analyze_lambda_expression(analysis, *value.selector);
                         }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_type_has_member >)
+                    {
+                        co_await co_analyze_lambda_expression(analysis, value.name);
                     }
                     else if constexpr (std::is_same_v< value_type, expression_public_field_get >)
                     {
@@ -12956,45 +12973,49 @@ namespace quxlang
                             throw semantic_compilation_error("Member " + to_string(candidate.selected_declaration) + " is private in context " + to_string(ctx));
                         }
 
-                        std::vector< struct_field > const& inherited_fields = co_await rpnx::querygraph::request< struct_field_list_query >(candidate.receiver_type);
-                        std::vector< struct_field >::const_iterator const inherited_field = std::ranges::find_if(inherited_fields, [&](struct_field const& field)
+                        symbol_kind member_kind = co_await rpnx::querygraph::request< symbol_type_query >(candidate.selected_declaration);
+                        if (member_kind != symbol_kind::functum && member_kind != symbol_kind::templex)
                         {
-                            return field.name == field_name;
-                        });
-                        if (inherited_field != inherited_fields.end())
-                        {
-                            receiver_reference_type.as< ptrref_type >().is_ibc = receiver_reference_type.as< ptrref_type >().is_ibc.value() || inherited_field->ibc_access;
-                            if (is_ref(inherited_field->type) && !parameter_runtime_type(inherited_field->type).has_value())
+                            std::vector< struct_field > const& inherited_fields = co_await rpnx::querygraph::request< struct_field_list_query >(candidate.receiver_type);
+                            std::vector< struct_field >::const_iterator const inherited_field = std::ranges::find_if(inherited_fields, [&](struct_field const& field)
                             {
-                                type_symbol const binding_type = remove_ref(inherited_field->type);
-                                attached_type_reference const& attached = binding_type.template get_as< attached_type_reference >();
-                                value_index binding = create_binding(value_index(0), attached.attached_symbol);
-                                co_return copy_static_binding(binding, inherited_field->type);
-                            }
-                            if (typeis< attached_type_reference >(inherited_field->type))
+                                return field.name == field_name;
+                            });
+                            if (inherited_field != inherited_fields.end())
                             {
-                                attached_type_reference const& attached = as< attached_type_reference >(inherited_field->type);
-                                if (typeis< void_type >(attached.carrying_type))
+                                receiver_reference_type.as< ptrref_type >().is_ibc = receiver_reference_type.as< ptrref_type >().is_ibc.value() || inherited_field->ibc_access;
+                                if (is_ref(inherited_field->type) && !parameter_runtime_type(inherited_field->type).has_value())
                                 {
-                                    co_return this->create_binding(value_index(0), attached.attached_symbol);
+                                    type_symbol const binding_type = remove_ref(inherited_field->type);
+                                    attached_type_reference const& attached = binding_type.template get_as< attached_type_reference >();
+                                    value_index binding = create_binding(value_index(0), attached.attached_symbol);
+                                    co_return copy_static_binding(binding, inherited_field->type);
                                 }
-                                type_symbol carrier_reference_type = recast_reference(receiver_reference_type.get_as< ptrref_type >(), attached.carrying_type);
-                                value_index carrier = create_local_value(carrier_reference_type);
+                                if (typeis< attached_type_reference >(inherited_field->type))
+                                {
+                                    attached_type_reference const& attached = as< attached_type_reference >(inherited_field->type);
+                                    if (typeis< void_type >(attached.carrying_type))
+                                    {
+                                        co_return this->create_binding(value_index(0), attached.attached_symbol);
+                                    }
+                                    type_symbol carrier_reference_type = recast_reference(receiver_reference_type.get_as< ptrref_type >(), attached.carrying_type);
+                                    value_index carrier = create_local_value(carrier_reference_type);
+                                    this->emit(bidx, vmir2::access_field{
+                                                         .base_index = get_local_index(receiver),
+                                                         .store_index = get_local_index(carrier),
+                                                         .field_name = field_name,
+                                                     });
+                                    co_return this->create_binding(carrier, attached.attached_symbol);
+                                }
+                                type_symbol result_reference_type = recast_reference(receiver_reference_type.get_as< ptrref_type >(), inherited_field->type);
+                                value_index result = create_local_value(result_reference_type);
                                 this->emit(bidx, vmir2::access_field{
                                                      .base_index = get_local_index(receiver),
-                                                     .store_index = get_local_index(carrier),
+                                                     .store_index = get_local_index(result),
                                                      .field_name = field_name,
                                                  });
-                                co_return this->create_binding(carrier, attached.attached_symbol);
+                                co_return result;
                             }
-                            type_symbol result_reference_type = recast_reference(receiver_reference_type.get_as< ptrref_type >(), inherited_field->type);
-                            value_index result = create_local_value(result_reference_type);
-                            this->emit(bidx, vmir2::access_field{
-                                                 .base_index = get_local_index(receiver),
-                                                 .store_index = get_local_index(result),
-                                                 .field_name = field_name,
-                                             });
-                            co_return result;
                         }
 
                         type_symbol inherited_member = submember{.of = candidate.receiver_type, .name = field_name};
@@ -13011,8 +13032,10 @@ namespace quxlang
                 }
             }
 
-            // First try to find a field with this name
-            if (base_class_kind == class_kind::struct_ || base_class_kind == class_kind::generic || base_class_kind == class_kind::generic_ref)
+            // Callable members do not depend on the receiver's storage layout.
+            symbol_kind member_kind = co_await rpnx::querygraph::request< symbol_type_query >(submember{.of = base_type_noref, .name = field_name});
+            if (member_kind != symbol_kind::functum && member_kind != symbol_kind::templex &&
+                (base_class_kind == class_kind::struct_ || base_class_kind == class_kind::generic || base_class_kind == class_kind::generic_ref))
             {
                 auto emit_field_access = [&](std::string const& candidate_name, type_symbol const& candidate_type, bool ibc_access) -> std::optional< value_index >
                 {
@@ -16989,18 +17012,27 @@ namespace quxlang
             return this->create_reference(block, value, make_mref(type));
         }
 
+        /** Resolves a coroutine protocol member and invokes it with its projected receiver. */
+        auto co_invoke_coroutine_member(block_index& block, value_index receiver, std::string const& name, codegen_invocation_args arguments,
+            std::optional< vmir2::local_index > destruction_target = std::nullopt) -> co_type< value_index >
+        {
+            value_index callee = co_await co_generate_dot_access(block, coroutine_borrow(block, receiver), name);
+            codegen_binding const& binding = state.genvalues.at(callee).template get_as< codegen_binding >();
+            type_symbol operation = binding.attached_symbol;
+            arguments.named["THIS"] = binding.bound_value;
+            bool previous_hook = state.generating_controller_hook;
+            state.generating_controller_hook = true;
+            value_index result = co_await co_gen_call_functum(block, std::move(operation), std::move(arguments),
+                allowed_adaptations::destination_rebinding, false, destruction_target);
+            state.generating_controller_hook = previous_hook;
+            co_return result;
+        }
+
         /** Invokes a statically selected synchronous controller hook. */
         auto co_coroutine_hook(block_index& block, std::string const& name, codegen_invocation_args arguments) -> co_type< value_index >
         {
             if (!state.coroutine_controller.has_value()) throw semantic_compilation_error(name + " requires a COROUTINE execution context");
-            value_index controller = coroutine_borrow(block, *state.coroutine_controller);
-            type_symbol controller_type = current_type(block, controller);
-            arguments.named["THIS"] = controller;
-            bool previous_hook = state.generating_controller_hook;
-            state.generating_controller_hook = true;
-            value_index result = co_await co_gen_call_functum(block, submember{.of = as< ptrref_type >(controller_type).target, .name = name}, std::move(arguments));
-            state.generating_controller_hook = previous_hook;
-            co_return result;
+            co_return co_await co_invoke_coroutine_member(block, *state.coroutine_controller, name, std::move(arguments));
         }
 
         /** Adapts a child invocation through the selected controller call or launch policy. */
@@ -17072,10 +17104,8 @@ namespace quxlang
                 argument_values.named.emplace(std::move(name), value);
             }
             value_index packed = co_await co_construct_composite(block, std::move(argument_type), std::move(argument_values));
-            type_symbol controller_type = remove_ref(current_type(block, controller));
             std::string const hook = execution_mode == call_execution_mode::run ? "CO_RUN" :
                 execution_mode == call_execution_mode::go ? "CO_GO" : call_hook;
-            type_symbol operation_function = submember{.of = controller_type, .name = hook};
             bool shielded = state.coroutine_shielded;
             state.coroutine_shielded = shielded || call_hook != "CO_CALL_CORT";
             std::optional< vmir2::local_index > phase_object = destruction_target;
@@ -17119,17 +17149,12 @@ namespace quxlang
             }
             std::optional< block_index > lifecycle_complete;
             if (call_hook != "CO_CALL_CORT") lifecycle_complete = generate_subblock(block, "coroutine_lifecycle_operation_complete");
-            bool previous_hook = state.generating_controller_hook;
-            state.generating_controller_hook = true;
             codegen_invocation_args hook_arguments{.named = {
-                {"THIS", coroutine_borrow(block, controller)},
                 {"COROUTINE", create_binding(value_index(0), std::move(callable))},
                 {"ARGUMENTS", coroutine_borrow(block, packed)},
             }};
             if (destination.has_value()) hook_arguments.named["DESTINATION"] = coroutine_borrow(block, *destination);
-            value_index operation = co_await co_gen_call_functum(block, operation_function, std::move(hook_arguments),
-                allowed_adaptations::destination_rebinding, false, destruction_target);
-            state.generating_controller_hook = previous_hook;
+            value_index operation = co_await co_invoke_coroutine_member(block, controller, hook, std::move(hook_arguments), destruction_target);
             if (destruction_target.has_value())
             {
                 vmir2::begin_destruction transfer{.of = *destruction_target};
@@ -17174,13 +17199,7 @@ namespace quxlang
             value_index awaiter = co_await co_coroutine_hook(block, "CO_AWAIT", codegen_invocation_args{.named = {{"ARG", awaitable}}});
             auto invoke = [&](block_index& target, std::string const& name, codegen_invocation_args arguments) -> co_type< value_index >
             {
-                arguments.named["THIS"] = coroutine_borrow(target, awaiter);
-                type_symbol awaiter_type = remove_ref(current_type(target, awaiter));
-                bool previous_hook = state.generating_controller_hook;
-                state.generating_controller_hook = true;
-                value_index result = co_await co_gen_call_functum(target, submember{.of = std::move(awaiter_type), .name = name}, std::move(arguments));
-                state.generating_controller_hook = previous_hook;
-                co_return result;
+                co_return co_await co_invoke_coroutine_member(target, awaiter, name, std::move(arguments));
             };
             auto arguments = [&](block_index& target) -> codegen_invocation_args
             {
@@ -17211,6 +17230,14 @@ namespace quxlang
             co_await co_coroutine_attach_handler(resume);
             generate_jump(resume, deliver);
             state.coroutine->continuations.at(continuation).resume = resume;
+            if (!state.coroutine_shielded)
+            {
+                block_index destroy = generate_subblock(deliver, "coroutine_destroy_suspended");
+                co_await co_coroutine_attach_handler(destroy);
+                this->block(destroy).catcher.reset();
+                set_terminator(destroy, vmir2::co_complete{.exceptional_exit = true});
+                state.coroutine->continuations.at(continuation).destruction = destroy;
+            }
             if (state.coroutine_cancellation_state.has_value() && !state.coroutine_shielded)
             {
                 block_index cancel = generate_subblock(deliver, "coroutine_cancel_claim");
@@ -18191,6 +18218,15 @@ namespace quxlang
                 local_index slot = get_local_index(*state.coroutine_cancellation_state);
                 state.blocks.front().entry_state[slot] = request;
                 state.blocks.front().current_state[slot] = request;
+            }
+            if (state.coroutine.has_value())
+            {
+                block_index entry(0);
+                block_index destroy = generate_subblock(entry, "coroutine_destroy_initialized");
+                state.blocks.at(destroy).entry_state = state.blocks.front().entry_state;
+                state.blocks.at(destroy).current_state = state.blocks.front().entry_state;
+                set_terminator(destroy, vmir2::co_complete{.exceptional_exit = true});
+                state.coroutine->destruction = destroy;
             }
             co_return;
         }

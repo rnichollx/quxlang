@@ -41,6 +41,12 @@ rpnx::querygraph::coroutine< quxlang::vm_procedure3_spec > quxlang::vm_procedure
             vmir2::functanoid_routine3 const& logical = co_await rpnx::querygraph::request< vm_procedure3_query >(operation->coroutine);
             co_return vmir2::lower_coroutine_try_cancel(logical, frame);
         }
+        if (operation->name == "DESTROY")
+        {
+            coroutine_frame_info const& frame = co_await rpnx::querygraph::request< coroutine_frame_query >(operation->coroutine);
+            vmir2::functanoid_routine3 const& logical = co_await rpnx::querygraph::request< vm_procedure3_query >(operation->coroutine);
+            co_return vmir2::lower_coroutine_destroy(logical, frame);
+        }
         if (operation->name == "INITIALIZE")
         {
             machine_target_info machine = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});

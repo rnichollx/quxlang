@@ -1884,6 +1884,14 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_public_field_metadata, operation, subject_type, selector);
     };
 
+    /** Tests whether instance-member lookup finds a name without selecting an overload. */
+    struct expression_type_has_member
+    {
+        type_symbol subject_type;
+        expression name;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_type_has_member, subject_type, name);
+    };
+
     /** Projects a directly declared public field with ordinary member access semantics. */
     struct expression_public_field_get
     {

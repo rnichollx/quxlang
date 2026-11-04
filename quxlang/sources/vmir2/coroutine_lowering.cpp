@@ -22,6 +22,10 @@ namespace quxlang::vmir2
     /** Generates frame bindings and ordinary control flow while retaining logical local identities. */
     class coroutine_resume_lowering
     {
+      public:
+        /** Selects the frame entry protocol emitted by the driver. */
+        enum class driver_kind { resume, cancellation, destruction };
+
       private:
         functanoid_routine3 const& logical;
         coroutine_frame_info const& frame;
@@ -29,7 +33,7 @@ namespace quxlang::vmir2
         functanoid_routine3 output;
         local_index return_slot;
         routine_parameters replay_parameters;
-        bool cancellation_driver;
+        driver_kind kind;
         std::map< block_index, block_index > resume_entries;
         std::map< block_index, block_index > suspension_exits;
         std::map< local_index, local_index > saved_address_slots;
@@ -450,8 +454,8 @@ namespace quxlang::vmir2
 
       public:
         /** Initializes the driver signature while preserving logical storage indices. */
-        coroutine_resume_lowering(functanoid_routine3 const& routine, coroutine_frame_info const& layout, bool cancel)
-            : logical(routine), frame(layout), body(*routine.coroutine), output(routine), cancellation_driver(cancel), initialization(routine, layout.borrowed_parameters)
+        coroutine_resume_lowering(functanoid_routine3 const& routine, coroutine_frame_info const& layout, driver_kind selected_kind)
+            : logical(routine), frame(layout), body(*routine.coroutine), output(routine), kind(selected_kind), initialization(routine, layout.borrowed_parameters)
         {
             output.coroutine.reset();
             for (local_index local : frame.saved_array_element_addresses)
@@ -498,13 +502,23 @@ namespace quxlang::vmir2
             };
             block_index completed_index(output.blocks.size());
             output.blocks.push_back(std::move(completed));
-            if (cancellation_driver)
+            if (kind == driver_kind::cancellation)
             {
                 generate_cancellation_entry(invalid_index, completed_index);
                 return std::move(output);
             }
-            std::vector< block_index > destinations{invalid_index, append_resume_entry(block_index(0))};
-            for (coroutine_continuation const& continuation : body.continuations) destinations.push_back(append_resume_entry(continuation.resume));
+            std::vector< block_index > destinations{invalid_index};
+            if (kind == driver_kind::destruction)
+            {
+                destinations.push_back(append_resume_entry(*body.destruction));
+                for (coroutine_continuation const& continuation : body.continuations)
+                    destinations.push_back(continuation.destruction.has_value() ? append_resume_entry(*continuation.destruction) : invalid_index);
+            }
+            else
+            {
+                destinations.push_back(append_resume_entry(block_index(0)));
+                for (coroutine_continuation const& continuation : body.continuations) destinations.push_back(append_resume_entry(continuation.resume));
+            }
             executable_block entry{.entry_state = activation_state({}), .dbg_name = "COROUTINE_DISPATCH"};
             local_index reference = append_field_reference(entry, 0);
             local_index ordinal = append_local(frame.fields.at(0).type);
@@ -523,7 +537,7 @@ auto quxlang::vmir2::lower_coroutine_resume(functanoid_routine3 const& logical, 
     {
         throw semantic_compilation_error("Coroutine continuation count exceeds its frame encoding");
     }
-    coroutine_resume_lowering lowering(logical, frame, false);
+    coroutine_resume_lowering lowering(logical, frame, coroutine_resume_lowering::driver_kind::resume);
     return lowering.run();
 }
 
@@ -538,6 +552,28 @@ auto quxlang::vmir2::lower_coroutine_try_cancel(functanoid_routine3 const& logic
     {
         throw semantic_compilation_error("Coroutine continuation count exceeds its frame encoding");
     }
-    coroutine_resume_lowering lowering(logical, frame, true);
+    coroutine_resume_lowering lowering(logical, frame, coroutine_resume_lowering::driver_kind::cancellation);
+    return lowering.run();
+}
+
+auto quxlang::vmir2::lower_coroutine_destroy(functanoid_routine3 const& logical, coroutine_frame_info const& frame) -> functanoid_routine3
+{
+    if (!logical.coroutine.has_value() || !logical.coroutine->destruction.has_value())
+        throw compiler_bug("DESTROY lowering requires a logical coroutine destruction entry");
+    coroutine_vmir_analysis analysis = coroutine_analysis_input(logical);
+    std::vector< std::size_t > pending{static_cast< std::uint64_t >(*logical.coroutine->destruction)};
+    for (coroutine_continuation const& continuation : logical.coroutine->continuations)
+        if (continuation.destruction.has_value()) pending.push_back(static_cast< std::uint64_t >(*continuation.destruction));
+    std::set< std::size_t > visited;
+    while (!pending.empty())
+    {
+        std::size_t node = pending.back();
+        pending.pop_back();
+        if (!visited.insert(node).second) continue;
+        coroutine_cfg_node const& current = analysis.input.nodes.at(node);
+        if (current.may_suspend) throw semantic_compilation_error("Frame DESTROY requires synchronous cleanup");
+        pending.insert(pending.end(), current.successors.begin(), current.successors.end());
+    }
+    coroutine_resume_lowering lowering(logical, frame, coroutine_resume_lowering::driver_kind::destruction);
     return lowering.run();
 }

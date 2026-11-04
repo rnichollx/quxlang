@@ -99,6 +99,7 @@ namespace quxlang
                 "INITIALIZE",
                 "RESUME",
                 "TRY_CANCEL",
+                "DESTROY",
                 "COROUTINE_CANCELLATION_MODE",
                 "COROUTINE_CANCELLED",
                 "COROUTINE_ATTACH_HANDLER",

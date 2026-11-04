@@ -144,6 +144,7 @@ nav:
       - Optional and Owning Values: reference/optional-and-owning-values.md
       - Type Queries and Deduction: reference/type-queries-and-deduction.md
       - Functions: reference/functions-and-parameters.md
+      - C++-style Coroutines: reference/cpp-style-coroutines.md
       - RETURN Statements: reference/return-statements.md
       - Call Arguments: reference/call-arguments.md
       - Default Arguments: reference/default-arguments.md

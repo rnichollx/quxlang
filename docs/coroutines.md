@@ -77,6 +77,12 @@ invocation. Copying and moving frame objects are rejected. Concurrent or reentra
 driving, driving an empty frame, and releasing an unfinished invocation are
 invalid.
 
+`DESTROY(@CONTROLLER MUT& C): BOOL` performs direct synchronous cleanup from an
+initialized frame or an unshielded suspension and returns `TRUE`. The caller must
+retire external continuation registrations first. Destruction skips body catch
+handlers and controller completion callbacks. It does not require a cancellation
+declaration. Instantiating this operation rejects cleanup that can suspend.
+
 The controller remains external to the frame. The generated frame contains no
 mandatory allocator, controller pointer, scheduler pointer, reference count, or
 virtual dispatch table. Storage allocation belongs to an adapter. The standard
@@ -213,6 +219,12 @@ controller, promise, and frame. The promise can retain a typed frame pointer,
 and moving the owning operation preserves every address in that allocation.
 The operation releases the allocation after completion and retirement of its
 continuation registrations.
+
+`std::cpp_style_coroutine_base` implements the standard promise adapter with
+`std::cpp_coroutine_handle#promise_type`. The adapter passes the invocation handle
+to `get_return_object(@handle)` on the promise. Its promise and awaiter operations,
+ownership rules, and execution contracts are specified in the
+[C++-style coroutine reference](../website/docs/reference/cpp-style-coroutines.md).
 
 An `AUTO` return type requires body deduction. Deriving the controller from a
 return type that itself depends on the controller introduces a deduction cycle.

@@ -62,6 +62,7 @@ auto quxlang::vmir2::coroutine_analysis_input(functanoid_routine3 const& routine
     output.input.entry_node = initialization_boundary;
     output.input.nodes.push_back({.may_suspend = true});
     if (!routine.blocks.empty()) output.input.nodes.back().successors.push_back(0);
+    if (coroutine.destruction.has_value()) output.input.nodes.back().successors.push_back(static_cast< std::uint64_t >(*coroutine.destruction));
 
     std::set< local_index > owned_storage;
     auto capture_parameter = [&](routine_parameter const& parameter)
@@ -222,6 +223,7 @@ auto quxlang::vmir2::coroutine_analysis_input(functanoid_routine3 const& routine
             coroutine_cfg_node& suspended = output.input.nodes[suspension];
             suspended.successors.push_back(static_cast< std::uint64_t >(continuation.resume));
             if (continuation.cancellation.has_value()) suspended.successors.push_back(static_cast< std::uint64_t >(*continuation.cancellation));
+            if (continuation.destruction.has_value()) suspended.successors.push_back(static_cast< std::uint64_t >(*continuation.destruction));
             record(continuation.awaiter, suspension, 0, coroutine_lifetime_event_kind::access);
         }
     }
