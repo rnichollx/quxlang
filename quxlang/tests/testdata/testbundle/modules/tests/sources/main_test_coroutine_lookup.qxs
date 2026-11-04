@@ -20,7 +20,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(select(@value 7) == 8);
   }
 
-  DOC <$ Coroutine lookup supplies its controller before ordinary fallback and evaluates explicit arguments once. $>
+  DOC <$ The call hook specializes the mixed binding and receives each evaluated argument once. $>
   ::coroutine_selection DUAL_TEST
   {
     VAR observed coroutine_call_tests::observations;
@@ -47,20 +47,38 @@ LANGUAGE QUXLANG EN 0.0;
     result := restricted(@value argument(@count count));
   }
 
-  DOC <$ An incompatible controller permits ordinary fallback without instantiating the rejected coroutine body. $>
-  ::controller_mismatch_fallback DUAL_TEST
+  DOC <$ Selects ordinary functions from the complete binding supplied to the call hook. $>
+  ::ordinary_policy STRUCT
   {
-    VAR observed coroutine_call_tests::observations;
-    VAR adapted coroutine_call_tests::controller;
-    adapted.observed := observed<-;
+    .calls VAR I32;
+    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: coroutine_call_tests::completed_value
+    {
+      .calls += 1;
+      VAR result coroutine_call_tests::completed_value;
+      result.value := child(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      RETURN result;
+    }
+    .CO_AWAIT FUNCTION(@ARG AUTO& coroutine_call_tests::completed_value): MUT& coroutine_call_tests::completed_value
+    {
+      RETURN ARG AS MUT& coroutine_call_tests::completed_value;
+    }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_call_tests::immediate_awaiter { RETURN coroutine_call_tests::immediate_awaiter(); }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+  }
+
+  DOC <$ The hook selects an ordinary overload without instantiating an incompatible coroutine body. $>
+  ::controller_selects_ordinary DUAL_TEST
+  {
+    VAR adapted ordinary_policy;
     VAR count I32;
     VAR result I32;
-    VAR frame call_restricted#(@count MUT& I32, @result MUT& I32, @CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+    VAR frame call_restricted#(@count MUT& I32, @result MUT& I32, @CONTROLLER ordinary_policy)::FRAME_TYPE;
     frame.INITIALIZE(@count count, @result result);
     TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
     TEST_ASSERT(count == 1);
     TEST_ASSERT(result == 9);
-    TEST_ASSERT(observed.calls == 0);
+    TEST_ASSERT(adapted.calls == 1);
   }
 
   ::observe FUNCTION(@CONTROLLER MUT& coroutine_call_tests::controller)
@@ -100,7 +118,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::ambiguous COROUTINE() ENABLE_IF(1 == 1): I32 { RETURN 3; }
   ::call_ambiguous COROUTINE() { ambiguous(); }
 
-  DOC <$ Ambiguity in controller-aware lookup is diagnosed before ordinary fallback. $>
+  DOC <$ Ambiguity in specialization performed by the call hook is diagnosed. $>
   ::controller_ambiguity_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     VAR frame call_ambiguous#(@CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
@@ -144,7 +162,7 @@ LANGUAGE QUXLANG EN 0.0;
     result := rank_ordinary() + rank_coroutine();
   }
 
-  DOC <$ Ordinary overload ranking compares concrete controller formals against deduced controller formals in either execution model. $>
+  DOC <$ The call hook supplies a controller type when specializing each mixed binding. $>
   ::controller_overload_ranking DUAL_TEST
   {
     VAR observed coroutine_call_tests::observations;
@@ -154,8 +172,8 @@ LANGUAGE QUXLANG EN 0.0;
     VAR frame call_ranked#(@result MUT& I32, @CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
     frame.INITIALIZE(@result result);
     TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
-    TEST_ASSERT(result == 83);
-    TEST_ASSERT(observed.calls == 1);
+    TEST_ASSERT(result == 84);
+    TEST_ASSERT(observed.calls == 2);
   }
 
   ::destructor_choice STRUCT

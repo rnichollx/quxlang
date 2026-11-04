@@ -31,10 +31,7 @@ RPNX_ENUM(quxlang::vmir2, overflow_mode, std::uint8_t, wraparound, assume_inboun
 RPNX_ENUM(quxlang::vmir2, access_type, std::uint8_t, object, storage);
 RPNX_ENUM(quxlang::vmir2, access_class, std::uint8_t, global, thread);
 /** Selects the object retained by a typed frame-storage field. */
-RPNX_ENUM(quxlang::vmir2, retained_storage_kind, std::uint8_t, object, reference, completed_array_reference, captured_alias_reference);
-/** Selects the invocation-owned storage used by bounded cleanup dispatch. */
-RPNX_ENUM(quxlang::vmir2, coroutine_cleanup_area, std::uint8_t, retirement, contexts, program);
-
+RPNX_ENUM(quxlang::vmir2, retained_storage_kind, std::uint8_t, object, reference, completed_array_reference);
 /** Selects the Boolean relation tested by cmp_bool. */
 RPNX_ENUM(quxlang::vmir2, comparison_relation, std::uint8_t, equal, not_equal, less, less_equal, greater, greater_equal);
 
@@ -45,8 +42,6 @@ namespace quxlang
 {
     namespace vmir2
     {
-        struct lifetime_transfer;
-        struct lifetime_import;
         struct access_field;
         struct access_array;
         struct access_pointer;
@@ -226,8 +221,6 @@ namespace quxlang
         struct lowering_error;
         struct tablebranch;
         struct co_save;
-        struct co_cleanup_storage;
-        struct co_cleanup_mark;
         struct co_suspend;
         struct co_complete;
 
@@ -239,7 +232,7 @@ namespace quxlang
         struct array_init_more;
 
         // clang-format: off
-        using vm_instruction = rpnx::variant< access_field, interface_init, interface_invoke, interface_is_default, invoke, invoke_virtual, invoke_indirect, get_procedure_ptr, make_reference, cast_ptrref, inheritance_cast, struct_dynamic_cast, struct_type_is, struct_dynamic_type, struct_alloc_info, ibc_load, ibc_write, ibc_pun, ibc_getaddr, address_launder, cast_constant, constexpr_set_result, constexpr_set_result2, constexpr_make_proxy, constexpr_output_byte, load_const_int, load_const_enum, enum_int_inrange, enum_cast, load_const_float, load_const_value, load_type_index, canonicalize_float, get_value_byte, set_value_byte, make_pointer_to, relocate_value, load_from_ref, storage_init, storage_init_start, storage_rebind, storage_deinit_start, storage_pun, get_underyling_storage, fusion_active_index, fusion_has_alternative, fusion_is_valueless, fusion_storage_ref, fusion_set_active, fusion_set_valueless, fusion_swap_boxed_state, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_allocate_multiple_object_storage, jvm_deallocate_object_storage, jvm_deallocate_multiple_object_storage, jvm_gc_pointer_checked_cast, get_object_ref, get_antestatal_ref, initguard_global_get_ref, initguard_complete, initguard_abort, thread_destructor_register, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, compare_exchange, int_add, int_mul, int_div, int_mod, int_sub, mut_int_add, mut_int_sub, mut_int_mul, mut_int_div, mut_int_mod, float_add, float_sub, float_mul, float_div, float_sqrt, mut_float_add, mut_float_sub, mut_float_mul, mut_float_div, float_from_int, iconv, bitwise_and, bitwise_or, bitwise_xor, bitwise_nand, bitwise_nor, bitwise_nxor, bitwise_implies, bitwise_implied, bitwise_shift_up, bitwise_shift_down, bitwise_rotate_up, bitwise_rotate_down, bitwise_inverse, mut_bitwise_and, mut_bitwise_or, mut_bitwise_xor, mut_bitwise_nand, mut_bitwise_nor, mut_bitwise_nxor, mut_bitwise_implies, mut_bitwise_implied, mut_bitwise_shift_up, mut_bitwise_shift_down, mut_bitwise_rotate_up, mut_bitwise_rotate_down, int_cmp, float_cmp, address_cmp, address_mod, type_index_cmp, pointer_cmp, pointer_eq, pointer_ne, cmp_bool, float_ieee_eq, float_ieee_ne, float_ieee_lt, float_ieee_gt, defer_nontrivial_dtor, struct_phase_enter, struct_phase_leave, struct_init_start, struct_init_finish, copy_reference, destroy, begin_destruction, complete_initialization, end_lifetime, access_array, access_pointer, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, assume, swap, unimplemented, lowering_error, array_init_start, array_init_index, array_init_element, array_deinit_previous, array_init_finish, array_init_more, code_align, co_save, lifetime_transfer, lifetime_import, co_cleanup_storage, co_cleanup_mark >;
+        using vm_instruction = rpnx::variant< access_field, interface_init, interface_invoke, interface_is_default, invoke, invoke_virtual, invoke_indirect, get_procedure_ptr, make_reference, cast_ptrref, inheritance_cast, struct_dynamic_cast, struct_type_is, struct_dynamic_type, struct_alloc_info, ibc_load, ibc_write, ibc_pun, ibc_getaddr, address_launder, cast_constant, constexpr_set_result, constexpr_set_result2, constexpr_make_proxy, constexpr_output_byte, load_const_int, load_const_enum, enum_int_inrange, enum_cast, load_const_float, load_const_value, load_type_index, canonicalize_float, get_value_byte, set_value_byte, make_pointer_to, relocate_value, load_from_ref, storage_init, storage_init_start, storage_rebind, storage_deinit_start, storage_pun, get_underyling_storage, fusion_active_index, fusion_has_alternative, fusion_is_valueless, fusion_storage_ref, fusion_set_active, fusion_set_valueless, fusion_swap_boxed_state, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple, jvm_allocate_object_storage, jvm_allocate_multiple_object_storage, jvm_deallocate_object_storage, jvm_deallocate_multiple_object_storage, jvm_gc_pointer_checked_cast, get_object_ref, get_antestatal_ref, initguard_global_get_ref, initguard_complete, initguard_abort, thread_destructor_register, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, compare_exchange, int_add, int_mul, int_div, int_mod, int_sub, mut_int_add, mut_int_sub, mut_int_mul, mut_int_div, mut_int_mod, float_add, float_sub, float_mul, float_div, float_sqrt, mut_float_add, mut_float_sub, mut_float_mul, mut_float_div, float_from_int, iconv, bitwise_and, bitwise_or, bitwise_xor, bitwise_nand, bitwise_nor, bitwise_nxor, bitwise_implies, bitwise_implied, bitwise_shift_up, bitwise_shift_down, bitwise_rotate_up, bitwise_rotate_down, bitwise_inverse, mut_bitwise_and, mut_bitwise_or, mut_bitwise_xor, mut_bitwise_nand, mut_bitwise_nor, mut_bitwise_nxor, mut_bitwise_implies, mut_bitwise_implied, mut_bitwise_shift_up, mut_bitwise_shift_down, mut_bitwise_rotate_up, mut_bitwise_rotate_down, int_cmp, float_cmp, address_cmp, address_mod, type_index_cmp, pointer_cmp, pointer_eq, pointer_ne, cmp_bool, float_ieee_eq, float_ieee_ne, float_ieee_lt, float_ieee_gt, defer_nontrivial_dtor, struct_phase_enter, struct_phase_leave, struct_init_start, struct_init_finish, copy_reference, destroy, begin_destruction, complete_initialization, end_lifetime, access_array, access_pointer, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, assume, swap, unimplemented, lowering_error, array_init_start, array_init_index, array_init_element, array_deinit_previous, array_init_finish, array_init_more, code_align, co_save >;
         // clang-format: on
         using vm_terminator = rpnx::variant< jump, branch, tablebranch, runtime_constexpr, policy_branch, initguard_try_acquire, ret, panic, unreachable, throw_exception, co_suspend, co_complete >;
 
@@ -248,23 +241,6 @@ namespace quxlang
         RPNX_UNIQUE_U64(block_index);
 
         RPNX_UNIQUE_U64(continuation_index);
-
-        /** Produces a typed array pointer to compiler-owned cleanup storage. */
-        struct co_cleanup_storage
-        {
-            coroutine_cleanup_area area = coroutine_cleanup_area::retirement;
-            local_index result;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(co_cleanup_storage, area, result);
-        };
-
-        /** Records one logical object's active, accepted, or completed cleanup state. */
-        struct co_cleanup_mark
-        {
-            local_index slot;
-            /// Zero denotes active ownership, one accepted destruction, and two completed retirement.
-            std::uint8_t status = 0;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(co_cleanup_mark, slot, status);
-        };
 
         /** Prepares the continuation before publishing a suspended operation. */
         struct co_save
@@ -303,18 +279,6 @@ namespace quxlang
             RPNX_MEMBER_METADATA(coroutine_continuation, resume, awaiter, cancellation, shielded);
         };
 
-        /** Measures deterministic cleanup expansion over the original typed coroutine. */
-        struct coroutine_cleanup_statistics
-        {
-            std::uint64_t input_size = 0;
-            std::uint64_t work_limit = 0;
-            std::uint64_t work_used = 0;
-            std::uint64_t fallback_routes = 0;
-            std::uint64_t action_bodies = 0;
-            std::uint64_t program_nodes = 0;
-            RPNX_MEMBER_METADATA(coroutine_cleanup_statistics, input_size, work_limit, work_used, fallback_routes, action_bodies, program_nodes);
-        };
-
         /** Records coroutine execution parameters independently of physical frame layout. */
         struct coroutine_body
         {
@@ -325,12 +289,7 @@ namespace quxlang
             coroutine_cancellation_mode cancellation_mode = coroutine_cancellation_mode::none;
             /// Compiler-owned U8 capture: zero is unused, one is pending, and two is delivered.
             std::optional< local_index > cancellation_state;
-            /// Lifetimes retained by a bounded cleanup program between explicit imports.
-            std::set< local_index > cleanup_retained;
-            /// Synthetic logical aliases whose addresses are held by existing pointer or reference locals.
-            std::map< local_index, local_index > cleanup_aliases;
-            coroutine_cleanup_statistics cleanup_statistics;
-            RPNX_MEMBER_METADATA(coroutine_body, specialization, frame, controller, continuations, cancellation_mode, cancellation_state, cleanup_retained, cleanup_aliases, cleanup_statistics);
+            RPNX_MEMBER_METADATA(coroutine_body, specialization, frame, controller, continuations, cancellation_mode, cancellation_state);
         };
 
         /** Transfers a runtime-owned frame reference to native or constexpr propagation. */
@@ -2131,23 +2090,6 @@ namespace quxlang
 
         /** Persistent ordered state of the logical slots at one control-flow boundary. */
         using state_map = lifetime_state_map< local_index, slot_state >;
-
-        /** Transfers externally retained lifetimes while publishing the exact active ownership snapshot. */
-        struct lifetime_transfer
-        {
-            state_map state;
-
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(lifetime_transfer, state);
-        };
-
-        /** Rebinds an existing retained lifetime; an empty storage state releases only its logical binding. */
-        struct lifetime_import
-        {
-            local_index slot;
-            slot_state state;
-
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(lifetime_import, slot, state);
-        };
 
         struct slot_states
         {

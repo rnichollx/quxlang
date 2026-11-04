@@ -64,7 +64,7 @@ namespace quxlang::enum_info_detail
 
 rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(type_symbol input)
 {
-    if (typeis< builtin_symbol >(input) && is_builtin_enum_name(as< builtin_symbol >(input).name))
+    if (typeis< builtin_symbol >(input) && as< builtin_symbol >(input).name == "ORDER")
     {
         enum_info result;
         result.format.bit_width = 8;

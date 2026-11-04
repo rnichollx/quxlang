@@ -87,7 +87,7 @@ must remain alive until those references are retired.
 
 ## Descriptors and declarations
 
-The completion type follows `:`, and defaults to `VOID`. An omitted controller
+The declared return type follows `:`, and defaults to `VOID`. An omitted controller
 parameter introduces `@CONTROLLER AUTO`; an explicit controller parameter
 constrains specialization. Descriptors expose the following members:
 
@@ -95,7 +95,7 @@ constrains specialization. Descriptors expose the following members:
 | --- | --- |
 | `FRAME_TYPE` | Rooted storage for one concrete coroutine/controller specialization. |
 | `CONTROLLER_TYPE` | The external controller type. |
-| `RETURN_TYPE` | The coroutine's completion type. |
+| `RETURN_TYPE` | The coroutine's declared or deduced return type, available to controller specialization. |
 | `CANCELLATION_MODE` | `NONE`, `COOPERATIVE`, or `INSTANT`. |
 
 Named and member coroutines are supported. Member frame initialization receives
@@ -118,18 +118,34 @@ ordinary parameters:
 }
 ```
 
-A call in a coroutine first performs overload resolution with its implicit
-`@CONTROLLER` argument. If that attempt finds no viable overload, resolution
-retries with the original arguments. An explicitly supplied controller remains
-part of those original arguments. Both attempts occur during compilation, and
-argument expressions execute once. Ambiguity and errors in a selected overload
-remain errors.
+A call in a coroutine passes the complete callable binding to `CO_CALL_CORT`
+when the binding contains a coroutine overload. The hook receives the original
+argument pack before overload selection, default argument evaluation, or parameter
+conversion. Explicit argument expressions execute once. An explicitly supplied
+controller remains in the pack. The hook selects the overload and the child
+controller through ordinary calls or explicit specialization.
 
-The selected declaration determines execution: ordinary functions execute
-directly, and ordinary coroutine calls pass through `CO_CALL_CORT`. Ordinary
-execution contexts perform lookup without an implicit controller. Descriptor specialization retains
-the `coroutine#(...)::FRAME_TYPE` interface and can omit a controller whose type
-is fixed by the coroutine declaration.
+Function specialization accepts `COMPOSITE_UNPACK` of a composite type. Positional
+fields supply positional parameter types, and named fields supply named parameter
+types. For example, a hook can select a child with:
+
+```quxlang
+VAR selected AUTO := child#(@CONTROLLER child_controller,
+                           COMPOSITE_UNPACK(TYPEOF(arguments)));
+VAR frame selected::FRAME_TYPE;
+frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+```
+
+Member call packs contain the receiver under `RECEIVER`. Specialization supplies
+that field's type as `@THIS` and unpacks the remaining fields. Frame initialization
+accepts `@RECEIVER` directly. Parameter conversion and default argument evaluation
+occur when the hook invokes the selected function or initializes its frame.
+
+Ordinary execution contexts resolve calls without an implicit controller.
+Coroutine lifecycle calls use controller-aware overload resolution and pass the
+selected descriptor to `CO_CALL_CTOR` or `CO_CALL_DTOR`. Ordinary functions with
+an explicit `CONTROLLER` formal continue to receive the enclosing controller
+through the ordinary invocation rules.
 
 ## Coroutine launch expressions
 
@@ -142,28 +158,65 @@ VAR task AUTO := ON(scheduler) RUN work(@INPUT input);
 The expression evaluates the controller before the target receiver and arguments.
 The selected controller applies only to the target invocation. Calls within the
 controller, receiver, and argument expressions retain their enclosing execution
-context. The target must resolve to a coroutine. Its arguments are evaluated once
-and prepared through ordinary argument adaptation before controller dispatch.
+context. The target binding must contain a coroutine overload. Its arguments are evaluated
+once and passed to the selected hook before overload resolution or adaptation.
 
-`CO_RUN(@COROUTINE descriptor, @ARGUMENTS arguments)` is a synchronous hook whose
+`CO_RUN(@COROUTINE binding, @ARGUMENTS arguments)` is a synchronous hook whose
 result becomes the launch expression's result directly. The hook selects storage,
 ownership, and the concrete child controller, then arranges execution according to
 its scheduling policy. An ordinary function can use this expression without
 becoming a coroutine.
 
 Within a coroutine, `GO work(@INPUT input)` uses the enclosing controller's
-`CO_GO(@COROUTINE descriptor, @ARGUMENTS arguments)` hook. The hook returns an
+`CO_GO(@COROUTINE binding, @ARGUMENTS arguments)` hook. The hook returns an
 awaitable, which the calling coroutine awaits through its ordinary await protocol.
 The launch awaitable can complete immediately or suspend the caller until the
 controller's launch condition is satisfied. The awaited result becomes the `GO`
 expression's result. A result that is itself awaitable requires a separate
 `AWAIT` expression to await its completion.
 
-Both hooks can specialize the selected coroutine with another controller type.
-Rebinding preserves the selected declaration and must satisfy its constraints.
+Both hooks receive the complete binding and control overload selection and child
+controller specialization. Explicit descriptor rebinding preserves the selected
+declaration and must satisfy its constraints.
 The adapter preserves frame storage and child-controller lifetimes until their
 execution and continuation registrations have completed. Discarding a launch
 result follows ordinary destruction rules.
+
+## Return-type promises and frame ownership
+
+A scheduler can specialize the binding with argument types and `@CONTROLLER AUTO` while leaving the
+controller unresolved. The explicit controller argument excludes ordinary
+overloads that do not accept a controller. The partial descriptor exposes an explicitly
+declared `RETURN_TYPE` before the body is instantiated. A return type can supply
+a promise template whose argument is the concrete frame type.
+
+A nominal controller template breaks the recursive type dependency by taking the
+partial descriptor as its parameter:
+
+```quxlang
+::controller TEMPLATE(@T:descriptor TYPE AUTO) STRUCT
+{
+  ::frame_type ALIAS descriptor#(@CONTROLLER controller#descriptor)::FRAME_TYPE;
+  ::promise_type ALIAS descriptor::RETURN_TYPE::promise#frame_type;
+  .promise VAR MUT->promise_type;
+
+  .CO_RETURN FUNCTION(@ARG AUTO& AUTO) MUT: AUTO
+  {
+    RETURN .promise->.CO_RETURN(@ARG ARG);
+  }
+}
+```
+
+The controller also supplies the await and exception hooks required by its
+coroutines. An owning operation can allocate a rooted context containing the
+controller, promise, and frame. The promise can retain a typed frame pointer,
+and moving the owning operation preserves every address in that allocation.
+The operation releases the allocation after completion and retirement of its
+continuation registrations.
+
+An `AUTO` return type requires body deduction. Deriving the controller from a
+return type that itself depends on the controller introduces a deduction cycle.
+An explicit return type supplies the declaration needed by this pattern.
 
 ## Awaitables and awaiters
 
@@ -203,12 +256,12 @@ Controller hooks are ordinary synchronous functions. Their returned awaitables
 represent asynchronous work through the awaiter protocol.
 
 ```text
-CO_CALL_CORT(@COROUTINE descriptor, @ARGUMENTS arguments) -> awaitable
+CO_CALL_CORT(@COROUTINE binding, @ARGUMENTS arguments) -> awaitable
 CO_CALL_CTOR(@COROUTINE descriptor, @ARGUMENTS arguments,
              @DESTINATION borrowed_storage) -> awaitable
 CO_CALL_DTOR(@COROUTINE descriptor, @ARGUMENTS arguments) -> awaitable
-CO_RUN(@COROUTINE descriptor, @ARGUMENTS arguments) -> result
-CO_GO(@COROUTINE descriptor, @ARGUMENTS arguments) -> awaitable
+CO_RUN(@COROUTINE binding, @ARGUMENTS arguments) -> result
+CO_GO(@COROUTINE binding, @ARGUMENTS arguments) -> awaitable
 CO_AWAIT(@ARG awaitable) -> awaiter_or_reference
 CO_YIELD(@ARG value) -> awaitable
 CO_RETURN(@ARG value) -> awaitable
@@ -233,14 +286,32 @@ Each `YIELD expression` independently selects `CO_YIELD` using the operand's
 actual type and reference category. A declaration has no homogeneous yield type
 or shared yield-value slot.
 
-Return, yield, and exception-reporting awaiters complete with `VOID`. `CO_RETURN`
-receives a ready completion value whose lifetime covers transfer and transfer
-awaiter cleanup. Async-only values are borrowed by the synchronous hook. Failure
+`RETURN expression` selects `CO_RETURN(@ARG expression)` using the operand's
+original type and reference category. Ordinary argument adaptation applies to the
+selected hook's parameters. The declared return type remains descriptor metadata
+for controller and promise selection. For example, a coroutine declared with
+`task#I32` can return an `I32` operand to its promise's integer overload.
+
+`RETURN;`, a `VOID` return operand, and reachable fallthrough select `CO_RETURN()`.
+The controller determines whether that overload is available, independently of
+the declared return type. An `AUTO` return type is deduced from the operand before
+hook adaptation. Coroutine constructors and destructors require `VOID` return
+metadata and cannot supply a return value.
+
+Return, yield, and exception-reporting awaiters complete with `VOID`. A borrowed
+return operand and temporaries created for hook argument adaptation remain alive
+through transfer and transfer-awaiter cleanup. A by-value hook can consume the
+operand through ordinary parameter ownership. Async-only values require a
+borrowing hook parameter. Failure
 during later required cleanup enters exception reporting. Failure during
 `CO_EXCEPTION` propagates after mandatory cleanup without recursively reporting
 the new failure through that hook.
 
 ## Cancellation and cleanup
+
+`COROUTINE_CANCELLATION_MODE` is a compiler-defined enum with the values `NONE`
+(the default), `COOPERATIVE`, and `INSTANT`. `COROUTINE_CANCELLED` is a
+compiler-defined empty struct used for cooperative cancellation delivery.
 
 `CANCELLABLE` adds `TRY_CANCEL(@CONTROLLER MUT& C): BOOL` to the frame interface.
 An invocation accepts one cooperative cancellation attempt. Delivery raises
@@ -334,30 +405,23 @@ identities when their physical storage overlaps. The constexpr interpreter uses
 target byte offsets for pointer identity while retaining separate lifetime and
 access checks.
 
-Cleanup expansion uses a fixed work allowance derived from the typed routine
-before cleanup generation. The allowance accounts for generated locals and
-instructions. Exhaustion discards the optional expansion and regenerates cleanup
-edges that reference shared source and destination lifetime snapshots. A resumable cursor
-selects statically typed cleanup actions from a shared program. The frame stores
-cursor progress, lifetime retirement flags, saved addresses, and nested exception
-contexts. The dispatcher requires no heap allocation. Generated action bodies and
-continuation destinations are shared across cleanup edges.
+Cleanup expansion resolves lifetime transitions during compilation and emits
+ordinary control-flow blocks with statically selected destructor calls. Coroutine
+destructors use the ordinary await protocol. Their continuation identifies the
+remaining cleanup after suspension. Cleanup sequences with the same lifetime
+obligations, continuation, and exception context share generated blocks.
 
-Suspendable action bodies are shared by selected destructor, object type, and
-construction or subobject phase. Each invocation supplies its object address,
-retirement identity, and continuation. A dependency graph of owned cleanup
-operations bounds nested context storage and diagnoses recursive mandatory
-cleanup. Budget exhaustion completes the current action before abandoning the
-unpublished expansion. Immutable source lifetime snapshots remain shared across
-the two attempts.
+Partial array cleanup uses a reverse loop over the initialized prefix. Exception
+cleanup retains the pending exception across suspension and terminates if another
+exception escapes a destructor during unwinding. Construction publication follows
+the successful completion of mandatory cleanup.
 
 ## Implementation locations
 
 - [Coroutine syntax and controller lowering](../quxlang/include/quxlang/co_vmir_generator2.hpp).
 - [Initialization and rollback](../quxlang/include/quxlang/co_coroutine_initialize.hpp).
 - [Suspendable cleanup](../quxlang/include/quxlang/co_coroutine_cleanup.hpp).
-- [Shared cleanup dispatch](../quxlang/include/quxlang/co_coroutine_cleanup_dispatch.hpp).
-- [Cleanup program and cursor](../quxlang/include/quxlang/vmir2/lifetime_cleanup_program.hpp).
+- [Cleanup transition planning](../quxlang/include/quxlang/vmir2/lifetime_transition_graph.hpp).
 - [Frame query and nominal layout](../quxlang/sources/queries/coroutine_frame.cpp).
 - [General-CFG analysis and interval allocation](../quxlang/sources/vmir2/coroutine_frame_analysis.cpp).
 - [Driver lowering](../quxlang/sources/vmir2/coroutine_lowering.cpp).

@@ -92,7 +92,8 @@ IMPORT std;
 
     .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
     {
-      RETURN child_operation#child(@parent THIS, @ARGUMENTS arguments);
+      VAR selected AUTO := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER controller);
+      RETURN child_operation#selected(@parent THIS, @ARGUMENTS arguments);
     }
 
     .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
@@ -260,6 +261,71 @@ IMPORT std;
     TEST_ASSERT(events == 123);
     TEST_ASSERT(adapted.failure!?);
   }
+
+  ::ordered_resource STRUCT
+  {
+    .events VAR MUT->I32;
+    .digit VAR I32;
+    .fail VAR BOOL;
+    .CONSTRUCTOR FUNCTION(@events MUT& I32, @digit I32, @fail BOOL)
+    {
+      .events := events<-;
+      .digit := digit;
+      .fail := fail;
+    }
+    .DESTRUCTOR COROUTINE() NOEXCEPT_IF(FALSE)
+    {
+      .events-> := .events-> * 10 + .digit;
+      AWAIT(FALSE);
+      .events-> := .events-> * 10 + .digit;
+      IF (.fail) { THROW I32(@OTHER 37); }
+    }
+  }
+
+  ::ordered_exit COROUTINE(@events MUT& I32, @fail BOOL)
+  {
+    VAR outer ordered_resource :(@events events, @digit 1, @fail FALSE);
+    VAR inner ordered_resource :(@events events, @digit 2, @fail fail);
+  }
+
+  DOC <$ Sequential suspended destructors retain reverse construction order and execute each destructor once. $>
+  ::verify_ordered_exit FUNCTION(@fail BOOL)
+  {
+    VAR events I32;
+    VAR ready BOOL;
+    VAR adapted controller;
+    adapted.gate := ready<-;
+    VAR frame ordered_exit#(@events MUT& I32, @fail BOOL, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@events events, @fail fail);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 2);
+    TEST_ASSERT(adapted.advance() == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    ready := FALSE;
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted) == FALSE);
+    TEST_ASSERT(events == 221);
+    TEST_ASSERT(adapted.failure!?);
+    TEST_ASSERT(adapted.advance() == FALSE);
+    ready := TRUE;
+    TEST_ASSERT(adapted.advance());
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 2211);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(events == 2211);
+    IF (fail)
+    {
+      VAR caught BOOL;
+      TRY { THROW_EXCEPTION_PTR(adapted.failure); }
+      CATCH error CONST& I32 { caught := error == 37; }
+      TEST_ASSERT(caught);
+    }
+    ELSE { TEST_ASSERT(adapted.failure!?); }
+    TEST_ASSERT(CURRENT_EXCEPTION()!?);
+  }
+
+  ::ordered_suspended_cleanup DUAL_TEST { verify_ordered_exit(@fail FALSE); }
+  ::remaining_cleanup_after_destructor_failure DUAL_TEST { verify_ordered_exit(@fail TRUE); }
 
   ::exception_exit COROUTINE(@events:events MUT& I32)
   {

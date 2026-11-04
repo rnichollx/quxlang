@@ -142,6 +142,21 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         co_return declaration;
     }
 
+    if (input == type_symbol(builtin_symbol{.name = "COROUTINE_CANCELLATION_MODE"}))
+    {
+        ast2_enum_declaration declaration;
+        declaration.entries = {
+            ast2_enum_value_declaration{.name = "NONE", .is_default = true},
+            ast2_enum_value_declaration{.name = "COOPERATIVE"},
+            ast2_enum_value_declaration{.name = "INSTANT"},
+        };
+        co_return declaration;
+    }
+    if (input == type_symbol(builtin_symbol{.name = "COROUTINE_CANCELLED"}))
+    {
+        co_return ast2_struct_declaration{};
+    }
+
     // The canonical polymorphic view has a compiler-owned identity and no source declaration.
     // Expose its operations through ordinary member and polymorphic-layout queries.
     if (input == type_symbol(builtin_symbol{.name = "POLYMORPHIC_BASE"}))

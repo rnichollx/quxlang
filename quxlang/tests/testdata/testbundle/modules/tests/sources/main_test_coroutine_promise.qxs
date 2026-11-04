@@ -1,0 +1,116 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_promise_tests NAMESPACE
+{
+  DOC <$ Supplies a frame-parameterized promise through the declared return type. $>
+  ::task TEMPLATE(@T:value_type TYPE) STRUCT
+  {
+    ::promise TEMPLATE(@T:frame_type TYPE AUTO) STRUCT
+    {
+      .frame VAR MUT->frame_type;
+      .value VAR value_type;
+      .CO_RETURN FUNCTION(@ARG CONST& value_type) MUT: BOOL
+      {
+        TEST_ASSERT(.frame??);
+        .value := ARG;
+        RETURN TRUE;
+      }
+    }
+  }
+
+  DOC <$ Forwards completion to the return type's promise while keeping the frame specialization nominal. $>
+  ::controller TEMPLATE(@T:descriptor TYPE AUTO) STRUCT
+  {
+    ::frame_type ALIAS descriptor#(@CONTROLLER controller#descriptor)::FRAME_TYPE;
+    ::promise_type ALIAS descriptor::RETURN_TYPE::promise#frame_type;
+    .promise VAR MUT->promise_type;
+
+    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+    {
+      VAR selected AUTO := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
+      RETURN operation#selected(@ARGUMENTS arguments);
+    }
+    .CO_AWAIT FUNCTION(@ARG AUTO& AUTO(operation_type)): MUT& operation_type { RETURN ARG AS MUT& operation_type; }
+    .CO_RETURN FUNCTION(@ARG AUTO& AUTO) MUT: AUTO { RETURN .promise->.CO_RETURN(@ARG ARG); }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_call_tests::immediate_awaiter { RETURN coroutine_call_tests::immediate_awaiter(); }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+  }
+
+  DOC <$ Owns a promise and its specialized frame at stable addresses. $>
+  ::context TEMPLATE(@T:descriptor TYPE AUTO) STRUCT ROOTED
+  {
+    .adapted VAR controller#descriptor;
+    .promise VAR controller#(descriptor)::promise_type;
+    .frame VAR controller#(descriptor)::frame_type;
+  }
+
+  DOC <$ Transfers ownership of the allocation while preserving the promise's frame pointer. $>
+  ::operation TEMPLATE(@T:descriptor TYPE AUTO) STRUCT MOVE_ONLY
+  {
+    .state VAR MUT->context#descriptor;
+    .CONSTRUCTOR FUNCTION(@ARGUMENTS:arguments AUTO& AUTO)
+    {
+      .state := NEW context#descriptor;
+      .state->.adapted.promise := .state->.promise<-;
+      .state->.promise.frame := .state->.frame<-;
+      TRY { .state->.frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments))); }
+      CATCH DEFAULT { DELETE .state; .state := NULL; RETHROW; }
+    }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& operation#descriptor)
+    {
+      .state := OTHER.state;
+      OTHER.state := NULL;
+    }
+    .DESTRUCTOR FUNCTION() { DELETE OPTIONAL .state; }
+    .AWAIT_READY FUNCTION() MUT: BOOL { RETURN .state->.frame.RESUME(@CONTROLLER .state->.adapted); }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN FALSE; }
+    .AWAIT_RESUME FUNCTION() CONST: AUTO { RETURN .state->.promise.value; }
+    .run FUNCTION() MUT: AUTO
+    {
+      TEST_ASSERT(.state->.frame.RESUME(@CONTROLLER .state->.adapted));
+      RETURN .state->.promise.value;
+    }
+  }
+
+  ::scheduler STRUCT
+  {
+    .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+    {
+      VAR selected AUTO := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
+      RETURN operation#selected(@ARGUMENTS arguments);
+    }
+  }
+
+  ::value FUNCTION(@value I32): I32 { RETURN -1; }
+  ::value COROUTINE(@value I32 DEFAULT(41)): task#I32 { RETURN value + 1; }
+
+  ::nested COROUTINE(): task#I32
+  {
+    VAR result I32 := value();
+    RETURN result + 1;
+  }
+
+  DOC <$ Partial descriptors expose the declared return type before selecting the promise controller. $>
+  ::descriptor_types STATIC_TEST
+  {
+    VAR selected AUTO := value#(@CONTROLLER AUTO, @value I32);
+    TEST_ASSERT(SAME_TYPES(selected::RETURN_TYPE, task#I32));
+    VAR concrete AUTO := selected#(@CONTROLLER controller#selected);
+    TEST_ASSERT(SAME_TYPES(concrete::CONTROLLER_TYPE, controller#selected));
+    TEST_ASSERT(SAME_TYPES(controller#(selected)::frame_type, concrete::FRAME_TYPE));
+    TEST_ASSERT(SAME_TYPES(controller#(selected)::promise_type, task#(I32)::promise#concrete::FRAME_TYPE));
+  }
+
+  DOC <$ A scheduler derives a promise from the declared return type and specializes it with the frame type before allocating the invocation. $>
+  ::return_type_promise DUAL_TEST
+  {
+    VAR execution scheduler;
+    VAR pending AUTO := ON(execution) RUN value(@value 41);
+    VAR address AUTO := pending.state->.promise.frame;
+    VAR moved AUTO := MOVE(pending);
+    TEST_ASSERT(moved.state->.promise.frame == address);
+    TEST_ASSERT(moved.run() == 42);
+    VAR parent AUTO := ON(execution) RUN nested();
+    TEST_ASSERT(parent.run() == 43);
+  }
+}

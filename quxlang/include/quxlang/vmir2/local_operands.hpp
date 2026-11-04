@@ -20,15 +20,6 @@ namespace quxlang::vmir2
         {
             callback(value);
         }
-        else if constexpr (std::is_same_v< value_type, lifetime_transfer >)
-        {
-        }
-        else if constexpr (std::is_same_v< value_type, lifetime_import >)
-        {
-        }
-        else if constexpr (std::is_same_v< value_type, co_cleanup_mark >)
-        {
-        }
         else if constexpr (std::is_same_v< value_type, type_symbol > || std::is_same_v< value_type, expression > ||
                            std::is_same_v< value_type, antestatal_value > || std::is_same_v< value_type, source_location > ||
                            std::is_same_v< value_type, std::string >)

@@ -17,8 +17,6 @@ namespace quxlang::vmir2
         std::set< local_index > borrowed_locals;
         std::map< local_index, type_symbol > borrowed_parameters;
         std::set< local_index > saved_array_element_addresses;
-        /// Captured alias addresses used by detached cleanup ownership.
-        std::set< local_index > saved_cleanup_alias_addresses;
         /// Counts shared state and array-membership nodes visited by lifetime analysis.
         std::size_t snapshot_nodes = 0;
         /// Counts hidden local obligations after shared payload ranges are joined.

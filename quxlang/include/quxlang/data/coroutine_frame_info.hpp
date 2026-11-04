@@ -28,8 +28,6 @@ namespace quxlang
         std::map< vmir2::local_index, type_symbol > borrowed_parameters;
         /// Completed construction aliases whose addresses outlive the array initializer's current prefix.
         std::set< vmir2::local_index > saved_array_element_addresses;
-        /// Captured alias addresses used by detached cleanup ownership.
-        std::set< vmir2::local_index > saved_cleanup_alias_addresses;
         std::uint64_t size = 0;
         std::uint64_t alignment = 1;
         std::uint64_t baseline_size = 0;
@@ -42,7 +40,7 @@ namespace quxlang
         bool refinement_exhausted = false;
         bool refined_layout_selected = false;
 
-        RPNX_MEMBER_METADATA(coroutine_frame_info, fields, layout_fields, local_fields, local_offsets, borrowed_locals, borrowed_parameters, saved_array_element_addresses, saved_cleanup_alias_addresses, size, alignment,
+        RPNX_MEMBER_METADATA(coroutine_frame_info, fields, layout_fields, local_fields, local_offsets, borrowed_locals, borrowed_parameters, saved_array_element_addresses, size, alignment,
             baseline_size, analysis_input_size, analysis_snapshot_nodes, analysis_snapshot_operands, analysis_alias_work, refinement_limit, refinement_work, refinement_exhausted, refined_layout_selected);
     };
 }

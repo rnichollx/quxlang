@@ -84,30 +84,6 @@ namespace quxlang::vmir2
             return visit(selected, source, source.snapshot_root());
         }
 
-        /** Stops optional expansion before exceeding a deterministic shared work allowance. */
-        std::optional< plan > select_bounded(state_map const& source, state_map const& target,
-            lifetime_transition_kind kind, std::uint64_t& remaining)
-        {
-            remaining_work_ = &remaining;
-            try
-            {
-                spend();
-                plan result = select(source, target, kind);
-                remaining_work_ = nullptr;
-                return result;
-            }
-            catch (work_exhausted const&)
-            {
-                remaining_work_ = nullptr;
-                return std::nullopt;
-            }
-            catch (...)
-            {
-                remaining_work_ = nullptr;
-                throw;
-            }
-        }
-
         /** Returns one immutable action node; sequence zero denotes the empty sequence. */
         node const& at(sequence index) const { return nodes_.at(index - 1); }
 
@@ -165,18 +141,6 @@ namespace quxlang::vmir2
         std::map< context_key, context > contexts_;
         std::vector< node > nodes_;
         std::size_t snapshot_visits_ = 0;
-        std::uint64_t* remaining_work_ = nullptr;
-
-        /** Identifies an unfinished optional proof whose cached complete subtrees remain valid. */
-        struct work_exhausted {};
-
-        /** Charges one represented operation before allocating or traversing its metadata. */
-        void spend()
-        {
-            if (remaining_work_ == nullptr) return;
-            if (*remaining_work_ == 0) throw work_exhausted{};
-            --*remaining_work_;
-        }
 
         /** Tests whether a destination owns a live slot. */
         static bool survives(state_map const& target, local_index slot)
@@ -195,7 +159,6 @@ namespace quxlang::vmir2
             {
                 while (true)
                 {
-                    spend();
                     if (survives(selected.target, owner))
                     {
                         preserved = true;
@@ -231,7 +194,6 @@ namespace quxlang::vmir2
         {
             if (first == 0) return second;
             if (second == 0) return first;
-            spend();
             nodes_.push_back({.first = first, .second = second});
             return nodes_.size();
         }
@@ -239,7 +201,6 @@ namespace quxlang::vmir2
         /** Allocates a semantic action retaining the source slot version. */
         sequence append(lifetime_action_kind kind, state_map::snapshot source, bool redundant_end = false, bool completed = false)
         {
-            spend();
             local_index slot = source->value->first;
             nodes_.push_back({.action = lifetime_action{kind, slot, completed}, .source = std::move(source), .redundant_end = redundant_end});
             return nodes_.size();
@@ -304,11 +265,9 @@ namespace quxlang::vmir2
         plan visit(context& selected, state_map const& source, state_map::snapshot root)
         {
             if (!root) return {};
-            spend();
             source_node const* destination = selected.target.snapshot_root().get();
             while (destination != nullptr && !destination->value && destination->branch_bit > root->branch_bit)
             {
-                spend();
                 destination = (root->minimum_key & destination->branch_bit) == 0 ? destination->left.get() : destination->right.get();
             }
             if (destination == root.get()) return {};

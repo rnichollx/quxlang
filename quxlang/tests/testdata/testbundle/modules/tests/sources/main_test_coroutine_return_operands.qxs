@@ -1,0 +1,156 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_return_operand_tests NAMESPACE
+{
+  ::result_type STRUCT {}
+
+  DOC <$ Selects completion handling from the operand's type and reference category. $>
+  ::controller STRUCT
+  {
+    .path VAR I32;
+    .CO_RETURN FUNCTION(@ARG MUT& I32) MUT: BOOL { .path := 1; ARG += 1; RETURN TRUE; }
+    .CO_RETURN FUNCTION(@ARG CONST& I32) MUT: BOOL { .path := 2; RETURN TRUE; }
+    .CO_RETURN FUNCTION(@ARG TEMP& I32) MUT: BOOL { .path := 3; RETURN TRUE; }
+    .CO_RETURN FUNCTION(@ARG CONST& I64) MUT: BOOL { .path := 4; RETURN TRUE; }
+    .CO_RETURN FUNCTION() MUT: BOOL { .path := 5; RETURN TRUE; }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_call_tests::immediate_awaiter { RETURN coroutine_call_tests::immediate_awaiter(); }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+  }
+
+  ::mutable_value COROUTINE(@value MUT& I32): result_type { RETURN value; }
+  ::constant_value COROUTINE(@value CONST& I32): result_type { RETURN value; }
+  ::temporary_value COROUTINE(): result_type { RETURN I32(@OTHER 7); }
+  ::wide_value COROUTINE(): result_type { RETURN I64(@OTHER 8); }
+  ::void_metadata COROUTINE(@value MUT& I32) { RETURN value; }
+  ::deduced COROUTINE(): AUTO { RETURN I32(@OTHER 9); }
+  ::empty COROUTINE(): result_type { RETURN; }
+  ::fallthrough COROUTINE(): result_type {}
+  ::nothing FUNCTION() {}
+  ::void_operand COROUTINE(): result_type { RETURN nothing(); }
+
+  DOC <$ RETURN preserves mutable, constant, and temporary references and does not convert to the descriptor's declared return type. $>
+  ::operand_overload_selection DUAL_TEST
+  {
+    VAR driver controller;
+    VAR value I32 := 10;
+    VAR mutable_frame mutable_value#(@value MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    mutable_frame.INITIALIZE(@value value);
+    TEST_ASSERT(mutable_frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.path == 1);
+    TEST_ASSERT(value == 11);
+    VAR constant_frame constant_value#(@value CONST& I32, @CONTROLLER controller)::FRAME_TYPE;
+    constant_frame.INITIALIZE(@value value);
+    TEST_ASSERT(constant_frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.path == 2);
+    VAR temporary_frame temporary_value#(@CONTROLLER controller)::FRAME_TYPE;
+    temporary_frame.INITIALIZE();
+    TEST_ASSERT(temporary_frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.path == 3);
+    VAR wide_frame wide_value#(@CONTROLLER controller)::FRAME_TYPE;
+    wide_frame.INITIALIZE();
+    TEST_ASSERT(wide_frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.path == 4);
+    TEST_ASSERT(SAME_TYPES(wide_value#(@CONTROLLER controller)::RETURN_TYPE, result_type));
+  }
+
+  DOC <$ The controller accepts return operands independently of a VOID descriptor return type. $>
+  ::void_return_metadata DUAL_TEST
+  {
+    VAR driver controller;
+    VAR value I32 := 10;
+    VAR frame void_metadata#(@value MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@value value);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.path == 1);
+    TEST_ASSERT(value == 11);
+    TEST_ASSERT(SAME_TYPES(void_metadata#(@value MUT& I32, @CONTROLLER controller)::RETURN_TYPE, VOID));
+  }
+
+  DOC <$ Return-type deduction records the operand type while hook selection preserves its temporary category. $>
+  ::deduced_return_metadata DUAL_TEST
+  {
+    VAR driver controller;
+    VAR frame deduced#(@CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE();
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.path == 3);
+    TEST_ASSERT(SAME_TYPES(deduced#(@CONTROLLER controller)::RETURN_TYPE, I32));
+  }
+
+  DOC <$ Bare returns, fallthrough, and VOID operands select the nullary completion hook for a declared result type. $>
+  ::nullary_completion DUAL_TEST
+  {
+    VAR driver controller;
+    VAR explicit_frame empty#(@CONTROLLER controller)::FRAME_TYPE;
+    explicit_frame.INITIALIZE();
+    TEST_ASSERT(explicit_frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.path == 5);
+    driver.path := 0;
+    VAR implicit_frame fallthrough#(@CONTROLLER controller)::FRAME_TYPE;
+    implicit_frame.INITIALIZE();
+    TEST_ASSERT(implicit_frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.path == 5);
+    driver.path := 0;
+    VAR operand_frame void_operand#(@CONTROLLER controller)::FRAME_TYPE;
+    operand_frame.INITIALIZE();
+    TEST_ASSERT(operand_frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.path == 5);
+  }
+
+  ::resource STRUCT MOVE_ONLY
+  {
+    .destroyed VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@destroyed MUT& I32) { .destroyed := destroyed<-; }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& resource) { .destroyed := OTHER.destroyed; OTHER.destroyed := NULL; }
+    .DESTRUCTOR FUNCTION() { IF (.destroyed??) { .destroyed-> += 1; } }
+  }
+
+  ::owning_controller STRUCT
+  {
+    .calls VAR I32;
+    .CO_RETURN FUNCTION(@ARG resource) MUT: BOOL { TEST_ASSERT(ARG.destroyed??); .calls += 1; RETURN TRUE; }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_call_tests::immediate_awaiter { RETURN coroutine_call_tests::immediate_awaiter(); }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+  }
+
+  ::owned COROUTINE(@destroyed MUT& I32): result_type { RETURN resource(@destroyed destroyed); }
+
+  DOC <$ A completion hook can consume a move-only temporary and destroy it exactly once. $>
+  ::by_value_completion DUAL_TEST
+  {
+    VAR driver owning_controller;
+    VAR destroyed I32;
+    VAR frame owned#(@destroyed MUT& I32, @CONTROLLER owning_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@destroyed destroyed);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.calls == 1);
+    TEST_ASSERT(destroyed == 1);
+  }
+
+  DOC <$ An unsupported return operand is rejected by completion-hook overload resolution. $>
+  ::missing_value_hook STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame temporary_value#(@CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE;
+  }
+
+  DOC <$ Reachable fallthrough requires a nullary completion hook. $>
+  ::missing_nullary_hook STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame fallthrough#(@CONTROLLER owning_controller)::FRAME_TYPE;
+  }
+
+  ::returning_destructor STRUCT { .DESTRUCTOR COROUTINE() { RETURN I32(@OTHER 7); } }
+  ::returning_constructor STRUCT { .CONSTRUCTOR COROUTINE() { RETURN I32(@OTHER 7); } }
+
+  DOC <$ Coroutine destructors cannot supply a return operand even when the controller accepts it. $>
+  ::destructor_return_value STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame returning_destructor::.DESTRUCTOR#(@THIS MUT& returning_destructor, @CONTROLLER controller)::FRAME_TYPE;
+  }
+
+  DOC <$ Coroutine constructors cannot supply a return operand even when the controller accepts it. $>
+  ::constructor_return_value STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR frame returning_constructor::.CONSTRUCTOR#(@THIS NVALUE[returning_constructor], @CONTROLLER controller)::FRAME_TYPE;
+  }
+}

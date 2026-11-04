@@ -111,6 +111,36 @@ type is `VOID`.
 See [Type Queries](type-queries-and-deduction.md) for the differences among
 `AUTO`, `DECLTYPE`, `TYPEOF`, `DECAY`, and `TT`.
 
+## Coroutine returns
+
+In a `COROUTINE`, `RETURN expression;` selects the controller's
+`CO_RETURN(@ARG expression)` hook using the original operand type and reference
+category. The selected hook applies ordinary parameter adaptation. The declared
+coroutine return type supplies descriptor metadata for controller and promise
+selection; it does not impose a conversion on the return operand.
+
+```quxlang
+::produce COROUTINE(): task#I32
+{
+  RETURN I32(@OTHER 42);
+}
+```
+
+The controller for this specialization can accept an `I32` in `CO_RETURN`, while
+`RETURN_TYPE` remains `task#I32`. A deduced return type records the operand type
+before hook argument adaptation.
+
+A bare `RETURN;`, a `VOID` return operand, or reachable fallthrough invokes the
+nullary `CO_RETURN()` overload. The controller must provide that overload whenever
+such a path is reachable, including for a non-`VOID` declared return type.
+Coroutine constructors and destructors require `VOID` return metadata and reject
+value-returning statements.
+
+The completion hook returns an awaitable whose result is `VOID`. A borrowed
+operand and hook-adaptation temporaries remain alive until transfer and awaiter
+cleanup finish. A by-value hook receives ownership through the ordinary function
+parameter rules. Required coroutine cleanup follows completion transfer.
+
 ## `RETURN_UNEQUAL`
 
 `RETURN_UNEQUAL left, right;` is a specialized lexicographic-comparison
@@ -139,8 +169,9 @@ a general conditional-return syntax.
 
 ## Control-flow effects
 
-No statement after a taken `RETURN` executes. Returning transfers control to
-the caller through the ordinary function result contract. Local objects and
+No statement after a taken `RETURN` executes. An ordinary function transfers
+control through its result contract. A coroutine completes its controller-defined
+transfer before required cleanup. Local objects and
 temporaries remain governed by Quxlang's normal lifetime and destruction
 rules; `RETURN` does not extend the lifetime of an object referred to by a
 returned non-owning reference.

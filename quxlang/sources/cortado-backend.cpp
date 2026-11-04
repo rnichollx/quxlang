@@ -1385,12 +1385,9 @@ namespace quxlang::cortado_backend
                                 .subobject_context = deferred.subobject_context,
                             };
                         }
-                        if (!instruction.type_is< vmir2::lifetime_transfer >() && !instruction.type_is< vmir2::lifetime_import >())
-                        {
-                            emit_completed_array_elements(previous_state, current_state);
-                            emit_completed_struct_fields(previous_state, current_state);
-                            emit_completed_storage_values(previous_state, current_state);
-                        }
+                        emit_completed_array_elements(previous_state, current_state);
+                        emit_completed_struct_fields(previous_state, current_state);
+                        emit_completed_storage_values(previous_state, current_state);
                     }
                     if (!block.terminator.has_value())
                     {
@@ -4817,10 +4814,6 @@ namespace quxlang::cortado_backend
                 {
                     throw compiler_bug("Unlowered coroutine checkpoint in Cortado emission");
                 }
-                if (instruction.type_is< vmir2::co_cleanup_storage >() || instruction.type_is< vmir2::co_cleanup_mark >())
-                {
-                    throw compiler_bug("Unlowered coroutine cleanup instruction in Cortado emission");
-                }
                 rpnx::apply_visitor< void >(instruction,
                                             [&](auto& selected) -> void
                                             {
@@ -6495,10 +6488,6 @@ namespace quxlang::cortado_backend
                                                         .result = selected.result,
                                                     };
                                                     emit_comparison_boolean(relation);
-                                                }
-                                                else if constexpr (std::is_same_v< instruction_type, vmir2::lifetime_transfer > || std::is_same_v< instruction_type, vmir2::lifetime_import >)
-                                                {
-                                                    // Retained storage owns the payload while logical ownership is transferred.
                                                 }
                                                 else if constexpr (std::is_same_v< instruction_type, vmir2::invoke >)
                                                 {

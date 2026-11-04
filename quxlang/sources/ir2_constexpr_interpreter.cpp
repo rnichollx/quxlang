@@ -541,10 +541,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::code_align const&) {}
     /** Coroutine checkpoints must be lowered before constant evaluation. */
     void exec_instr_val(vmir2::co_save const&) { throw compiler_bug("Unlowered coroutine checkpoint in constexpr evaluation"); }
-    /** Coroutine cleanup storage must be lowered before constant evaluation. */
-    void exec_instr_val(vmir2::co_cleanup_storage const&) { throw compiler_bug("Unlowered coroutine cleanup storage in constexpr evaluation"); }
-    /** Coroutine retirement changes must be lowered before constant evaluation. */
-    void exec_instr_val(vmir2::co_cleanup_mark const&) { throw compiler_bug("Unlowered coroutine cleanup retirement in constexpr evaluation"); }
     /** Coroutine suspension must be lowered before constant evaluation. */
     void exec_instr_val(vmir2::co_suspend const&) { throw compiler_bug("Unlowered coroutine suspension in constexpr evaluation"); }
     /** Coroutine completion must be lowered before constant evaluation. */
@@ -735,8 +731,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     /** Retires logical construction aliases after ownership transfers to their aggregate. */
     void retire_construction_aliases(local_index root);
     void exec_instr_val(vmir2::complete_initialization const& instruction);
-    void exec_instr_val(vmir2::lifetime_transfer const& instruction);
-    void exec_instr_val(vmir2::lifetime_import const& instruction);
     void exec_instr_val(vmir2::end_lifetime const& elt);
     void exec_instr_val(vmir2::pointer_arith const& par);
     void exec_instr_val(vmir2::pointer_diff const& pdf);
@@ -1189,10 +1183,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
     stack_frame& frame = stack.back();
-    interp_addr const completed = *frame.pending_instruction;
-    vm_instruction const& instruction = frame.ir3->blocks.at(completed.block).instructions.at(completed.instruction_index);
     frame.pending_instruction.reset();
-    if (instruction.type_is< lifetime_transfer >() || instruction.type_is< lifetime_import >()) return;
     for (std::map< local_index, local_index >::iterator element = frame.pending_array_elements.begin(); element != frame.pending_array_elements.end();)
     {
         std::shared_ptr< local > value = frame.local_values[element->first];
@@ -1213,43 +1204,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::lifetime_transfer const& instruction)
-{
-    stack_frame& frame = get_current_frame();
-    for (std::map< local_index, std::shared_ptr< local > >::iterator entry = frame.local_values.begin(); entry != frame.local_values.end();)
-    {
-        local_index const slot = entry->first;
-        if (instruction.state.contains(slot) && !frame.ir3->retained_bindings.contains(slot))
-        {
-            ++entry;
-            continue;
-        }
-        frame.retained_storage_slots.erase(slot);
-        frame.persistent_storage_slots.erase(slot);
-        frame.owned_subobject_slots.erase(slot);
-        frame.pending_construction_slots.erase(slot);
-        frame.pending_array_elements.erase(slot);
-        frame.storage_origins.erase(slot);
-        entry = frame.local_values.erase(entry);
-    }
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::lifetime_import const& instruction)
-{
-    stack_frame& frame = get_current_frame();
-    frame.local_values.erase(instruction.slot);
-    frame.retained_storage_slots.erase(instruction.slot);
-    frame.persistent_storage_slots.erase(instruction.slot);
-    frame.owned_subobject_slots.erase(instruction.slot);
-    frame.pending_construction_slots.erase(instruction.slot);
-    frame.pending_array_elements.erase(instruction.slot);
-    frame.storage_origins.erase(instruction.slot);
-    if (!instruction.state.storage_valid) return;
-    state_map imported = get_expected_state_map_preexec3(current_frame_index(), frame.address.block, frame.address.instruction_index);
-    imported[instruction.slot] = instruction.state;
-    restore_retained_slot(instruction.slot, imported);
-}
-
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::restore_retained_slot(local_index slot, state_map const& state)
 {
     stack_frame& frame = get_current_frame();
@@ -1260,15 +1214,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     std::shared_ptr< local > object;
     std::map< local_index, retained_storage_binding >::const_iterator const binding = frame.ir3->retained_bindings.find(slot);
     bool const completed_element = lifetime.stage == slot_stage::full && !lifetime.owns_subobject_lifetime;
-    bool captured_alias = false;
-    if (binding != frame.ir3->retained_bindings.end() && binding->second.kind == retained_storage_kind::captured_alias_reference)
-    {
-        state_map::const_iterator const saved = state.find(binding->second.saved_reference.value());
-        captured_alias = saved != state.end() && saved->second.alive();
-    }
     if (binding != frame.ir3->retained_bindings.end() &&
         (binding->second.kind == retained_storage_kind::object || binding->second.kind == retained_storage_kind::reference ||
-         (binding->second.kind == retained_storage_kind::completed_array_reference && completed_element) || captured_alias))
+         (binding->second.kind == retained_storage_kind::completed_array_reference && completed_element)))
     {
         std::shared_ptr< local > const reference = frame.local_values.at(binding->second.frame);
         std::shared_ptr< local > const owner = reference->ref.value().pointer_target.value().lock();
@@ -1357,13 +1305,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (!lifetime.construction_pending && lifetime.struct_delegates.has_value()) object->struct_delegates = lifetime.struct_delegates;
     object->storage_destroy_delegate = lifetime.destroy_delegate;
     object->persistent_storage = !lifetime.destroy_delegate;
-    if (captured_alias && lifetime.array_delegate_of_initializer.has_value() && !lifetime.owns_subobject_lifetime &&
-        (lifetime.stage != slot_stage::full || lifetime.construction_pending))
-    {
-        local_index const initializer = *lifetime.array_delegate_of_initializer;
-        restore_retained_slot(initializer, state);
-        frame.pending_array_elements[slot] = initializer;
-    }
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr3()

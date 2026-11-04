@@ -108,7 +108,6 @@ namespace quxlang::parsers
             {
                 parse_iterator begin = pos;
                 expression_arg argument;
-                if (bare_argument_name == "T") throw syntax_compilation_error("COMPOSITE_UNPACK requires a runtime call argument list");
                 argument.unpack = true;
                 skip_whitespace_and_comments(pos, end);
                 if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after COMPOSITE_UNPACK");

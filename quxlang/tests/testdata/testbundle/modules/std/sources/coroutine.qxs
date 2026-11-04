@@ -34,7 +34,7 @@ DOC <$ Borrows caller-owned storage for a concrete coroutine specialization. The
 
   DOC <$ Requests the specialization's permitted cancellation and reports terminal completion. $>
   .TRY_CANCEL FUNCTION(@CONTROLLER MUT& descriptor::CONTROLLER_TYPE) MUT
-    ENABLE_IF(descriptor::CANCELLATION_MODE != RUNTIME_MODULE::COROUTINE_CANCELLATION_MODE::NONE): BOOL
+    ENABLE_IF(descriptor::CANCELLATION_MODE != COROUTINE_CANCELLATION_MODE::NONE): BOOL
   {
     RETURN .frame->.TRY_CANCEL(@CONTROLLER CONTROLLER);
   }
@@ -93,7 +93,7 @@ DOC <$ Owns a stable heap-allocated frame for one concrete coroutine specializat
 
   DOC <$ Requests the specialization's permitted cancellation and reports terminal completion. $>
   .TRY_CANCEL FUNCTION(@CONTROLLER MUT& descriptor::CONTROLLER_TYPE) MUT
-    ENABLE_IF(descriptor::CANCELLATION_MODE != RUNTIME_MODULE::COROUTINE_CANCELLATION_MODE::NONE): BOOL
+    ENABLE_IF(descriptor::CANCELLATION_MODE != COROUTINE_CANCELLATION_MODE::NONE): BOOL
   {
     RETURN .frame->.TRY_CANCEL(@CONTROLLER CONTROLLER);
   }

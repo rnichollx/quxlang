@@ -46,23 +46,6 @@ auto quxlang::vmir2::archive_routine_snapshots(functanoid_routine3 const& routin
     {
         archive.roots.push_back(graph.append(block.entry_state.snapshot_root()));
         block.entry_state.clear();
-        for (vm_instruction& instruction : block.instructions)
-        {
-            if (instruction.type_is< lifetime_transfer >())
-            {
-                lifetime_transfer& transfer = instruction.as< lifetime_transfer >();
-                archive.instruction_roots.push_back(graph.append(transfer.state.snapshot_root()));
-                transfer.state.clear();
-            }
-            else if (instruction.type_is< lifetime_import >())
-            {
-                lifetime_import& imported = instruction.as< lifetime_import >();
-                state_map single;
-                single.emplace(imported.slot, std::move(imported.state));
-                archive.instruction_roots.push_back(graph.append(single.snapshot_root()));
-                imported.state = {};
-            }
-        }
     }
     lifetime_payload_archive< dtor_spec > destructors;
     lifetime_payload_archive< std::vector< struct_init_delegate > > struct_delegates;
@@ -111,7 +94,6 @@ auto quxlang::vmir2::restore_routine_snapshots(routine_snapshot_archive archive)
         if (slot.array_elements.has_value()) result.array_element_delegates.deserialize_interface() = element_map::from_snapshot(elements.at(*slot.array_elements));
         return result;
     });
-    std::size_t instruction_root = 0;
     for (std::size_t index = 0; index < archive.blocks.size(); ++index)
     {
         if (!archive.blocks[index].entry_state.empty())
@@ -119,28 +101,7 @@ auto quxlang::vmir2::restore_routine_snapshots(routine_snapshot_archive archive)
             throw std::invalid_argument("Serialized routine blocks must reference their shared lifetime graph");
         }
         if (archive.roots[index].has_value()) archive.blocks[index].entry_state = state_map::from_snapshot(states.at(*archive.roots[index]));
-        for (vm_instruction& instruction : archive.blocks[index].instructions)
-        {
-            if (!instruction.type_is< lifetime_transfer >() && !instruction.type_is< lifetime_import >()) continue;
-            std::optional< std::size_t > root = archive.instruction_roots.at(instruction_root++);
-            state_map restored;
-            if (root.has_value()) restored = state_map::from_snapshot(states.at(*root));
-            if (instruction.type_is< lifetime_transfer >())
-            {
-                lifetime_transfer& transfer = instruction.as< lifetime_transfer >();
-                if (!transfer.state.empty()) throw std::invalid_argument("Serialized lifetime transfers must reference their shared graph");
-                transfer.state = std::move(restored);
-            }
-            else
-            {
-                lifetime_import& imported = instruction.as< lifetime_import >();
-                if (imported.state != slot_state{} || restored.size() != 1 || !restored.contains(imported.slot))
-                    throw std::invalid_argument("Serialized lifetime imports require one shared slot version");
-                imported.state = restored.at(imported.slot);
-            }
-        }
     }
-    if (instruction_root != archive.instruction_roots.size()) throw std::invalid_argument("Serialized routine has unused lifetime instruction roots");
     return functanoid_routine3{
         .coroutine = std::move(archive.coroutine),
         .is_noexcept = archive.is_noexcept,

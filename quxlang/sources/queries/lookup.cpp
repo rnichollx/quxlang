@@ -265,7 +265,7 @@ namespace quxlang::detail
             }
         }
 
-        if (fb.name == "EXCEPTION_PTR" || fb.name == "CURRENT_EXCEPTION" || fb.name == "THROW_EXCEPTION_PTR" || fb.name == "ARITHMETIC_OVERFLOW" || fb.name == "TEST_FAILED" || fb.name == "COROUTINE_CANCELLATION_MODE" || fb.name == "COROUTINE_CANCELLED")
+        if (fb.name == "EXCEPTION_PTR" || fb.name == "CURRENT_EXCEPTION" || fb.name == "THROW_EXCEPTION_PTR" || fb.name == "ARITHMETIC_OVERFLOW" || fb.name == "TEST_FAILED")
         {
             co_return co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                 .context = input.context,
@@ -405,7 +405,7 @@ namespace quxlang::detail
                 std::string mode = "NONE";
                 if (declaration->header.cancellation_mode == coroutine_cancellation_mode::cooperative) mode = "COOPERATIVE";
                 else if (declaration->header.cancellation_mode == coroutine_cancellation_mode::instant) mode = "INSTANT";
-                co_return subsymbol{.of = subsymbol{.of = absolute_module_reference{.module_name = "RUNTIME"}, .name = "COROUTINE_CANCELLATION_MODE"}, .name = mode};
+                co_return subsymbol{.of = builtin_symbol{.name = "COROUTINE_CANCELLATION_MODE"}, .name = mode};
             }
             co_return co_await rpnx::querygraph::request< functanoid_return_type_query >(coroutine);
         }
@@ -505,6 +505,7 @@ namespace quxlang::detail
         }
         if (initializee_kind == symbol_kind::functum || initializee_kind == symbol_kind::function)
         {
+            instatype supplied_parameters;
             for (expression_arg const& argument : output.arguments)
             {
                 constexpr_input_v3 evaluation;
@@ -513,12 +514,35 @@ namespace quxlang::detail
                 constexpr_result_v3 result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(std::move(evaluation));
                 if (!result.type_binding_result.has_value())
                 {
-                    throw semantic_compilation_error("Coroutine specialization arguments must name types");
+                    throw semantic_compilation_error("Function specialization arguments must name types");
+                }
+                if (argument.unpack)
+                {
+                    type_symbol const schema = remove_ref(*result.type_binding_result);
+                    if (!schema.type_is< composite_type >())
+                        throw semantic_compilation_error("Function specialization unpack requires a composite type");
+                    for (std::pair< std::string const, type_symbol > const& field : schema.get_as< composite_type >().fields)
+                    {
+                        parameter_instantiation parameter = make_type_instantiation(field.second);
+                        if (is_positional_composite_member(field.first)) supplied_parameters.positional.push_back(std::move(parameter));
+                        else if (!supplied_parameters.named.emplace(field.first, std::move(parameter)).second)
+                            throw semantic_compilation_error("Duplicate specialization argument @" + field.first);
+                    }
+                    continue;
                 }
                 parameter_instantiation parameter = make_type_instantiation(*result.type_binding_result);
-                if (argument.name.has_value()) output.parameters.named[*argument.name] = std::move(parameter);
-                else output.parameters.positional.push_back(std::move(parameter));
+                if (argument.name.has_value())
+                {
+                    if (!supplied_parameters.named.emplace(*argument.name, std::move(parameter)).second)
+                        throw semantic_compilation_error("Duplicate specialization argument @" + *argument.name);
+                }
+                else supplied_parameters.positional.push_back(std::move(parameter));
             }
+            for (std::pair< std::string const, parameter_instantiation >& parameter : supplied_parameters.named)
+            {
+                output.parameters.named[parameter.first] = std::move(parameter.second);
+            }
+            if (!supplied_parameters.positional.empty()) output.parameters.positional = std::move(supplied_parameters.positional);
             output.arguments.clear();
             std::optional< instanciation_reference > specialization = co_await rpnx::querygraph::request< instanciation_query >(output);
             if (!specialization.has_value()) co_return std::nullopt;
@@ -526,6 +550,10 @@ namespace quxlang::detail
         }
         if (initializee_kind == symbol_kind::templex || initializee_kind == symbol_kind::template_)
         {
+            for (expression_arg const& argument : output.arguments)
+            {
+                if (argument.unpack) throw semantic_compilation_error("Specialization unpack requires a function binding");
+            }
             auto inst = co_await rpnx::querygraph::request< instanciation_query >(output);
             if (!inst.has_value())
             {

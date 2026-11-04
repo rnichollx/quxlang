@@ -204,6 +204,18 @@ LANGUAGE QUXLANG EN 0.0;
       compile_time_branch#(@CONTROLLER coroutine_frame_tests::controller)::FRAME_TYPE) == FALSE);
   }
 
+  DOC <$ Cancellation types support ordinary value construction and enum comparison. $>
+  ::cancellation_values DUAL_TEST
+  {
+    VAR mode COROUTINE_CANCELLATION_MODE;
+    TEST_ASSERT(mode == COROUTINE_CANCELLATION_MODE::NONE);
+    mode := COROUTINE_CANCELLATION_MODE::COOPERATIVE;
+    TEST_ASSERT(mode != COROUTINE_CANCELLATION_MODE::INSTANT);
+    VAR cancelled COROUTINE_CANCELLED;
+    VAR copied COROUTINE_CANCELLED := cancelled;
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(copied), COROUTINE_CANCELLED));
+  }
+
   ::ordinary_call_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
     compile_time_branch();

@@ -174,9 +174,6 @@ set(QUXLANG_SOURCES include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         sources/vmir2/coroutine_output_initialization.cpp
         include/quxlang/vmir2/lifetime_state_difference.hpp
         include/quxlang/vmir2/lifetime_transition_graph.hpp
-        include/quxlang/vmir2/lifetime_cleanup_program.hpp
-        include/quxlang/co_coroutine_cleanup_dispatch.hpp
-        include/quxlang/co_coroutine_cleanup_storage.hpp
         include/quxlang/data/coroutine_types.hpp
         include/quxlang/co_coroutine_initialize.hpp
         include/quxlang/data/coroutine_frame_info.hpp

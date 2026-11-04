@@ -4571,12 +4571,6 @@ namespace quxlang::llvm_backend::detail
                 if (binding->second.kind == quxlang::vmir2::retained_storage_kind::object) return local_state.retained_address;
                 if (binding->second.kind == quxlang::vmir2::retained_storage_kind::reference)
                     return ir_builder.CreateLoad(opaque_pointer_type(), local_state.retained_address);
-                if (binding->second.kind == quxlang::vmir2::retained_storage_kind::captured_alias_reference)
-                {
-                    quxlang::vmir2::state_map::const_iterator const saved = state.current_state.find(binding->second.saved_reference.value());
-                    if (saved != state.current_state.end() && saved->second.alive())
-                        return ir_builder.CreateLoad(opaque_pointer_type(), local_state.retained_address);
-                }
                 if (binding->second.kind == quxlang::vmir2::retained_storage_kind::completed_array_reference && completed_element)
                 {
                     quxlang::vmir2::state_map::const_iterator const saved = state.current_state.find(binding->second.saved_reference.value());
@@ -5744,8 +5738,7 @@ namespace quxlang::llvm_backend::detail
          */
         void emit_post_instruction_poison_cleanup(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::state_map const& previous_state, quxlang::vmir2::state_map const& current_state, quxlang::vmir2::vm_instruction const& instruction)
         {
-            if (instruction.type_is< quxlang::vmir2::destroy >() || instruction.type_is< quxlang::vmir2::end_lifetime >() ||
-                instruction.type_is< quxlang::vmir2::lifetime_transfer >() || instruction.type_is< quxlang::vmir2::lifetime_import >())
+            if (instruction.type_is< quxlang::vmir2::destroy >() || instruction.type_is< quxlang::vmir2::end_lifetime >())
             {
                 return;
             }
@@ -7225,18 +7218,6 @@ namespace quxlang::llvm_backend::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::co_save const& instruction)
         {
             throw quxlang::compiler_bug("Unlowered coroutine checkpoint in LLVM emission");
-        }
-
-        /** Rejects cleanup storage access that escaped coroutine lowering. */
-        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::co_cleanup_storage const&)
-        {
-            throw quxlang::compiler_bug("Unlowered coroutine cleanup storage in LLVM emission");
-        }
-
-        /** Rejects cleanup retirement changes that escaped coroutine lowering. */
-        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::co_cleanup_mark const&)
-        {
-            throw quxlang::compiler_bug("Unlowered coroutine cleanup retirement in LLVM emission");
         }
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::storage_init_start const& instruction)
@@ -8905,12 +8886,6 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
-        /** Ownership transfer changes semantic state while physical frame storage remains in place. */
-        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::lifetime_transfer const&) {}
-
-        /** Retained addresses are resolved at their use sites after the imported state is published. */
-        void emit_instruction_ovl(function_codegen_state&, llvm::BasicBlock*&, quxlang::vmir2::lifetime_import const&) {}
-
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::struct_phase_enter const& instruction)
         {
             (void)current_block;
@@ -10035,8 +10010,7 @@ namespace quxlang::llvm_backend::detail
                     quxlang::vmir2::state_map const previous_state = state.current_state;
                     emit_instruction(state, current_block, inst);
                     state_engine.apply(inst);
-                    if (!inst.type_is< quxlang::vmir2::lifetime_transfer >() && !inst.type_is< quxlang::vmir2::lifetime_import >())
-                        emit_post_instruction_array_initializer_progress(state, builder, previous_state, state.current_state);
+                    emit_post_instruction_array_initializer_progress(state, builder, previous_state, state.current_state);
                     emit_post_instruction_poison_cleanup(state, builder, previous_state, state.current_state, inst);
                     current_block = builder.GetInsertBlock();
                 }

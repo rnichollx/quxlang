@@ -137,7 +137,7 @@ namespace quxlang::vmir2::detail
         }
 
         return type.type_is< quxlang::composite_type >() || type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::submember >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >() ||
-            (type.type_is< quxlang::builtin_symbol >() && quxlang::is_builtin_enum_name(type.get_as< quxlang::builtin_symbol >().name));
+            (type.type_is< quxlang::builtin_symbol >() && (quxlang::is_builtin_enum_name(type.get_as< quxlang::builtin_symbol >().name) || quxlang::is_builtin_struct_name(type.get_as< quxlang::builtin_symbol >().name)));
     }
 
     void add_routine_surface_types(std::set< quxlang::type_symbol >& result, quxlang::vmir2::functanoid_routine3 const& routine,
@@ -624,10 +624,6 @@ void quxlang::vmir2::validate_dependency_path(functanoid_routine3 const& routine
             {
                 throw lowering_compilation_error(instruction.as< lowering_error >().message);
             }
-            if (instruction.type_is< co_cleanup_storage >() || instruction.type_is< co_cleanup_mark >())
-            {
-                throw compiler_bug("Unlowered coroutine cleanup instruction in dependency collection");
-            }
         }
     }
 }
@@ -1006,10 +1002,6 @@ auto quxlang::vmir2::directly_required_struct_runtime_infos(functanoid_routine3 
                 else if constexpr (std::is_same_v< instruction_type, struct_init_start > || std::is_same_v< instruction_type, struct_phase_enter >)
                 {
                     add_slot_object_type(concrete.on_value);
-                }
-                else if constexpr (std::is_same_v< instruction_type, lifetime_import >)
-                {
-                    if (concrete.state.struct_delegates.has_value()) add_slot_object_type(concrete.slot);
                 }
                 else if constexpr (std::is_same_v< instruction_type, storage_rebind >)
                 {

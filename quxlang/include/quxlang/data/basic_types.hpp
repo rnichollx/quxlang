@@ -1021,7 +1021,13 @@ namespace quxlang
     /// Returns true when a builtin name denotes a nominal ENUM type.
     inline auto is_builtin_enum_name(std::string_view name) -> bool
     {
-        return name == "ORDER";
+        return name == "ORDER" || name == "COROUTINE_CANCELLATION_MODE";
+    }
+
+    /** Returns true when a builtin name denotes a compiler-defined nominal struct. */
+    inline auto is_builtin_struct_name(std::string_view name) -> bool
+    {
+        return name == "POLYMORPHIC_BASE" || name == "COROUTINE_CANCELLED";
     }
 
     /** Returns true for a compiler-provided interface used by GENERIC declarations. */
@@ -1033,7 +1039,7 @@ namespace quxlang
     /// Returns true when a builtin name is parsed as a type or type template.
     inline auto is_builtin_type_name(std::string_view name) -> bool
     {
-        return name == "EXCEPTION_PTR" || name == "TEST_FAILED" || name == "ARITHMETIC_OVERFLOW" || name == "POLYMORPHIC_BASE" || is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name) || is_builtin_generic_interface_name(name);
+        return name == "EXCEPTION_PTR" || name == "TEST_FAILED" || name == "ARITHMETIC_OVERFLOW" || is_builtin_struct_name(name) || is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name) || is_builtin_enum_name(name) || is_builtin_generic_interface_name(name);
     }
 
     /// Returns true when a builtin name denotes an IEEE floating-point comparison keyword.

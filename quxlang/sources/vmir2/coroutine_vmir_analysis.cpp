@@ -114,26 +114,15 @@ auto quxlang::vmir2::coroutine_analysis_input(functanoid_routine3 const& routine
                 state_map::const_iterator prior = state.find(local);
                 allocated.push_back(prior != state.end() && (prior->second.storage_valid || prior->second.alive()));
             }
-            if (instruction.type_is< lifetime_transfer >())
-            {
-                observations.push_back({.root = state.snapshot_root(), .node = block, .instruction = ordinal});
-                observations.push_back({.root = instruction.as< lifetime_transfer >().state.snapshot_root(), .node = block, .instruction = ordinal});
-            }
             engine.apply_validated(instruction);
-            if (instruction.type_is< lifetime_import >())
-            {
-                record(instruction.as< lifetime_import >().slot, block, ordinal, coroutine_lifetime_event_kind::access);
-                observations.push_back({.root = state.snapshot_root(), .node = block, .instruction = ordinal});
-            }
             for (std::size_t index = 0; index < touched.size(); ++index)
             {
                 local_index local = touched[index];
                 state_map::const_iterator next = state.find(local);
                 bool remains = next != state.end() && (next->second.storage_valid || next->second.alive());
-                if (!allocated[index] && remains && !instruction.type_is< lifetime_import >() && !instruction.type_is< lifetime_transfer >() &&
+                if (!allocated[index] && remains &&
                     !next->second.is_projection && !next->second.delegate_of.has_value() &&
-                    !next->second.array_delegate_of_initializer.has_value() && !next->second.storage_origin.has_value() &&
-                    !coroutine.cleanup_aliases.contains(local))
+                    !next->second.array_delegate_of_initializer.has_value() && !next->second.storage_origin.has_value())
                     owned_storage.insert(local);
                 if (!allocated[index] && remains) record(local, block, ordinal, coroutine_lifetime_event_kind::begin);
                 if (allocated[index] && !remains) record(local, block, ordinal, coroutine_lifetime_event_kind::end);
@@ -251,28 +240,9 @@ auto quxlang::vmir2::coroutine_analysis_input(functanoid_routine3 const& routine
         output.input.objects[index].lifetime_complete = false;
         output.input.objects[index].requires_stable_address = true;
     }
-    for (std::pair< local_index const, local_index > const& alias : coroutine.cleanup_aliases)
-    {
-        output.borrowed_locals.insert(alias.first);
-        coroutine_frame_object& address = output.input.objects.at(static_cast< std::uint64_t >(alias.second));
-        address.force_persistent = true;
-        address.lifetime_complete = false;
-        address.requires_stable_address = true;
-    }
-    for (local_index retained : coroutine.cleanup_retained)
-    {
-        if (execution_parameter(retained) || coroutine.cleanup_aliases.contains(retained)) continue;
-        coroutine_frame_object& object = output.input.objects.at(static_cast< std::uint64_t >(retained));
-        object.force_persistent = true;
-        object.lifetime_complete = false;
-        object.requires_stable_address = true;
-        if (output.borrowed_locals.contains(retained) && !output.borrowed_parameters.contains(retained))
-            output.saved_cleanup_alias_addresses.insert(retained);
-    }
     for (local_index borrowed : output.borrowed_locals)
     {
-        if (output.borrowed_parameters.contains(borrowed) || output.saved_array_element_addresses.contains(borrowed) ||
-            output.saved_cleanup_alias_addresses.contains(borrowed)) continue;
+        if (output.borrowed_parameters.contains(borrowed) || output.saved_array_element_addresses.contains(borrowed)) continue;
         coroutine_frame_object& object = output.input.objects.at(static_cast< std::uint64_t >(borrowed));
         object.events.clear();
         object.lifetime_complete = true;
@@ -285,7 +255,6 @@ auto quxlang::vmir2::coroutine_instruction_locals(vm_instruction const& instruct
 {
     std::vector< local_index > result;
     visit_local_operands(instruction, [&](local_index local) { result.push_back(local); });
-    if (instruction.type_is< lifetime_import >()) result.push_back(instruction.as< lifetime_import >().slot);
     std::sort(result.begin(), result.end());
     result.erase(std::unique(result.begin(), result.end()), result.end());
     return result;

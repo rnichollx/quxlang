@@ -55,29 +55,4 @@ namespace quxlang::vmir2
         RecordProperty("json_bytes", json.size());
     }
 
-    TEST(routine_snapshot_archive, ownership_transfer_preserves_shared_snapshot_identity)
-    {
-        state_map state;
-        for (std::size_t index = 0; index < 128; ++index) state[local_index(index)] = {.stage = slot_stage::full, .storage_valid = true};
-        functanoid_routine3 routine;
-        routine.asynchronous_cleanup_slots.insert(local_index(7));
-        for (std::size_t index = 0; index < 128; ++index)
-        {
-            routine.blocks.push_back({.entry_state = state, .instructions = {
-                lifetime_transfer{.state = state}, lifetime_import{.slot = local_index(7), .state = std::as_const(state).at(local_index(7))}}});
-            state[local_index(index)].destruction_started = true;
-        }
-        routine_snapshot_archive archive = archive_routine_snapshots(routine);
-        EXPECT_LT(archive.states.size(), 4096);
-        EXPECT_EQ(archive.instruction_roots.size(), 256);
-        std::vector< std::byte > bytes;
-        rpnx::serial4::serialize_iter(routine, std::back_inserter(bytes));
-        functanoid_routine3 restored;
-        EXPECT_EQ(rpnx::serial4::deserialize_iter(restored, bytes.begin(), bytes.end()), bytes.end());
-        EXPECT_EQ(restored, routine);
-        for (executable_block const& block : restored.blocks)
-        {
-            EXPECT_EQ(block.entry_state.snapshot_root(), block.instructions.front().as< lifetime_transfer >().state.snapshot_root());
-        }
-    }
 }

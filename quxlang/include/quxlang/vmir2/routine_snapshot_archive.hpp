@@ -36,8 +36,6 @@ namespace quxlang::vmir2
         std::map< static_snapshot_ref, localdata_entry > static_snapshots;
         std::map< local_index, retained_storage_binding > retained_bindings;
         std::vector< std::optional< std::size_t > > roots;
-        /// Transfer snapshots and imported slot versions follow instruction order.
-        std::vector< std::optional< std::size_t > > instruction_roots;
         std::vector< lifetime_snapshot_record< local_index, archived_lifetime_slot > > states;
         std::vector< dtor_spec > destructors;
         std::vector< std::vector< struct_init_delegate > > struct_delegates;
@@ -45,7 +43,7 @@ namespace quxlang::vmir2
         std::vector< lifetime_snapshot_record< local_index, bool > > array_elements;
 
         RPNX_MEMBER_METADATA(routine_snapshot_archive, coroutine, is_noexcept, local_types, parameters, blocks, block_names, non_trivial_dtors, asynchronous_cleanup_slots,
-            static_snapshots, retained_bindings, roots, instruction_roots, states, destructors, struct_delegates, array_delegates, array_elements);
+            static_snapshots, retained_bindings, roots, states, destructors, struct_delegates, array_delegates, array_elements);
     };
 
     /** Captures the routine's immutable lifetime DAGs and shared delegate payloads. */

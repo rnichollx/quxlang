@@ -285,3 +285,23 @@ Expansion works in ordinary calls, constructor argument lists, and `NEW`.
 `COMPOSITE_TIE(pack)` and `COMPOSITE_FORWARD(pack)` also accept a positional
 parameter pack and expose its elements as positional composite members.
 `COMPOSITE_FORWARD` preserves reference categories for a subsequent call.
+
+
+### Function specialization
+
+Inside a function specialization, `COMPOSITE_UNPACK(type)` accepts a composite
+type and expands its field types into specialization arguments:
+
+```quxlang
+VAR arguments AUTO := :[3 AS I32, 5 AS I32];
+VAR selected AUTO := sum#(COMPOSITE_UNPACK(TYPEOF(arguments)), @offset I32);
+VAR result I32 := selected(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)), @offset 7);
+```
+
+Positional fields preserve their numeric order. Named fields supply the matching
+parameter names. Duplicate names in the specialization argument list are
+rejected. Unpacking requires a composite type and a function binding; class and
+alias template argument lists do not accept specialization unpacking.
+Specialization selects a callable without evaluating runtime arguments. Invocation
+performs the selected callable's ordinary parameter conversions and default
+argument evaluation.

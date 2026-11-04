@@ -143,7 +143,6 @@ namespace quxlang::vmir2
         /** Selects the alias stages whose physical address belongs to the frame. */
         bool retains_alias_address(local_index local, slot_state const& slot) const
         {
-            if (frame.saved_cleanup_alias_addresses.contains(local)) return slot.storage_valid;
             return frame.saved_array_element_addresses.contains(local) && slot.stage == slot_stage::full && !slot.owns_subobject_lifetime;
         }
 
@@ -155,8 +154,7 @@ namespace quxlang::vmir2
                 {
                     slot_state slot = entry.second;
                     bool root = frame.local_fields.contains(entry.first) && !saved_address_slots.contains(entry.first);
-                    bool alias = slot.delegate_of.has_value() || slot.array_delegate_of_initializer.has_value() || slot.storage_origin.has_value() ||
-                        body.cleanup_aliases.contains(entry.first);
+                    bool alias = slot.delegate_of.has_value() || slot.array_delegate_of_initializer.has_value() || slot.storage_origin.has_value();
                     if (root || alias) slot.retained_storage = true;
                     if (root && !(slot.persistent_storage && slot.is_projection))
                     {
@@ -280,44 +278,18 @@ namespace quxlang::vmir2
                     allocated.push_back(before != state.end() && (before->second.storage_valid || before->second.alive()));
                     addressed.push_back(before != state.end() && retains_alias_address(local, before->second));
                 }
-                bool ownership_transfer = instruction.type_is< lifetime_transfer >() || instruction.type_is< lifetime_import >();
                 engine.apply_validated(instruction);
                 for (std::size_t position = 0; position < touched.size(); ++position)
                 {
                     local_index local = touched[position];
-                    if (ownership_transfer || allocated[position] || !frame.local_fields.contains(local) || saved_address_slots.contains(local)) continue;
+                    if (allocated[position] || !frame.local_fields.contains(local) || saved_address_slots.contains(local)) continue;
                     state_map::const_iterator after = state.find(local);
                     if (after == state.end() || (!after->second.storage_valid && !after->second.alive())) continue;
                     local_index reference = append_field_reference(block, frame.local_fields.at(local));
                     block.instructions.push_back(storage_init_start{.on_storage = reference, .target_value = local, .persistent = true, .owns_lifetime = true});
                     block.instructions.push_back(end_lifetime{.of = reference});
                 }
-                if (instruction.type_is< lifetime_transfer >())
-                {
-                    lifetime_transfer transfer = instruction.as< lifetime_transfer >();
-                    transfer.state = activation_state(transfer.state);
-                    block.instructions.push_back(std::move(transfer));
-                }
-                else if (instruction.type_is< lifetime_import >())
-                {
-                    lifetime_import imported = instruction.as< lifetime_import >();
-                    state_map active = activation_state(state);
-                    if (saved_address_slots.contains(imported.slot))
-                    {
-                        local_index address = saved_address_slots.at(imported.slot);
-                        if (imported.state == slot_state{} && frame.saved_cleanup_alias_addresses.contains(imported.slot))
-                        {
-                            block.instructions.push_back(lifetime_import{.slot = address,
-                                .state = slot_state{.stage = slot_stage::full, .storage_valid = true, .retained_storage = true}});
-                            block.instructions.push_back(end_lifetime{.of = address});
-                        }
-                        else if (active.contains(address)) block.instructions.push_back(lifetime_import{.slot = address, .state = active.at(address)});
-                    }
-                    imported.state = active.contains(imported.slot) ? active.at(imported.slot) : slot_state{};
-                    block.instructions.push_back(std::move(imported));
-                }
-                else block.instructions.push_back(instruction);
-                if (ownership_transfer) continue;
+                block.instructions.push_back(instruction);
                 for (std::size_t position = 0; position < touched.size(); ++position)
                 {
                     local_index local = touched[position];
@@ -486,32 +458,16 @@ namespace quxlang::vmir2
             {
                 saved_address_slots.emplace(local, append_local(make_mref(logical.local_types.at(local).type)));
             }
-            for (local_index local : frame.saved_cleanup_alias_addresses)
-            {
-                if (!saved_address_slots.contains(local)) saved_address_slots.emplace(local, append_local(ptrref_type{
-                    .target = logical.local_types.at(local).type, .ptr_class = pointer_class::ref, .qual = qualifier::mut}));
-            }
             for (std::pair< local_index const, std::size_t > const& field : frame.local_fields)
             {
                 retained_storage_kind kind = frame.borrowed_parameters.contains(field.first) ? retained_storage_kind::reference : retained_storage_kind::object;
                 if (frame.saved_array_element_addresses.contains(field.first)) kind = retained_storage_kind::completed_array_reference;
-                if (frame.saved_cleanup_alias_addresses.contains(field.first)) kind = retained_storage_kind::captured_alias_reference;
                 output.retained_bindings.emplace(field.first, retained_storage_binding{.frame = body.frame, .field_name = frame.fields.at(field.second).name, .kind = kind});
                 if (saved_address_slots.contains(field.first))
                 {
                     output.retained_bindings.at(field.first).saved_reference = saved_address_slots.at(field.first);
                     output.retained_bindings.emplace(saved_address_slots.at(field.first), retained_storage_binding{.frame = body.frame, .field_name = frame.fields.at(field.second).name});
                 }
-            }
-            for (std::pair< local_index const, local_index > const& alias : body.cleanup_aliases)
-            {
-                std::size_t field = frame.local_fields.at(alias.second);
-                output.retained_bindings.emplace(alias.first, retained_storage_binding{
-                    .frame = body.frame,
-                    .field_name = frame.fields.at(field).name,
-                    .kind = retained_storage_kind::captured_alias_reference,
-                    .saved_reference = alias.second,
-                });
             }
             output.parameters = {};
             output.parameters.named.emplace("THIS", routine_parameter{.type = output.local_types.at(body.frame).type, .local_index = body.frame});

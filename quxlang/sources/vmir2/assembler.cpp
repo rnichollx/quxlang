@@ -525,30 +525,9 @@ namespace quxlang::vmir2
         return "COMPLETE_INITIALIZATION %" + std::to_string(inst.of) + (inst.finalize_partial ? " FINALIZE_PARTIAL" : "");
     }
 
-    std::string assembler::to_string_internal(vmir2::lifetime_transfer const& instruction)
-    {
-        return "LIFETIME_TRANSFER " + std::to_string(instruction.state.size()) + " active slots";
-    }
-
-    std::string assembler::to_string_internal(vmir2::lifetime_import const& instruction)
-    {
-        return "LIFETIME_IMPORT %" + std::to_string(instruction.slot);
-    }
-
     std::string assembler::to_string_internal(vmir2::co_save inst)
     {
         return "CO_SAVE " + std::to_string(inst.continuation);
-    }
-
-    std::string assembler::to_string_internal(vmir2::co_cleanup_storage const& instruction)
-    {
-        return std::string("CO_CLEANUP_STORAGE ") +
-            (instruction.area == coroutine_cleanup_area::retirement ? "RETIREMENT" : "CONTEXTS") + " -> %" + std::to_string(instruction.result);
-    }
-
-    std::string assembler::to_string_internal(vmir2::co_cleanup_mark const& instruction)
-    {
-        return "CO_CLEANUP_MARK %" + std::to_string(instruction.slot) + " " + std::to_string(instruction.status);
     }
 
     std::string assembler::to_string_internal(vmir2::co_suspend inst)

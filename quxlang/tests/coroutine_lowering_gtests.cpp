@@ -160,31 +160,6 @@ namespace quxlang::vmir2
         EXPECT_FALSE(analysis.objects.at(2).offset.has_value());
     }
 
-    TEST_F(coroutine_lowering_test, cleanup_views_preserve_owned_parameter_and_local_storage)
-    {
-        local_index parameter(4);
-        type_symbol reference = make_mref(integer);
-        logical.local_types.push_back({.type = reference});
-        logical.parameters.named.emplace("ARG", routine_parameter{.type = reference, .local_index = parameter});
-        local_index cancellation(5);
-        logical.local_types.push_back({.type = integer});
-        logical.coroutine->cancellation_state = cancellation;
-        slot_state view{.stage = slot_stage::full, .storage_valid = true, .is_projection = true, .persistent_storage = true};
-        logical.blocks[1].instructions = {
-            lifetime_import{.slot = parameter, .state = view},
-            lifetime_import{.slot = local_index(3), .state = view},
-            lifetime_import{.slot = cancellation, .state = view},
-        };
-        logical.coroutine->cleanup_retained = {parameter, local_index(3), cancellation};
-        coroutine_vmir_analysis input = coroutine_analysis_input(logical);
-        for (local_index local : {parameter, local_index(3), cancellation})
-        {
-            EXPECT_FALSE(input.borrowed_locals.contains(local));
-            EXPECT_FALSE(input.saved_cleanup_alias_addresses.contains(local));
-            EXPECT_TRUE(input.input.objects.at(static_cast< std::uint64_t >(local)).force_persistent);
-        }
-    }
-
     TEST_F(coroutine_lowering_test, completed_block_lifetime_does_not_persist_in_a_suspending_cycle)
     {
         logical.local_types.push_back({.type = integer});

@@ -200,6 +200,11 @@ Omitting `: Type` declares a `VOID` function. `AUTO` and other type patterns can
 deduce the result from value-returning paths. Every reachable exit must satisfy
 the selected result contract. See [`RETURN` Statements](return-statements.md).
 
+An ordinary function can return a static type or callable binding. The binding's
+identity forms part of the return type. The function executes normally, including
+its side effects, while a binding without a runtime value requires no runtime
+return storage. Return paths must agree on the binding's identity.
+
 ## Overloads and `ENABLE_IF`
 
 Several declarations may share a name when their callable signatures differ:

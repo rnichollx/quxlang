@@ -2,6 +2,19 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::coroutine_call_tests NAMESPACE
 {
+  DOC <$ Specializes a callable from a controller type and the original argument pack. Member receivers become the specialization's THIS parameter. $>
+  ::specialize FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO, @CONTROLLER:controller_type AUTO): AUTO
+  {
+    STATIC_IF(COMPOSITE_CONTAINS(TYPEOF(arguments), "RECEIVER"))
+    {
+      RETURN child#(@CONTROLLER controller_type, @THIS COMPOSITE_FIELD_TYPE(TYPEOF(arguments), "RECEIVER"), COMPOSITE_UNPACK(TYPEOF(COMPOSITE_EXCLUDE(arguments, "RECEIVER"))));
+    }
+    STATIC_ELSE
+    {
+      RETURN child#(@CONTROLLER controller_type, COMPOSITE_UNPACK(TYPEOF(arguments)));
+    }
+  }
+
   ::observations STRUCT
   {
     .calls VAR I32;
@@ -37,13 +50,14 @@ LANGUAGE QUXLANG EN 0.0;
 
     .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
     {
+      VAR selected AUTO := specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER controller);
       .observed->.calls += 1;
       VAR adapted controller;
       adapted.observed := .observed;
-      VAR frame child#(@CONTROLLER controller)::FRAME_TYPE;
+      VAR frame selected::FRAME_TYPE;
       frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
       TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
-      STATIC_IF(SAME_TYPES(child#(@CONTROLLER controller)::RETURN_TYPE, VOID)) { RETURN TRUE; }
+      STATIC_IF(SAME_TYPES(selected::RETURN_TYPE, VOID)) { RETURN TRUE; }
       STATIC_ELSE
       {
         VAR operation completed_value;

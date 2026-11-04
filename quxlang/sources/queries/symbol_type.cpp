@@ -20,7 +20,8 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         auto name = co_await co_find_body_name< rpnx::querygraph::coroutine< symbol_type_spec > >(as< submember >(input).of, as< submember >(input).name);
         co_return name.has_value() ? symbol_kind::global_variable : symbol_kind::noexist;
     }
-    if (typeis< nvalue_slot >(input) || typeis< dvalue_slot >(input) || typeis< array_initializer_type >(input))
+    if (typeis< nvalue_slot >(input) || typeis< dvalue_slot >(input) || typeis< array_initializer_type >(input) ||
+        typeis< auto_temploidic >(input) || typeis< type_temploidic >(input) || typeis< decay_temploidic >(input))
     {
         co_return symbol_kind::pseudotype;
     }
@@ -38,7 +39,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     if (typeis< builtin_symbol >(input))
     {
         builtin_symbol const& builtin = as< builtin_symbol >(input);
-        if (builtin.name == "POLYMORPHIC_BASE" || is_builtin_atomic_access_mode_name(builtin.name) || is_builtin_enum_name(builtin.name))
+        if (is_builtin_struct_name(builtin.name) || is_builtin_atomic_access_mode_name(builtin.name) || is_builtin_enum_name(builtin.name))
         {
             co_return symbol_kind::class_;
         }

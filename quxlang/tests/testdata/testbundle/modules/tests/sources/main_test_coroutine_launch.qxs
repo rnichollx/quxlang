@@ -8,10 +8,11 @@ LANGUAGE QUXLANG EN 0.0;
 
     .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: I32
     {
+      VAR selected AUTO := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER coroutine_call_tests::controller);
       .observed->.calls += 1;
       VAR adapted coroutine_call_tests::controller;
       adapted.observed := .observed;
-      VAR frame child#(@CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+      VAR frame selected::FRAME_TYPE;
       frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
       TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
       RETURN adapted.result;
@@ -19,7 +20,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 
   ::value FUNCTION(@VALUE I32): I32 { RETURN -1; }
-  ::value COROUTINE(@VALUE I32): I32 { RETURN VALUE + 1; }
+  ::value COROUTINE(@CONTROLLER coroutine_call_tests::controller, @VALUE I32): I32 { RETURN VALUE + 1; }
   ::argument FUNCTION(@COUNT MUT& I32): I32 { COUNT += 1; RETURN 9; }
   ::argument COROUTINE(@COUNT MUT& I32): I32 { RETURN unavailable_argument_coroutine(); }
   ::receiver_ref FUNCTION(@RECEIVER MUT& coroutine_call_tests::receiver, @COUNT MUT& I32): MUT& coroutine_call_tests::receiver
@@ -34,7 +35,7 @@ LANGUAGE QUXLANG EN 0.0;
     RETURN execution;
   }
 
-  DOC <$ RUN evaluates the scheduler and arguments once and permits the adapter to rebind the selected coroutine. $>
+  DOC <$ RUN evaluates the scheduler and arguments once and selects a child whose required controller differs from the scheduler. $>
   ::explicit_run DUAL_TEST
   {
     VAR observed coroutine_call_tests::observations;
@@ -82,8 +83,9 @@ LANGUAGE QUXLANG EN 0.0;
     .ready VAR BOOL;
     .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
     {
+      VAR selected AUTO := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER coroutine_call_tests::controller);
       VAR value AUTO := .entry.CO_RUN(@COROUTINE child, @ARGUMENTS arguments);
-      STATIC_IF(SAME_TYPES(child#(@CONTROLLER coroutine_call_tests::controller)::RETURN_TYPE, VOID))
+      STATIC_IF(SAME_TYPES(selected::RETURN_TYPE, VOID))
       {
         VAR gate void_launch_gate;
         gate.ready := .ready;

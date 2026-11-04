@@ -39,12 +39,14 @@ LANGUAGE QUXLANG EN 0.0;
     .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(@ARG ARG); }
   }
 
-  ::produce COROUTINE(): I32
+  ::result_type STRUCT {}
+
+  ::produce COROUTINE(): result_type
   {
     RETURN 42;
   }
 
-  ::cancellable_produce COROUTINE() CANCELLABLE: I32
+  ::cancellable_produce COROUTINE() CANCELLABLE: result_type
   {
     RETURN 43;
   }
@@ -65,7 +67,7 @@ LANGUAGE QUXLANG EN 0.0;
     TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER driver));
   }
 
-  DOC <$ A return awaiter may borrow the ready completion value until asynchronous transfer finishes. $>
+  DOC <$ A return awaiter retains a value adapted to its own parameter type until asynchronous transfer finishes. $>
   ::ready_value_survives_transfer DUAL_TEST
   {
     VAR driver controller;

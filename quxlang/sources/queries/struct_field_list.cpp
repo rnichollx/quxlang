@@ -44,6 +44,11 @@ rpnx::querygraph::coroutine< quxlang::struct_field_list_spec > quxlang::struct_f
         type_in_context.context = input;
         auto real_type = co_await rpnx::querygraph::request< lookup_query >(type_in_context);
 
+        if (!real_type.has_value())
+        {
+            throw semantic_compilation_error("Cannot resolve field " + decl.name + " of " + struct_name + ": " + to_string(decl.type));
+        }
+
         f.name = decl.name;
         f.type = real_type.value();
         if (f.type.type_is< nvalue_slot >())

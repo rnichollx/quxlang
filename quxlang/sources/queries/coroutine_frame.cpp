@@ -196,7 +196,7 @@ rpnx::querygraph::coroutine< quxlang::coroutine_frame_spec > quxlang::coroutine_
             for (std::size_t index = 0; index < logical.input.objects.size(); ++index)
             {
                 vmir2::local_index local(index);
-                if (local == routine.coroutine->frame || local == routine.coroutine->controller || logical.borrowed_locals.contains(local) || routine.coroutine->cleanup_retained.contains(local)) continue;
+                if (local == routine.coroutine->frame || local == routine.coroutine->controller || logical.borrowed_locals.contains(local)) continue;
                 logical.input.objects[index].lifetime_complete = !refined.escaped_storage[index];
             }
             selected = vmir2::analyze_coroutine_frame(logical.input);
@@ -217,10 +217,6 @@ rpnx::querygraph::coroutine< quxlang::coroutine_frame_spec > quxlang::coroutine_
             type_symbol const& formal_type = logical.borrowed_parameters.at(local);
             type_symbol target = formal_type.type_is< nvalue_slot >() ? formal_type.as< nvalue_slot >().target : formal_type.as< dvalue_slot >().target;
             payload = ptrref_type{.target = std::move(target), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
-        }
-        else if (logical.saved_cleanup_alias_addresses.contains(local))
-        {
-            payload = ptrref_type{.target = std::move(payload), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
         else if (logical.saved_array_element_addresses.contains(local))
         {
@@ -269,7 +265,6 @@ rpnx::querygraph::coroutine< quxlang::coroutine_frame_spec > quxlang::coroutine_
         output.local_fields.emplace(local, ordinal);
         output.local_offsets.emplace(local, *placement.offset);
         if (logical.saved_array_element_addresses.contains(local)) output.saved_array_element_addresses.insert(local);
-        if (logical.saved_cleanup_alias_addresses.contains(local)) output.saved_cleanup_alias_addresses.insert(local);
     }
     output.size = physical.size;
     output.alignment = physical.alignment;

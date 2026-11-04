@@ -339,21 +339,6 @@ namespace quxlang::vmir2
             consume(instruction.condition);
         }
 
-        /** Publishes active ownership after transferring omitted objects to retained storage. */
-        void apply_internal(vmir2::lifetime_transfer const& instruction)
-        {
-            state = instruction.state;
-        }
-
-        /** Reattaches one existing retained object under its selected logical ownership. */
-        void apply_internal(vmir2::lifetime_import const& instruction)
-        {
-            if (!instruction.state.valid())
-                throw invalid_instruction_transition_error("lifetime import requires a valid ownership state");
-            if (!instruction.state.storage_valid) state.erase(instruction.slot);
-            else state[instruction.slot] = instruction.state;
-        }
-
         /** Code alignment has no lifetime or value effects. */
         void apply_internal(vmir2::code_align const&) {}
 
@@ -738,16 +723,6 @@ namespace quxlang::vmir2
         /** A logical continuation checkpoint preserves the current object lifetimes. */
         void apply_internal(vmir2::co_save const&)
         {
-        }
-        /** Publishes a borrowed pointer to compiler-owned cleanup state. */
-        void apply_internal(vmir2::co_cleanup_storage const& instruction)
-        {
-            output(instruction.result);
-        }
-        /** Changes cleanup progress without accessing the associated logical object. */
-        void apply_internal(vmir2::co_cleanup_mark const& instruction)
-        {
-            if (instruction.status > 2) throw invalid_instruction_transition_error("Invalid coroutine cleanup retirement status");
         }
         void apply_internal(vmir2::storage_init_start const& sis)
         {
