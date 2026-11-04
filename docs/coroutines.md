@@ -174,12 +174,10 @@ its scheduling policy. An ordinary function can use this expression without
 becoming a coroutine.
 
 Within a coroutine, `GO work(@INPUT input)` uses the enclosing controller's
-`CO_GO(@COROUTINE binding, @ARGUMENTS arguments)` hook. The hook returns an
-awaitable, which the calling coroutine awaits through its ordinary await protocol.
-The launch awaitable can complete immediately or suspend the caller until the
-controller's launch condition is satisfied. The awaited result becomes the `GO`
-expression's result. A result that is itself awaitable requires a separate
-`AWAIT` expression to await its completion.
+`CO_GO(@COROUTINE binding, @ARGUMENTS arguments)` hook. Its result becomes the
+`GO` expression's result directly. An explicit `AWAIT` expression awaits a returned
+future or other awaitable. The target binding can contain ordinary functions,
+coroutines, or both; the hook controls overload selection and scheduling.
 
 Both hooks receive the complete binding and control overload selection and child
 controller specialization. Explicit descriptor rebinding preserves the selected
@@ -264,8 +262,9 @@ scheduled continuation before propagating.
 
 ## Controller hooks
 
-Controller hooks are ordinary synchronous functions. Their returned awaitables
-represent asynchronous work through the awaiter protocol.
+Controller hooks are ordinary synchronous functions. Hooks that participate in
+implicit waiting return awaitables representing asynchronous work. `CO_RUN` and
+`CO_GO` return their launch results directly.
 
 ```text
 CO_CALL_CORT(@COROUTINE binding, @ARGUMENTS arguments) -> awaitable
@@ -273,7 +272,7 @@ CO_CALL_CTOR(@COROUTINE descriptor, @ARGUMENTS arguments,
              @DESTINATION borrowed_storage) -> awaitable
 CO_CALL_DTOR(@COROUTINE descriptor, @ARGUMENTS arguments) -> awaitable
 CO_RUN(@COROUTINE binding, @ARGUMENTS arguments) -> result
-CO_GO(@COROUTINE binding, @ARGUMENTS arguments) -> awaitable
+CO_GO(@COROUTINE binding, @ARGUMENTS arguments) -> result
 CO_AWAIT(@ARG awaitable) -> awaiter_or_reference
 CO_YIELD(@ARG value) -> awaitable
 CO_RETURN(@ARG value) -> awaitable
@@ -441,3 +440,22 @@ the successful completion of mandatory cleanup.
 - [Frame contract tests](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_coroutine_frame.qxs).
 - [Awaiter protocol tests](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_coroutine_protocol.qxs).
 - [Asynchronous lifecycle tests](../quxlang/tests/testdata/testbundle/modules/tests/sources/main_test_coroutine_async_cleanup.qxs).
+
+
+## Thread-pool coroutines
+
+`std::thread_pool_cort_runtime` schedules independent invocations on worker
+threads. `ON(runtime) RUN operation(...)` returns `std::future#T`, where `T` is
+the coroutine's declared return type. The standard controller maps `GO` to the
+same future type for functions and coroutines. Ordinary nested coroutine calls
+produce an internal `std::task#T` that the call protocol awaits.
+
+The runtime allocates a separate frame for each recursive invocation. A pending
+future registers a continuation and releases the worker. A notification received
+while that invocation is running is queued after its current activation returns.
+Result publication follows terminal frame cleanup, including suspending
+destructors. Pool destruction drains outstanding invocations and joins workers.
+
+The [thread-pool coroutine reference](../website/docs/reference/thread-pool-coroutines.md)
+specifies result ownership, lifetime requirements, and the callable-capture
+operations used by function launches.

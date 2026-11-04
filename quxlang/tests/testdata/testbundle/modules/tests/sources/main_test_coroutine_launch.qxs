@@ -118,7 +118,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::nothing COROUTINE() {}
   ::void_parent COROUTINE(@result MUT& I32)
   {
-    GO nothing();
+    AWAIT(GO nothing());
     result := ON(CONTROLLER.entry) RUN value(@VALUE 3);
   }
 
@@ -143,10 +143,11 @@ LANGUAGE QUXLANG EN 0.0;
   {
     VAR task AUTO := GO value(@VALUE 9);
     result := task.value;
-    result += AWAIT(task);
+    VAR completed AUTO := AWAIT(task);
+    result += AWAIT(completed);
   }
 
-  DOC <$ GO awaits the launch gate once and preserves an awaitable result for a subsequent explicit await. $>
+  DOC <$ GO returns the launch gate directly and only an explicit await suspends the caller. $>
   ::go_launch_policy DUAL_TEST
   {
     VAR observed coroutine_call_tests::observations;
@@ -157,7 +158,7 @@ LANGUAGE QUXLANG EN 0.0;
     frame.INITIALIZE(@result result);
     TEST_ASSERT(frame.RESUME(@CONTROLLER execution) == FALSE);
     TEST_ASSERT(observed.calls == 1);
-    TEST_ASSERT(result == 0);
+    TEST_ASSERT(result == 10);
     TEST_ASSERT(frame.RESUME(@CONTROLLER execution));
     TEST_ASSERT(result == 20);
     execution.ready := TRUE;

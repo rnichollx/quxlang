@@ -2119,8 +2119,8 @@ namespace quxlang
                 std::string const& name = func.template get_as< submember >().name;
                 lifecycle = keywords::is_constructor_name(name) || name == "DESTRUCTOR" || name == "FULLOBJECT_DESTRUCTOR" || name == "SUBOBJECT_DESTRUCTOR";
             }
-            if (!lifecycle && has_coroutine && !state.generating_controller_hook &&
-                (state.coroutine.has_value() || execution_mode != call_execution_mode::ordinary))
+            if (!lifecycle && !state.generating_controller_hook && execution_mode != call_execution_mode::capture &&
+                (execution_mode == call_execution_mode::go || (has_coroutine && (state.coroutine.has_value() || execution_mode == call_execution_mode::run))))
             {
                 co_return co_await co_coroutine_call(bidx, func, std::move(args), "CO_CALL_CORT", destruction_target, execution_mode, launch_controller);
             }
@@ -4080,6 +4080,30 @@ namespace quxlang
             throw compiler_bug("Unknown public field metadata operation");
         }
 
+        /** Tests execution-controller participation without selecting or adapting an overload. */
+        auto co_generate(block_index& block, expression_has_coroutine_overload const& expr) -> co_type< value_index >
+        {
+            type_symbol callable = co_await co_resolve_type_symbol(block, expr.callable);
+            if (callable.template type_is< attached_type_reference >())
+                callable = callable.template get_as< attached_type_reference >().attached_symbol;
+            symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(callable);
+            if (kind == symbol_kind::funtanoid && callable.template type_is< instanciation_reference >())
+            {
+                std::optional< ast2_function_declaration > const& declaration = co_await rpnx::querygraph::request< function_declaration_query >(
+                    callable.template get_as< instanciation_reference >().temploid);
+                co_return create_bool_value(block, declaration.has_value() && declaration->header.execution_kind == function_execution_kind::coroutine);
+            }
+            if (kind != symbol_kind::functum)
+                throw semantic_compilation_error("HAS_COROUTINE_OVERLOAD requires a callable binding or specialization");
+            std::set< temploid_ensig > const& overloads = co_await rpnx::querygraph::request< functum_overloads_query >(callable);
+            bool present = std::any_of(overloads.begin(), overloads.end(), [](temploid_ensig const& candidate)
+            {
+                std::map< std::string, argif >::const_iterator controller = candidate.interface.named.find("CONTROLLER");
+                return controller != candidate.interface.named.end() && controller->second.is_execution_controller;
+            });
+            co_return create_bool_value(block, present);
+        }
+
         /** Tests member-name presence before optional customization overload resolution. */
         auto co_generate(block_index& block, expression_type_has_member const& expr) -> co_type< value_index >
         {
@@ -4546,12 +4570,16 @@ namespace quxlang
             call_execution_mode execution_mode = call_execution_mode::ordinary, std::optional< value_index > launch_controller = std::nullopt) -> co_type< value_index >
         {
             std::optional< ast2_function_declaration > const& selected_declaration = co_await rpnx::querygraph::request< function_declaration_query >(what.temploid);
-            if (execution_mode != call_execution_mode::ordinary &&
+            if (execution_mode == call_execution_mode::run &&
                 (!selected_declaration.has_value() || selected_declaration->header.execution_kind != function_execution_kind::coroutine))
-                throw semantic_compilation_error("RUN and GO require a coroutine call target");
+                throw semantic_compilation_error("RUN requires a coroutine call target");
+            if (execution_mode == call_execution_mode::go)
+                co_return co_await co_coroutine_call(bidx, what, std::move(expression_args), "CO_CALL_CORT", destruction_target, execution_mode, launch_controller);
             std::optional< std::string > coroutine_call_hook;
             if (selected_declaration.has_value() && selected_declaration->header.execution_kind == function_execution_kind::coroutine)
             {
+                if (execution_mode == call_execution_mode::capture)
+                    throw semantic_compilation_error("BIND_CALL requires a synchronous FUNCTION target");
                 if (state.generating_controller_hook)
                 {
                     throw semantic_compilation_error("Coroutine protocol hooks must be synchronous FUNCTION declarations");
@@ -4711,6 +4739,31 @@ namespace quxlang
             if (coroutine_call_hook.has_value())
             {
                 co_return co_await co_coroutine_call(bidx, what, std::move(invocation_args), *coroutine_call_hook, destruction_target, execution_mode, launch_controller);
+            }
+
+            if (execution_mode == call_execution_mode::capture)
+            {
+                composite_type captured_type;
+                codegen_invocation_args captured_values;
+                auto capture_argument = [&](std::string name, value_index value) -> void
+                {
+                    type_symbol type = current_type(bidx, value);
+                    if (type.template type_is< nvalue_slot >() || type.template type_is< dvalue_slot >())
+                        throw semantic_compilation_error("BIND_CALL cannot capture an initialization or destruction destination");
+                    captured_type.fields.emplace(name, type);
+                    if (parameter_runtime_type(type).has_value() && !is_ref(type))
+                        value = create_reference(bidx, value, make_tref(type));
+                    captured_values.named.emplace(std::move(name), value);
+                };
+                for (std::size_t index = 0; index < invocation_args.positional.size(); ++index)
+                    capture_argument(std::to_string(index), invocation_args.positional.at(index));
+                for (std::pair< std::string const, value_index > const& argument : invocation_args.named)
+                    capture_argument(argument.first, argument.second);
+                value_index captured = co_await co_construct_composite(bidx, std::move(captured_type), std::move(captured_values));
+                value_index callable = create_binding(value_index(0), what);
+                composite_type result_type{.fields = {{"CALLEE", current_type(bidx, callable)}, {"ARGUMENTS", current_type(bidx, captured)}}};
+                value_index arguments = create_reference(bidx, captured, make_tref(current_type(bidx, captured)));
+                co_return co_await co_construct_composite(bidx, std::move(result_type), codegen_invocation_args{.named = {{"CALLEE", callable}, {"ARGUMENTS", arguments}}});
             }
 
             assert(!type_is_contextual(what));
@@ -17165,7 +17218,7 @@ namespace quxlang
                     complete.current_state = complete.entry_state;
                 }
             }
-            value_index result = execution_mode == call_execution_mode::run ? operation : co_await co_coroutine_await(block, operation);
+            value_index result = execution_mode != call_execution_mode::ordinary ? operation : co_await co_coroutine_await(block, operation);
             if (constructed.has_value())
             {
                 vmir2::complete_initialization ownership{.of = get_local_index(*constructed)};

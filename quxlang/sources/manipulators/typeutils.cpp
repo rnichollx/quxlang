@@ -406,6 +406,12 @@ namespace quxlang
             return result + ")";
         }
 
+        /** Formats a callable execution-kind availability query. */
+        std::string operator()(expression_has_coroutine_overload const& expr) const
+        {
+            return "HAS_COROUTINE_OVERLOAD(" + to_string(expr.callable) + ")";
+        }
+
         /** Formats a member-name availability query. */
         std::string operator()(expression_type_has_member const& expr) const
         {
@@ -593,6 +599,7 @@ namespace quxlang
             std::string result = "(";
             if (expr.execution_mode == call_execution_mode::run) result += "ON(" + expr_to_string(*expr.controller) + ") RUN ";
             else if (expr.execution_mode == call_execution_mode::go) result += "GO ";
+            else if (expr.execution_mode == call_execution_mode::capture) result += "BIND_CALL ";
             if (expr.composite_arguments.has_value())
             {
                 return result + "APPLY " + expr_to_string(*expr.composite_arguments) + " TO " + expr_to_string(expr.callee) + ")";

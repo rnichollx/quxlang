@@ -394,6 +394,9 @@ namespace quxlang::detail
         {
             instanciation_reference const& coroutine = parent_canonical.get_as< instanciation_reference >();
             std::optional< ast2_function_declaration > declaration = co_await rpnx::querygraph::request< function_declaration_query >(coroutine.temploid);
+            if (sub.name == "RETURN_TYPE" &&
+                (co_await rpnx::querygraph::request< symbol_type_query >(parent_canonical)) == symbol_kind::funtanoid)
+                co_return co_await rpnx::querygraph::request< functanoid_return_type_query >(coroutine);
             if (!declaration.has_value() || declaration->header.execution_kind != function_execution_kind::coroutine)
             {
                 throw semantic_compilation_error("Coroutine metadata requires a coroutine specialization");

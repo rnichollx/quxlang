@@ -145,6 +145,7 @@ nav:
       - Type Queries and Deduction: reference/type-queries-and-deduction.md
       - Functions: reference/functions-and-parameters.md
       - C++-style Coroutines: reference/cpp-style-coroutines.md
+      - Thread-pool Coroutines: reference/thread-pool-coroutines.md
       - RETURN Statements: reference/return-statements.md
       - Call Arguments: reference/call-arguments.md
       - Default Arguments: reference/default-arguments.md

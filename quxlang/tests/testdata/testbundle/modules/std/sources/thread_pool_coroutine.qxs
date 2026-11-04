@@ -1,0 +1,370 @@
+LANGUAGE QUXLANG EN 0.0;
+
+PRIVATE(MODULE)
+{
+  DOC <$ Stores an invocation's queue links and its concrete execution operation. The pool mutex protects queued, running, and notified. $>
+  ::cort_work STRUCT ROOTED
+  {
+    .runtime VAR MUT->thread_pool_cort_runtime;
+    .owner VAR MUT->VOID;
+    .drive VAR CONST->PROCEDURE(@owner MUT->VOID: BOOL);
+    .next VAR MUT->cort_work;
+    .continuation VAR async_continuation;
+    .queued VAR BOOL;
+    .running VAR BOOL;
+    .notified VAR BOOL;
+  }
+
+  DOC <$ Runs one worker against its owning pool. $>
+  ::cort_pool_worker STRUCT
+  {
+    .runtime VAR MUT->thread_pool_cort_runtime;
+    DOC <$ Binds the pool that outlives this worker. $>
+    .CONSTRUCTOR FUNCTION(@runtime MUT& thread_pool_cort_runtime) { .runtime := runtime<-; }
+    DOC <$ Drives ready work until the pool stops. $>
+    .OPERATOR() FUNCTION() MUT { .runtime->.work(); }
+  }
+
+  DOC <$ Owns one synchronous operation queued on the pool. $>
+  ::cort_posted_operation TEMPLATE(@T:operation_type TYPE) STRUCT ROOTED
+  {
+    .entry VAR cort_work;
+    .operation VAR operation_type;
+    DOC <$ Takes ownership of a queued operation and connects its concrete execution functions. $>
+    .CONSTRUCTOR FUNCTION(@runtime MUT& thread_pool_cort_runtime, @operation AUTO& operation_type)
+      :> .operation:(@OTHER FORWARD(operation))
+    {
+      .entry.runtime := runtime<-;
+      .entry.owner := THIS<- AS REINTERPRET MUT->VOID;
+      .entry.drive := drive<-;
+    }
+    DOC <$ Executes the owned operation synchronously and releases its storage before reporting completion. $>
+    ::drive FUNCTION(@owner MUT->VOID): BOOL
+    {
+      VAR operation MUT->cort_posted_operation#operation_type := owner AS REINTERPRET MUT->cort_posted_operation#operation_type;
+      operation->.operation();
+      DELETE operation;
+      RETURN TRUE;
+    }
+  }
+}
+
+DOC <$ Owns worker threads and an unbounded intrusive ready queue. Each invocation has at most one active driver. Destruction waits for outstanding work and joins every worker. $>
+::thread_pool_cort_runtime STRUCT ROOTED
+{
+  PRIVATE(MODULE)
+  {
+    .mutex VAR unfair_mutex;
+    .ready VAR condition_variable;
+    .idle VAR condition_variable;
+    .head VAR MUT->cort_work;
+    .tail VAR MUT->cort_work;
+    .active VAR SZ;
+    .stopping VAR BOOL;
+    .workers VAR dynarr#thread;
+
+    DOC <$ Appends a work item while the pool mutex is held. $>
+    .enqueue FUNCTION(@entry MUT->cort_work) MUT
+    {
+      entry->.next := NULL;
+      entry->.queued := TRUE;
+      IF (.tail??) { .tail->.next := entry; }
+      ELSE { .head := entry; }
+      .tail := entry;
+      .ready.notify_one();
+    }
+
+    DOC <$ Transfers ownership of one initialized invocation to the pool. $>
+    .submit FUNCTION(@entry MUT->cort_work) MUT
+    {
+      .mutex.lock();
+      .active++;
+      .enqueue(@entry entry);
+      .mutex.unlock();
+    }
+
+    DOC <$ Records a notification and queues an inactive invocation. Active drivers defer notification until their current activation returns. $>
+    .notify FUNCTION(@entry MUT->cort_work) MUT
+    {
+      .mutex.lock();
+      IF (entry->.running) { entry->.notified := TRUE; }
+      ELSE IF (entry->.queued == FALSE) { .enqueue(@entry entry); }
+      .mutex.unlock();
+    }
+
+    DOC <$ Executes ready invocations and retires their ownership after completion. $>
+    .work FUNCTION() MUT
+    {
+      LOOP WHILE(TRUE) DO
+      {
+        .mutex.lock();
+        LOOP WHILE (.head!? && .stopping == FALSE) DO { .ready.wait(@locked_mutex .mutex); }
+        IF (.head!?) { .mutex.unlock(); RETURN; }
+        VAR entry MUT->cort_work := .head;
+        .head := entry->.next;
+        IF (.head!?) { .tail := NULL; }
+        entry->.queued := FALSE;
+        entry->.running := TRUE;
+        entry->.notified := FALSE;
+        .mutex.unlock();
+
+        VAR complete BOOL := entry->.drive(@owner entry->.owner);
+        .mutex.lock();
+        IF (complete)
+        {
+          .active--;
+          IF (.active == 0) { .idle.notify_all(); }
+        }
+        ELSE
+        {
+          entry->.running := FALSE;
+          IF (entry->.notified) { .enqueue(@entry entry); }
+        }
+        .mutex.unlock();
+      };
+    }
+  }
+
+  DOC <$ Starts worker threads. workers must be positive. $>
+  .CONSTRUCTOR FUNCTION(@workers SZ DEFAULT(4))
+  {
+    ASSERT(workers > 0, "A coroutine thread pool requires at least one worker.");
+    .workers.reserve(workers);
+    TRY
+    {
+      VAR index SZ;
+      LOOP WHILE(index < workers) DO
+      {
+        .workers.push_back(thread(@ARG cort_pool_worker(@runtime THIS)));
+        index++;
+      };
+    }
+    CATCH DEFAULT
+    {
+      .mutex.lock();
+      .stopping := TRUE;
+      .ready.notify_all();
+      .mutex.unlock();
+      RETHROW;
+    }
+  }
+
+  DOC <$ Waits for outstanding invocations, stops idle workers, and joins the threads. No external submission may overlap destruction. $>
+  .DESTRUCTOR FUNCTION()
+  {
+    .drain();
+    .mutex.lock();
+    .stopping := TRUE;
+    .ready.notify_all();
+    .mutex.unlock();
+    VAR index SZ;
+    LOOP WHILE(index < .workers.size()) DO { .workers[index].join(); index++; };
+  }
+
+  DOC <$ Waits until all submitted invocations and their cleanup have completed. This operation runs outside pool workers. $>
+  .drain FUNCTION() MUT
+  {
+    .mutex.lock();
+    LOOP WHILE(.active != 0) DO { .idle.wait(@locked_mutex .mutex); }
+    .mutex.unlock();
+  }
+
+  DOC <$ Schedules a coroutine with a controller selected from its declared return type and returns its future. $>
+  .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
+  {
+    STATIC_IF(COMPOSITE_CONTAINS(TYPEOF(arguments), "RECEIVER"))
+    {
+      VAR descriptor AUTO := child#(@CONTROLLER AUTO, @THIS COMPOSITE_FIELD_TYPE(TYPEOF(arguments), "RECEIVER"),
+        COMPOSITE_UNPACK(TYPEOF(COMPOSITE_EXCLUDE(arguments, "RECEIVER"))));
+      RETURN cort_launch#descriptor(@runtime THIS, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+    }
+    STATIC_ELSE
+    {
+      VAR descriptor AUTO := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
+      RETURN cort_launch#descriptor(@runtime THIS, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+    }
+  }
+
+  DOC <$ Queues an owned callable whose call operator completes synchronously without throwing. $>
+  .post FUNCTION(@operation AUTO& AUTO(operation_type)) MUT
+  {
+    VAR invocation MUT->cort_posted_operation#operation_type := NEW cort_posted_operation#operation_type:(@runtime THIS, @operation FORWARD(operation));
+    .submit(@entry invocation->.entry<-);
+  }
+}
+
+
+PRIVATE(MODULE)
+{
+  DOC <$ Completes a synchronous controller operation without suspending its frame. $>
+  ::cort_completion STRUCT
+  {
+    DOC <$ Reports immediate completion. $>
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN TRUE; }
+    DOC <$ Declines suspension. $>
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN FALSE; }
+    DOC <$ Completes without a result. $>
+    .AWAIT_RESUME FUNCTION() {}
+  }
+}
+
+DOC <$ Connects a coroutine result to its pool and stable continuation. Recursive calls allocate independent invocations and suspend through their result states. $>
+::thread_pool_cort_controller TEMPLATE(@T TYPE) STRUCT
+{
+  PRIVATE(MODULE)
+  {
+    .entry VAR MUT->cort_work;
+    .producer VAR MUT->promise#T;
+  }
+  DOC <$ Returns the stable notification target of the current invocation. $>
+  .continuation FUNCTION() CONST: MUT->async_continuation { RETURN .entry->.continuation<-; }
+  DOC <$ Borrows a mutable awaiter for the duration of its suspension. $>
+  .CO_AWAIT FUNCTION(@ARG AUTO& AUTO(awaiter_type)): MUT& awaiter_type { RETURN ARG AS MUT& awaiter_type; }
+  DOC <$ Stages the return value for publication after frame cleanup. $>
+  .CO_RETURN FUNCTION(@ARG AUTO& AUTO): cort_completion
+  {
+    .producer->.stage_value(@value FORWARD(ARG));
+    RETURN cort_completion();
+  }
+  DOC <$ Stages successful completion without a value. $>
+  .CO_RETURN FUNCTION(): cort_completion { RETURN cort_completion(); }
+  DOC <$ Stages a body or cleanup exception for publication after terminal completion. $>
+  .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): cort_completion
+  {
+    .producer->.stage_exception(@error ARG);
+    RETURN cort_completion();
+  }
+  DOC <$ Schedules a child and returns the future directly to a GO expression. $>
+  .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  {
+    STATIC_IF(HAS_COROUTINE_OVERLOAD(child))
+    {
+      RETURN .entry->.runtime->.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+    }
+    STATIC_ELSE
+    {
+      STATIC_IF(COMPOSITE_CONTAINS(TYPEOF(arguments), "RECEIVER"))
+      {
+        VAR bound AUTO := BIND_CALL child(@THIS COMPOSITE_FIELD_GET(arguments, "RECEIVER"),
+          COMPOSITE_UNPACK(COMPOSITE_FORWARD(COMPOSITE_EXCLUDE(arguments, "RECEIVER"))));
+        RETURN cort_launch_function(@runtime .entry->.runtime->, @bound MOVE(bound));
+      }
+      STATIC_ELSE
+      {
+        VAR bound AUTO := BIND_CALL child(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+        RETURN cort_launch_function(@runtime .entry->.runtime->, @bound MOVE(bound));
+      }
+    }
+  }
+  DOC <$ Schedules a coroutine destructor and suspends its caller until cleanup completes. $>
+  .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  {
+    RETURN cort_launch#child(@runtime .entry->.runtime->, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+  }
+  DOC <$ Schedules a coroutine constructor against its caller-owned destination. $>
+  .CO_CALL_CTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO, @DESTINATION:destination MUT& AUTO): AUTO
+  {
+    RETURN cort_launch#child(@runtime .entry->.runtime->,
+      @ARGUMENTS COMPOSITE_JOIN(:{ .RECEIVER = destination; }, COMPOSITE_FORWARD(arguments)));
+  }
+  DOC <$ Schedules a recursive child whose task is awaited by the ordinary call protocol. $>
+  .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  {
+    VAR result AUTO := .CO_GO(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+    RETURN task#(DECLTYPE(result)::value_type)(@result MOVE(result));
+  }
+}
+
+PRIVATE(MODULE)
+{
+  DOC <$ Owns a concrete coroutine frame and its result producer at stable addresses. $>
+  ::cort_invocation TEMPLATE(@T:descriptor_type TYPE AUTO) STRUCT ROOTED
+  {
+    ::result_type ALIAS descriptor_type::RETURN_TYPE;
+    ::controller_type ALIAS thread_pool_cort_controller#result_type;
+    ::descriptor ALIAS descriptor_type#(@CONTROLLER controller_type);
+    .entry VAR cort_work;
+    .producer VAR promise#result_type;
+    .controller VAR controller_type;
+    .frame VAR descriptor::FRAME_TYPE;
+
+    DOC <$ Captures arguments before publishing the invocation to workers. $>
+    .CONSTRUCTOR FUNCTION(@runtime MUT& thread_pool_cort_runtime, @ARGUMENTS:arguments AUTO& AUTO)
+    {
+      .entry.runtime := runtime<-;
+      .entry.owner := THIS<- AS REINTERPRET MUT->VOID;
+      .entry.drive := drive<-;
+      .entry.continuation.context := .entry<- AS REINTERPRET MUT->VOID;
+      .entry.continuation.notify := cort_notify<-;
+      .controller.entry := .entry<-;
+      .controller.producer := .producer<-;
+      .frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+    }
+
+    DOC <$ Drives one activation, publishes the result after terminal frame cleanup, and releases a completed invocation. $>
+    ::drive FUNCTION(@owner MUT->VOID): BOOL
+    {
+      VAR invocation MUT->cort_invocation#descriptor_type := owner AS REINTERPRET MUT->cort_invocation#descriptor_type;
+      VAR complete BOOL := invocation->.frame.RESUME(@CONTROLLER invocation->.controller);
+      IF (complete)
+      {
+        invocation->.producer.publish();
+        DELETE invocation;
+      }
+      RETURN complete;
+    }
+  }
+
+  DOC <$ Records an asynchronous notification against the invocation's pool. $>
+  ::cort_notify FUNCTION(@context MUT->VOID)
+  {
+    VAR entry MUT->cort_work := context AS REINTERPRET MUT->cort_work;
+    entry->.runtime->.notify(@entry entry);
+  }
+
+  DOC <$ Allocates a selected invocation and transfers its ownership to the pool. $>
+  ::cort_launch TEMPLATE(@T:descriptor_type TYPE AUTO) FUNCTION(@runtime MUT& thread_pool_cort_runtime, @ARGUMENTS:arguments AUTO& AUTO): future#descriptor_type::RETURN_TYPE
+  {
+    VAR invocation MUT->cort_invocation#descriptor_type := NEW cort_invocation#descriptor_type:(@runtime runtime, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+    VAR result AUTO := invocation->.producer.get_future();
+    runtime.submit(@entry invocation->.entry<-);
+    RETURN MOVE(result);
+  }
+}
+
+
+PRIVATE(MODULE)
+{
+  DOC <$ Executes a captured synchronous call through the ordinary coroutine completion and cleanup protocol. $>
+  ::cort_function_call TEMPLATE(@T:bound_type TYPE) COROUTINE(@bound bound_type): COMPOSITE_FIELD_TYPE(bound_type, "CALLEE")::RETURN_TYPE
+  {
+    RETURN APPLY COMPOSITE_FORWARD(COMPOSITE_FIELD_GET(bound, "ARGUMENTS")) TO COMPOSITE_FIELD_GET(bound, "CALLEE");
+  }
+
+  DOC <$ Transfers adapted arguments into a coroutine frame before scheduling a synchronous function. $>
+  ::cort_launch_function FUNCTION(@runtime MUT& thread_pool_cort_runtime, @bound TEMP& AUTO(bound_type)): AUTO
+  {
+    VAR wrapper AUTO := cort_function_call#bound_type;
+    VAR descriptor AUTO := wrapper#(@CONTROLLER AUTO, @bound bound_type);
+    RETURN cort_launch#descriptor(@runtime runtime, @ARGUMENTS :{ .bound = FORWARD(bound); });
+  }
+}
+
+
+DOC <$ Suspends the current pool invocation and queues another activation, allowing other ready work to run. $>
+::cort_yield STRUCT
+{
+  DOC <$ Requires a scheduling boundary. $>
+  .AWAIT_READY FUNCTION() CONST: BOOL { RETURN FALSE; }
+  DOC <$ Notifies the current continuation while its driver is active, deferring resumption until the driver returns. $>
+  .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL
+  {
+    VAR continuation MUT->async_continuation := CONTROLLER.continuation();
+    continuation->.notify(@context continuation->.context);
+    RETURN TRUE;
+  }
+  DOC <$ Completes the scheduling boundary. $>
+  .AWAIT_RESUME FUNCTION() {}
+  DOC <$ Retains a queued notification until the next activation. $>
+  .TRY_CANCEL FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO) CONST NOEXCEPT: BOOL { RETURN FALSE; }
+}

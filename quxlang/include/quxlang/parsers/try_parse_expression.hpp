@@ -432,6 +432,17 @@ namespace quxlang::parsers
             }
             *value_bind_point = std::move(intrinsic);
         }
+        else if (kw_pre_translate == "HAS_COROUTINE_OVERLOAD")
+        {
+            skip_keyword_if_is(pos, end, "HAS_COROUTINE_OVERLOAD");
+            expression_has_coroutine_overload intrinsic;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after HAS_COROUTINE_OVERLOAD");
+            intrinsic.callable = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after HAS_COROUTINE_OVERLOAD");
+            *value_bind_point = std::move(intrinsic);
+        }
         else if (kw_pre_translate == "TYPE_HAS_MEMBER")
         {
             skip_keyword_if_is(pos, end, kw_pre_translate);
@@ -766,7 +777,7 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr);
             have_anything = true;
         }
-        else if (kw_pre_translate == "ON" || kw_pre_translate == "GO")
+        else if (kw_pre_translate == "ON" || kw_pre_translate == "GO" || kw_pre_translate == "BIND_CALL")
         {
             bool const explicit_controller = skip_keyword_if_is(pos, end, "ON");
             std::optional< expression > controller;
@@ -780,14 +791,15 @@ namespace quxlang::parsers
                 skip_whitespace_and_comments(pos, end);
                 if (!skip_keyword_if_is(pos, end, "RUN")) throw syntax_compilation_error("Expected RUN after ON(controller)");
             }
-            else skip_keyword_if_is(pos, end, "GO");
+            else skip_keyword_if_is(pos, end, kw_pre_translate);
             std::optional< expression > target = try_parse_expression_impl(ctx, true);
             if (!target.has_value() || !target->template type_is< expression_call >())
-                throw syntax_compilation_error("Coroutine launch requires a call expression");
+                throw syntax_compilation_error("Invocation prefix requires a call expression");
             expression_call& call = target->template get_as< expression_call >();
             if (call.execution_mode != call_execution_mode::ordinary)
-                throw syntax_compilation_error("A coroutine call cannot have multiple launch prefixes");
-            call.execution_mode = explicit_controller ? call_execution_mode::run : call_execution_mode::go;
+                throw syntax_compilation_error("A call cannot have multiple invocation prefixes");
+            call.execution_mode = explicit_controller ? call_execution_mode::run :
+                (kw_pre_translate == "GO" ? call_execution_mode::go : call_execution_mode::capture);
             call.controller = std::move(controller);
             *value_bind_point = std::move(*target);
             have_anything = true;

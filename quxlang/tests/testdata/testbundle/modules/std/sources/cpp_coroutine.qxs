@@ -263,10 +263,11 @@ PRIVATE(MODULE)
       VAR result AUTO := scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
       RETURN cpp_coroutine_call_result#DECLTYPE(result)(@value MOVE(result));
     }
-    DOC <$ Launches a child and returns its ownership object through the call protocol. $>
+    DOC <$ Launches a child and returns its ownership object directly. $>
     .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
     {
-      RETURN .CO_CALL_CORT(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+      VAR scheduler cpp_style_coroutine_base;
+      RETURN scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
     }
   }
 

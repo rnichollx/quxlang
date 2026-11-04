@@ -1,0 +1,211 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ Identifies a producer that was destroyed before completing its result. $>
+::broken_promise STRUCT {}
+
+DOC <$ Refers to a stable continuation and its asynchronous notification operation. The target remains alive until notification begins. The notification operation completes all target access before publishing work that can destroy the target. $>
+::async_continuation STRUCT ROOTED
+{
+  .context VAR MUT->VOID;
+  .notify VAR CONST->PROCEDURE(@context MUT->VOID);
+}
+
+PRIVATE(MODULE)
+{
+  DOC <$ Owns a single producer's result and a single consumer's completion registration. The mutex orders publication, readiness checks, and registration. $>
+  ::future_state TEMPLATE(@T TYPE) STRUCT ROOTED
+  {
+    .mutex VAR unfair_mutex;
+    .changed VAR condition_variable;
+    .complete VAR BOOL;
+    .error VAR EXCEPTION_PTR;
+    .value INCLUDE_IF(SAME_TYPES(T, VOID) == FALSE) VAR optional#T;
+    .continuation VAR MUT->async_continuation;
+
+    DOC <$ Publishes a staged result and notifies the registered consumer. The producer calls this operation exactly once. $>
+    .publish FUNCTION() MUT
+    {
+      .mutex.lock();
+      .complete := TRUE;
+      VAR continuation MUT->async_continuation := .continuation;
+      .continuation := NULL;
+      .changed.notify_all();
+      .mutex.unlock();
+      IF (continuation??) { continuation->.notify(@context continuation->.context); }
+    }
+
+    DOC <$ Blocks the calling thread until publication. $>
+    .wait FUNCTION() MUT
+    {
+      .mutex.lock();
+      LOOP WHILE(.complete == FALSE) DO { .changed.wait(@locked_mutex .mutex); }
+      .mutex.unlock();
+    }
+
+    DOC <$ Reports whether the producer has published its result. $>
+    .is_ready FUNCTION() MUT: BOOL
+    {
+      .mutex.lock();
+      VAR result BOOL := .complete;
+      .mutex.unlock();
+      RETURN result;
+    }
+  }
+}
+
+DOC <$ Owns the single consumer of an asynchronous result. get and AWAIT consume the result once. Destruction releases consumer ownership without waiting for the producer. $>
+::future TEMPLATE(@T TYPE) STRUCT MOVE_ONLY
+{
+  DOC <$ Names the asynchronous result type. $>
+  ::value_type ALIAS T;
+  PRIVATE(MODULE)
+  {
+    .state VAR shared_ptr#future_state#T;
+    DOC <$ Acquires consumer ownership of an existing result state. $>
+    .CONSTRUCTOR FUNCTION(@state CONST& shared_ptr#future_state#T) :> .state:(@OTHER state) {}
+  }
+
+  DOC <$ Constructs an empty future. $>
+  .CONSTRUCTOR FUNCTION() {}
+  DOC <$ Transfers consumer ownership and leaves OTHER empty. $>
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& future#T) { .state <-> OTHER.state; }
+  DOC <$ Replaces consumer ownership, releasing the previous result without waiting. $>
+  .OPERATOR:= FUNCTION(@OTHER TEMP& future#T) MUT
+  {
+    .state <-> OTHER.state;
+    OTHER.state.reset();
+  }
+  DOC <$ Reports whether this future still owns its consumer state. $>
+  .valid FUNCTION() CONST: BOOL { RETURN .state.has_value(); }
+  DOC <$ Reports publication. The future must be valid. $>
+  .is_ready FUNCTION() CONST: BOOL { RETURN .state->.is_ready(); }
+  DOC <$ Blocks an external thread until publication. The future must be valid. $>
+  .wait FUNCTION() CONST { .state->.wait(); }
+  DOC <$ Consumes the result, rethrowing a producer exception. The future must be valid and have no outstanding await registration. $>
+  .get FUNCTION() MUT: T
+  {
+    VAR state shared_ptr#future_state#T;
+    state <-> .state;
+    state->.wait();
+    IF (state->.error??) { THROW_EXCEPTION_PTR(state->.error); }
+    STATIC_IF(SAME_TYPES(T, VOID)) { RETURN; }
+    STATIC_ELSE
+    {
+      VAR result MUT& T := state->.value.value();
+      RETURN MOVE(result);
+    }
+  }
+  DOC <$ Tests readiness before registering a coroutine continuation. $>
+  .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .is_ready(); }
+  DOC <$ Registers the controller's stable continuation, or declines suspension if publication already occurred. $>
+  .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO) MUT: BOOL
+  {
+    VAR continuation MUT->async_continuation := CONTROLLER.continuation();
+    .state->.mutex.lock();
+    IF (.state->.complete) { .state->.mutex.unlock(); RETURN FALSE; }
+    .state->.continuation := continuation;
+    .state->.mutex.unlock();
+    RETURN TRUE;
+  }
+  DOC <$ Consumes the published result after resumption. $>
+  .AWAIT_RESUME FUNCTION() MUT: T { RETURN .get(); }
+  DOC <$ Retains an asynchronous registration until its producer completes. $>
+  .TRY_CANCEL FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO) CONST NOEXCEPT: BOOL { RETURN FALSE; }
+}
+
+DOC <$ Owns the single producer of an asynchronous result. get_future is called once, and completion is supplied at most once. A moved-from promise has no producer ownership. $>
+::promise TEMPLATE(@T TYPE) STRUCT MOVE_ONLY
+{
+  PRIVATE(MODULE)
+  {
+    .state VAR shared_ptr#future_state#T;
+    DOC <$ Publishes a failure for an incomplete owned result before producer ownership is released. $>
+    .abandon FUNCTION() MUT
+    {
+      IF (.state.has_value() && .state->.complete == FALSE)
+      {
+        TRY { THROW broken_promise(); }
+        CATCH DEFAULT { .set_exception(@error CURRENT_EXCEPTION()); }
+      }
+    }
+    DOC <$ Stores a result before coroutine cleanup finishes. $>
+    .stage_value FUNCTION(@value AUTO& AUTO) MUT ENABLE_IF(SAME_TYPES(T, VOID) == FALSE)
+    {
+      .state->.value.emplace(@OTHER FORWARD(value));
+    }
+    DOC <$ Stores an exception before coroutine cleanup finishes. $>
+    .stage_exception FUNCTION(@error CONST& EXCEPTION_PTR) MUT
+    {
+      STATIC_IF(SAME_TYPES(T, VOID) == FALSE) { .state->.value.reset(); }
+      .state->.error := error;
+    }
+    DOC <$ Makes a staged result visible to the consumer. $>
+    .publish FUNCTION() MUT { .state->.publish(); }
+  }
+
+  DOC <$ Creates a new asynchronous result state. $>
+  .CONSTRUCTOR FUNCTION() :> .state:(@OTHER make_shared#future_state#T()) {}
+  DOC <$ Transfers producer ownership and leaves OTHER empty. $>
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& promise#T) { .state <-> OTHER.state; }
+  DOC <$ Publishes broken_promise when the producer abandons an incomplete result. $>
+  .DESTRUCTOR FUNCTION() { .abandon(); }
+  DOC <$ Abandons the previous result and transfers producer ownership. $>
+  .OPERATOR:= FUNCTION(@OTHER TEMP& promise#T) MUT
+  {
+    IF (THIS<- == OTHER<-) { RETURN; }
+    .abandon();
+    .state.reset();
+    .state <-> OTHER.state;
+  }
+  DOC <$ Acquires the sole consumer of this producer. $>
+  .get_future FUNCTION() MUT: future#T { RETURN future#T(@state .state); }
+  DOC <$ Publishes a value and notifies the consumer. $>
+  .set_value FUNCTION(@value AUTO& AUTO) MUT ENABLE_IF(SAME_TYPES(T, VOID) == FALSE)
+  {
+    .stage_value(@value FORWARD(value));
+    .publish();
+  }
+  DOC <$ Publishes successful completion without a value. $>
+  .set_value FUNCTION() MUT ENABLE_IF(SAME_TYPES(T, VOID)) { .publish(); }
+  DOC <$ Publishes an exception and notifies the consumer. $>
+  .set_exception FUNCTION(@error CONST& EXCEPTION_PTR) MUT
+  {
+    .stage_exception(@error error);
+    .publish();
+  }
+}
+
+DOC <$ Owns the result of an eagerly scheduled coroutine. Its future supplies blocking retrieval and coroutine continuation registration. $>
+::task TEMPLATE(@T TYPE) STRUCT MOVE_ONLY
+{
+  PRIVATE(CLASS) { .result VAR future#T; }
+  DOC <$ Takes ownership of a scheduled result. $>
+  .CONSTRUCTOR FUNCTION(@result TEMP& future#T) :> .result:(@OTHER FORWARD(result)) {}
+  DOC <$ Transfers the scheduled result. $>
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& task#T) { .result.state <-> OTHER.result.state; }
+  DOC <$ Replaces ownership of the scheduled result. $>
+  .OPERATOR:= FUNCTION(@OTHER TEMP& task#T) MUT
+  {
+    .result.state <-> OTHER.result.state;
+    OTHER.result.state.reset();
+  }
+  DOC <$ Reports whether the task owns a result. $>
+  .valid FUNCTION() CONST: BOOL { RETURN .result.valid(); }
+  DOC <$ Reports completion. $>
+  .is_ready FUNCTION() CONST: BOOL { RETURN .result.is_ready(); }
+  DOC <$ Blocks an external thread until completion. $>
+  .wait FUNCTION() CONST { .result.wait(); }
+  DOC <$ Consumes the result on an external thread. $>
+  .get FUNCTION() MUT: T { RETURN .result.get(); }
+  DOC <$ Tests completion before coroutine suspension. $>
+  .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .result.AWAIT_READY(); }
+  DOC <$ Registers the awaiting coroutine's continuation. $>
+  .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO) MUT: BOOL
+  {
+    RETURN .result.AWAIT_SUSPEND(@CONTROLLER CONTROLLER, @FRAME FRAME);
+  }
+  DOC <$ Consumes the result after coroutine resumption. $>
+  .AWAIT_RESUME FUNCTION() MUT: T { RETURN .result.AWAIT_RESUME(); }
+  DOC <$ Retains the producer's notification registration until completion. $>
+  .TRY_CANCEL FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO) CONST NOEXCEPT: BOOL { RETURN FALSE; }
+}

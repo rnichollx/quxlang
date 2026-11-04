@@ -65,7 +65,7 @@ RPNX_ENUM(quxlang, function_completion, std::uint8_t, return_, continue_);
 RPNX_ENUM(quxlang, function_execution_kind, std::uint8_t, ordinary, coroutine);
 RPNX_ENUM(quxlang, function_lookup_kind, std::uint8_t, specialization, invocation);
 /** Selects ordinary call adaptation, explicit root launch, or awaited coroutine launch. */
-RPNX_ENUM(quxlang, call_execution_mode, std::uint8_t, ordinary, run, go);
+RPNX_ENUM(quxlang, call_execution_mode, std::uint8_t, ordinary, run, go, capture);
 /** Identifies the cancellation contract declared by a coroutine. */
 RPNX_ENUM(quxlang, coroutine_cancellation_mode, std::uint8_t, none, cooperative, instant);
 /** Identifies whether a direct struct base is embedded or shared virtually. */
@@ -1884,6 +1884,13 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_public_field_metadata, operation, subject_type, selector);
     };
 
+    /** Tests whether a callable binding contains a coroutine overload before selection. */
+    struct expression_has_coroutine_overload
+    {
+        type_symbol callable;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_has_coroutine_overload, callable);
+    };
+
     /** Tests whether instance-member lookup finds a name without selecting an overload. */
     struct expression_type_has_member
     {
@@ -1917,7 +1924,7 @@ namespace quxlang
         /** Present for APPLY, whose fields supply the named call arguments. */
         std::optional< expression > composite_arguments;
 
-        /** Launch policy selected by RUN or GO; ordinary calls use contextual adaptation. */
+        /** Invocation policy selected by RUN, GO, or BIND_CALL; ordinary calls use contextual adaptation. */
         call_execution_mode execution_mode = call_execution_mode::ordinary;
         /** Explicit ON operand, evaluated before the target receiver and arguments. */
         std::optional< expression > controller;

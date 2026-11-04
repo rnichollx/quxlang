@@ -1,0 +1,377 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::thread_pool_coroutine_tests NAMESPACE
+{
+  ::completion STRUCT MOVE_ONLY
+  {
+    .producer VAR std::promise#I32;
+    .CONSTRUCTOR FUNCTION(@producer TEMP& std::promise#I32) :> .producer:(@OTHER FORWARD(producer)) {}
+    .OPERATOR() FUNCTION() MUT { .producer.set_value(@value 42); }
+  }
+
+  DOC <$ A queued producer completes a future on a worker, and retrieval consumes its result. $>
+  ::posted_result UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR producer std::promise#I32;
+    VAR result AUTO := producer.get_future();
+    runtime.post(@operation completion(@producer MOVE(producer)));
+    TEST_ASSERT(result.get() == 42);
+    TEST_ASSERT(result.valid() == FALSE);
+    runtime.drain();
+  }
+
+  DOC <$ Abandoning a producer publishes broken_promise to the remaining consumer. $>
+  ::abandoned_producer UNIT_TEST
+  {
+    VAR result std::future#I32;
+    {
+      VAR producer std::promise#I32;
+      VAR pending AUTO := producer.get_future();
+      result <-> pending;
+    }
+    TEST_ASSERT(result.is_ready());
+    VAR caught BOOL;
+    TRY { result.get(); }
+    CATCH error CONST& std::broken_promise { caught := TRUE; }
+    TEST_ASSERT(caught);
+  }
+
+  DOC <$ A void result completes and consumes without constructing a value object. $>
+  ::void_result UNIT_TEST
+  {
+    VAR producer std::promise#VOID;
+    VAR result AUTO := producer.get_future();
+    TEST_ASSERT(result.is_ready() == FALSE);
+    producer.set_value();
+    result.get();
+    TEST_ASSERT(result.valid() == FALSE);
+  }
+}
+
+::thread_pool_coroutine_tests NAMESPACE
+{
+  ::add COROUTINE(@value I32): I32 { RETURN value + 1; }
+  ::recursive COROUTINE(@depth I32): I32
+  {
+    IF (depth == 0) { RETURN 1; }
+    RETURN recursive(@depth depth - 1) + 1;
+  }
+
+  DOC <$ Recursive calls suspend on one worker and return without embedding recursive concrete frames. $>
+  ::recursive_result UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR result AUTO := ON(runtime) RUN recursive(@depth 16);
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(result), std::future#I32));
+    TEST_ASSERT(result.get() == 17);
+  }
+
+  ::await_external COROUTINE(@result std::future#I32): I32 { RETURN AWAIT(result) + 1; }
+
+  DOC <$ A suspended invocation receives an asynchronous notification from a producer queued on the same worker. $>
+  ::external_completion UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR producer std::promise#I32;
+    VAR result AUTO := ON(runtime) RUN await_external(@result producer.get_future());
+    runtime.post(@operation completion(@producer MOVE(producer)));
+    TEST_ASSERT(result.get() == 43);
+  }
+}
+
+::thread_pool_coroutine_tests NAMESPACE
+{
+  ::increment FUNCTION(@value I32, @amount I32 DEFAULT(2)): I32 { RETURN value + amount; }
+  ::parallel COROUTINE(): I32
+  {
+    VAR first AUTO := GO add(@value 20);
+    VAR second AUTO := GO increment(@value 19);
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(first), std::future#I32));
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(second), std::future#I32));
+    RETURN AWAIT(first) + AWAIT(second);
+  }
+
+  DOC <$ GO returns futures for coroutine and function bindings without waiting for the queued work. $>
+  ::go_results UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR result AUTO := ON(runtime) RUN parallel();
+    TEST_ASSERT(result.get() == 42);
+  }
+
+  DOC <$ Bound synchronous calls preserve default values and can be executed after argument capture. $>
+  ::captured_function DUAL_TEST
+  {
+    TEST_ASSERT(HAS_COROUTINE_OVERLOAD(increment) == FALSE);
+    TEST_ASSERT(HAS_COROUTINE_OVERLOAD(add));
+    VAR bound AUTO := BIND_CALL increment(@value 40);
+    VAR result I32 := APPLY COMPOSITE_FORWARD(COMPOSITE_FIELD_GET(bound, "ARGUMENTS")) TO COMPOSITE_FIELD_GET(bound, "CALLEE");
+    TEST_ASSERT(result == 42);
+  }
+}
+
+::thread_pool_coroutine_tests NAMESPACE
+{
+  ::fail_function FUNCTION(): I32 { THROW I32(@OTHER 19); }
+  ::fail_coroutine COROUTINE(): I32 { THROW I32(@OTHER 23); }
+  ::errors COROUTINE(): I32
+  {
+    VAR first AUTO := GO fail_function();
+    VAR second AUTO := GO fail_coroutine();
+    VAR result I32;
+    TRY { AWAIT(first); } CATCH value CONST& I32 { result += value; }
+    TRY { AWAIT(second); } CATCH value CONST& I32 { result += value; }
+    RETURN result;
+  }
+
+  DOC <$ Functions and coroutines deliver exceptions through future consumption. $>
+  ::exception_results UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 2);
+    VAR result AUTO := ON(runtime) RUN errors();
+    TEST_ASSERT(result.get() == 42);
+  }
+
+  ::set_value FUNCTION(@value MUT& I32) { value := 42; }
+  ::capture_values COROUTINE(@reference MUT& I32): I32
+  {
+    VAR value I32 := 40;
+    VAR copied AUTO := GO increment(@value value);
+    VAR borrowed AUTO := GO set_value(@value reference);
+    value := -100;
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(borrowed), std::future#VOID));
+    AWAIT(borrowed);
+    RETURN AWAIT(copied);
+  }
+
+  DOC <$ GO captures value parameters before enqueueing and preserves explicit reference parameters. $>
+  ::argument_ownership UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR reference I32;
+    VAR result AUTO := ON(runtime) RUN capture_values(@reference reference);
+    TEST_ASSERT(result.get() == 42);
+    TEST_ASSERT(reference == 42);
+  }
+
+  ::yielding COROUTINE(@value MUT& I32)
+  {
+    value += 1;
+    AWAIT(std::cort_yield());
+    value += 1;
+  }
+
+  DOC <$ Dropping consumer ownership leaves the pool responsible for execution and cleanup. $>
+  ::detached_completion UNIT_TEST
+  {
+    VAR value I32;
+    {
+      VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+      ON(runtime) RUN yielding(@value value);
+    }
+    TEST_ASSERT(value == 2);
+  }
+
+  ::cleanup STRUCT MOVE_ONLY
+  {
+    .value VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@value MUT& I32) { .value := value<-; }
+    .DESTRUCTOR FUNCTION() { .value-> := 42; }
+  }
+  ::cleanup_result COROUTINE(@value MUT& I32): I32
+  {
+    VAR local cleanup:(@value value);
+    AWAIT(std::cort_yield());
+    RETURN 7;
+  }
+
+  DOC <$ Result publication follows local destruction after the final return. $>
+  ::completion_after_cleanup UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 2);
+    VAR value I32;
+    VAR result AUTO := ON(runtime) RUN cleanup_result(@value value);
+    TEST_ASSERT(result.get() == 7);
+    TEST_ASSERT(value == 42);
+  }
+
+  ::async_cleanup STRUCT ROOTED
+  {
+    .value VAR MUT->I32;
+    .CONSTRUCTOR COROUTINE(@value MUT& I32)
+    {
+      .value := value<-;
+      AWAIT(std::cort_yield());
+      .value-> += 1;
+    }
+    .DESTRUCTOR COROUTINE()
+    {
+      AWAIT(std::cort_yield());
+      .value-> += 1;
+    }
+  }
+  ::async_cleanup_result COROUTINE(@value MUT& I32)
+  {
+    VAR local async_cleanup:(@value value);
+  }
+
+  DOC <$ Suspending constructors and destructors complete through ordinary scheduled child invocations. $>
+  ::asynchronous_cleanup UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR value I32;
+    VAR result AUTO := ON(runtime) RUN async_cleanup_result(@value value);
+    result.get();
+    TEST_ASSERT(value == 2);
+  }
+}
+
+::thread_pool_coroutine_tests NAMESPACE
+{
+  ::receiver STRUCT
+  {
+    .value VAR I32;
+    .increase FUNCTION(@amount I32 DEFAULT(2)) MUT: I32 { .value += amount; RETURN .value; }
+  }
+  ::member_call COROUTINE(@object MUT& receiver): I32
+  {
+    VAR result AUTO := GO object.increase();
+    RETURN AWAIT(result);
+  }
+
+  DOC <$ GO preserves a member function's borrowed receiver and default arguments. $>
+  ::member_function UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR object receiver;
+    object.value := 40;
+    VAR result AUTO := ON(runtime) RUN member_call(@object object);
+    TEST_ASSERT(result.get() == 42);
+    TEST_ASSERT(object.value == 42);
+  }
+
+  ::mixed FUNCTION(): I32 { RETURN -1; }
+  ::mixed COROUTINE(): I32 { RETURN 42; }
+  ::mixed_call COROUTINE(): I32 { VAR result AUTO := GO mixed(); RETURN AWAIT(result); }
+
+  DOC <$ The pool controller chooses the coroutine overload from a mixed callable binding. $>
+  ::mixed_binding UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR result AUTO := ON(runtime) RUN mixed_call();
+    TEST_ASSERT(result.get() == 42);
+  }
+
+  DOC <$ Moving producer and consumer ownership preserves one delivery and abandons a replaced producer immediately. $>
+  ::move_ownership UNIT_TEST
+  {
+    VAR first std::promise#I32;
+    VAR second std::promise#I32;
+    VAR abandoned AUTO := first.get_future();
+    VAR result AUTO := second.get_future();
+    first := MOVE(second);
+    TEST_ASSERT(abandoned.is_ready());
+    VAR caught BOOL;
+    TRY { abandoned.get(); } CATCH error CONST& std::broken_promise { caught := TRUE; }
+    TEST_ASSERT(caught);
+    VAR moved std::future#I32;
+    moved := MOVE(result);
+    TEST_ASSERT(result.valid() == FALSE);
+    first.set_value(@value 42);
+    TEST_ASSERT(moved.get() == 42);
+  }
+
+  DOC <$ Concurrent producer completion and await registration preserve every notification. $>
+  ::notification_race UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 2);
+    VAR index I32;
+    LOOP WHILE(index < 32) DO
+    {
+      VAR producer std::promise#I32;
+      VAR result AUTO := ON(runtime) RUN await_external(@result producer.get_future());
+      runtime.post(@operation completion(@producer MOVE(producer)));
+      TEST_ASSERT(result.get() == 43);
+      index++;
+    };
+  }
+}
+
+::thread_pool_coroutine_tests NAMESPACE
+{
+  ::owned_value STRUCT MOVE_ONLY
+  {
+    .value VAR I32;
+    .CONSTRUCTOR FUNCTION(@value I32) { .value := value; }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& owned_value) { .value := OTHER.value; OTHER.value := 0; }
+  }
+  ::consume FUNCTION(@value owned_value): owned_value { RETURN MOVE(value); }
+  ::owned_call COROUTINE(): owned_value
+  {
+    VAR result AUTO := GO consume(@value owned_value(@value 42));
+    RETURN AWAIT(result);
+  }
+
+  DOC <$ Function capture and future consumption transfer move-only arguments and results. $>
+  ::move_only_result UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR result AUTO := ON(runtime) RUN owned_call();
+    VAR value AUTO := result.get();
+    TEST_ASSERT(value.value == 42);
+  }
+
+  DOC <$ Captured argument storage owns move-only values during constant evaluation. $>
+  ::move_only_capture DUAL_TEST
+  {
+    VAR bound AUTO := BIND_CALL consume(@value owned_value(@value 42));
+    VAR value AUTO := APPLY COMPOSITE_FORWARD(COMPOSITE_FIELD_GET(bound, "ARGUMENTS")) TO COMPOSITE_FIELD_GET(bound, "CALLEE");
+    TEST_ASSERT(value.value == 42);
+  }
+}
+
+::thread_pool_coroutine_tests NAMESPACE
+{
+  ::generic_value TEMPLATE(@T TYPE) COROUTINE(@value T): T { RETURN MOVE(value); }
+  ::generic_call COROUTINE(): I32
+  {
+    VAR child AUTO := generic_value#I32;
+    VAR result AUTO := GO child(@value 42);
+    RETURN AWAIT(result);
+  }
+
+  DOC <$ GO selects coroutine overloads from an instantiated function template. $>
+  ::template_binding UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR result AUTO := ON(runtime) RUN generic_call();
+    TEST_ASSERT(result.get() == 42);
+  }
+
+  DOC <$ Callable reflection rejects non-callable operands. $>
+  ::invalid_callable_reflection STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    HAS_COROUTINE_OVERLOAD(I32);
+  }
+}
+
+::thread_pool_coroutine_tests NAMESPACE
+{
+  ::indirect_value FUNCTION(@value I32): I32 { RETURN value + 1; }
+  ::indirect_call COROUTINE(): I32
+  {
+    VAR target CONST->PROCEDURE(@value I32: I32) := indirect_value<-;
+    VAR result AUTO := GO target(@value 41);
+    RETURN AWAIT(result);
+  }
+
+  DOC <$ GO captures a procedure pointer call with the same result ownership as a named function. $>
+  ::procedure_pointer UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR result AUTO := ON(runtime) RUN indirect_call();
+    TEST_ASSERT(result.get() == 42);
+  }
+}
