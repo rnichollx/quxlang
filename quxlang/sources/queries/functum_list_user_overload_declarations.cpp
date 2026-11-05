@@ -18,8 +18,8 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_overload_declarations_sp
 
     if (auto lambda = parse_lambda_operator_symbol(input); lambda.has_value())
     {
-        result.push_back(co_await rpnx::querygraph::subquery_request< lambda_operator_subquery >(as< instanciation_reference >(as< submember >(lambda->parent_body).of), lambda->index));
-        co_return result;
+        co_return co_await rpnx::querygraph::subquery_request< lambda_operator_subquery >(
+            as< instanciation_reference >(as< submember >(lambda->parent_body).of), lambda->index);
     }
 
     if (auto lambda = parse_lambda_constructor_symbol(input); lambda.has_value())

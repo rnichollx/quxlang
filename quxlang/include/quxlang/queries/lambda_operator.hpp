@@ -7,6 +7,7 @@
 #include <quxlang/queries/vm_procedure3.hpp>
 
 #include <cstddef>
+#include <vector>
 
 namespace quxlang
 {
@@ -15,7 +16,7 @@ namespace quxlang
         static constexpr auto subquery_id = "lambda_operator";
         using parent_query = vm_procedure3_query;
         using input_type = std::size_t;
-        using output_type = ast2_function_declaration;
+        using output_type = std::vector< ast2_function_declaration >;
     };
 } // namespace quxlang
 

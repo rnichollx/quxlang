@@ -154,10 +154,8 @@ namespace quxlang::parsers
 
             expression_lambda lambda;
             skip_whitespace_and_comments(pos, end);
-            if (skip_keyword_if_is(pos, end, "COROUTINE"))
-            {
-                throw syntax_compilation_error("Coroutine lambdas are not supported");
-            }
+            lambda.coroutine_capable = !skip_keyword_if_is(pos, end, "FUNCTION");
+            skip_whitespace_and_comments(pos, end);
             if (peek_symbol(pos, end).starts_with("["))
             {
                 lambda.has_explicit_capture_list = true;
@@ -171,8 +169,23 @@ namespace quxlang::parsers
                 skip_whitespace_and_comments(pos, end);
             }
 
-            lambda.is_noexcept = skip_keyword_if_is(pos, end, "NOEXCEPT");
-            skip_whitespace_and_comments(pos, end);
+            while (true)
+            {
+                skip_whitespace_and_comments(pos, end);
+                if (skip_keyword_if_is(pos, end, "NOEXCEPT"))
+                {
+                    if (lambda.is_noexcept) throw syntax_compilation_error("A lambda cannot declare NOEXCEPT more than once");
+                    lambda.is_noexcept = true;
+                }
+                else if (skip_keyword_if_is(pos, end, "CANCELLABLE"))
+                {
+                    if (!lambda.coroutine_capable) throw syntax_compilation_error("A FUNCTION lambda cannot declare CANCELLABLE");
+                    if (lambda.cancellation_mode != coroutine_cancellation_mode::none)
+                        throw syntax_compilation_error("A lambda cannot declare CANCELLABLE more than once");
+                    lambda.cancellation_mode = parse_coroutine_cancellation_mode(ctx);
+                }
+                else break;
+            }
 
             if (skip_symbol_if_is(pos, end, ":"))
             {

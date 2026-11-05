@@ -7,6 +7,8 @@
 
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/keyword.hpp>
+#include <quxlang/parsers/parse_whitespace_and_comments.hpp>
+#include <quxlang/parsers/peek_symbol.hpp>
 #include <algorithm>
 #include <array>
 #include <iterator>
@@ -15,6 +17,20 @@
 
 namespace quxlang::parsers
 {
+    /** Parses the options following CANCELLABLE for a coroutine invocation. */
+    inline auto parse_coroutine_cancellation_mode(parsing_context& ctx) -> coroutine_cancellation_mode
+    {
+        parse_iterator& pos = ctx.iter_pos;
+        parse_iterator const end = ctx.iter_end;
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, "(")) return coroutine_cancellation_mode::cooperative;
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_keyword_if_is(pos, end, "INSTANT")) throw syntax_compilation_error("Expected INSTANT in CANCELLABLE options");
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after CANCELLABLE(INSTANT");
+        return coroutine_cancellation_mode::instant;
+    }
+
     template < typename It >
     std::string parse_argument_name(It& pos, It end, bool required = true)
     {

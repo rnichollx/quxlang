@@ -83,7 +83,7 @@ retire external continuation registrations first. Destruction skips body catch
 handlers and controller completion callbacks. It does not require a cancellation
 declaration. Instantiating this operation rejects cleanup that can suspend.
 
-The controller remains external to the frame. The generated frame contains no
+The controller is external to the frame. The generated frame contains no
 mandatory allocator, controller pointer, scheduler pointer, reference count, or
 virtual dispatch table. Storage allocation belongs to an adapter. The standard
 library supplies a borrowing `std::coroutine_view#descriptor` and an owning
@@ -93,9 +93,11 @@ must remain alive until those references are retired.
 
 ## Descriptors and declarations
 
-The declared return type follows `:`, and defaults to `VOID`. An omitted controller
-parameter introduces `@CONTROLLER AUTO`; an explicit controller parameter
-constrains specialization. Descriptors expose the following members:
+The declared return type follows `:`. A named or member `COROUTINE` declaration
+with no return annotation has return type `VOID`. A lambda with no return
+annotation deduces its return type from its body. An omitted controller parameter
+introduces `@CONTROLLER AUTO`; an explicit controller parameter constrains
+specialization. Descriptors expose the following members:
 
 | Member | Meaning |
 | --- | --- |
@@ -104,11 +106,15 @@ constrains specialization. Descriptors expose the following members:
 | `RETURN_TYPE` | The coroutine's declared or deduced return type, available to controller specialization. |
 | `CANCELLATION_MODE` | `NONE`, `COOPERATIVE`, or `INSTANT`. |
 
-Named and member coroutines are supported. Member frame initialization receives
-the receiver through `@RECEIVER`. Coroutine lambdas, virtual coroutine dispatch,
-and a foreign coroutine ABI are outside this interface. Ordinary virtual
-destructor alternatives remain available independently of statically selected
-coroutine destruction.
+Named and member coroutines are supported. Plain lambdas provide both function
+and coroutine call operators; `-< FUNCTION` provides only the function operator.
+Member frame initialization receives the receiver through `@RECEIVER`, including
+a coroutine lambda's closure. The frame borrows the closure. The closure and the
+objects it captures by reference must be alive at their original addresses until
+the invocation completes or frame destruction finishes. Virtual coroutine
+dispatch and a foreign coroutine ABI are
+outside this interface. Ordinary virtual destructors are supported independently
+of statically selected coroutine destruction.
 
 ## Mixed function and coroutine overloads
 
@@ -127,13 +133,14 @@ ordinary parameters:
 A call in a coroutine passes the complete callable binding to `CO_CALL_CORT`
 when the binding contains a coroutine overload. The hook receives the original
 argument pack before overload selection, default argument evaluation, or parameter
-conversion. Explicit argument expressions execute once. An explicitly supplied
-controller remains in the pack. The hook selects the overload and the child
+conversion. Explicit argument expressions execute once. The pack includes any
+explicitly supplied controller. The hook selects the overload and the child
 controller through ordinary calls or explicit specialization.
 
 Function specialization accepts `COMPOSITE_UNPACK` of a composite type. Positional
 fields supply positional parameter types, and named fields supply named parameter
-types. For example, a hook can select a child with:
+types. For a nonmember binding whose argument pack has no explicit `CONTROLLER`
+argument, a hook can select a child with:
 
 ```quxlang
 VAR selected AUTO := child#(@CONTROLLER child_controller,
@@ -150,7 +157,7 @@ occur when the hook invokes the selected function or initializes its frame.
 Ordinary execution contexts resolve calls without an implicit controller.
 Coroutine lifecycle calls use controller-aware overload resolution and pass the
 selected descriptor to `CO_CALL_CTOR` or `CO_CALL_DTOR`. Ordinary functions with
-an explicit `CONTROLLER` formal continue to receive the enclosing controller
+an explicit `CONTROLLER` formal receive the enclosing controller
 through the ordinary invocation rules.
 
 ## Coroutine launch expressions
@@ -299,7 +306,7 @@ or shared yield-value slot.
 
 `RETURN expression` selects `CO_RETURN(@ARG expression)` using the operand's
 original type and reference category. Ordinary argument adaptation applies to the
-selected hook's parameters. The declared return type remains descriptor metadata
+selected hook's parameters. The declared return type provides descriptor metadata
 for controller and promise selection. For example, a coroutine declared with
 `task#I32` can return an `I32` operand to its promise's integer overload.
 
@@ -337,8 +344,8 @@ shielded; suspended shielded work requires its authorized readiness notification
 
 `CANCELLABLE(INSTANT)` permits forced exit through mandatory cleanup while skipping
 body catch handlers. The selected cleanup must be synchronous. Coroutine
-destructor preference still applies when an ordinary destructor alternative also
-exists. Successful instant cancellation calls `CO_CANCELLED` after cleanup.
+destructor overloads take precedence over ordinary destructor overloads.
+Successful instant cancellation calls `CO_CANCELLED` after cleanup.
 
 Coroutine lifecycle declarations use `.CONSTRUCTOR COROUTINE(...)` and
 `.DESTRUCTOR COROUTINE()`, both with `VOID` completion. Coroutine contexts prefer
@@ -354,7 +361,7 @@ bases, arrays, and active alternatives propagate lifecycle requirements.
 Scope exit, temporary destruction, rollback, replacement, `DELETE`, and
 `DESTROY AT` use the shared lifetime planner. Partial construction retains its
 initialized prefix. Object storage survives suspended cleanup, and deallocation
-follows destruction. `DEFER` actions remain synchronous. Exception ownership and
+follows destruction. `DEFER` actions execute synchronously. Exception ownership and
 cleanup progress persist in the frame; native unwinding does not remain active
 across a driver return.
 

@@ -92,8 +92,13 @@ access and accepts conversion from a typed handle.
 | `destroy()` | Destroys a suspended invocation and invalidates all referring handles. |
 | `==` | Compares invocation identity across promise types. |
 
+`from_address` accepts an identity returned by `address()`, including the null
+identity of an empty handle. The destination promise type must match the original
+invocation's promise type or be `VOID`.
+
 `done`, `resume`, `destroy`, and `promise` require a live, nonempty handle.
-Resuming a completed invocation is invalid. Destruction requires retirement of
+`done`, `resume`, and `destroy` require a suspended invocation. Resuming an
+invocation at final suspension is invalid. Destruction requires retirement of
 external continuation registrations and synchronous cleanup. Destruction skips
 body catch handlers and does not require a cancellation declaration. The
 return object determines ownership policy; the handle itself does not own the

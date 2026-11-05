@@ -1,0 +1,204 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::coroutine_lambda_tests NAMESPACE
+{
+  ::awaiter STRUCT
+  {
+    .ready VAR BOOL;
+    .AWAIT_READY FUNCTION(): BOOL { RETURN .ready; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN TRUE; }
+    .AWAIT_RESUME FUNCTION() {}
+    .TRY_CANCEL FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN TRUE; }
+  }
+
+  ::controller STRUCT
+  {
+    .result VAR I32;
+    .yielded VAR I32;
+    .cancelled VAR BOOL;
+    .CO_AWAIT FUNCTION(@ARG BOOL): awaiter { VAR result awaiter; result.ready := ARG; RETURN result; }
+    .CO_RETURN FUNCTION(@ARG I32) MUT: BOOL { .result := ARG; RETURN TRUE; }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_YIELD FUNCTION(@ARG I32) MUT: BOOL { .yielded := ARG; RETURN FALSE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+    .CO_CANCELLED FUNCTION(@ARG MUT& AUTO) MUT NOEXCEPT { .cancelled := TRUE; }
+  }
+
+  ::scheduler STRUCT
+  {
+    .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): DECAY
+    {
+      VAR descriptor AUTO := child#(@CONTROLLER controller,
+        @THIS COMPOSITE_FIELD_TYPE(TYPEOF(arguments), "RECEIVER"),
+        COMPOSITE_UNPACK(TYPEOF(COMPOSITE_EXCLUDE(arguments, "RECEIVER"))));
+      VAR pending std::coroutine_handle#descriptor;
+      pending.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      RETURN MOVE(pending);
+    }
+  }
+
+  DOC <$ A plain lambda supports synchronous invocation and coroutine result deduction from the same body. $>
+  ::dual_invocation DUAL_TEST
+  {
+    VAR source I32 := 40;
+    VAR callable AUTO := -< [=source] (@amount I32 DEFAULT(2)) = source + amount;
+    TEST_ASSERT(callable() == 42);
+    VAR execution scheduler;
+    VAR pending AUTO := ON(execution) RUN callable();
+    VAR driver controller;
+    TEST_ASSERT(pending.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.result == 42);
+    source := 10;
+    TEST_ASSERT(callable(@amount 3) == 43);
+  }
+
+  DOC <$ Captures used only by suspension operands remain available across resumptions. $>
+  ::suspended_captures DUAL_TEST
+  {
+    VAR ready BOOL := FALSE;
+    VAR yielded I32 := 17;
+    VAR result I32 := 40;
+    VAR callable AUTO := -< : I32
+    {
+      AWAIT(ready);
+      YIELD yielded;
+      RETURN result + 2;
+    };
+    VAR execution scheduler;
+    VAR pending AUTO := ON(execution) RUN callable();
+    VAR driver controller;
+    TEST_ASSERT(pending.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(pending.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(driver.yielded == 17);
+    TEST_ASSERT(pending.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.result == 42);
+  }
+
+  DOC <$ An explicit controller parameter binds the invocation controller under its local name. $>
+  ::controller_parameter DUAL_TEST
+  {
+    VAR callable AUTO := -< [] (@CONTROLLER:driver controller): I32 = driver.yielded + 2;
+    VAR execution scheduler;
+    VAR pending AUTO := ON(execution) RUN callable();
+    VAR driver controller;
+    driver.yielded := 40;
+    TEST_ASSERT(pending.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.result == 42);
+  }
+
+  DOC <$ Nested lambdas bind their own execution controller and propagate enclosing capture requirements. $>
+  ::nested_controller_binding DUAL_TEST
+  {
+    VAR source I32 := 40;
+    VAR outer AUTO := -< : VOID
+    {
+      VAR inner AUTO := -< : I32 = source + CONTROLLER.yielded;
+      VAR execution scheduler;
+      VAR pending AUTO := ON(execution) RUN inner();
+      VAR driver controller;
+      driver.yielded := 2;
+      TEST_ASSERT(pending.RESUME(@CONTROLLER driver));
+      CONTROLLER.result := driver.result;
+    };
+    VAR execution scheduler;
+    VAR pending AUTO := ON(execution) RUN outer();
+    VAR driver controller;
+    driver.yielded := 100;
+    TEST_ASSERT(pending.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(driver.result == 42);
+  }
+
+  DOC <$ Cancellation releases a suspended lambda through the ordinary coroutine protocol. $>
+  ::cooperative_cancellation DUAL_TEST
+  {
+    VAR callable AUTO := -< CANCELLABLE: VOID
+    {
+      TRY { AWAIT(FALSE); }
+      CATCH cancelled CONST& COROUTINE_CANCELLED { CONTROLLER.cancelled := TRUE; }
+    };
+    VAR execution scheduler;
+    VAR pending AUTO := ON(execution) RUN callable();
+    VAR driver controller;
+    TEST_ASSERT(pending.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(pending.TRY_CANCEL(@CONTROLLER driver));
+    TEST_ASSERT(driver.cancelled);
+  }
+
+  DOC <$ Instant cancellation runs captured cleanup and skips the suspended body. $>
+  ::instant_cancellation DUAL_TEST
+  {
+    VAR value I32;
+    VAR callable AUTO := -< [value] CANCELLABLE(INSTANT): VOID
+    {
+      DEFER { value += 1; }
+      AWAIT(FALSE);
+      value += 100;
+    };
+    VAR execution scheduler;
+    VAR pending AUTO := ON(execution) RUN callable();
+    VAR driver controller;
+    TEST_ASSERT(pending.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(pending.TRY_CANCEL(@CONTROLLER driver));
+    TEST_ASSERT(value == 1);
+    TEST_ASSERT(driver.cancelled);
+  }
+
+  DOC <$ FUNCTION lambdas use ordinary parameter and capture semantics. $>
+  ::function_opt_out DUAL_TEST
+  {
+    VAR value I32 := 40;
+    VAR callable AUTO := -< FUNCTION [value] (@amount I32 DEFAULT(2)) NOEXCEPT = value + amount;
+    TEST_ASSERT(callable() == 42);
+  }
+
+  DOC <$ FUNCTION lambdas do not expose a coroutine overload to RUN. $>
+  ::function_run_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR callable AUTO := -< FUNCTION = 42;
+    VAR execution scheduler;
+    ON(execution) RUN callable();
+  }
+
+  DOC <$ A synchronous invocation cannot execute a suspension statement. $>
+  ::synchronous_await_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR callable AUTO := -< { AWAIT(FALSE); };
+    callable();
+  }
+
+  DOC <$ An explicit capture list must include locals used by YIELD. $>
+  ::uncaptured_yield_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 42;
+    VAR callable AUTO := -< [] { YIELD value; };
+  }
+
+  DOC <$ RUN selects the coroutine overload and completes an inferred expression result on a pool worker. $>
+  ::thread_pool_inferred_result UNIT_TEST
+  {
+    VAR callable AUTO := -< (@value I32) = value + 1;
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR pending AUTO := ON(runtime) RUN callable(@value 41);
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(pending), std::future#I32));
+    TEST_ASSERT(pending.get() == 42);
+  }
+
+  DOC <$ GO launches a lambda without waiting, and ordinary child calls use the controller's coroutine call protocol. $>
+  ::thread_pool_nested_calls UNIT_TEST
+  {
+    VAR child AUTO := -< (@value I32): I32 { AWAIT(std::cort_yield()); RETURN value + 1; };
+    VAR parent AUTO := -< : I32
+    {
+      VAR synchronous AUTO := -< FUNCTION = 42;
+      VAR posted AUTO := GO synchronous();
+      TEST_ASSERT(AWAIT(posted) == 42);
+      VAR first AUTO := GO child(@value 19);
+      VAR second I32 := child(@value 21);
+      RETURN AWAIT(first) + second;
+    };
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR pending AUTO := ON(runtime) RUN parent();
+    TEST_ASSERT(pending.get() == 42);
+  }
+}

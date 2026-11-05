@@ -394,3 +394,48 @@ IMPORT std;
     TEST_ASSERT(caught && destroyed == 1);
   }
 }
+
+::cpp_coroutine_tests NAMESPACE
+{
+  DOC <$ Coroutine lambdas pass their original return operands to an unrelated promise and retain their closure across suspension. $>
+  ::lambda_promise DUAL_TEST
+  {
+    VAR source I32 := 40;
+    VAR destroyed I32;
+    VAR callable AUTO := -< [=source, destroyed]: task
+    {
+      VAR local tracked:(@destroyed destroyed);
+      AWAIT(std::cpp_suspend_always());
+      RETURN source + 2;
+    };
+    source := 1;
+    VAR scheduler std::cpp_style_coroutine_base;
+    VAR pending AUTO := ON(scheduler) RUN callable();
+    pending.handle.resume();
+    TEST_ASSERT(pending.handle.done() == FALSE);
+    TEST_ASSERT(destroyed == 0);
+    pending.handle.resume();
+    TEST_ASSERT(pending.handle.done());
+    TEST_ASSERT(pending.handle.promise().value == 42);
+    TEST_ASSERT(destroyed == 1);
+  }
+
+  DOC <$ Destroying a suspended lambda releases its live locals through the frame's ordinary destruction path. $>
+  ::lambda_destroy_suspended DUAL_TEST
+  {
+    VAR destroyed I32;
+    VAR callable AUTO := -< : task
+    {
+      VAR local tracked:(@destroyed destroyed);
+      AWAIT(std::cpp_suspend_always());
+      RETURN 42;
+    };
+    VAR scheduler std::cpp_style_coroutine_base;
+    {
+      VAR pending AUTO := ON(scheduler) RUN callable();
+      pending.handle.resume();
+      TEST_ASSERT(destroyed == 0);
+    }
+    TEST_ASSERT(destroyed == 1);
+  }
+}

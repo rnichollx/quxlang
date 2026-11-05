@@ -178,22 +178,7 @@ namespace quxlang::parsers
                 {
                     throw syntax_compilation_error("A coroutine cannot declare CANCELLABLE more than once");
                 }
-                out->header.cancellation_mode = coroutine_cancellation_mode::cooperative;
-                skip_whitespace_and_comments(pos, end);
-                if (skip_symbol_if_is(pos, end, "("))
-                {
-                    skip_whitespace_and_comments(pos, end);
-                    if (!skip_keyword_if_is(pos, end, "INSTANT"))
-                    {
-                        throw syntax_compilation_error("Expected INSTANT in CANCELLABLE options");
-                    }
-                    skip_whitespace_and_comments(pos, end);
-                    if (!skip_symbol_if_is(pos, end, ")"))
-                    {
-                        throw syntax_compilation_error("Expected ')' after CANCELLABLE(INSTANT");
-                    }
-                    out->header.cancellation_mode = coroutine_cancellation_mode::instant;
-                }
+                out->header.cancellation_mode = parse_coroutine_cancellation_mode(ctx);
                 continue;
             }
             if (skip_keyword_if_is(pos, end, "NOEXCEPT"))

@@ -7,12 +7,15 @@ block body or a returned-expression body.
 ## Grammar
 
 ```text
--< [ capture-list ] [ ( parameters ) ] [ : return-type ] block
--< [ capture-list ] [ ( parameters ) ] [ : return-type ] = expression
+-< [ FUNCTION ] [ capture-list ] [ ( parameters ) ] [ qualifiers ] [ : return-type ] block
+-< [ FUNCTION ] [ capture-list ] [ ( parameters ) ] [ qualifiers ] [ : return-type ] = expression
 ```
 
-Every component after `-<` is optional except the body. Because `[` starts a
-capture list and `(` starts parameters, the forms remain unambiguous.
+Every component after `-<` is optional except the body. The opening `[` of a
+capture list distinguishes it from a parameter list, which starts with `(`.
+Qualifiers are `NOEXCEPT`, `CANCELLABLE`, and `CANCELLABLE(INSTANT)`.
+`NOEXCEPT` and a cancellation qualifier may appear in either order. Each may
+appear at most once, and `FUNCTION` forbids cancellation qualifiers.
 
 ## Expression bodies
 
@@ -47,6 +50,56 @@ Lambda parameters use the full function-parameter grammar, including named and
 positional parameters, type deduction, packs, and defaults. Calls use the same
 argument syntax as other callable values. An empty block with no explicit
 return type deduces `VOID`.
+
+## Synchronous and coroutine invocation
+
+A plain lambda provides both a synchronous and a coroutine `OPERATOR()`
+overload. The enclosing invocation context and controller select the overload
+through the ordinary function and coroutine call rules. `ON(controller) RUN`
+passes the lambda binding and arguments to the controller's `CO_RUN` hook.
+An ordinary call inside a coroutine passes the mixed binding to `CO_CALL_CORT`,
+which controls selection. `GO` passes the binding to `CO_GO` and returns that
+hook's result.
+
+```quxlang
+AUTO increment := -< (@value I32) = value + 1;
+ASSERT(increment(@value 41) == 42);
+
+VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+VAR pending AUTO := ON(runtime) RUN increment(@value 41);
+ASSERT(pending.get() == 42);
+```
+
+`-< FUNCTION` provides only the synchronous overload:
+
+```quxlang
+AUTO increment := -< FUNCTION (@value I32) = value + 1;
+```
+
+A coroutine invocation supports `AWAIT` and `YIELD`. The body is checked for the
+selected invocation mode. An instantiated `AWAIT` or `YIELD` requires coroutine
+invocation even when the selected awaiter would complete synchronously. A lambda
+with no explicit return type uses the normal body-based deduction rules for the
+selected specialization. A controller that requires the declared return type
+before choosing an execution controller may require an explicit return type when
+deduction depends on that controller.
+
+The coroutine overload defaults to `@CONTROLLER AUTO`. An explicit
+`@CONTROLLER` parameter constrains its execution controller, and an optional
+local parameter name names that controller in the body. It cannot have a
+default argument. The controller parameter belongs only to the coroutine
+overload. A synchronous invocation cannot use that parameter. During coroutine
+invocation, `CONTROLLER` in a plain lambda denotes its own execution controller.
+An enclosing controller can be captured through an ordinary local alias.
+
+`CANCELLABLE` and `CANCELLABLE(INSTANT)` set the coroutine overload's cancellation
+contract. `NOEXCEPT` applies to both invocation modes.
+
+The coroutine frame borrows the closure receiver. The closure and every object
+captured by reference must be alive at their original addresses until the
+invocation completes or frame destruction finishes. Value captures belong to
+the closure and are shared by invocations of that closure. Launching a coroutine
+does not extend the closure's lifetime.
 
 ## Implicit reference capture
 
@@ -131,13 +184,13 @@ AUTO selected := -<
 };
 ```
 
-Ordinary runtime branches remain part of the body and therefore contribute
-their referenced locals even when a condition happens to be constant.
+Capture analysis includes ordinary runtime branches and their referenced locals,
+including branches with constant conditions.
 
 ## Callable value and identity
 
-Each lambda expression has its own compiler-generated closure type with an
-`OPERATOR()` corresponding to its parameters and result. Captures are the
+Each lambda expression has its own compiler-generated closure type with the
+`OPERATOR()` overloads permitted by its invocation modes. Captures are the
 closure's stored fields. The lambda can be stored with `AUTO`, copied or moved
 when its captured fields permit it, and passed through a compatible function
 value parameter.

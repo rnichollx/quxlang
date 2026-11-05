@@ -1831,13 +1831,17 @@ namespace quxlang
     {
         std::vector< lambda_capture > captures;
         bool has_explicit_capture_list = false;
+        /** Publishes a coroutine call operator alongside the synchronous operator. */
+        bool coroutine_capable = false;
+        /** Controls cancellation of the coroutine call operator. */
+        coroutine_cancellation_mode cancellation_mode = coroutine_cancellation_mode::none;
         /** Prevents exceptions from escaping the lambda invocation. */
         bool is_noexcept = false;
         std::vector< ast2_function_parameter > parameters;
         std::optional< type_symbol > return_type;
         function_block body;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_lambda, captures, has_explicit_capture_list, is_noexcept, parameters, return_type, body);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_lambda, captures, has_explicit_capture_list, coroutine_capable, cancellation_mode, is_noexcept, parameters, return_type, body);
     };
 
     struct call_initializer

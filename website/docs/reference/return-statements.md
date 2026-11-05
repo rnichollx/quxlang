@@ -126,9 +126,9 @@ selection; it does not impose a conversion on the return operand.
 }
 ```
 
-The controller for this specialization can accept an `I32` in `CO_RETURN`, while
-`RETURN_TYPE` remains `task#I32`. A deduced return type records the operand type
-before hook argument adaptation.
+The specialization's `RETURN_TYPE` is `task#I32`. Its controller can accept an
+`I32` operand in `CO_RETURN`. A deduced return type records the operand type before
+hook argument adaptation.
 
 A bare `RETURN;`, a `VOID` return operand, or reachable fallthrough invokes the
 nullary `CO_RETURN()` overload. The controller must provide that overload whenever

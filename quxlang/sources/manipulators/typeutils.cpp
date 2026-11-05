@@ -545,7 +545,7 @@ namespace quxlang
 
         std::string operator()(expression_lambda const& expr) const
         {
-            std::string result = "-<";
+            std::string result = expr.coroutine_capable ? "-<" : "-< FUNCTION";
             if (expr.has_explicit_capture_list)
             {
                 result += " [";

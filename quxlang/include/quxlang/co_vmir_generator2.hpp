@@ -4395,8 +4395,8 @@ namespace quxlang
             std::size_t lambda_index = state.next_lambda_index++;
             auto possible_captures = build_lambda_possible_captures(lexical_block);
             auto dry_run = co_await co_analyze_lambda_captures(lambda, possible_captures, body_context());
-            auto declaration = make_lambda_operator_declaration(lambda);
-            co_await co_publish_lambda_subqueries(lambda_index, possible_captures, dry_run, std::move(declaration));
+            std::vector< ast2_function_declaration > declarations = make_lambda_operator_declarations(lambda);
+            co_await co_publish_lambda_subqueries(lambda_index, possible_captures, dry_run, std::move(declarations));
             co_return make_lambda_closure_symbol(body_context(), lambda_index);
         }
 
@@ -8753,6 +8753,10 @@ namespace quxlang
                                 co_await this->co_analyze_lambda_expression(analysis, *st.expr);
                             }
                         }
+                        else if constexpr (std::is_same_v< statement_type, function_yield_statement >)
+                        {
+                            co_await co_analyze_lambda_expression(analysis, st.value);
+                        }
                         else if constexpr (std::is_same_v< statement_type, function_return_unequal_statement >)
                         {
                             co_await this->co_analyze_lambda_expression(analysis, st.lhs);
@@ -9023,6 +9027,7 @@ namespace quxlang
             analysis.static_context = std::move(static_context);
             analysis.has_explicit_capture_list = lambda.has_explicit_capture_list;
 
+            if (lambda.coroutine_capable) analysis.local_types["CONTROLLER"] = auto_temploidic{};
             for (auto const& param : lambda.parameters)
             {
                 if (param.name.has_value())
@@ -9056,7 +9061,8 @@ namespace quxlang
             };
         }
 
-        auto make_lambda_operator_declaration(expression_lambda const& lambda) -> ast2_function_declaration
+        /** Defines the call operators for the lambda's permitted invocation modes. */
+        auto make_lambda_operator_declarations(expression_lambda const& lambda) -> std::vector< ast2_function_declaration >
         {
             ast2_function_declaration declaration;
             declaration.header.call_parameters = lambda.parameters;
@@ -9064,10 +9070,32 @@ namespace quxlang
             declaration.definition.return_type = lambda.return_type.value_or(type_symbol(decay_temploidic{}));
             declaration.definition.body = lambda.body;
             declaration.location = lambda.location;
-            return declaration;
+            if (!lambda.coroutine_capable) return {std::move(declaration)};
+
+            ast2_function_parameter controller{.api_name = "CONTROLLER", .type = auto_temploidic{}};
+            bool explicit_controller = false;
+            for (std::vector< ast2_function_parameter >::iterator parameter = declaration.header.call_parameters.begin(); parameter != declaration.header.call_parameters.end();)
+            {
+                if (parameter->api_name != "CONTROLLER")
+                {
+                    ++parameter;
+                    continue;
+                }
+                if (explicit_controller) throw semantic_compilation_error("A lambda cannot declare more than one CONTROLLER parameter");
+                if (parameter->default_expr.has_value()) throw semantic_compilation_error("A lambda controller parameter cannot declare a default argument");
+                explicit_controller = true;
+                controller = *parameter;
+                parameter = declaration.header.call_parameters.erase(parameter);
+            }
+            std::vector< ast2_function_declaration > declarations{declaration};
+            declaration.header.execution_kind = function_execution_kind::coroutine;
+            declaration.header.cancellation_mode = lambda.cancellation_mode;
+            declaration.header.controller_parameter = std::move(controller);
+            declarations.push_back(std::move(declaration));
+            return declarations;
         }
 
-        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_publish_lambda_subqueries(std::size_t lambda_index, std::map< std::string, lambda_possible_capture > possible_captures, lambda_dry_run_result const& dry_run, ast2_function_declaration operator_declaration) -> co_type< void >
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_publish_lambda_subqueries(std::size_t lambda_index, std::map< std::string, lambda_possible_capture > possible_captures, lambda_dry_run_result const& dry_run, std::vector< ast2_function_declaration > operator_declarations) -> co_type< void >
         {
             if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< lambda_possible_captures_subquery >())
             {
@@ -9088,7 +9116,7 @@ namespace quxlang
             }
             if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< lambda_operator_subquery >())
             {
-                co_yield rpnx::querygraph::subquery_result< lambda_operator_subquery >(lambda_index, std::move(operator_declaration));
+                co_yield rpnx::querygraph::subquery_result< lambda_operator_subquery >(lambda_index, std::move(operator_declarations));
             }
             co_return;
         }
@@ -17578,7 +17606,7 @@ namespace quxlang
                 !state.declared_return_type->template type_is< void_type >() && !parameter_runtime_type(*state.declared_return_type).has_value())
             {
                 value_index value = co_await co_generate_expr(current_block, *st.expr);
-                if (current_type(current_block, value) != *state.declared_return_type)
+                if (remove_ref(current_type(current_block, value)) != *state.declared_return_type)
                     throw semantic_compilation_error("Return expression does not match the declared static value type");
                 generate_return(current_block);
             }

@@ -1,0 +1,245 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+DOC <$ Completes one child call with its returned value. $>
+::completed_value STRUCT
+{
+  .value VAR U64;
+  .AWAIT_READY FUNCTION() CONST: BOOL { RETURN TRUE; }
+  .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN FALSE; }
+  .AWAIT_RESUME FUNCTION() CONST: U64 { RETURN .value; }
+}
+
+DOC <$ Represents an immediate completion or one explicit suspension. $>
+::awaiter STRUCT
+{
+  .ready VAR BOOL;
+  .AWAIT_READY FUNCTION() CONST: BOOL { RETURN .ready; }
+  .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN TRUE; }
+  .AWAIT_RESUME FUNCTION() {}
+}
+
+DOC <$ Drives heap-owned child frames to completion on the calling thread. $>
+::controller STRUCT
+{
+  .result VAR U64;
+  .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): completed_value
+  {
+    VAR descriptor AUTO := child#(@CONTROLLER controller, COMPOSITE_UNPACK(TYPEOF(arguments)));
+    VAR driver controller;
+    VAR frame std::coroutine_handle#descriptor;
+    frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+    LOOP WHILE(frame.RESUME(@CONTROLLER driver) == FALSE) DO {}
+    VAR result completed_value;
+    result.value := driver.result;
+    RETURN result;
+  }
+  .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): U64
+  {
+    RETURN .CO_CALL_CORT(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments)).value;
+  }
+  .CO_AWAIT FUNCTION(@ARG BOOL): awaiter { VAR result awaiter; result.ready := ARG; RETURN result; }
+  .CO_AWAIT FUNCTION(@ARG AUTO& completed_value): MUT& completed_value { RETURN ARG AS MUT& completed_value; }
+  .CO_RETURN FUNCTION(@ARG U64) MUT: BOOL { .result := ARG; RETURN TRUE; }
+  .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+}
+
+DOC <$ Produces deterministic input with unsigned modular arithmetic. $>
+::mix FUNCTION(@value U64): U64
+{
+  value += 11400714819323198485;
+  value := (value #^^ (value #-- 30)) * 13787848793156543929;
+  value := (value #^^ (value #-- 27)) * 10723151780598845931;
+  RETURN value #^^ (value #-- 31);
+}
+
+DOC <$ Partitions a half-open range around its middle element. $>
+::partition FUNCTION(@values MUT& std::dynarr#U64, @first SZ, @last SZ): SZ
+{
+  values[first + ((last - first) / 2)] <-> values[last - 1];
+  VAR pivot U64 := values[last - 1];
+  VAR destination SZ := first;
+  LOOP VALUE(index) FROM(first) UNTIL(last - 1) DO
+  {
+    IF (values[index] < pivot)
+    {
+      values[destination] <-> values[index];
+      destination++;
+    }
+  }
+  values[destination] <-> values[last - 1];
+  RETURN destination;
+}
+
+DOC <$ Sorts by recursive partitioning down to single-element ranges. $>
+::sort_serial FUNCTION(@values MUT& std::dynarr#U64, @first SZ, @last SZ)
+{
+  IF (last - first <= 1) { RETURN; }
+  VAR pivot SZ := partition(@values values, @first first, @last last);
+  sort_serial(@values values, @first first, @last pivot);
+  sort_serial(@values values, @first pivot + 1, @last last);
+}
+
+DOC <$ Invokes both partitions as child coroutines on the calling thread. $>
+::sort_coroutine COROUTINE(@values MUT& std::dynarr#U64, @first SZ, @last SZ, @cutoff SZ, @suspend BOOL): U64
+{
+  IF (suspend) { AWAIT(FALSE); }
+  IF (last - first <= cutoff) { sort_serial(@values values, @first first, @last last); RETURN 0; }
+  VAR pivot SZ := partition(@values values, @first first, @last last);
+  sort_coroutine(@values values, @first first, @last pivot, @cutoff cutoff, @suspend suspend);
+  sort_coroutine(@values values, @first pivot + 1, @last last, @cutoff cutoff, @suspend suspend);
+  RETURN 0;
+}
+
+DOC <$ Reduces hashed indices with balanced splitting and a sequential leaf cutoff. $>
+::reduce_serial FUNCTION(@first SZ, @last SZ, @cutoff SZ, @seed U64): U64
+{
+  IF (last - first <= cutoff)
+  {
+    VAR total U64;
+    LOOP VALUE(index) FROM(first) UNTIL(last) DO { total += mix(@value seed + (index AS U64)); }
+    RETURN total;
+  }
+  VAR middle SZ := first + ((last - first) / 2);
+  RETURN reduce_serial(@first first, @last middle, @cutoff cutoff, @seed seed)
+    + reduce_serial(@first middle, @last last, @cutoff cutoff, @seed seed);
+}
+
+DOC <$ Reduces a balanced tree through nested child coroutine invocations. $>
+::reduce_coroutine COROUTINE(@first SZ, @last SZ, @cutoff SZ, @seed U64, @suspend BOOL): U64
+{
+  IF (suspend) { AWAIT(FALSE); }
+  IF (last - first <= cutoff) { RETURN reduce_serial(@first first, @last last, @cutoff cutoff, @seed seed); }
+  VAR middle SZ := first + ((last - first) / 2);
+  VAR total U64 := reduce_coroutine(@first first, @last middle, @cutoff cutoff, @seed seed, @suspend suspend);
+  RETURN total + reduce_coroutine(@first middle, @last last, @cutoff cutoff, @seed seed, @suspend suspend);
+}
+
+DOC <$ Counts all completions of a bitboard N-queens search state. $>
+::queens_serial FUNCTION(@mask U64, @columns U64, @left U64, @right U64): U64
+{
+  IF (columns == mask) { RETURN 1; }
+  VAR available U64 := mask #&& ((columns #|| left #|| right) #!!);
+  VAR total U64;
+  LOOP WHILE(available != 0) DO
+  {
+    VAR bit U64 := available #&& ((0 AS U64) - available);
+    available -= bit;
+    total += queens_serial(@mask mask, @columns columns #|| bit, @left (left #|| bit) #++ 1, @right (right #|| bit) #-- 1);
+  }
+  RETURN total;
+}
+
+DOC <$ Visits search branches through nested child coroutine invocations. $>
+::queens_coroutine COROUTINE(@mask U64, @columns U64, @left U64, @right U64, @depth SZ, @suspend BOOL): U64
+{
+  IF (suspend) { AWAIT(FALSE); }
+  IF (depth == 0 || columns == mask) { RETURN queens_serial(@mask mask, @columns columns, @left left, @right right); }
+  VAR available U64 := mask #&& ((columns #|| left #|| right) #!!);
+  VAR total U64;
+  LOOP WHILE(available != 0) DO
+  {
+    VAR bit U64 := available #&& ((0 AS U64) - available);
+    available -= bit;
+    total += queens_coroutine(@mask mask, @columns columns #|| bit,
+      @left (left #|| bit) #++ 1, @right (right #|| bit) #-- 1, @depth depth - 1, @suspend suspend);
+  }
+  RETURN total;
+}
+
+DOC <$ Times nested coroutine execution, including frame allocation and destruction, with input generation and validation outside timing. $>
+::algorithms BENCHMARK(@algorithm SZ, @n SZ, @cutoff SZ, @mode SZ, @passes SZ) ONESHOT
+{
+  IF (algorithm > 2 || n == 0 || cutoff == 0 || mode > 2 || passes == 0)
+  { PANIC "Invalid benchmark arguments."; }
+  IF ((algorithm == 2 && (n > 14 || cutoff > n)) || (algorithm != 2 && n > 4194304))
+  { PANIC "Invalid benchmark size or cutoff."; }
+  VAR execution controller;
+  VAR values std::dynarr#U64;
+  IF (algorithm == 0)
+  {
+    values.reserve(n);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO { values.push_back(0); }
+  }
+  VAR input_size ATOMIC#SZ;
+  input_size.STORE#ATOMIC_RELAXED(n);
+  VAR elapsed U64;
+  VAR checksum U64;
+  LOOP VALUE(pass) FROM(0 AS SZ) UNTIL(passes) DO
+  {
+    VAR size SZ := input_size.LOAD#ATOMIC_RELAXED();
+    VAR seed U64 := 20261104 + ((pass % 8) AS U64);
+    IF (algorithm == 0)
+    { LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO { values[index] := mix(@value seed + (index AS U64)); } }
+    VAR result U64;
+    VAR begin U64 := RUNTIME_MODULE::BENCHMARK_CLOCK();
+    IF (algorithm == 0)
+    {
+      IF (mode != 0)
+      {
+        ON(execution) RUN sort_coroutine(@values values, @first 0, @last size, @cutoff cutoff, @suspend mode == 2);
+      }
+      ELSE { sort_serial(@values values, @first 0, @last size); }
+    }
+    ELSE IF (algorithm == 1)
+    {
+      IF (mode != 0)
+      {
+        result := ON(execution) RUN reduce_coroutine(@first 0, @last size, @cutoff cutoff, @seed seed, @suspend mode == 2);
+      }
+      ELSE { result := reduce_serial(@first 0, @last size, @cutoff cutoff, @seed seed); }
+    }
+    ELSE
+    {
+      VAR mask U64 := ((1 AS U64) #++ size) - 1;
+      IF (mode != 0)
+      {
+        result := ON(execution) RUN queens_coroutine(@mask mask, @columns 0, @left 0, @right 0, @depth cutoff, @suspend mode == 2);
+      }
+      ELSE { result := queens_serial(@mask mask, @columns 0, @left 0, @right 0); }
+    }
+    elapsed += RUNTIME_MODULE::BENCHMARK_CLOCK() - begin;
+    IF (algorithm == 0)
+    {
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO
+      {
+        IF (index != 0 && values[index] < values[index - 1]) { PANIC "Unsorted output."; }
+        result += values[index] * ((index AS U64) + 1);
+      }
+    }
+    checksum += result;
+  }
+  VAR output std::buffered_writer:(@EXPLICIT std::standard_output());
+  output.write_unsigned(elapsed); output.write_byte(32);
+  output.write_unsigned(checksum); output.write_byte(10); output.flush();
+}
+
+DOC <$ The serial algorithms satisfy small deterministic sorting, reduction, and search contracts. $>
+::verify_algorithms STATIC_TEST
+{
+  VAR values std::dynarr#U64;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(64 AS SZ) DO { values.push_back(mix(@value 20261104 + (index AS U64))); }
+  sort_serial(@values values, @first 0, @last 64);
+  VAR checksum U64;
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(64 AS SZ) DO
+  {
+    IF (index != 0) { TEST_ASSERT(values[index - 1] <= values[index]); }
+    checksum += values[index] * ((index AS U64) + 1);
+  }
+  TEST_ASSERT(checksum == 11854941797582878660);
+  TEST_ASSERT(reduce_serial(@first 0, @last 16, @cutoff 16, @seed 20261104) == 6280088169016612329);
+  TEST_ASSERT(queens_serial(@mask 255, @columns 0, @left 0, @right 0) == 92);
+}
+
+DOC <$ A suspending leaf returns control before publishing its result. Nested invocations preserve all algorithm results. $>
+::verify_coroutine_execution STATIC_TEST
+{
+  VAR driver controller;
+  VAR frame reduce_coroutine#(@first SZ, @last SZ, @cutoff SZ, @seed U64, @suspend BOOL, @CONTROLLER controller)::FRAME_TYPE;
+  frame.INITIALIZE(@first 0, @last 1, @cutoff 1, @seed 20261104, @suspend TRUE);
+  TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+  TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+  TEST_ASSERT(driver.result == mix(@value 20261104));
+  TEST_ASSERT((ON(driver) RUN reduce_coroutine(@first 0, @last 16, @cutoff 1, @seed 20261104, @suspend TRUE)) == 6280088169016612329);
+  TEST_ASSERT((ON(driver) RUN queens_coroutine(@mask 15, @columns 0, @left 0, @right 0, @depth 4, @suspend TRUE)) == 2);
+}

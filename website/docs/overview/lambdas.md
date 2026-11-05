@@ -33,7 +33,7 @@ ASSERT(limit_to_max(@value 7, @maximum 5) == 5);
 
 Lambda parameters use the same named and positional syntax as functions. Named
 parameters are preferred for ordinary lambda interfaces; positional parameters
-remain available when position is intentional. A return type is optional when
+are available when position is intentional. A return type is optional when
 it can be deduced from the body.
 
 ## Capture lists
@@ -48,6 +48,28 @@ discarded `STATIC_IF` branch does not force an invalid capture.
 
 Lambdas are function values and can be passed through `AUTO(name)` parameters.
 See [Procedure pointers and function values](procedure-pointers-and-function-values.md).
+
+## Coroutine invocation
+
+Plain lambdas support synchronous calls and coroutine invocation:
+
+```quxlang
+AUTO compute := -< (@value I32): I32
+{
+  AWAIT(std::cort_yield());
+  RETURN value + 1;
+};
+VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+VAR result AUTO := ON(runtime) RUN compute(@value 41);
+ASSERT(result.get() == 42);
+```
+
+The controller chooses how the coroutine runs and how its result is delivered.
+`AWAIT` and `YIELD` are available when the lambda is invoked as a coroutine.
+The coroutine borrows its closure. The closure and the objects captured by
+reference must be alive throughout the invocation.
+`-< FUNCTION` restricts a lambda to synchronous invocation. A plain lambda supports
+synchronous calls when its body is valid in that invocation mode.
 
 ## Reference
 
