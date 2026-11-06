@@ -50,7 +50,7 @@ LANGUAGE QUXLANG EN 0.0;
 
     .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
     {
-      VAR selected AUTO := specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER controller);
+      VAR selected := specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER controller);
       .observed->.calls += 1;
       VAR adapted controller;
       adapted.observed := .observed;

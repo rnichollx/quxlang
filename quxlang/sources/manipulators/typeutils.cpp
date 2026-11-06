@@ -406,10 +406,12 @@ namespace quxlang
             return result + ")";
         }
 
-        /** Formats an invocation viability query with its explicit argument types. */
-        std::string operator()(expression_is_functum_callable_with const& expr) const
+        /** Formats an invocation or specialization viability query with its explicit argument types. */
+        std::string operator()(expression_callable_test const& expr) const
         {
-            std::string result = std::string(expr.require_coroutine ? "IS_COROUTINE_CALLABLE_WITH(" : "IS_FUNCTUM_CALLABLE_WITH(") + to_string(expr.invocation.initializee);
+            std::string name = expr.operation == callable_test_operation::function_instantiable ? "FUNCTION_CAN_INSTANTIATE_WITH" :
+                expr.operation == callable_test_operation::coroutine_invocable ? "IS_COROUTINE_CALLABLE_WITH" : "IS_FUNCTUM_CALLABLE_WITH";
+            std::string result = name + "(" + to_string(expr.invocation.initializee);
             for (expression_arg const& argument : expr.invocation.arguments)
             {
                 result += ", ";
@@ -418,6 +420,19 @@ namespace quxlang
                 else result += "% [" + expr_to_string(argument.value) + "]";
             }
             return result + ")";
+        }
+
+        /** Formats overload counting and indexed selection expressions. */
+        std::string operator()(expression_functum_overload const& expr) const
+        {
+            if (expr.index.has_value()) return "FUNCTUM_GET_OVERLOAD(" + to_string(expr.callable) + ", " + expr_to_string(*expr.index) + ")";
+            return "FUNCTUM_OVERLOAD_COUNT(" + to_string(expr.callable) + ")";
+        }
+
+        /** Formats execution-kind inspection of a selected function. */
+        std::string operator()(expression_function_is_coroutine const& expr) const
+        {
+            return "FUNCTION_IS_COROUTINE(" + to_string(expr.callable) + ")";
         }
 
         /** Formats a callable execution-kind availability query. */

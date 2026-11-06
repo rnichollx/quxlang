@@ -143,7 +143,7 @@ types. For a nonmember binding whose argument pack has no explicit `CONTROLLER`
 argument, a hook can select a child with:
 
 ```quxlang
-VAR selected AUTO := child#(@CONTROLLER child_controller,
+VAR selected := child#(@CONTROLLER child_controller,
                            COMPOSITE_UNPACK(TYPEOF(arguments)));
 VAR frame selected::FRAME_TYPE;
 frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
@@ -165,7 +165,7 @@ through the ordinary invocation rules.
 An explicit launch selects a scheduler or controller for one coroutine invocation:
 
 ```quxlang
-VAR task AUTO := ON(scheduler) RUN work(@INPUT input);
+VAR task := ON(scheduler) RUN work(@INPUT input);
 ```
 
 The expression evaluates the controller before the target receiver and arguments.

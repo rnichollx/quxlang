@@ -25,7 +25,7 @@ DOC <$ Drives heap-owned child frames to completion on the calling thread. $>
   .result VAR U64;
   .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): completed_value
   {
-    VAR descriptor AUTO := child#(@CONTROLLER controller, COMPOSITE_UNPACK(TYPEOF(arguments)));
+    VAR descriptor := child#(@CONTROLLER controller, COMPOSITE_UNPACK(TYPEOF(arguments)));
     VAR driver controller;
     VAR frame std::coroutine_handle#descriptor;
     frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));

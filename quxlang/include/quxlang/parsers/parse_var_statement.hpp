@@ -7,11 +7,12 @@
 #include <quxlang/parsers/parse_alignment.hpp>
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
+#include <quxlang/parsers/peek_symbol.hpp>
 #include <quxlang/parsers/try_parse_function_callsite_expression.hpp>
 
 namespace quxlang::parsers
 {
-    /** Parses a local variable declaration, including the AUTO shorthand. */
+    /** Parses a local variable declaration with an explicit or deduced type. */
     inline function_var_statement parse_var_statement(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
@@ -43,7 +44,7 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        if (is_auto)
+        if (is_auto || (is_var && peek_symbol(pos, end).starts_with(":=")))
         {
             var_statement.type = auto_temploidic{};
         }

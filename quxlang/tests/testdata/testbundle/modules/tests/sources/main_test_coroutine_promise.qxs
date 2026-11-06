@@ -27,7 +27,7 @@ LANGUAGE QUXLANG EN 0.0;
 
     .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
     {
-      VAR selected AUTO := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
+      VAR selected := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
       RETURN operation#selected(@ARGUMENTS arguments);
     }
     .CO_AWAIT FUNCTION(@ARG AUTO& AUTO(operation_type)): MUT& operation_type { RETURN ARG AS MUT& operation_type; }
@@ -76,7 +76,7 @@ LANGUAGE QUXLANG EN 0.0;
   {
     .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
     {
-      VAR selected AUTO := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
+      VAR selected := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
       RETURN operation#selected(@ARGUMENTS arguments);
     }
   }
@@ -93,9 +93,9 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$ Partial descriptors expose the declared return type before selecting the promise controller. $>
   ::descriptor_types STATIC_TEST
   {
-    VAR selected AUTO := value#(@CONTROLLER AUTO, @value I32);
+    VAR selected := value#(@CONTROLLER AUTO, @value I32);
     TEST_ASSERT(SAME_TYPES(selected::RETURN_TYPE, task#I32));
-    VAR concrete AUTO := selected#(@CONTROLLER controller#selected);
+    VAR concrete := selected#(@CONTROLLER controller#selected);
     TEST_ASSERT(SAME_TYPES(concrete::CONTROLLER_TYPE, controller#selected));
     TEST_ASSERT(SAME_TYPES(controller#(selected)::frame_type, concrete::FRAME_TYPE));
     TEST_ASSERT(SAME_TYPES(controller#(selected)::promise_type, task#(I32)::promise#concrete::FRAME_TYPE));
@@ -105,12 +105,12 @@ LANGUAGE QUXLANG EN 0.0;
   ::return_type_promise DUAL_TEST
   {
     VAR execution scheduler;
-    VAR pending AUTO := ON(execution) RUN value(@value 41);
-    VAR address AUTO := pending.state->.promise.frame;
-    VAR moved AUTO := MOVE(pending);
+    VAR pending := ON(execution) RUN value(@value 41);
+    VAR address := pending.state->.promise.frame;
+    VAR moved := MOVE(pending);
     TEST_ASSERT(moved.state->.promise.frame == address);
     TEST_ASSERT(moved.run() == 42);
-    VAR parent AUTO := ON(execution) RUN nested();
+    VAR parent := ON(execution) RUN nested();
     TEST_ASSERT(parent.run() == 43);
   }
 }

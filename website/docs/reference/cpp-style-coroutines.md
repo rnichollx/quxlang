@@ -7,7 +7,7 @@ frame at stable addresses. Promise types are ordinary unrelated structures.
 
 ```quxlang
 VAR scheduler std::cpp_style_coroutine_base;
-VAR result AUTO := ON(scheduler) RUN produce(@input 41);
+VAR result := ON(scheduler) RUN produce(@input 41);
 ```
 
 The scheduler can also be a base subobject of an application scheduler. Its

@@ -42,12 +42,12 @@ VAR bytes [4]BYTE;
 VAR cursor MUT=>>BYTE;
 ```
 
-A function-local `AUTO` variable deduces its type from one `:=` initializer.
-No other initializer form is valid with `AUTO`:
+A function-local variable deduces its type from one `:=` initializer when its
+type is omitted or specified as `AUTO`. No other initializer form is valid for
+a deduced type:
 
 ```quxlang
-VAR selected AUTO := callback;
-// or (shorthand)
+VAR selected := callback;
 AUTO selected := callback;
 ```
 

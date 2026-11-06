@@ -1,0 +1,105 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::functum_reflection_tests NAMESPACE
+{
+  ::candidate FUNCTION(@value I32, @amount I32 DEFAULT(2)): I32 { RETURN value + amount; }
+  ::candidate COROUTINE(@value I32): I32 { RETURN value + 100; }
+  ::disabled FUNCTION(@value I32) ENABLE_IF(FALSE): I32 { RETURN value; }
+  ::sum FUNCTION(%left I32, %right I32): I32 { RETURN left + right; }
+  ::identity TEMPLATE(@T TYPE) FUNCTION(@value T): T { RETURN value; }
+
+  DOC <$ Indexed overloads retain declaration identity and support independent specialization. $>
+  ::selection DUAL_TEST
+  {
+    TEST_ASSERT(FUNCTUM_OVERLOAD_COUNT(candidate) == 2);
+    VAR first := FUNCTUM_GET_OVERLOAD(candidate, 0);
+    VAR second := FUNCTUM_GET_OVERLOAD(candidate, 1);
+    TEST_ASSERT(SAME_TYPES(first, second) == FALSE);
+    TEST_ASSERT(FUNCTION_IS_COROUTINE(first) != FUNCTION_IS_COROUTINE(second));
+    VAR ordinary := STATIC_CHOOSE(FUNCTION_IS_COROUTINE(first), second, first);
+    VAR coroutine := STATIC_CHOOSE(FUNCTION_IS_COROUTINE(first), first, second);
+    TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(ordinary, @value I32));
+    TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(ordinary, @missing I32) == FALSE);
+    TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(ordinary) == FALSE);
+    TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(coroutine, @value I32));
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(coroutine, @value I32) == FALSE);
+    VAR specialized := ordinary#(@value I32);
+    TEST_ASSERT(FUNCTION_IS_COROUTINE(specialized) == FALSE);
+    TEST_ASSERT(specialized(@value 40) == 42);
+  }
+
+  DOC <$ Reflection retains disabled declarations while instantiation applies their constraints. $>
+  ::constraints DUAL_TEST
+  {
+    TEST_ASSERT(FUNCTUM_OVERLOAD_COUNT(disabled) == 1);
+    TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(FUNCTUM_GET_OVERLOAD(disabled, 0), @value I32) == FALSE);
+  }
+
+  DOC <$ Selected functions accept positional and unpacked specialization types. $>
+  ::argument_types DUAL_TEST
+  {
+    VAR selected := FUNCTUM_GET_OVERLOAD(sum, 0);
+    TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(selected, % [I32, I32]));
+    VAR arguments := :[I32(@OTHER 19), I32(@OTHER 23)];
+    TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(selected, COMPOSITE_UNPACK(TYPEOF(arguments))));
+    VAR specialized := selected#(COMPOSITE_UNPACK(TYPEOF(arguments)));
+    TEST_ASSERT(specialized(% [19, 23]) == 42);
+    VAR instance := FUNCTUM_GET_OVERLOAD(identity#I32, 0)#(@value I32);
+    TEST_ASSERT(instance(@value 42) == 42);
+  }
+
+  ::record STRUCT
+  {
+    .value VAR I32;
+    .read FUNCTION(@amount I32 DEFAULT(1)) CONST: I32 { RETURN .value + amount; }
+  }
+
+  DOC <$ Reflected member declarations specialize with an explicit receiver type. $>
+  ::member DUAL_TEST
+  {
+    VAR selected := FUNCTUM_GET_OVERLOAD(record::.read, 0);
+    TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(selected, @THIS CONST& record));
+    TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(selected) == FALSE);
+    VAR instance := selected#(@THIS CONST& record);
+    VAR object record;
+    object.value := 41;
+    TEST_ASSERT(instance(@THIS object) == 42);
+  }
+
+  DOC <$ Builtin overload ordinals share the enumeration used for explicit function specialization. $>
+  ::builtin DUAL_TEST
+  {
+    TEST_ASSERT(FUNCTUM_OVERLOAD_COUNT(I32::.CONSTRUCTOR) > 0);
+    VAR selected := FUNCTUM_GET_OVERLOAD(I32::.CONSTRUCTOR, FUNCTUM_OVERLOAD_COUNT(I32::.CONSTRUCTOR) - 1);
+    TEST_ASSERT(FUNCTION_IS_COROUTINE(selected) == FALSE);
+  }
+
+  ::out_of_range STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR selected := FUNCTUM_GET_OVERLOAD(candidate, FUNCTUM_OVERLOAD_COUNT(candidate));
+  }
+
+  ::negative_index STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR selected := FUNCTUM_GET_OVERLOAD(candidate, -1);
+  }
+
+  ::non_functum STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    FUNCTUM_OVERLOAD_COUNT(I32);
+  }
+
+  ::unselected_function STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    FUNCTION_CAN_INSTANTIATE_WITH(candidate, @value I32);
+  }
+
+  PRIVATE(RUNTIME_MODULE) ::restricted FUNCTION(): I32 { RETURN 1; }
+  ::restricted FUNCTION(@value I32): I32 { RETURN value; }
+
+  DOC <$ Overload reflection preserves declaration access restrictions. $>
+  ::private_overload STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR selected := FUNCTUM_GET_OVERLOAD(restricted, 0);
+  }
+}

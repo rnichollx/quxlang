@@ -35,7 +35,7 @@ IMPORT std;
     TEST_ASSERT(SAME_TYPES(TYPEOF(handle.address()), MUT->VOID));
     VAR identity MUT->VOID := handle.address();
     TEST_ASSERT(identity!?);
-    VAR restored AUTO := std::cpp_coroutine_handle#(VOID)::from_address(@address identity);
+    VAR restored := std::cpp_coroutine_handle#(VOID)::from_address(@address identity);
     TEST_ASSERT(restored == handle);
     TEST_ASSERT(restored!?);
   }
@@ -44,11 +44,11 @@ IMPORT std;
   ::typed_handle DUAL_TEST
   {
     VAR scheduler std::cpp_style_coroutine_base;
-    VAR pending AUTO := ON(scheduler) RUN value(@input 41);
+    VAR pending := ON(scheduler) RUN value(@input 41);
     TEST_ASSERT(pending.handle.done() == FALSE);
     VAR erased std::cpp_coroutine_handle#VOID := pending.handle;
     TEST_ASSERT(erased == pending.handle);
-    VAR restored AUTO := std::cpp_coroutine_handle#(task::promise_type)::from_address(@address pending.handle.address());
+    VAR restored := std::cpp_coroutine_handle#(task::promise_type)::from_address(@address pending.handle.address());
     TEST_ASSERT(restored == pending.handle);
     TEST_ASSERT(restored.promise()<- == pending.handle.promise()<-);
     erased.resume();
@@ -70,7 +70,7 @@ IMPORT std;
   {
     VAR scheduler std::cpp_style_coroutine_base;
     VAR steps I32;
-    VAR pending AUTO := ON(scheduler) RUN pause(@steps steps);
+    VAR pending := ON(scheduler) RUN pause(@steps steps);
     TEST_ASSERT(steps == 0);
     pending.handle.resume();
     TEST_ASSERT(steps == 1 && pending.handle.done() == FALSE);
@@ -85,7 +85,7 @@ IMPORT std;
   ::exception_delivery DUAL_TEST
   {
     VAR scheduler std::cpp_style_coroutine_base;
-    VAR pending AUTO := ON(scheduler) RUN fail();
+    VAR pending := ON(scheduler) RUN fail();
     pending.handle.resume();
     TEST_ASSERT(pending.handle.done());
     TEST_ASSERT(pending.handle.promise().error??);
@@ -121,11 +121,11 @@ IMPORT std;
     VAR scheduler std::cpp_style_coroutine_base;
     VAR destroyed I32;
     {
-      VAR pending AUTO := ON(scheduler) RUN owned(@capture tracked(@destroyed destroyed), @destroyed destroyed);
+      VAR pending := ON(scheduler) RUN owned(@capture tracked(@destroyed destroyed), @destroyed destroyed);
     }
     TEST_ASSERT(destroyed == 1);
     {
-      VAR pending AUTO := ON(scheduler) RUN owned(@capture tracked(@destroyed destroyed), @destroyed destroyed);
+      VAR pending := ON(scheduler) RUN owned(@capture tracked(@destroyed destroyed), @destroyed destroyed);
       pending.handle.resume();
       TEST_ASSERT(pending.handle.done() == FALSE);
     }
@@ -224,7 +224,7 @@ IMPORT std;
   ::yield_and_transform DUAL_TEST
   {
     VAR scheduler std::cpp_style_coroutine_base;
-    VAR pending AUTO := ON(scheduler) RUN sequence();
+    VAR pending := ON(scheduler) RUN sequence();
     pending.handle.resume();
     TEST_ASSERT(pending.handle.promise().value == 11);
     TEST_ASSERT(pending.handle.promise().transforms == 3);
@@ -265,7 +265,7 @@ IMPORT std;
   {
     VAR scheduler std::cpp_style_coroutine_base;
     VAR value I32 := 41;
-    VAR pending AUTO := ON(scheduler) RUN reference(@value value);
+    VAR pending := ON(scheduler) RUN reference(@value value);
     pending.handle.resume();
     TEST_ASSERT(pending.handle.done());
     TEST_ASSERT(value == 42 && pending.handle.promise().value == 42);
@@ -273,7 +273,7 @@ IMPORT std;
 
   ::child_call COROUTINE(): task
   {
-    VAR child AUTO := value(@input 41);
+    VAR child := value(@input 41);
     child.handle.resume();
     RETURN child.handle.promise().value + 1;
   }
@@ -288,13 +288,13 @@ IMPORT std;
   ::nested_call DUAL_TEST
   {
     VAR scheduler inherited_scheduler;
-    VAR pending AUTO := ON(scheduler) RUN child_call();
+    VAR pending := ON(scheduler) RUN child_call();
     pending.handle.resume();
     TEST_ASSERT(pending.handle.done());
     TEST_ASSERT(pending.handle.promise().value == 43);
     VAR source producer;
     source.offset := 2;
-    VAR member AUTO := ON(scheduler) RUN source.produce();
+    VAR member := ON(scheduler) RUN source.produce();
     member.handle.resume();
     TEST_ASSERT(member.handle.done());
     TEST_ASSERT(member.handle.promise().value == 42);
@@ -328,7 +328,7 @@ IMPORT std;
   ::transfer_parent COROUTINE(): task
   {
     VAR parent std::cpp_coroutine_handle#VOID;
-    VAR child AUTO := bounce(@parent parent);
+    VAR child := bounce(@parent parent);
     VAR operation start_child;
     operation.child := child.handle;
     operation.parent := parent<-;
@@ -340,7 +340,7 @@ IMPORT std;
   ::symmetric_transfer DUAL_TEST
   {
     VAR scheduler std::cpp_style_coroutine_base;
-    VAR pending AUTO := ON(scheduler) RUN transfer_parent();
+    VAR pending := ON(scheduler) RUN transfer_parent();
     pending.handle.resume();
     TEST_ASSERT(pending.handle.done());
     TEST_ASSERT(pending.handle.promise().value == 99);
@@ -366,7 +366,7 @@ IMPORT std;
   {
     VAR scheduler std::cpp_style_coroutine_base;
     VAR destroyed I32;
-    VAR result AUTO := ON(scheduler) RUN eager(@destroyed destroyed);
+    VAR result := ON(scheduler) RUN eager(@destroyed destroyed);
     TEST_ASSERT(destroyed == 1);
   }
 
@@ -389,7 +389,7 @@ IMPORT std;
     VAR scheduler std::cpp_style_coroutine_base;
     VAR destroyed I32;
     VAR caught BOOL;
-    TRY { VAR result AUTO := ON(scheduler) RUN fail_creation(@capture tracked(@destroyed destroyed)); }
+    TRY { VAR result := ON(scheduler) RUN fail_creation(@capture tracked(@destroyed destroyed)); }
     CATCH error CONST& I32 { caught := error == 23; }
     TEST_ASSERT(caught && destroyed == 1);
   }
@@ -402,7 +402,7 @@ IMPORT std;
   {
     VAR source I32 := 40;
     VAR destroyed I32;
-    VAR callable AUTO := -< [=source, destroyed]: task
+    VAR callable := -< [=source, destroyed]: task
     {
       VAR local tracked:(@destroyed destroyed);
       AWAIT(std::cpp_suspend_always());
@@ -410,7 +410,7 @@ IMPORT std;
     };
     source := 1;
     VAR scheduler std::cpp_style_coroutine_base;
-    VAR pending AUTO := ON(scheduler) RUN callable();
+    VAR pending := ON(scheduler) RUN callable();
     pending.handle.resume();
     TEST_ASSERT(pending.handle.done() == FALSE);
     TEST_ASSERT(destroyed == 0);
@@ -424,7 +424,7 @@ IMPORT std;
   ::lambda_destroy_suspended DUAL_TEST
   {
     VAR destroyed I32;
-    VAR callable AUTO := -< : task
+    VAR callable := -< : task
     {
       VAR local tracked:(@destroyed destroyed);
       AWAIT(std::cpp_suspend_always());
@@ -432,7 +432,7 @@ IMPORT std;
     };
     VAR scheduler std::cpp_style_coroutine_base;
     {
-      VAR pending AUTO := ON(scheduler) RUN callable();
+      VAR pending := ON(scheduler) RUN callable();
       pending.handle.resume();
       TEST_ASSERT(destroyed == 0);
     }

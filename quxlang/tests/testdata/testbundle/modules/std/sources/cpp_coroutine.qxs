@@ -139,7 +139,7 @@ PRIVATE(MODULE)
       }
       STATIC_ELSE
       {
-        VAR result AUTO := .value.await_suspend(@handle handle);
+        VAR result := .value.await_suspend(@handle handle);
         STATIC_IF(SAME_TYPES(DECLTYPE(result), BOOL)) { RETURN result; }
         STATIC_ELSE { handle.control->.transfer := result.control; RETURN TRUE; }
       }
@@ -260,7 +260,7 @@ PRIVATE(MODULE)
     .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
     {
       VAR scheduler cpp_style_coroutine_base;
-      VAR result AUTO := scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+      VAR result := scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
       RETURN cpp_coroutine_call_result#DECLTYPE(result)(@value MOVE(result));
     }
     DOC <$ Launches a child and returns its ownership object directly. $>
@@ -371,7 +371,7 @@ DOC <$ Launches coroutines using the declared return type's promise_type and C++
   DOC <$ Allocates stable invocation storage, obtains the promise's return object, and starts initial suspension. $>
   .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
   {
-    VAR descriptor AUTO := cpp_coroutine_select(@COROUTINE child, @ARGUMENTS arguments);
+    VAR descriptor := cpp_coroutine_select(@COROUTINE child, @ARGUMENTS arguments);
     RETURN cpp_coroutine_launch#descriptor(@ARGUMENTS COMPOSITE_FORWARD(arguments));
   }
 }
@@ -392,9 +392,9 @@ PRIVATE(MODULE)
   DOC <$ Constructs a selected invocation and starts it after obtaining its return object. $>
   ::cpp_coroutine_launch TEMPLATE(@T:descriptor_type TYPE AUTO) FUNCTION(@ARGUMENTS:arguments AUTO& AUTO): AUTO
   {
-    VAR initial_type AUTO := TYPEOF(cpp_coroutine_adapt(@ARG descriptor_type::RETURN_TYPE::promise_type().initial_suspend()));
-    VAR final_type AUTO := TYPEOF(cpp_coroutine_adapt(@ARG descriptor_type::RETURN_TYPE::promise_type().final_suspend()));
-    VAR invocation_type AUTO := cpp_coroutine_invocation#(@T descriptor_type, @initial_type initial_type, @final_type final_type);
+    VAR initial_type := TYPEOF(cpp_coroutine_adapt(@ARG descriptor_type::RETURN_TYPE::promise_type().initial_suspend()));
+    VAR final_type := TYPEOF(cpp_coroutine_adapt(@ARG descriptor_type::RETURN_TYPE::promise_type().final_suspend()));
+    VAR invocation_type := cpp_coroutine_invocation#(@T descriptor_type, @initial_type initial_type, @final_type final_type);
     VAR invocation MUT->invocation_type := NEW invocation_type:(@ARGUMENTS COMPOSITE_FORWARD(arguments));
     VAR result descriptor_type::RETURN_TYPE := cpp_coroutine_return_object(@invocation invocation);
     invocation->.start();

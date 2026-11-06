@@ -16,8 +16,8 @@ LANGUAGE QUXLANG EN 0.0;
   ::returned_binding DUAL_TEST
   {
     VAR count I32;
-    VAR arguments AUTO := :{ .value = I32(@OTHER 41); };
-    VAR selected AUTO := select(@count count, @arguments arguments);
+    VAR arguments := :{ .value = I32(@OTHER 41); };
+    VAR selected := select(@count count, @arguments arguments);
     TEST_ASSERT(count == 1);
     TEST_ASSERT(selected(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments))) == 42);
   }
@@ -25,8 +25,8 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$ Specialization unpack preserves the positional ordering of composite fields. $>
   ::positional_types DUAL_TEST
   {
-    VAR arguments AUTO := :{ [0] = I32(@OTHER 19); [1] = I32(@OTHER 23); };
-    VAR selected AUTO := sum#(COMPOSITE_UNPACK(TYPEOF(arguments)));
+    VAR arguments := :{ [0] = I32(@OTHER 19); [1] = I32(@OTHER 23); };
+    VAR selected := sum#(COMPOSITE_UNPACK(TYPEOF(arguments)));
     TEST_ASSERT(selected(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments))) == 42);
   }
 
@@ -41,20 +41,20 @@ LANGUAGE QUXLANG EN 0.0;
   DOC <$ Explicit invocation rejects arguments outside the selected specialization. $>
   ::extra_argument STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR selected AUTO := increment#(@value I32);
+    VAR selected := increment#(@value I32);
     selected(@value 41, @extra 1);
   }
 
   DOC <$ Specialization rejects duplicate named arguments introduced by unpacking. $>
   ::duplicate_named_type STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR arguments AUTO := :{ .value = I32(@OTHER 41); };
-    VAR selected AUTO := increment#(@value I32, COMPOSITE_UNPACK(TYPEOF(arguments)));
+    VAR arguments := :{ .value = I32(@OTHER 41); };
+    VAR selected := increment#(@value I32, COMPOSITE_UNPACK(TYPEOF(arguments)));
   }
 
   DOC <$ Function specialization requires a composite type as the unpack operand. $>
   ::non_composite_type STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR selected AUTO := increment#(COMPOSITE_UNPACK(I32));
+    VAR selected := increment#(COMPOSITE_UNPACK(I32));
   }
 }

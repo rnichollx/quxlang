@@ -146,8 +146,8 @@ LANGUAGE QUXLANG EN 0.0;
     };
     TEST_ASSERT(elements == 6);
 
-    VAR indexes AUTO := values.INDEXES();
-    VAR cursor AUTO := indexes.BEGIN();
+    VAR indexes := values.INDEXES();
+    VAR cursor := indexes.BEGIN();
     TEST_ASSERT(cursor-> == 0);
     cursor += 3;
     TEST_ASSERT(cursor-> == 3);
@@ -159,7 +159,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::temporary_array_indexes DUAL_TEST
   {
     VAR temporary_visits SZ := 0;
-    VAR indexes AUTO := [2]I32(% [7, 8]).INDEXES();
+    VAR indexes := [2]I32(% [7, 8]).INDEXES();
     LOOP ITEM(index) IN(indexes) DO
     {
       TEST_ASSERT(index == temporary_visits);

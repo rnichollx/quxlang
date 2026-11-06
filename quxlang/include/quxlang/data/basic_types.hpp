@@ -31,6 +31,9 @@
 /** Selects policy-controlled assertions or invariants, unconditional assertions, or exception-based expectations. */
 RPNX_ENUM(quxlang, assertion_kind, std::uint8_t, policy_assert, test_assert, test_expect, policy_invariant);
 
+/** Selects invocation viability or specialization viability for a callable binding. */
+RPNX_ENUM(quxlang, callable_test_operation, std::uint8_t, invocable, coroutine_invocable, function_instantiable);
+
 /** Identifies a public field metadata operation. */
 RPNX_ENUM(quxlang, public_field_operation, std::uint16_t, count, name, contains);
 
@@ -1888,12 +1891,27 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_public_field_metadata, operation, subject_type, selector);
     };
 
-    /** Tests invocation viability with explicit argument types through ordinary overload resolution. */
-    struct expression_is_functum_callable_with
+    /** Tests invocation or specialization viability with explicit argument types. */
+    struct expression_callable_test
     {
         initialization_reference invocation;
-        bool require_coroutine = false;
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_is_functum_callable_with, invocation, require_coroutine);
+        callable_test_operation operation = callable_test_operation::invocable;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_callable_test, invocation, operation);
+    };
+
+    /** Counts overload declarations or selects one declaration by its canonical ordinal. */
+    struct expression_functum_overload
+    {
+        type_symbol callable;
+        std::optional< expression > index;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_functum_overload, callable, index);
+    };
+
+    /** Reports the execution kind of one selected function declaration or specialization. */
+    struct expression_function_is_coroutine
+    {
+        type_symbol callable;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_function_is_coroutine, callable);
     };
 
     /** Tests whether a callable binding contains a coroutine overload before selection. */

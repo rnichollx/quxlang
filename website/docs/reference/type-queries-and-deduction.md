@@ -73,6 +73,53 @@ selection, then returns `TRUE` only when the selected declaration is a coroutine
 A synchronous function that accepts a `CONTROLLER` argument therefore produces
 `FALSE`. The query preserves ambiguous-selection diagnostics.
 
+## Function overload reflection
+
+`FUNCTUM_OVERLOAD_COUNT(F)` returns a compile-time numeric literal containing the
+number of function declarations in functum `F`. The count includes coroutine,
+ordinary, disabled, private, and compiler-provided overloads. Function templates
+require explicit template specialization before enumeration.
+
+`FUNCTUM_GET_OVERLOAD(F, N)` returns the function declaration binding at the
+zero-based, compile-time integer index `N`. The result can occur in a type-symbol
+position or initialize a compile-time binding. An out-of-range index or an
+inaccessible selected declaration produces a compilation error. Enumeration uses
+the compiler's canonical overload order: user declarations precede builtin
+entries. Indices identify declarations within the compiled source bundle; source
+changes and target-specific builtin inventories can change these indices.
+
+`FUNCTION_CAN_INSTANTIATE_WITH(F, @name Type, % [Type, ...])` tests specialization
+of one selected function declaration. Its type arguments support the same named,
+positional, and `COMPOSITE_UNPACK` forms as function specialization. The query
+applies parameter deduction, adaptation, defaults, and declaration constraints.
+It returns `FALSE` when specialization is unavailable. Invalid operands and access
+violations produce compilation errors. The query does not validate the function
+body. A coroutine's omitted controller uses specialization's deferred controller
+semantics; ordinary invocation requires a controller argument.
+
+`FUNCTION_IS_COROUTINE(F)` returns a constant `BOOL` indicating whether a selected
+function declaration or instantiated function is a coroutine.
+
+```quxlang
+::operation FUNCTION(@value I32): I32 { RETURN value + 1; }
+::operation COROUTINE(@value I32): I32 { RETURN value + 2; }
+
+::inspect_overloads STATIC_TEST
+{
+  TEST_ASSERT(FUNCTUM_OVERLOAD_COUNT(operation) == 2);
+  VAR first := FUNCTUM_GET_OVERLOAD(operation, 0);
+  VAR second := FUNCTUM_GET_OVERLOAD(operation, 1);
+  VAR ordinary := STATIC_CHOOSE(FUNCTION_IS_COROUTINE(first), second, first);
+  TEST_ASSERT(FUNCTION_CAN_INSTANTIATE_WITH(ordinary, @value I32));
+  VAR selected := ordinary#(@value I32);
+  TEST_ASSERT(selected(@value 41) == 42);
+}
+```
+
+A reflected declaration is specialized with `#(...)` before invocation. Member
+specializations require an explicit `@THIS` type. These queries expose selection
+tools to controller implementations; `CO_GO` determines its own selection policy.
+
 ## Polymorphism trait
 
 ```quxlang

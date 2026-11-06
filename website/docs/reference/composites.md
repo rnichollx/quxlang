@@ -293,8 +293,8 @@ Inside a function specialization, `COMPOSITE_UNPACK(type)` accepts a composite
 type and expands its field types into specialization arguments:
 
 ```quxlang
-VAR arguments AUTO := :[3 AS I32, 5 AS I32];
-VAR selected AUTO := sum#(COMPOSITE_UNPACK(TYPEOF(arguments)), @offset I32);
+VAR arguments := :[3 AS I32, 5 AS I32];
+VAR selected := sum#(COMPOSITE_UNPACK(TYPEOF(arguments)), @offset I32);
 VAR result I32 := selected(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)), @offset 7);
 ```
 

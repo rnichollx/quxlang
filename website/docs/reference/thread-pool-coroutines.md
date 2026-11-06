@@ -11,7 +11,7 @@ IMPORT std;
 ::sum COROUTINE(@depth I32): I32
 {
   IF (depth == 0) { RETURN 1; }
-  VAR independent AUTO := GO increment(@value depth);
+  VAR independent := GO increment(@value depth);
   VAR recursive I32 := sum(@depth depth - 1);
   RETURN recursive + AWAIT(independent);
 }
@@ -19,7 +19,7 @@ IMPORT std;
 ::example FUNCTION(): I32
 {
   VAR runtime std::thread_pool_cort_runtime:(@workers 2);
-  VAR result AUTO := ON(runtime) RUN sum(@depth 4);
+  VAR result := ON(runtime) RUN sum(@depth 4);
   RETURN result.get();
 }
 ```
@@ -120,7 +120,7 @@ parameters. Argument conversions and default expressions run during capture.
 The selected function body runs when the stored call is invoked:
 
 ```quxlang
-VAR bound AUTO := BIND_CALL increment(@value 41);
+VAR bound := BIND_CALL increment(@value 41);
 VAR result I32 := APPLY COMPOSITE_FORWARD(COMPOSITE_FIELD_GET(bound, "ARGUMENTS"))
   TO COMPOSITE_FIELD_GET(bound, "CALLEE");
 ```

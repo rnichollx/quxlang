@@ -61,6 +61,8 @@
 #include "quxlang/queries/function_param_names.hpp"
 #include "quxlang/queries/function_primitive.hpp"
 #include "quxlang/queries/functum_overloads.hpp"
+#include <quxlang/queries/functum_map_user_formal_ensigs.hpp>
+#include <quxlang/queries/functum_builtin_overloads.hpp>
 #include "quxlang/queries/functum_select_function.hpp"
 #include "quxlang/queries/fusion_layout.hpp"
 #include "quxlang/queries/global_init_type.hpp"
@@ -4080,23 +4082,65 @@ namespace quxlang
             throw compiler_bug("Unknown public field metadata operation");
         }
 
-        /** Resolves an invocation with type arguments without generating a call or evaluating defaults. */
-        auto co_generate(block_index& block, expression_is_functum_callable_with const& expr) -> co_type< value_index >
+        /** Tests invocation or specialization with argument types without generating a call or evaluating defaults. */
+        auto co_generate(block_index& block, expression_callable_test const& expr) -> co_type< value_index >
         {
-            type_symbol invocation = expr.invocation;
+            initialization_reference request = expr.invocation;
             lexical_block = block;
-            co_await co_prepare_type(invocation);
+            co_await co_prepare_value(request);
+            if (expr.operation == callable_test_operation::function_instantiable)
+            {
+                type_symbol function = co_await co_resolve_type_symbol(block, request.initializee);
+                if (function.template type_is< attached_type_reference >()) function = function.template get_as< attached_type_reference >().attached_symbol;
+                if ((co_await rpnx::querygraph::request< symbol_type_query >(function)) != symbol_kind::function)
+                    throw semantic_compilation_error("FUNCTION_CAN_INSTANTIATE_WITH requires a selected function declaration");
+                request.initializee = std::move(function);
+            }
+            type_symbol invocation = std::move(request);
             std::optional< type_symbol > selected = co_await rpnx::querygraph::request< lookup_query >(
                 contextual_type_reference{.context = body_context(), .type = std::move(invocation)});
             bool callable = selected.has_value() && selected->template type_is< instanciation_reference >() &&
                 (co_await rpnx::querygraph::request< symbol_type_query >(*selected)) == symbol_kind::funtanoid;
-            if (callable && expr.require_coroutine)
+            if (callable && expr.operation == callable_test_operation::coroutine_invocable)
             {
                 std::optional< ast2_function_declaration > const& declaration = co_await rpnx::querygraph::request< function_declaration_query >(
                     selected->template get_as< instanciation_reference >().temploid);
                 callable = declaration.has_value() && declaration->header.execution_kind == function_execution_kind::coroutine;
             }
             co_return create_bool_value(block, callable);
+        }
+
+        /** Reflects canonical user and builtin overload ordinals without deduplicating their signatures. */
+        auto co_generate(block_index& block, expression_functum_overload const& expr) -> co_type< value_index >
+        {
+            type_symbol callable = co_await co_resolve_type_symbol(block, expr.callable);
+            if (callable.template type_is< attached_type_reference >()) callable = callable.template get_as< attached_type_reference >().attached_symbol;
+            if ((co_await rpnx::querygraph::request< symbol_type_query >(callable)) != symbol_kind::functum)
+                throw semantic_compilation_error("Overload reflection requires a functum binding");
+            std::map< temploid_ensig, std::size_t > const& user = co_await rpnx::querygraph::request< functum_map_user_formal_ensigs_query >(callable);
+            std::set< temploid_ensig > const& builtin = co_await rpnx::querygraph::request< functum_builtin_overloads_query >(callable);
+            std::size_t count = user.size() + builtin.size();
+            if (!expr.index.has_value()) co_return create_numeric_literal(std::to_string(count));
+            std::uint64_t index = co_await co_constexpr_u64(block, *expr.index);
+            if (index >= count) throw semantic_compilation_error("Functum overload index out of range");
+            temploid_reference selected{.templexoid = std::move(callable), .overload_id = index};
+            if (!(co_await rpnx::querygraph::request< declaration_is_accessible_query >(
+                declaration_access_request{.accessor_context = body_context(), .selected_declaration = selected})))
+                throw semantic_compilation_error("Selected function overload is private in this context");
+            co_return create_binding(value_index(0), std::move(selected));
+        }
+
+        /** Reports coroutine execution for one function declaration or specialization. */
+        auto co_generate(block_index& block, expression_function_is_coroutine const& expr) -> co_type< value_index >
+        {
+            type_symbol function = co_await co_resolve_type_symbol(block, expr.callable);
+            if (function.template type_is< attached_type_reference >()) function = function.template get_as< attached_type_reference >().attached_symbol;
+            symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(function);
+            if (kind == symbol_kind::funtanoid) function = function.template get_as< instanciation_reference >().temploid;
+            else if (kind != symbol_kind::function) throw semantic_compilation_error("FUNCTION_IS_COROUTINE requires a selected function declaration or specialization");
+            std::optional< ast2_function_declaration > const& declaration = co_await rpnx::querygraph::request< function_declaration_query >(
+                function.template get_as< temploid_reference >());
+            co_return create_bool_value(block, declaration.has_value() && declaration->header.execution_kind == function_execution_kind::coroutine);
         }
 
         /** Tests execution-controller participation without selecting or adapting an overload. */

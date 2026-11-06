@@ -8,7 +8,7 @@ LANGUAGE QUXLANG EN 0.0;
 
     .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: I32
     {
-      VAR selected AUTO := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER coroutine_call_tests::controller);
+      VAR selected := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER coroutine_call_tests::controller);
       .observed->.calls += 1;
       VAR adapted coroutine_call_tests::controller;
       adapted.observed := .observed;
@@ -42,7 +42,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR execution scheduler;
     execution.observed := observed<-;
     VAR count I32;
-    VAR result AUTO := ON(select_scheduler(@COUNT count, @execution execution)) RUN value(@VALUE argument(@COUNT count));
+    VAR result := ON(select_scheduler(@COUNT count, @execution execution)) RUN value(@VALUE argument(@COUNT count));
     TEST_ASSERT(count == 2);
     TEST_ASSERT(result == 10);
     TEST_ASSERT(observed.calls == 1);
@@ -58,7 +58,7 @@ LANGUAGE QUXLANG EN 0.0;
     VAR receiver coroutine_call_tests::receiver;
     receiver.base := 20;
     VAR count I32;
-    VAR result AUTO := ON(execution) RUN receiver_ref(@RECEIVER receiver, @COUNT count).increase(@VALUE 3) + 4;
+    VAR result := ON(execution) RUN receiver_ref(@RECEIVER receiver, @COUNT count).increase(@VALUE 3) + 4;
     TEST_ASSERT(result == 27);
     TEST_ASSERT(count == 1);
   }
@@ -83,8 +83,8 @@ LANGUAGE QUXLANG EN 0.0;
     .ready VAR BOOL;
     .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
     {
-      VAR selected AUTO := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER coroutine_call_tests::controller);
-      VAR value AUTO := .entry.CO_RUN(@COROUTINE child, @ARGUMENTS arguments);
+      VAR selected := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER coroutine_call_tests::controller);
+      VAR value := .entry.CO_RUN(@COROUTINE child, @ARGUMENTS arguments);
       STATIC_IF(SAME_TYPES(selected::RETURN_TYPE, VOID))
       {
         VAR gate void_launch_gate;
@@ -141,9 +141,9 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::parent COROUTINE(@result MUT& I32)
   {
-    VAR task AUTO := GO value(@VALUE 9);
+    VAR task := GO value(@VALUE 9);
     result := task.value;
-    VAR completed AUTO := AWAIT(task);
+    VAR completed := AWAIT(task);
     result += AWAIT(completed);
   }
 

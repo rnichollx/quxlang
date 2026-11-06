@@ -445,21 +445,45 @@ namespace quxlang::parsers
             }
             *value_bind_point = std::move(intrinsic);
         }
-        else if (kw_pre_translate == "IS_FUNCTUM_CALLABLE_WITH" || kw_pre_translate == "IS_COROUTINE_CALLABLE_WITH")
+        else if (kw_pre_translate == "IS_FUNCTUM_CALLABLE_WITH" || kw_pre_translate == "IS_COROUTINE_CALLABLE_WITH" || kw_pre_translate == "FUNCTION_CAN_INSTANTIATE_WITH")
         {
             skip_keyword_if_is(pos, end, kw_pre_translate);
-            expression_is_functum_callable_with intrinsic;
-            intrinsic.require_coroutine = kw_pre_translate == "IS_COROUTINE_CALLABLE_WITH";
+            expression_callable_test intrinsic;
+            intrinsic.operation = kw_pre_translate == "FUNCTION_CAN_INSTANTIATE_WITH" ? callable_test_operation::function_instantiable :
+                kw_pre_translate == "IS_COROUTINE_CALLABLE_WITH" ? callable_test_operation::coroutine_invocable : callable_test_operation::invocable;
             skip_whitespace_and_comments(pos, end);
-            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after IS_FUNCTUM_CALLABLE_WITH");
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after " + kw_pre_translate);
             intrinsic.invocation.initializee = parse_type_symbol(ctx);
-            intrinsic.invocation.lookup_kind = function_lookup_kind::invocation;
+            intrinsic.invocation.lookup_kind = intrinsic.operation == callable_test_operation::function_instantiable ?
+                function_lookup_kind::specialization : function_lookup_kind::invocation;
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
                 if (!skip_symbol_if_is(pos, end, ",")) throw syntax_compilation_error("Expected ',' before callability argument types");
                 intrinsic.invocation.arguments = parse_call_argument_list(ctx, ")");
             }
+            *value_bind_point = std::move(intrinsic);
+        }
+        else if (kw_pre_translate == "FUNCTUM_OVERLOAD_COUNT")
+        {
+            skip_keyword_if_is(pos, end, kw_pre_translate);
+            expression_functum_overload intrinsic;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after FUNCTUM_OVERLOAD_COUNT");
+            intrinsic.callable = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after FUNCTUM_OVERLOAD_COUNT");
+            *value_bind_point = std::move(intrinsic);
+        }
+        else if (kw_pre_translate == "FUNCTION_IS_COROUTINE")
+        {
+            skip_keyword_if_is(pos, end, kw_pre_translate);
+            expression_function_is_coroutine intrinsic;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after FUNCTION_IS_COROUTINE");
+            intrinsic.callable = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after FUNCTION_IS_COROUTINE");
             *value_bind_point = std::move(intrinsic);
         }
         else if (kw_pre_translate == "HAS_COROUTINE_OVERLOAD")

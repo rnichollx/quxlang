@@ -575,6 +575,19 @@ namespace quxlang::parsers
 
             output = std::move(result);
         }
+        else if (skip_keyword_if_is(pos, end, "FUNCTUM_GET_OVERLOAD"))
+        {
+            expression_functum_overload selection;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after FUNCTUM_GET_OVERLOAD");
+            selection.callable = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ",")) throw syntax_compilation_error("Expected overload index");
+            selection.index = parse_expression(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after FUNCTUM_GET_OVERLOAD");
+            output = typeof_type_ref{.operand = expression(std::move(selection))};
+        }
         else if (skip_keyword_if_is(pos, end, "TYPEOF"))
         {
             typeof_type_ref result;

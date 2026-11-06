@@ -66,7 +66,7 @@ AUTO increment := -< (@value I32) = value + 1;
 ASSERT(increment(@value 41) == 42);
 
 VAR runtime std::thread_pool_cort_runtime:(@workers 1);
-VAR pending AUTO := ON(runtime) RUN increment(@value 41);
+VAR pending := ON(runtime) RUN increment(@value 41);
 ASSERT(pending.get() == 42);
 ```
 

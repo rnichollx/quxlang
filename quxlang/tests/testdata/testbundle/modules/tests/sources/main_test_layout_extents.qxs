@@ -4,12 +4,12 @@ LANGUAGE QUXLANG EN 0.0;
 {
   ::array_multiplication STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := SIZEOF([2305843009213693952]U64);
+    VAR size := SIZEOF([2305843009213693952]U64);
   }
 
   ::nested_array STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := SIZEOF([2][9223372036854775808]BYTE);
+    VAR size := SIZEOF([2][9223372036854775808]BYTE);
   }
 
   ::maximum_payload STRUCT
@@ -25,7 +25,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::fields STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := SIZEOF(oversized_fields);
+    VAR size := SIZEOF(oversized_fields);
   }
 
   ::rounded_payload STRUCT ALIGN(8)
@@ -35,7 +35,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::alignment_rounding STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := CELLSIZEOF(rounded_payload);
+    VAR size := CELLSIZEOF(rounded_payload);
   }
 
   ::oversized_derived STRUCT
@@ -46,7 +46,7 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::base_and_field STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := SIZEOF(oversized_derived);
+    VAR size := SIZEOF(oversized_derived);
   }
 
   ::oversized_virtual STRUCT VIRTUAL_POLYMORPHIC
@@ -56,24 +56,24 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::virtual_base STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := SIZEOF(oversized_virtual);
+    VAR size := SIZEOF(oversized_virtual);
   }
 
   ::oversized_fusion INLINE_VARIANT [maximum_payload, VOID];
 
   ::fusion_tag STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := SIZEOF(oversized_fusion);
+    VAR size := SIZEOF(oversized_fusion);
   }
 
   ::target_addressability INCLUDE_IF(SIZEOF(SZ) == 4) STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := SIZEOF([4294967296]BYTE);
+    VAR size := SIZEOF([4294967296]BYTE);
   }
 
   ::aligned_storage_extent INCLUDE_IF(SIZEOF(SZ) == 4) STATIC_TEST EXPECT_COMPILATION_FAILURE
   {
-    VAR size AUTO := SIZEOF(ALIGNED_STORAGE(4294967296, 1));
+    VAR size := SIZEOF(ALIGNED_STORAGE(4294967296, 1));
   }
 
   ::aligned_boundary STRUCT ALIGN(8)

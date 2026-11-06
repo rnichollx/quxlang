@@ -60,7 +60,7 @@ AUTO compute := -< (@value I32): I32
   RETURN value + 1;
 };
 VAR runtime std::thread_pool_cort_runtime:(@workers 1);
-VAR result AUTO := ON(runtime) RUN compute(@value 41);
+VAR result := ON(runtime) RUN compute(@value 41);
 ASSERT(result.get() == 42);
 ```
 
