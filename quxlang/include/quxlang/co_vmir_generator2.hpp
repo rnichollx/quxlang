@@ -4080,6 +4080,25 @@ namespace quxlang
             throw compiler_bug("Unknown public field metadata operation");
         }
 
+        /** Resolves an invocation with type arguments without generating a call or evaluating defaults. */
+        auto co_generate(block_index& block, expression_is_functum_callable_with const& expr) -> co_type< value_index >
+        {
+            type_symbol invocation = expr.invocation;
+            lexical_block = block;
+            co_await co_prepare_type(invocation);
+            std::optional< type_symbol > selected = co_await rpnx::querygraph::request< lookup_query >(
+                contextual_type_reference{.context = body_context(), .type = std::move(invocation)});
+            bool callable = selected.has_value() && selected->template type_is< instanciation_reference >() &&
+                (co_await rpnx::querygraph::request< symbol_type_query >(*selected)) == symbol_kind::funtanoid;
+            if (callable && expr.require_coroutine)
+            {
+                std::optional< ast2_function_declaration > const& declaration = co_await rpnx::querygraph::request< function_declaration_query >(
+                    selected->template get_as< instanciation_reference >().temploid);
+                callable = declaration.has_value() && declaration->header.execution_kind == function_execution_kind::coroutine;
+            }
+            co_return create_bool_value(block, callable);
+        }
+
         /** Tests execution-controller participation without selecting or adapting an overload. */
         auto co_generate(block_index& block, expression_has_coroutine_overload const& expr) -> co_type< value_index >
         {

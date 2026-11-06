@@ -149,6 +149,10 @@ capture is valid, and the fields preserve supplied argument types.
 the capture. The spelling `@...` is not accepted. See
 [Composites](composites.md#kwargs-parameters) for the complete capture rules.
 
+The reserved arguments `THIS`, `RETURN`, and `CONTROLLER` cannot be captured by
+a named argument pack. A `CONTROLLER` argument requires an explicit parameter
+in the selected declaration.
+
 ## Parameter types and access
 
 Value parameters initialize a local parameter object. Reference types express

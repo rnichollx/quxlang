@@ -310,7 +310,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         auto it = ensig.interface.named.find(name);
         if (it == ensig.interface.named.end())
         {
-            if (!ensig.interface.accepts_named_rest || input.implicit_named_arguments.contains(name) || name == "RETURN" || name == "THIS")
+            if (!ensig.interface.accepts_named_rest || input.implicit_named_arguments.contains(name) || name == "RETURN" || name == "THIS" || name == "CONTROLLER")
             {
                 co_return std::nullopt;
             }

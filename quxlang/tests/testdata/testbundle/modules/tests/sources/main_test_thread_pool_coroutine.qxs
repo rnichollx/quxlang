@@ -264,6 +264,67 @@ IMPORT std;
     TEST_ASSERT(result.get() == 42);
   }
 
+  ::explicit_controller FUNCTION(@CONTROLLER I32): I32 { RETURN CONTROLLER; }
+  ::packed_callability FUNCTION(@value I32, @KWARGS ...): I32 { RETURN value; }
+  ::positional_callability FUNCTION(%value I32): I32 { RETURN value; }
+  ::disabled_callability FUNCTION(@value I32) ENABLE_IF(FALSE): I32 { RETURN value; }
+  ::disjoint FUNCTION(@value I32, @amount I32 DEFAULT(2)): I32 { RETURN value + amount; }
+  ::disjoint COROUTINE(@other BOOL): I32 { RETURN 19; }
+  ::typed_dispatch FUNCTION(@value I32): I32 { RETURN value; }
+  ::typed_dispatch COROUTINE(@value MUT& BOOL): I32 { RETURN 0; }
+  ::mixed_receiver STRUCT
+  {
+    .dispatch FUNCTION(@value I32): I32 { RETURN value; }
+    .dispatch COROUTINE(@value MUT& BOOL): I32 { RETURN 0; }
+  }
+  ::disjoint_call COROUTINE(): I32
+  {
+    VAR result AUTO := GO disjoint(@value 40);
+    TEST_ASSERT(AWAIT(result) == 42);
+    VAR typed AUTO := GO typed_dispatch(@value 42);
+    TEST_ASSERT(AWAIT(typed) == 42);
+    VAR packed AUTO := GO packed_callability(@value 42);
+    TEST_ASSERT(AWAIT(packed) == 42);
+    VAR receiver mixed_receiver;
+    VAR member AUTO := GO receiver.dispatch(@value 42);
+    RETURN AWAIT(member);
+  }
+
+  DOC <$ GO selects a synchronous overload when the supplied arguments cannot call a coroutine overload. $>
+  ::disjoint_binding UNIT_TEST
+  {
+    VAR runtime std::thread_pool_cort_runtime:(@workers 1);
+    VAR result AUTO := ON(runtime) RUN disjoint_call();
+    TEST_ASSERT(result.get() == 42);
+  }
+
+  DOC <$ A named argument pack cannot capture an execution controller argument. $>
+  ::controller_pack_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    packed_callability(@CONTROLLER 1, @value 42);
+  }
+
+  DOC <$ Callability considers supplied types, default parameters, and explicit execution controllers. $>
+  ::callability DUAL_TEST
+  {
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(explicit_controller, @CONTROLLER I32));
+    TEST_ASSERT(explicit_controller(@CONTROLLER 42) == 42);
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(positional_callability, % [I32]));
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(disabled_callability, @value I32) == FALSE);
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(disjoint, @value I32));
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(disjoint, @CONTROLLER AUTO, @value I32) == FALSE);
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(disjoint, @CONTROLLER AUTO, @other BOOL));
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(disjoint, @missing I32) == FALSE);
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(disjoint) == FALSE);
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(mixed));
+    TEST_ASSERT(IS_COROUTINE_CALLABLE_WITH(mixed) == FALSE);
+    TEST_ASSERT(IS_COROUTINE_CALLABLE_WITH(mixed, @CONTROLLER AUTO));
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(packed_callability, @CONTROLLER AUTO, @value I32) == FALSE);
+    TEST_ASSERT(IS_COROUTINE_CALLABLE_WITH(packed_callability, @CONTROLLER AUTO, @value I32) == FALSE);
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(typed_dispatch, @CONTROLLER AUTO, @value I32) == FALSE);
+    TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(typed_dispatch, @value I32));
+  }
+
   DOC <$ Moving producer and consumer ownership preserves one delivery and abandons a replaced producer immediately. $>
   ::move_ownership UNIT_TEST
   {

@@ -237,7 +237,10 @@ DOC <$ Connects a coroutine result to its pool and stable continuation. Recursiv
   DOC <$ Schedules a child and returns the future directly to a GO expression. $>
   .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
   {
-    STATIC_IF(HAS_COROUTINE_OVERLOAD(child))
+    STATIC_IF(STATIC_CHOOSE(COMPOSITE_CONTAINS(TYPEOF(arguments), "RECEIVER"),
+      IS_COROUTINE_CALLABLE_WITH(child, @CONTROLLER AUTO, @THIS COMPOSITE_FIELD_TYPE(TYPEOF(arguments), "RECEIVER"),
+        COMPOSITE_UNPACK(TYPEOF(COMPOSITE_EXCLUDE(arguments, "RECEIVER")))),
+      IS_COROUTINE_CALLABLE_WITH(child, @CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)))))
     {
       RETURN .entry->.runtime->.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
     }

@@ -34,6 +34,45 @@ inspects an object:
 - `TYPE_INDEX_OF(T)` produces the stable program type identity used by
   `TYPE_INDEX` values.
 
+## Function callability
+
+`IS_FUNCTUM_CALLABLE_WITH(binding, @name Type, % [Type, ...])` produces a constant
+`BOOL` indicating whether invocation lookup selects a function for the supplied
+argument types. The binding names a functum or a coroutine descriptor. Function
+templates require explicit template specialization before this query.
+
+```quxlang
+::increment FUNCTION(@value I32, @amount I32 DEFAULT(1)): I32
+{
+  RETURN value + amount;
+}
+
+::callability STATIC_TEST
+{
+  TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(increment, @value I32));
+  TEST_ASSERT(IS_FUNCTUM_CALLABLE_WITH(increment, @missing I32) == FALSE);
+}
+```
+
+Named and positional arguments follow function-specialization argument syntax
+and must name types. `COMPOSITE_UNPACK(CompositeType)` supplies field types as
+arguments. An omitted argument list tests a zero-argument invocation. Member
+functions require an explicit `@THIS` type, and coroutine candidates require an
+explicit `@CONTROLLER` type. `@CONTROLLER AUTO` permits selection of a partial
+coroutine descriptor.
+
+Lookup applies ordinary argument adaptation, default parameters, declaration
+constraints, and access control. No viable function produces `FALSE`. Ambiguous
+selection, inaccessible selected declarations, and malformed arguments produce
+compilation errors. The query does not execute a function or evaluate default
+argument values. Successful selection does not validate execution of the selected
+function body.
+
+`IS_COROUTINE_CALLABLE_WITH` accepts the same syntax and performs the same
+selection, then returns `TRUE` only when the selected declaration is a coroutine.
+A synchronous function that accepts a `CONTROLLER` argument therefore produces
+`FALSE`. The query preserves ambiguous-selection diagnostics.
+
 ## Polymorphism trait
 
 ```quxlang

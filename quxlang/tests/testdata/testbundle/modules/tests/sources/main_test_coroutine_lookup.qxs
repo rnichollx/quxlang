@@ -93,10 +93,9 @@ LANGUAGE QUXLANG EN 0.0;
     observe();
     observe(@CONTROLLER explicit);
     TEST_ASSERT(named_count(@value 7) == 1);
-    TEST_ASSERT(named_count(@CONTROLLER explicit, @value 7) == 2);
   }
 
-  DOC <$ Ordinary controller-taking functions receive the selected borrow while keyword packs retain only explicit arguments. $>
+  DOC <$ Ordinary controller-taking functions receive the selected borrow while keyword packs capture ordinary named arguments. $>
   ::ordinary_controller_arguments DUAL_TEST
   {
     VAR current_observed coroutine_call_tests::observations;

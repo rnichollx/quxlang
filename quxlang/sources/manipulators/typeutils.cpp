@@ -406,6 +406,20 @@ namespace quxlang
             return result + ")";
         }
 
+        /** Formats an invocation viability query with its explicit argument types. */
+        std::string operator()(expression_is_functum_callable_with const& expr) const
+        {
+            std::string result = std::string(expr.require_coroutine ? "IS_COROUTINE_CALLABLE_WITH(" : "IS_FUNCTUM_CALLABLE_WITH(") + to_string(expr.invocation.initializee);
+            for (expression_arg const& argument : expr.invocation.arguments)
+            {
+                result += ", ";
+                if (argument.unpack) result += "COMPOSITE_UNPACK(" + expr_to_string(argument.value) + ")";
+                else if (argument.name.has_value()) result += "@" + *argument.name + " " + expr_to_string(argument.value);
+                else result += "% [" + expr_to_string(argument.value) + "]";
+            }
+            return result + ")";
+        }
+
         /** Formats a callable execution-kind availability query. */
         std::string operator()(expression_has_coroutine_overload const& expr) const
         {

@@ -445,6 +445,23 @@ namespace quxlang::parsers
             }
             *value_bind_point = std::move(intrinsic);
         }
+        else if (kw_pre_translate == "IS_FUNCTUM_CALLABLE_WITH" || kw_pre_translate == "IS_COROUTINE_CALLABLE_WITH")
+        {
+            skip_keyword_if_is(pos, end, kw_pre_translate);
+            expression_is_functum_callable_with intrinsic;
+            intrinsic.require_coroutine = kw_pre_translate == "IS_COROUTINE_CALLABLE_WITH";
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after IS_FUNCTUM_CALLABLE_WITH");
+            intrinsic.invocation.initializee = parse_type_symbol(ctx);
+            intrinsic.invocation.lookup_kind = function_lookup_kind::invocation;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                if (!skip_symbol_if_is(pos, end, ",")) throw syntax_compilation_error("Expected ',' before callability argument types");
+                intrinsic.invocation.arguments = parse_call_argument_list(ctx, ")");
+            }
+            *value_bind_point = std::move(intrinsic);
+        }
         else if (kw_pre_translate == "HAS_COROUTINE_OVERLOAD")
         {
             skip_keyword_if_is(pos, end, "HAS_COROUTINE_OVERLOAD");

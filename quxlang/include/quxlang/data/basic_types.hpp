@@ -1888,6 +1888,14 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_public_field_metadata, operation, subject_type, selector);
     };
 
+    /** Tests invocation viability with explicit argument types through ordinary overload resolution. */
+    struct expression_is_functum_callable_with
+    {
+        initialization_reference invocation;
+        bool require_coroutine = false;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_is_functum_callable_with, invocation, require_coroutine);
+    };
+
     /** Tests whether a callable binding contains a coroutine overload before selection. */
     struct expression_has_coroutine_overload
     {

@@ -133,5 +133,14 @@ specializations.
 
 `HAS_COROUTINE_OVERLOAD(binding)` is a constant `BOOL` indicating whether the
 callable binding contains a coroutine declaration. It does not select an overload
-or prove that any overload accepts a particular argument list. The standard
-controller uses this query to choose its coroutine or synchronous capture policy.
+or prove that any overload accepts a particular argument list. `IS_FUNCTUM_CALLABLE_WITH(binding, @name Type, % [Type, ...])` tests invocation
+viability using explicit argument types. The argument list supports
+`COMPOSITE_UNPACK(CompositeType)` and can be omitted for a zero-argument call.
+Overload resolution applies argument adaptation, default parameters, and declaration
+constraints. A missing viable overload produces `FALSE`; ambiguous overloads and
+malformed type arguments produce compilation errors. The query does not execute
+the function or evaluate default argument values.
+
+The pool controller uses `IS_COROUTINE_CALLABLE_WITH` with `@CONTROLLER AUTO` to test coroutine viability for
+the actual argument types. A viable coroutine overload takes precedence. If no
+coroutine overload is viable, the controller captures a synchronous call.
