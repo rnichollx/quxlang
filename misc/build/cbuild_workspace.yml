@@ -10,13 +10,10 @@ sources:
     cortado:
         git:
             repository: https://gitlab.com/rpnx/cortado.git
-    cow:
-        git:
-            repository: https://gitlab.com/rpnx/cow.git
-            revision: d99f760b1d8640ba02f4a13050ec7e657bf85055
     datastructures:
         git:
             repository: https://gitlab.com/rpnx/datastructures.git
+            revision: 7628c68b381cebf738eac8ad917ce56769817236
     googletest:
         git:
             repository: https://github.com/rnichollx/googletest.git
@@ -67,12 +64,6 @@ targets:
             - datastructures
         project_type: CMake
         cmake_package_name: RPNXCortado
-    cow:
-        source: cow
-        depends:
-            - googletest
-        project_type: CMake
-        cmake_package_name: RPNXCow
     datastructures:
         source: datastructures
         depends:
@@ -126,7 +117,6 @@ targets:
     quxlang:
         source: quxlang
         depends:
-            - cow
             - benchmark
             - googletest
             - llvm
