@@ -127,7 +127,7 @@ targets:
             - serialization
             - querygraph
             - cortado
-        project_type: ""
+        project_type: CMake
     serialization:
         source: serialization
         depends:
