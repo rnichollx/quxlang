@@ -1,0 +1,150 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+DOC <$ Produces reproducible unsigned values. $>
+::mix FUNCTION(@value U64): U64
+{
+  value += 11400714819323198485;
+  value := (value #^^ (value #-- 30)) * 13787848793156543929;
+  value := (value #^^ (value #-- 27)) * 10723151780598845931;
+  RETURN value #^^ (value #-- 31);
+}
+
+DOC <$ Partitions a half-open range around its middle element. $>
+::partition FUNCTION(@values MUT& std::dynarr#U64, @first SZ, @last SZ): SZ
+{
+  values[first + ((last - first) / 2)] <-> values[last - 1];
+  VAR pivot U64 := values[last - 1];
+  VAR destination SZ := first;
+  LOOP VALUE(index) FROM(first) UNTIL(last - 1) DO
+  {
+    IF (values[index] < pivot)
+    {
+      values[destination] <-> values[index];
+      destination++;
+    }
+  }
+  values[destination] <-> values[last - 1];
+  RETURN destination;
+}
+
+DOC <$ Sorts a range without scheduling pool work. $>
+::sort_serial FUNCTION(@values MUT& std::dynarr#U64, @first SZ, @last SZ)
+{
+  IF (last - first <= 1) { RETURN; }
+  VAR pivot SZ := partition(@values values, @first first, @last last);
+  sort_serial(@values values, @first first, @last pivot);
+  sort_serial(@values values, @first pivot + 1, @last last);
+}
+
+DOC <$ Captures the right partition for execution by one native thread. $>
+::thread_sort_entry STRUCT
+{
+  .values VAR MUT->std::dynarr#U64;
+  .first VAR SZ;
+  .last VAR SZ;
+  .cutoff VAR SZ;
+
+  DOC <$ Sorts the captured partition on the calling native thread. $>
+  .OPERATOR() FUNCTION() MUT
+  {
+    sort_threads(@values .values->, @first .first, @last .last, @cutoff .cutoff);
+  }
+}
+
+DOC <$ Creates a native thread for each right partition above the sequential cutoff. $>
+::sort_threads FUNCTION(@values MUT& std::dynarr#U64, @first SZ, @last SZ, @cutoff SZ)
+{
+  IF (last - first <= cutoff)
+  {
+    sort_serial(@values values, @first first, @last last);
+    RETURN;
+  }
+  VAR pivot SZ := partition(@values values, @first first, @last last);
+  VAR entry thread_sort_entry;
+  entry.values := values<-;
+  entry.first := pivot + 1;
+  entry.last := last;
+  entry.cutoff := cutoff;
+  VAR right std::thread := std::thread(entry);
+  sort_threads(@values values, @first first, @last pivot, @cutoff cutoff);
+  right.join();
+}
+
+DOC <$ Schedules the right partition through GO and sorts the left partition in the current invocation. $>
+::sort_go COROUTINE(@values MUT& std::dynarr#U64, @first SZ, @last SZ, @cutoff SZ)
+{
+  IF (last - first <= cutoff)
+  {
+    sort_serial(@values values, @first first, @last last);
+    RETURN;
+  }
+  VAR pivot SZ := partition(@values values, @first first, @last last);
+  VAR right := GO sort_go(@values values, @first pivot + 1, @last last, @cutoff cutoff);
+  sort_go(@values values, @first first, @last pivot, @cutoff cutoff);
+  AWAIT(right);
+}
+
+DOC <$ Times recursive native-thread sorting and reports elapsed nanoseconds and a checksum. $>
+::quicksort_threads BENCHMARK(@n SZ, @cutoff SZ, @passes SZ) ONESHOT
+{
+  IF (n < 2 || n > 4194304 || cutoff < 2 || passes == 0)
+  { PANIC "Invalid benchmark arguments."; }
+  VAR values std::dynarr#U64;
+  values.reserve(n);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO { values.push_back(0); }
+  VAR input_size ATOMIC#SZ;
+  input_size.STORE#ATOMIC_RELAXED(n);
+  VAR elapsed U64;
+  VAR checksum U64;
+  LOOP VALUE(pass) FROM(0 AS SZ) UNTIL(passes) DO
+  {
+    VAR size SZ := input_size.LOAD#ATOMIC_RELAXED();
+    VAR seed U64 := 20261108 + ((pass % 8) AS U64);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO { values[index] := mix(@value seed + (index AS U64)); }
+    VAR begin U64 := RUNTIME_MODULE::BENCHMARK_CLOCK();
+    sort_threads(@values values, @first 0, @last size, @cutoff cutoff);
+    elapsed += RUNTIME_MODULE::BENCHMARK_CLOCK() - begin;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO
+    {
+      IF (index != 0 && values[index] < values[index - 1]) { PANIC "Unsorted output."; }
+      checksum += values[index] * ((index AS U64) + 1);
+    }
+  }
+  VAR output std::buffered_writer:(@EXPLICIT std::standard_output());
+  output.write_unsigned(elapsed); output.write_byte(32);
+  output.write_unsigned(checksum); output.write_byte(10); output.flush();
+}
+
+DOC <$ Times complete pool-backed sorting and reports elapsed nanoseconds and a checksum. $>
+::quicksort_go BENCHMARK(@n SZ, @cutoff SZ, @passes SZ, @workers SZ) ONESHOT
+{
+  IF (n < 2 || n > 4194304 || cutoff < 2 || passes == 0 || workers == 0)
+  { PANIC "Invalid benchmark arguments."; }
+  VAR runtime std::thread_pool_cort_runtime:(@workers workers);
+  VAR values std::dynarr#U64;
+  values.reserve(n);
+  LOOP VALUE(index) FROM(0 AS SZ) UNTIL(n) DO { values.push_back(0); }
+  VAR input_size ATOMIC#SZ;
+  input_size.STORE#ATOMIC_RELAXED(n);
+  VAR elapsed U64;
+  VAR checksum U64;
+  LOOP VALUE(pass) FROM(0 AS SZ) UNTIL(passes) DO
+  {
+    VAR size SZ := input_size.LOAD#ATOMIC_RELAXED();
+    VAR seed U64 := 20261108 + ((pass % 8) AS U64);
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO { values[index] := mix(@value seed + (index AS U64)); }
+    VAR begin U64 := RUNTIME_MODULE::BENCHMARK_CLOCK();
+    VAR result := ON(runtime) RUN sort_go(@values values, @first 0, @last size, @cutoff cutoff);
+    result.get();
+    elapsed += RUNTIME_MODULE::BENCHMARK_CLOCK() - begin;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(size) DO
+    {
+      IF (index != 0 && values[index] < values[index - 1]) { PANIC "Unsorted output."; }
+      checksum += values[index] * ((index AS U64) + 1);
+    }
+  }
+  VAR output std::buffered_writer:(@EXPLICIT std::standard_output());
+  output.write_unsigned(elapsed); output.write_byte(32);
+  output.write_unsigned(checksum); output.write_byte(10); output.flush();
+}

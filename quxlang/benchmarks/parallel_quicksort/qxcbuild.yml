@@ -1,0 +1,22 @@
+targets:
+  native:
+    platform: macos
+    cpu: ARM64
+    backend: llvm
+    modules:
+      syscall: {source: syscall}
+      posix: {source: posix}
+      RUNTIME: {source: runtime}
+      std: {source: std}
+      main: {source: main}
+outputs:
+  quicksort_threads:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::quicksort_threads"
+  quicksort_go:
+    target: native
+    type: benchmark_executable
+    build_type: Release
+    benchmark: "::quicksort_go"
