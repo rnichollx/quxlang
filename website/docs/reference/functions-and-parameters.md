@@ -143,11 +143,24 @@ may follow it. Pack element types are checked or deduced as described in
 ## Keyword argument capture
 
 A final `@KWARGS ...` parameter captures unmatched named arguments in a
-composite. `@KWARGS:options ...` names the local record `options`. An empty
-capture is valid, and the fields preserve supplied argument types.
-`COMPOSITE_*` operations inspect and transform the capture. `APPLY` forwards
-the capture. The spelling `@...` is not accepted. See
-[Composites](composites.md#kwargs-parameters) for the complete capture rules.
+pack. `@KWARGS:options ...` names the local pack `options`. An empty capture
+is valid, and the fields preserve supplied argument types. Pack inspection,
+`FUSE`, and `FISSION` operate on the capture. `FORWARD PACK(options) TO callable`
+consumes the capture and supplies its fields as call arguments. The spelling
+`@...` is not accepted. See [Packs](packs.md) for the complete capture rules.
+
+Named pack parameters such as `@funcs ...` and `@args ...` each accept one
+explicitly supplied pack. Multiple named pack parameters can appear in the
+same declaration. Their arguments bind before unmatched arguments enter
+`KWARGS`:
+
+```quxlang
+::apply FUNCTION(@funcs ..., @args ..., @KWARGS ...): I32
+{
+  VAR callback EMIT FIELD("callback") FROM (funcs);
+  RETURN FORWARD PACK(args) TO callback;
+}
+```
 
 The reserved arguments `THIS`, `RETURN`, and `CONTROLLER` cannot be captured by
 a named argument pack. A `CONTROLLER` argument requires an explicit parameter

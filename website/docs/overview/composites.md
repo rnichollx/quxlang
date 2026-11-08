@@ -18,37 +18,12 @@ IF (result.was_cached)
 Each field keeps its own type. A composite groups related values without a
 runtime dictionary or a requirement that every field have the same type.
 
-## Named option forwarding
+## Argument packs
 
-Composites integrate with named arguments. `@KWARGS ...` captures unmatched
-arguments, and `APPLY` passes composite fields to another callable:
-
-```quxlang
-::clamp FUNCTION(
-  @value I32,
-  @minimum I32 DEFAULT(0),
-  @maximum I32 DEFAULT(100)
-): I32
-{
-  IF (value < minimum) { RETURN minimum; }
-  IF (value > maximum) { RETURN maximum; }
-  RETURN value;
-}
-
-::clamp_nonnegative FUNCTION(@value I32, @KWARGS ...): I32
-{
-  IF (value < 0) { value := 0; }
-  RETURN APPLY COMPOSITE_JOIN(
-    :{ .value = value; },
-    COMPOSITE_FORWARD(KWARGS)
-  ) TO clamp;
-}
-
-ASSERT(clamp_nonnegative(@value 150, @maximum 80) == 80);
-```
-
-This pattern lets a wrapper consume some options and forward the rest while
-preserving their names and types.
+Argument forwarding uses [packs](packs.md), whose fields are independent
+values. A composite provides ordinary struct storage for a related set of
+values, including records returned from functions and records stored in other
+objects.
 
 ## Value and reference composites
 

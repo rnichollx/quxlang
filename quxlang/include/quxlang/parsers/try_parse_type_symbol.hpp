@@ -498,6 +498,19 @@ namespace quxlang::parsers
             }
             output = std::move(result);
         }
+        else if (skip_keyword_if_is(pos, end, "PACK_FIELD_TYPE"))
+        {
+            composite_field_type_ref result;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after PACK_FIELD_TYPE");
+            result.composite = decltype_type_ref{.symbol = parse_type_symbol(ctx), .requires_pack = true};
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ",")) throw syntax_compilation_error("Expected pack field selector");
+            result.selector = parse_expression(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after PACK_FIELD_TYPE");
+            output = std::move(result);
+        }
         else if (skip_keyword_if_is(pos, end, "COMPOSITE_FIELD_TYPE"))
         {
             composite_field_type_ref result;
@@ -552,6 +565,27 @@ namespace quxlang::parsers
                 throw syntax_compilation_error("Expected ')' after PACK_ARG_TYPE index");
             }
 
+            output = std::move(result);
+        }
+        else if (next_keyword(pos, end) == "PACK_TYPES" || next_keyword(pos, end) == "PACK_TYPES_EXCEPT")
+        {
+            bool excludes = skip_keyword_if_is(pos, end, "PACK_TYPES_EXCEPT");
+            if (!excludes) skip_keyword_if_is(pos, end, "PACK_TYPES");
+            decltype_type_ref result;
+            result.requires_pack = true;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after pack type operation");
+            result.symbol = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (excludes)
+            {
+                while (skip_symbol_if_is(pos, end, ","))
+                {
+                    result.excluded_fields.push_back(parse_expression(ctx));
+                    skip_whitespace_and_comments(pos, end);
+                }
+            }
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after pack type operation");
             output = std::move(result);
         }
         else if (skip_keyword_if_is(pos, end, "DECLTYPE"))

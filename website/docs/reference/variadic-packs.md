@@ -18,8 +18,9 @@ A named positional pack begins with `%...`:
 Only one positional pack is allowed in a parameter list. No ordinary positional
 parameter may follow it. Named argument capture uses the separate final
 `@KWARGS ...` parameter; the spelling `@...` is not accepted. See
-[Composites](composites.md#kwargs-parameters) for keyword packs, their ordinary
-record semantics, and `APPLY` forwarding.
+[Packs](packs.md) for named pack parameters, keyword capture, and consuming
+forwarding. Multiple named parameters such as `@funcs ...` and `@args ...`
+can appear alongside a positional pack.
 
 The `%...IGNORED Type` form accepts trailing arguments without binding the
 pack:
@@ -88,8 +89,8 @@ parameters adds those parameters to the same deduction constraint.
 
 `PACK_SIZE(pack)` produces the compile-time element count. It can participate
 in `ENABLE_IF`, `STATIC_IF`, `STATIC_WHILE`, array sizes, and other constant
-contexts. The name must identify a visible positional pack in the current
-function instantiation.
+contexts. The name identifies a visible pack binding or a positional parameter
+pack in the current function instantiation.
 
 ## `PACK_ARG`
 
@@ -119,8 +120,8 @@ behavior. The pack name cannot be used directly as an ordinary expression.
 ```
 
 It requires an instantiated function context, a known pack, a compile-time
-index, and an in-range element. `DECLTYPE(pack)` is invalid because a pack is
-not one ordinary expression with one type.
+index, and an in-range element. `PACK_TYPES(pack)` exposes the complete schema
+for type argument expansion.
 
 ## Static expansion
 
@@ -168,16 +169,16 @@ See [Templates](templates-and-value-parameters.md),
 
 ## Forwarding a positional pack
 
-`COMPOSITE_FORWARD(pack)` exposes pack elements as positional composite members
-while preserving forwarding categories. Expand it with `COMPOSITE_UNPACK`:
+`...pack` expands a named pack through ordinary parameter adaptation.
+`...FORWARD PACK(pack)` consumes the pack and transfers its field genvalues:
 
 ```quxlang
-::forward_call FUNCTION(%...values AUTO& AUTO, @KWARGS ...)
+::forward_call FUNCTION(%...values TT, @KWARGS ...)
 {
-  destination(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),
-              COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
+  destination(...FORWARD PACK(values), ...FORWARD PACK(KWARGS));
 }
 ```
 
-`COMPOSITE_TIE(pack)` provides tied references instead. See
-[Composites](composites.md#positional-composites-and-argument-unpacking).
+`TT` retains the complete argument type, including its reference category.
+The [pack reference](packs.md) specifies ownership, nested packs, field
+selection, and construction.

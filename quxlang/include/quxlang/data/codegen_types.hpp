@@ -23,12 +23,15 @@ namespace quxlang
         std::map< std::string, value_index > named;
         std::vector< value_index > positional;
 
+        /** Field bindings retired after a consuming pack invocation. */
+        std::vector< value_index > consumed_fields;
+
         auto size() const -> std::size_t
         {
             return positional.size() + named.size();
         }
 
-        RPNX_MEMBER_METADATA(codegen_invocation_args, named, positional);
+        RPNX_MEMBER_METADATA(codegen_invocation_args, named, positional, consumed_fields);
     };
 
 } // namespace quxlang

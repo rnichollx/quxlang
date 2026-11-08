@@ -64,6 +64,7 @@ namespace quxlang::detail
     auto lookup_impl_overloads(contextual_type_reference const& input, composite_type const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
         composite_type result;
+        result.is_pack_schema = type.is_pack_schema;
         for (std::pair< std::string const, type_symbol > const& field : type.fields)
         {
             std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = input.context, .type = field.second});
@@ -101,7 +102,7 @@ namespace quxlang::detail
         }
         if (string_selector)
         {
-            constexpr_result_v3 selected = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
+            constexpr_result_v3 const& selected = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
                 .expr = type.selector, .context = input.context, .expected_result_type = type_symbol(readonly_constant{.kind = constant_kind::string}),
             });
             std::string name;
@@ -148,7 +149,7 @@ namespace quxlang::detail
         std::size_t index;
         if (string_selector)
         {
-            constexpr_result_v3 selected = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
+            constexpr_result_v3 const& selected = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
                 .expr = type.selector, .context = input.context, .expected_result_type = type_symbol(readonly_constant{.kind = constant_kind::string}),
             });
             std::string name;
@@ -1002,6 +1003,7 @@ namespace quxlang::detail
                                         }
                                     }
                                     composite_type type;
+                                    type.is_pack_schema = true;
                                     for (std::pair< std::string const, parameter_instantiation > const& field : inst.params.named)
                                     {
                                         if (!fixed_names.contains(field.first))
@@ -1031,7 +1033,11 @@ namespace quxlang::detail
                             {
                                 if (param.name.has_value() && param.name.value() == name)
                                 {
-                                    throw quxlang::semantic_compilation_error("DECLTYPE cannot name a positional pack; use PACK_ARG_TYPE for pack elements.");
+                                    composite_type schema;
+                                    schema.is_pack_schema = true;
+                                    for (std::size_t index = positional_index; index < inst.params.positional.size(); ++index)
+                                        schema.fields.emplace(std::to_string(index - positional_index), parameter_instantiation_type(inst.params.positional.at(index)));
+                                    co_return schema;
                                 }
                                 positional_index = inst.params.positional.size();
                                 continue;
@@ -1056,12 +1062,35 @@ namespace quxlang::detail
             co_return std::nullopt;
         };
 
+        /** Selects a metadata-only view of a pack schema. */
+        auto select_pack_type = [&](type_symbol const& type) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< type_symbol >
+        {
+            if (!type.type_is< composite_type >() || !type.get_as< composite_type >().is_pack_schema)
+                throw semantic_compilation_error("Pack reflection requires a pack binding");
+            composite_type schema = type.get_as< composite_type >();
+            for (expression const& field : ref.excluded_fields)
+            {
+                constexpr_result_v3 const& selected = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(constexpr_input_v3{
+                    .expr = field, .context = input.context, .expected_result_type = type_symbol(readonly_constant{.kind = constant_kind::string}),
+                });
+                std::string name;
+                for (std::byte byte : constexpr_value_as_string(selected.values.at(constexpr_primary_result_id)).bytes)
+                    name.push_back(static_cast< char >(byte));
+                if (schema.fields.erase(name) == 0) throw semantic_compilation_error("Unknown or repeated excluded pack field " + name);
+            }
+            co_return schema;
+        };
+
         if (ref.symbol.template type_is< freebound_identifier >())
         {
             std::string const& name = as< freebound_identifier >(ref.symbol).name;
             auto parameter_type = co_await declared_binding_type_from_context(input.context, name);
             if (parameter_type.has_value())
             {
+                if (ref.requires_pack)
+                {
+                    co_return co_await select_pack_type(*parameter_type);
+                }
                 co_return *parameter_type;
             }
         }
@@ -1085,6 +1114,8 @@ namespace quxlang::detail
         {
             co_return std::nullopt;
         }
+
+        if (ref.requires_pack) co_return co_await select_pack_type(*canonical_symbol);
 
         auto kind = co_await rpnx::querygraph::request< symbol_type_query >(*canonical_symbol);
         if (kind != symbol_kind::global_variable && kind != symbol_kind::member_variable)

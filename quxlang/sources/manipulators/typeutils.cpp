@@ -76,8 +76,32 @@ namespace quxlang
         return parameter_instantiation_type(type_arg->second);
     }
 
+    auto pack_parameter_field_name(std::string const& pack, std::string const& field) -> std::string
+    {
+        return "__PACK_" + std::to_string(pack.size()) + "_" + pack + "_" + std::to_string(field.size()) + "_" + field;
+    }
+
+    void expand_pack_parameters(instatype& parameters)
+    {
+        auto expand = [&](auto&& self, std::string const& name, type_symbol const& type) -> void
+        {
+            if (!type.type_is< composite_type >() || !type.get_as< composite_type >().is_pack_schema) return;
+            for (std::pair< std::string const, type_symbol > const& field : type.get_as< composite_type >().fields)
+            {
+                std::string component = pack_parameter_field_name(name, field.first);
+                bool inserted = parameters.named.emplace(component, make_type_instantiation(field.second)).second;
+                if (inserted) self(self, component, field.second);
+            }
+        };
+        for (std::pair< std::string const, parameter_instantiation > const& parameter : parameters.named)
+            expand(expand, parameter.first, parameter_instantiation_type(parameter.second));
+    }
+
+
     auto parameter_runtime_type(type_symbol const& parameter_type) -> std::optional< type_symbol >
     {
+        if (parameter_type.type_is< composite_type >() && parameter_type.get_as< composite_type >().is_pack_schema)
+            return std::nullopt;
         if (is_ref(parameter_type))
         {
             type_symbol const& target = parameter_type.get_as< ptrref_type >().target;
@@ -385,7 +409,7 @@ namespace quxlang
         /** Formats a structural literal without discarding evaluation order. */
         std::string operator()(expression_composite_literal const& expr) const
         {
-            std::string result = ":{";
+            std::string result = expr.is_pack ? "...{" : ":{";
             for (composite_field_initializer const& field : expr.fields)
             {
                 result += is_positional_composite_member(field.name) ? " [" + field.name + "]" : " ." + field.name;
@@ -472,6 +496,20 @@ namespace quxlang
                 }
                 result += expr_to_string(operand);
                 first = false;
+            }
+            return result + ")";
+        }
+
+        /** Formats a pack operation and its generation-time operands. */
+        std::string operator()(expression_pack_operation const& expr) const
+        {
+            static std::array< std::string_view, 7 > const names = {"FORWARD_PACK", "PACK_FUSE", "PACK_FISSION", "PACK_EMIT", "PACK_CAPTURE", "PACK_FIELD_GET", "COMPOSITE_TO_PACK"};
+            std::string result(names.at(static_cast< std::size_t >(expr.operation)));
+            result += "(";
+            for (std::size_t index = 0; index < expr.operands.size(); ++index)
+            {
+                if (index != 0) result += ", ";
+                result += expr_to_string(expr.operands.at(index));
             }
             return result + ")";
         }
@@ -631,7 +669,7 @@ namespace quxlang
             else if (expr.execution_mode == call_execution_mode::capture) result += "BIND_CALL ";
             if (expr.composite_arguments.has_value())
             {
-                return result + "APPLY " + expr_to_string(*expr.composite_arguments) + " TO " + expr_to_string(expr.callee) + ")";
+                return result + (expr.consumes_pack ? "FORWARD PACK(" : "APPLY ") + expr_to_string(*expr.composite_arguments) + (expr.consumes_pack ? ") TO " : " TO ") + expr_to_string(expr.callee) + ")";
             }
             result += to_string(expr.callee) + "(";
             for (decltype(expr.args)::size_type i = 0; i < expr.args.size(); i++)
@@ -796,7 +834,7 @@ namespace quxlang
         /** Formats the canonical field schema of an anonymous struct. */
         std::string operator()(composite_type const& type) const
         {
-            std::string result = "COMPOSITE{";
+            std::string result = type.is_pack_schema ? "PACK{" : "COMPOSITE{";
             for (std::pair< std::string const, type_symbol > const& field : type.fields)
             {
                 result += is_positional_composite_member(field.first) ? "[" + field.first + "]" : "." + field.first;
@@ -1865,7 +1903,10 @@ namespace quxlang
     }
     std::string type_symbol_stringifier::operator()(decltype_type_ref const& ref) const
     {
-        return "DECLTYPE(" + to_string(ref.symbol) + ")";
+        std::string result = ref.requires_pack ? (ref.excluded_fields.empty() ? "PACK_TYPES(" : "PACK_TYPES_EXCEPT(") : "DECLTYPE(";
+        result += to_string(ref.symbol);
+        for (expression const& field : ref.excluded_fields) result += ", " + to_string(field);
+        return result + ")";
     }
     std::string type_symbol_stringifier::operator()(typeof_type_ref const& ref) const
     {

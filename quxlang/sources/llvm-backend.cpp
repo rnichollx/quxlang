@@ -2295,11 +2295,13 @@ namespace quxlang::llvm_backend::detail
          */
         auto callable_abi_from_instanciation_reference(quxlang::instanciation_reference const& inst, std::optional< quxlang::type_symbol > return_slot_type) -> callable_abi
         {
+            quxlang::instatype parameters = inst.params;
+            quxlang::expand_pack_parameters(parameters);
             std::vector< abi_parameter > ordered;
-            ordered.reserve(inst.params.positional.size() + inst.params.named.size() + (return_slot_type.has_value() ? 1 : 0));
+            ordered.reserve(parameters.positional.size() + parameters.named.size() + (return_slot_type.has_value() ? 1 : 0));
 
             std::map< std::string, quxlang::type_symbol > named;
-            for (std::pair< std::string const, quxlang::parameter_instantiation > const& param : inst.params.named)
+            for (std::pair< std::string const, quxlang::parameter_instantiation > const& param : parameters.named)
             {
                 std::optional< quxlang::type_symbol > runtime_type = quxlang::parameter_runtime_type(quxlang::parameter_instantiation_type(param.second));
                 if (!runtime_type.has_value())
@@ -2329,7 +2331,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             std::size_t runtime_positional_index = 0;
-            for (quxlang::parameter_instantiation const& positional : inst.params.positional)
+            for (quxlang::parameter_instantiation const& positional : parameters.positional)
             {
                 std::optional< quxlang::type_symbol > runtime_type = quxlang::parameter_runtime_type(quxlang::parameter_instantiation_type(positional));
                 if (!runtime_type.has_value())

@@ -1,0 +1,357 @@
+LANGUAGE QUXLANG EN 0.0;
+IMPORT std;
+
+::pack_tests NAMESPACE
+{
+  ::sum FUNCTION(%first I32, @second I32): I32 { RETURN first + second; }
+  ::named_sum FUNCTION(@first I32, @second I32): I32 { RETURN first + second; }
+  ::identity FUNCTION(@value I32): I32 { RETURN value; }
+  ::increment FUNCTION(@value MUT& I32) { value++; }
+
+  DOC <$ Named expansion preserves a pack, and consuming expansion forwards its fields once. $>
+  ::expansion DUAL_TEST
+  {
+    PACK arguments ...{ [0] = I32(@OTHER 19), .second = I32(@OTHER 23) };
+    TEST_ASSERT(sum(...arguments) == 42);
+    TEST_ASSERT(sum(...arguments) == 42);
+    TEST_ASSERT((FORWARD PACK(arguments) TO sum) == 42);
+    TEST_ASSERT(sum(...{ [0] = 31, .second = 11 }) == 42);
+    TEST_ASSERT(IEEE_EQUALS(...[1.0 AS F64, 1.0 AS F64]));
+  }
+
+  DOC <$ Fission and fusion transfer independent fields while retaining reference bindings. $>
+  ::remix DUAL_TEST
+  {
+    VAR number I32 := 4;
+    PACK arguments ...{ .value = number, .first = I32(@OTHER 19), .second = I32(@OTHER 23) };
+    PACK values FISSION FIELDS("first", "second") FROM (arguments);
+    TEST_ASSERT(PACK_FIELD_COUNT(arguments) == 1);
+    TEST_ASSERT(PACK_FIELD_COUNT(values) == 2);
+    TEST_ASSERT(PACK_CONTAINS(values, "first"));
+    TEST_ASSERT(SAME_TYPES(PACK_FIELD_TYPE(arguments, "value"), MUT& I32));
+    FORWARD PACK(arguments) TO increment;
+    TEST_ASSERT(number == 5);
+    VAR first EMIT FIELD("first") FROM (values);
+    TEST_ASSERT(first == 19);
+    CAPTURE(first) NAMED("first") INTO(values);
+    PACK empty ...{};
+    PACK combined FUSE(empty, values);
+    TEST_ASSERT((FORWARD PACK(combined) TO named_sum) == 42);
+  }
+
+  DOC <$ A nested pack retains independent ownership through extraction and recombination. $>
+  ::nested DUAL_TEST
+  {
+    PACK outer ...{ .inner = ...{ .value = I32(@OTHER 42) }, .extra = 9 };
+    PACK inner EMIT FIELD("inner") FROM (outer);
+    TEST_ASSERT(PACK_FIELD_COUNT(outer) == 1);
+    TEST_ASSERT((FORWARD PACK(inner) TO identity) == 42);
+  }
+
+  ::forward_named FUNCTION(@KWARGS ...): I32
+  {
+    RETURN FORWARD PACK(KWARGS) TO identity;
+  }
+
+  ::forward_positional FUNCTION(%...values TT, @KWARGS ...): I32
+  {
+    RETURN sum(...FORWARD PACK(values), ...FORWARD PACK(KWARGS));
+  }
+
+  DOC <$ Parameter packs preserve owned values and named argument bindings. $>
+  ::parameters DUAL_TEST
+  {
+    TEST_ASSERT(forward_named(@value 42) == 42);
+    TEST_ASSERT(forward_positional(% [19], @second 23) == 42);
+  }
+
+  ::immobile STRUCT ROOTED
+  {
+    .value VAR I32;
+    .CONSTRUCTOR FUNCTION(@number I32) { .value := number; }
+  }
+
+  ::consume FUNCTION(@value immobile): I32 { RETURN value.value; }
+
+  DOC <$ An owned field reaches a value parameter without a copy or move constructor. $>
+  ::owned_prvalue DUAL_TEST
+  {
+    PACK original ...{ .value = immobile(@number 42) };
+    PACK extracted FISSION FIELDS("value") FROM (original);
+    PACK extras ...{};
+    PACK combined FUSE(extracted, extras);
+    TEST_ASSERT((FORWARD PACK(combined) TO consume) == 42);
+  }
+
+  ::holder STRUCT
+  {
+    .value VAR I32;
+    .CONSTRUCTOR FUNCTION(%value immobile) { .value := value.value; }
+    .CONSTRUCTOR FUNCTION(@value immobile) { .value := value.value; }
+  }
+
+  DOC <$ Allocation wrappers forward an immobile prvalue directly to its constructor parameter. $>
+  ::allocation DUAL_TEST
+  {
+    VAR unique := std::make_unique#holder(% [immobile(@number 19)]);
+    TEST_ASSERT(unique->.value == 19);
+    VAR shared := std::make_shared#holder(% [immobile(@number 23)]);
+    TEST_ASSERT(shared->.value == 23);
+    VAR unique_named := std::make_unique#holder(@value immobile(@number 31));
+    TEST_ASSERT(unique_named->.value == 31);
+    VAR shared_named := std::make_shared#holder(@value immobile(@number 11));
+    TEST_ASSERT(shared_named->.value == 11);
+  }
+
+  ::apply_group FUNCTION(@funcs ..., @args ..., @KWARGS ...): I32
+  {
+    TEST_ASSERT(PACK_FIELD_COUNT(funcs) == 1);
+    TEST_ASSERT(PACK_FIELD_COUNT(args) == 1);
+    TEST_ASSERT(PACK_FIELD_COUNT(KWARGS) == 1);
+    VAR callback EMIT FIELD("callback") FROM (funcs);
+    VAR offset EMIT FIELD("offset") FROM (KWARGS);
+    RETURN (FORWARD PACK(args) TO callback) + offset;
+  }
+
+  ::nested_group FUNCTION(@args ...): I32
+  {
+    PACK inner EMIT FIELD("inner") FROM (args);
+    RETURN FORWARD PACK(inner) TO consume;
+  }
+
+  DOC <$ Independent named packs bind their own fields before unmatched arguments enter KWARGS. $>
+  ::named_groups DUAL_TEST
+  {
+    PACK functions ...{ .callback = identity };
+    PACK arguments ...{ .value = I32(@OTHER 19) };
+    TEST_ASSERT(apply_group(@funcs functions, @args arguments, @offset 23) == 42);
+    TEST_ASSERT(apply_group(@funcs FORWARD PACK(functions), @args FORWARD PACK(arguments), @offset 23) == 42);
+    TEST_ASSERT(nested_group(@args ...{ .inner = ...{ .value = immobile(@number 42) } }) == 42);
+    PACK groups ...{ .funcs = ...{ .callback = identity }, .args = ...{ .value = I32(@OTHER 19) }, .offset = 23 };
+    TEST_ASSERT(apply_group(...groups) == 42);
+    TEST_ASSERT((FORWARD PACK(groups) TO apply_group) == 42);
+    TEST_ASSERT(nested_group(...{ .args = ...{ .inner = ...{ .value = immobile(@number 42) } } }) == 42);
+  }
+
+  ::coroutine_child COROUTINE(@args ...): I32
+  {
+    RETURN FORWARD PACK(args) TO identity;
+  }
+
+  ::coroutine_parent COROUTINE(@result MUT& I32)
+  {
+    result := coroutine_child(@args ...{ .value = I32(@OTHER 42) });
+  }
+
+  DOC <$ An explicit named pack carries its fields through a coroutine controller into the child frame. $>
+  ::coroutine_groups DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR adapted coroutine_call_tests::controller;
+    adapted.observed := observed<-;
+    VAR result I32;
+    VAR frame coroutine_parent#(@result MUT& I32, @CONTROLLER coroutine_call_tests::controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
+    TEST_ASSERT(result == 42);
+    TEST_ASSERT(observed.calls == 1);
+  }
+
+  ::schema_tag TEMPLATE(@T:type TYPE) FUNCTION(): I32
+  {
+    STATIC_IF(SAME_TYPES(type, TYPEOF(:{ .value = I32(@OTHER 0) }))) { RETURN 1; }
+    STATIC_ELSE { RETURN 2; }
+  }
+
+  DOC <$ Pack schemas and structural composites identify distinct template specializations. $>
+  ::schema_identity DUAL_TEST
+  {
+    PACK arguments ...{ .value = I32(@OTHER 42) };
+    VAR record := :{ .value = I32(@OTHER 42) };
+    TEST_ASSERT(SAME_TYPES(PACK_TYPES(arguments), DECLTYPE(record)) == FALSE);
+    TEST_ASSERT(schema_tag#PACK_TYPES(arguments)() == 2);
+    TEST_ASSERT(schema_tag#DECLTYPE(record)() == 1);
+  }
+
+  ::ordinary_argument_to_pack STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    nested_group(@args 42);
+  }
+
+  ::pack_argument_to_value STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    identity(@value ...{ .value = 42 });
+  }
+
+  ::tracked STRUCT ROOTED
+  {
+    .alive VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@alive MUT& I32)
+    {
+      .alive := alive<-;
+      .alive-> ++;
+    }
+    .DESTRUCTOR FUNCTION() { .alive-> --; }
+  }
+
+  ::borrow_tracked FUNCTION(@value CONST& tracked) { TEST_ASSERT(value.alive-> == 1); }
+  ::consume_tracked FUNCTION(@value tracked) { TEST_ASSERT(value.alive-> == 1); }
+  ::throw_tracked FUNCTION(@value tracked) { THROW I32(@OTHER 7); }
+  ::borrow_group FUNCTION(@args ...) { borrow_tracked(...args); }
+  ::consume_group FUNCTION(@args ...) { FORWARD PACK(args) TO consume_tracked; }
+
+  DOC <$ Named pack parameters transfer each owned field lifetime exactly once. $>
+  ::named_cleanup DUAL_TEST
+  {
+    VAR alive I32 := 0;
+    PACK arguments ...{ .value = tracked(@alive alive) };
+    borrow_group(@args arguments);
+    TEST_ASSERT(alive == 1);
+    consume_group(@args FORWARD PACK(arguments));
+    TEST_ASSERT(alive == 0);
+    borrow_group(@args ...{ .value = tracked(@alive alive) });
+    TEST_ASSERT(alive == 0);
+  }
+
+  DOC <$ Consuming a pack retires both borrowed and transferred owned fields exactly once. $>
+  ::cleanup DUAL_TEST
+  {
+    VAR alive I32 := 0;
+    PACK borrowed ...{ .value = tracked(@alive alive) };
+    borrow_tracked(...borrowed);
+    TEST_ASSERT(alive == 1);
+    FORWARD PACK(borrowed) TO borrow_tracked;
+    TEST_ASSERT(alive == 0);
+    PACK owned ...{ .value = tracked(@alive alive) };
+    FORWARD PACK(owned) TO consume_tracked;
+    TEST_ASSERT(alive == 0);
+    TRY
+    {
+      PACK throwing ...{ .value = tracked(@alive alive) };
+      FORWARD PACK(throwing) TO throw_tracked;
+    }
+    CATCH error CONST& I32 { TEST_ASSERT(error == 7); }
+    TEST_ASSERT(alive == 0);
+  }
+
+  DOC <$ Extracted fields follow the scope of their new binding, and captured locals follow the destination pack. $>
+  ::binding_scopes DUAL_TEST
+  {
+    VAR alive I32 := 0;
+    PACK arguments ...{ .value = tracked(@alive alive) };
+    {
+      VAR extracted EMIT FIELD("value") FROM (arguments);
+      TEST_ASSERT(alive == 1);
+    }
+    TEST_ASSERT(alive == 0);
+    {
+      VAR captured tracked :(@alive alive);
+      CAPTURE(captured) NAMED("value") INTO(arguments);
+    }
+    TEST_ASSERT(alive == 1);
+    FORWARD PACK(arguments) TO consume_tracked;
+    TEST_ASSERT(alive == 0);
+  }
+
+  DOC <$ A local pack declaration shadows an enclosing pack without transferring its fields. $>
+  ::shadowing DUAL_TEST
+  {
+    PACK arguments ...{ .value = I32(@OTHER 19) };
+    {
+      PACK arguments ...{ .value = I32(@OTHER 23) };
+      TEST_ASSERT(identity(...arguments) == 23);
+    }
+    TEST_ASSERT((FORWARD PACK(arguments) TO identity) == 19);
+  }
+
+  DOC <$ Emission creates a new lexical binding for the same object without construction. $>
+  ::rebinding DUAL_TEST
+  {
+    VAR value I32 := 42;
+    PACK arguments ...{};
+    CAPTURE(value) NAMED("value") INTO(arguments);
+    VAR value EMIT FIELD("value") FROM (arguments);
+    TEST_ASSERT(SAME_TYPES(DECLTYPE(value), I32));
+    TEST_ASSERT(value == 42);
+  }
+
+  ::inconsistent_branch FUNCTION(@condition BOOL)
+  {
+    PACK arguments ...{ .value = 42 };
+    IF (condition) { FORWARD PACK(arguments) TO identity; }
+    identity(...arguments);
+  }
+
+  ::branch_ownership STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    inconsistent_branch(@condition TRUE);
+  }
+
+  ::repeated_forward STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    PACK arguments ...{ .value = 42 };
+    FORWARD PACK(arguments) TO identity;
+    FORWARD PACK(arguments) TO identity;
+  }
+
+  ::ordinary_value STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR arguments := ...{ .value = 42 };
+  }
+
+  ::pack_storage STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    PACK arguments ...{ .value = 42 };
+    VAR size SZ := SIZEOF(PACK_TYPES(arguments));
+  }
+
+  ::discarded_pack STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    ...{ .value = 42 };
+  }
+
+  ::return_pack FUNCTION(): AUTO
+  {
+    PACK arguments ...{ .value = 42 };
+    RETURN arguments;
+  }
+
+  ::returned_pack STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    return_pack();
+  }
+
+  ::ordinary_field_access STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    PACK arguments ...{ .value = 42 };
+    identity(@value arguments.value);
+  }
+
+  ::copy_pack STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    PACK arguments ...{ .value = 42 };
+    PACK copy arguments;
+  }
+
+  ::duplicate_fusion STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    PACK first ...{ .value = 1 };
+    PACK second ...{ .value = 2 };
+    PACK combined FUSE(first, second);
+  }
+
+  ::captured_name STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR value I32 := 42;
+    PACK arguments ...{};
+    CAPTURE(value) NAMED("value") INTO(arguments);
+    identity(@value value);
+  }
+
+  ::catch_scope STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    PACK arguments ...{ .value = I32(@OTHER 42) };
+    TRY { FORWARD PACK(arguments) TO identity; }
+    CATCH DEFAULT { identity(...arguments); }
+  }
+}

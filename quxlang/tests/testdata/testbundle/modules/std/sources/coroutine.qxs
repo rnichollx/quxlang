@@ -21,9 +21,9 @@ DOC <$ Borrows caller-owned storage for a concrete coroutine specialization. The
   }
 
   DOC <$ Captures arguments in an empty or completed frame. Previous continuation registrations must have been retired. $>
-  .INITIALIZE FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT
+  .INITIALIZE FUNCTION(%...values TT, @KWARGS ...) MUT
   {
-    .frame->.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
+    .frame->.INITIALIZE(...FORWARD PACK(values), ...FORWARD PACK(KWARGS));
   }
 
   DOC <$ Drives the frame through an authorized activation and reports terminal completion. $>
@@ -80,9 +80,9 @@ DOC <$ Owns a stable heap-allocated frame for one concrete coroutine specializat
   }
 
   DOC <$ Captures arguments in an empty or completed frame. Previous continuation registrations must have been retired. $>
-  .INITIALIZE FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT
+  .INITIALIZE FUNCTION(%...values TT, @KWARGS ...) MUT
   {
-    .frame->.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
+    .frame->.INITIALIZE(...FORWARD PACK(values), ...FORWARD PACK(KWARGS));
   }
 
   DOC <$ Drives the frame through an authorized activation and reports terminal completion. $>

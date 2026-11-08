@@ -155,16 +155,16 @@ The [Tests](../reference/tests.md) and
 [Diagnostics and Explicit Failure](../reference/diagnostics-and-failure.md)
 references specify the corresponding language rules.
 
-## Composites and keyword arguments
+## Packs and keyword arguments
 
 Using `clamp` from the complete program above:
 
 ```quxlang
-AUTO options := :{ .value = 120; .minimum = 0; .maximum = 100; };
-ASSERT((APPLY options TO clamp) == 100);
+PACK options ...{ .value = 120; .minimum = 0; .maximum = 100; };
+ASSERT((FORWARD PACK(options) TO clamp) == 100);
 ```
 
-`APPLY` evaluates its composite before its target. A final `@KWARGS ...`
-parameter captures unmatched named arguments for reflection or forwarding.
-See [Composites](composites.md) for `COMPOSITE_TIE`,
-`COMPOSITE_FORWARD`, and field selection, splitting, and joining.
+`FORWARD PACK` evaluates its pack before its target and consumes its field
+bindings. A final `@KWARGS ...` parameter captures unmatched named arguments.
+See [Packs](packs.md) for independent named packs, selection, fusion, and
+consuming forwarding.

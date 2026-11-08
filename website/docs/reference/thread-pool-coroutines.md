@@ -121,7 +121,7 @@ The selected function body runs when the stored call is invoked:
 
 ```quxlang
 VAR bound := BIND_CALL increment(@value 41);
-VAR result I32 := APPLY COMPOSITE_FORWARD(COMPOSITE_FIELD_GET(bound, "ARGUMENTS"))
+VAR result I32 := FORWARD PACK(COMPOSITE_TO_PACK(COMPOSITE_FIELD_GET(MOVE(bound), "ARGUMENTS")))
   TO COMPOSITE_FIELD_GET(bound, "CALLEE");
 ```
 

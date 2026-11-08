@@ -28,10 +28,6 @@ namespace quxlang
             }
             if (param.api_name.has_value())
             {
-                if (param.is_pack)
-                {
-                    throw quxlang::semantic_compilation_error("Named variadic packs are not supported");
-                }
                 continue;
             }
 

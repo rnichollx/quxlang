@@ -37,6 +37,8 @@ RPNX_ENUM(quxlang, callable_test_operation, std::uint8_t, invocable, coroutine_i
 /** Identifies a public field metadata operation. */
 RPNX_ENUM(quxlang, public_field_operation, std::uint16_t, count, name, contains);
 
+/** Compiler operations over independent pack field bindings. */
+RPNX_ENUM(quxlang, pack_operation, std::uint16_t, forward, fuse, fission, emit, capture, get, from_composite);
 /** Compiler operations over structural record metadata and values. */
 RPNX_ENUM(quxlang, composite_operation, std::uint16_t, contains, count, name, get, tie, forward, join, select, exclude, split);
 
@@ -873,7 +875,9 @@ namespace quxlang
     struct composite_type
     {
         std::map< std::string, type_symbol, composite_member_order > fields;
-        RPNX_MEMBER_METADATA(composite_type, fields);
+        /** Identifies a pack schema with independent field storage. */
+        bool is_pack_schema = false;
+        RPNX_MEMBER_METADATA(composite_type, fields, is_pack_schema);
     };
 
     /** Resolves a direct public field's declared type by compile-time name or index. */
@@ -908,7 +912,11 @@ namespace quxlang
         /// Symbol whose declared type should be resolved.
         type_symbol symbol;
 
-        RPNX_MEMBER_METADATA(decltype_type_ref, symbol);
+        /** Requires a pack schema for pack reflection. */
+        bool requires_pack = false;
+        /** Field names omitted from a pack type expansion. */
+        std::vector< expression > excluded_fields;
+        RPNX_MEMBER_METADATA(decltype_type_ref, symbol, requires_pack, excluded_fields);
     };
 
     struct typeof_type_ref
@@ -1341,10 +1349,10 @@ namespace quxlang
         type_symbol type;
         /// Optional default expression for omitted arguments.
         std::optional< expression > default_expr;
-        /// True when this positional parameter is a variadic pack.
+        /// True for a positional variadic parameter or an explicit named pack parameter.
         bool is_pack = false;
 
-        /** This declaration binds the unmatched named arguments as a composite. */
+        /** This declaration binds unmatched named arguments as a pack. */
         bool is_named_rest = false;
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_parameter, name, api_name, type, default_expr, is_pack, is_named_rest);
     };
@@ -1507,7 +1515,9 @@ namespace quxlang
         /// Optional minimum alignment of the declared storage.
         std::optional< alignment_declaration > alignment;
 
-        QUX_AST_METADATA(function_var_statement, name, type, initializers, equals_initializer, static_kind, alignment);
+        /// Declares a pack binding without constructing aggregate storage.
+        bool is_pack = false;
+        QUX_AST_METADATA(function_var_statement, name, type, initializers, equals_initializer, static_kind, alignment, is_pack);
     };
 
     struct function_unimplemented_statement
@@ -1879,7 +1889,9 @@ namespace quxlang
     struct expression_composite_literal
     {
         std::vector< composite_field_initializer > fields;
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_composite_literal, fields);
+        /// True when the literal denotes independent pack fields.
+        bool is_pack = false;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_composite_literal, fields, is_pack);
     };
 
     /** Inspects direct public field metadata without constructing an object. */
@@ -1946,20 +1958,31 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_composite_operation, operation, subject_type, operands);
     };
 
+    /** A pack operation preserves field genvalues until an explicit consuming use. */
+    struct expression_pack_operation
+    {
+        pack_operation operation;
+        std::vector< expression > operands;
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_pack_operation, operation, operands);
+    };
+
     struct expression_call
     {
         expression callee;
         std::vector< expression_arg > args;
 
-        /** Present for APPLY, whose fields supply the named call arguments. */
+        /** Present for APPLY or FORWARD PACK, whose fields supply the call arguments. */
         std::optional< expression > composite_arguments;
+
+        /** Consumes the pack supplying the call arguments. */
+        bool consumes_pack = false;
 
         /** Invocation policy selected by RUN, GO, or BIND_CALL; ordinary calls use contextual adaptation. */
         call_execution_mode execution_mode = call_execution_mode::ordinary;
         /** Explicit ON operand, evaluated before the target receiver and arguments. */
         std::optional< expression > controller;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_call, callee, args, composite_arguments, execution_mode, controller);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_call, callee, args, composite_arguments, consumes_pack, execution_mode, controller);
     };
 
     /** Represents a `BIT n` numeric-literal expression. */

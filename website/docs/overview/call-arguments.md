@@ -78,11 +78,15 @@ Template positional arguments use the same `% [...]` spelling:
 VAR value intentionally_positional#(% [I32, F64]);
 ```
 
-## Composite arguments
+## Argument packs
 
-`APPLY arguments TO target` uses a [composite](composites.md) as a set of
-named arguments. It evaluates `arguments` first and `target` second. Functions
-can capture unmatched named arguments with a final `@KWARGS ...` parameter.
+[Packs](packs.md) group arguments while preserving their individual types and
+ownership. `...arguments` expands a pack without consuming its binding.
+`FORWARD PACK(arguments) TO target` consumes the pack and forwards its fields.
+
+Functions can receive independent groups with named pack parameters such as
+`@funcs ...` and `@args ...`. A final `@KWARGS ...` captures unmatched named
+arguments.
 
 ## Reference
 

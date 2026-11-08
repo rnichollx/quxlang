@@ -3,14 +3,16 @@ LANGUAGE QUXLANG EN 0.0;
 DOC <$ Tests projected elements in order and stops when the result is determined. $>
 ::all_of FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO all_of;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO all_of;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO all_of_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO all_of_iterators;
   }
 }
 
@@ -29,14 +31,16 @@ PRIVATE(MODULE)
 DOC <$ Tests projected elements in order and stops when the result is determined. $>
 ::any_of FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO any_of;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO any_of;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO any_of_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO any_of_iterators;
   }
 }
 
@@ -55,14 +59,16 @@ PRIVATE(MODULE)
 DOC <$ Tests projected elements in order and stops when the result is determined. $>
 ::none_of FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO none_of;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO none_of;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO none_of_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO none_of_iterators;
   }
 }
 
@@ -81,19 +87,22 @@ PRIVATE(MODULE)
 DOC <$ Counts elements satisfying the selected projected relation. $>
 ::count FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO count;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO count;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO count;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO count;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO count_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO count_iterators;
   }
 }
 
@@ -110,14 +119,16 @@ PRIVATE(MODULE)
 DOC <$ Counts elements satisfying the selected projected relation. $>
 ::count_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO count_if;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO count_if;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO count_if_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO count_if_iterators;
   }
 }
 
@@ -134,19 +145,22 @@ PRIVATE(MODULE)
 DOC <$ Returns the first matching iterator, or the input end. $>
 ::find FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO find;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO find;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO find_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO find_iterators;
   }
 }
 
@@ -162,14 +176,16 @@ PRIVATE(MODULE)
 DOC <$ Returns the first matching iterator, or the input end. $>
 ::find_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO find_if;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find_if;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO find_if_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO find_if_iterators;
   }
 }
 
@@ -185,14 +201,16 @@ PRIVATE(MODULE)
 DOC <$ Returns the first matching iterator, or the input end. $>
 ::find_if_not FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO find_if_not;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find_if_not;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO find_if_not_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO find_if_not_iterators;
   }
 }
 
@@ -215,24 +233,28 @@ DOC <$ Invokes action once for each element in traversal order. $>
 DOC <$ Returns the first input element equivalent to an element of the second forward range. $>
 ::find_first_of FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO find_first_of;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find_first_of;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection1") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO find_first_of;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection1 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find_first_of;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection2") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO find_first_of;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection2 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find_first_of;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO find_first_of_iterators;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO find_first_of_iterators;
   }
 }
 
@@ -256,19 +278,22 @@ PRIVATE(MODULE)
 DOC <$ Returns the first iterator of an equivalent adjacent pair, or the end. $>
 ::adjacent_find FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO adjacent_find;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO adjacent_find;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO adjacent_find;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO adjacent_find;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO adjacent_find_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO adjacent_find_iterators;
   }
 }
 
@@ -290,24 +315,28 @@ PRIVATE(MODULE)
 DOC <$ Returns the first matching subsequence. $>
 ::search FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO search;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO search;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection1") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO search;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection1 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO search;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection2") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO search;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection2 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO search;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO search_iterators;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO search_iterators;
   }
 }
 
@@ -342,24 +371,28 @@ PRIVATE(MODULE)
 DOC <$ Returns the last matching subsequence; an empty pattern matches the input end. $>
 ::find_end FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO find_end;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find_end;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection1") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO find_end;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection1 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find_end;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection2") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO find_end;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection2 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO find_end;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO find_end_iterators;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO find_end_iterators;
   }
 }
 
@@ -392,19 +425,22 @@ PRIVATE(MODULE)
 DOC <$ Finds the first run of count equivalent projected elements in linear time. $>
 ::search_n FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO search_n;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO search_n;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO search_n;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO search_n;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO search_n_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO search_n_iterators;
   }
 }
 
@@ -432,24 +468,28 @@ PRIVATE(MODULE)
 DOC <$ Tests equivalent elements and equal input lengths. $>
 ::equal FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO equal;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO equal;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection1") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO equal;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection1 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO equal;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection2") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO equal;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection2 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO equal;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO equal_iterators;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO equal_iterators;
   }
 }
 
@@ -465,24 +505,28 @@ PRIVATE(MODULE)
 DOC <$ Returns the first differing or exhausted positions in both inputs. $>
 ::mismatch FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO mismatch;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO mismatch;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection1") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO mismatch;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection1 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO mismatch;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection2") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO mismatch;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection2 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO mismatch;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO mismatch_iterators;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO mismatch_iterators;
   }
 }
 
@@ -498,24 +542,28 @@ PRIVATE(MODULE)
 DOC <$ Returns the lexicographical three-way order of two finite inputs. $>
 ::lexicographical_compare FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "compare") == FALSE)
   {
     VAR default_value compare_three_way;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO lexicographical_compare;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .compare = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO lexicographical_compare;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection1") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO lexicographical_compare;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection1 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO lexicographical_compare;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection2") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO lexicographical_compare;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection2 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO lexicographical_compare;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO lexicographical_compare_iterators;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO lexicographical_compare_iterators;
   }
 }
 
@@ -537,24 +585,28 @@ PRIVATE(MODULE)
 DOC <$ Tests equality-class multiplicities using forward traversal and constant storage. $>
 ::is_permutation FUNCTION(@first1 AUTO(iterator1), @last1 AUTO(sentinel1), @first2 AUTO(iterator2), @last2 AUTO(sentinel2), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO is_permutation;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO is_permutation;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection1") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection1") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection1 = default_value; })) TO is_permutation;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection1 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO is_permutation;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection2") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection2") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection2 = default_value; })) TO is_permutation;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options, ...{ .projection2 = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO is_permutation;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, COMPOSITE_FORWARD(options)) TO is_permutation_iterators;
+    PACK forwarded_arguments FUSE(...{ .first1 = first1 AS iterator1; .last1 = last1 AS sentinel1; .first2 = first2 AS iterator2; .last2 = last2 AS sentinel2; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO is_permutation_iterators;
   }
 }
 
@@ -598,19 +650,22 @@ PRIVATE(MODULE)
 DOC <$ Returns the first equivalent extremum, or the input end. $>
 ::min_element FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "compare") == FALSE)
   {
     VAR default_value compare_three_way;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO min_element;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .compare = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO min_element;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO min_element;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO min_element;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO min_element_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO min_element_iterators;
   }
 }
 
@@ -632,19 +687,22 @@ PRIVATE(MODULE)
 DOC <$ Returns the first equivalent extremum, or the input end. $>
 ::max_element FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "compare") == FALSE)
   {
     VAR default_value compare_three_way;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO max_element;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .compare = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO max_element;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO max_element;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO max_element;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO max_element_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO max_element_iterators;
   }
 }
 
@@ -666,19 +724,22 @@ PRIVATE(MODULE)
 DOC <$ Returns the first minimum and first maximum positions. $>
 ::minmax_element FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "compare") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "compare") == FALSE)
   {
     VAR default_value compare_three_way;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .compare = default_value; })) TO minmax_element;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .compare = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO minmax_element;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO minmax_element;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO minmax_element;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO minmax_element_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO minmax_element_iterators;
   }
 }
 

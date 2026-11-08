@@ -95,11 +95,11 @@ DOC <$ Owns one object allocated by NEW and deletes it when ownership ends. Move
 }
 
 DOC <$ Allocates a T with NEW, forwarding positional and named constructor arguments. $>
-::make_unique TEMPLATE(@T TYPE AUTO) FUNCTION(%...values AUTO& AUTO, @KWARGS ...): unique_ptr#T
+::make_unique TEMPLATE(@T TYPE AUTO) FUNCTION(%...values TT, @KWARGS ...): unique_ptr#T
 {
   RETURN unique_ptr#T(@pointer NEW T :(
-    COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),
-    COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS))
+    ...FORWARD PACK(values),
+    ...FORWARD PACK(KWARGS)
   ));
 }
 

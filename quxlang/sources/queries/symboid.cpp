@@ -34,7 +34,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             throw semantic_compilation_error("FRAME_TYPE requires a coroutine specialization");
         }
-        instatype parameters = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(*coroutine);
+        instatype const& parameters = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(*coroutine);
         ast2_struct_declaration frame;
         frame.struct_keywords.insert(keywords::rooted);
         ast2_function_declaration initialize;
@@ -71,7 +71,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         }
         for (std::pair< std::string const, parameter_instantiation > const& parameter : parameters.named)
         {
-            if (parameter.first == "CONTROLLER") continue;
+            if (parameter.first == "CONTROLLER" || !coroutine->params.named.contains(parameter.first)) continue;
             if (parameter.first == "THIS")
             {
                 type_symbol const& receiver = parameter_instantiation_type(parameter.second);
@@ -90,6 +90,8 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                 .api_name = parameter.first == "THIS" ? "RECEIVER" : parameter.first,
                 .type = capture_type(parameter.second),
                 .default_expr = named_defaults.contains(parameter.first) ? std::optional< expression >(named_defaults.at(parameter.first)) : std::nullopt,
+                .is_pack = parameter_instantiation_type(parameter.second).type_is< composite_type >() &&
+                    parameter_instantiation_type(parameter.second).get_as< composite_type >().is_pack_schema,
             });
         }
         if (lifecycle_storage.has_value())

@@ -4,7 +4,7 @@ A composite is an anonymous structural record. It has ordinary struct storage,
 field construction, copying, moving, and destruction. Its type is determined
 by its field names and declared field types.
 
-For an introduction with option-forwarding examples, see the
+For an introduction with structural record examples, see the
 [Composites Overview](../overview/composites.md).
 
 ## Literal syntax
@@ -110,51 +110,11 @@ an implicit receiver. A free function may accept an explicitly declared
 `@THIS` parameter. Parenthesize `APPLY` when using its result as an operand of
 another expression.
 
-## `KWARGS` parameters
+## Named argument capture
 
-The final parameter of a function can capture unmatched named arguments:
-
-```text
-@KWARGS ...
-@KWARGS:local_name ...
-```
-
-There is at most one such parameter and it has no separate element type.
-Explicit named parameters consume matching arguments first; the remaining
-arguments form a composite bound to `KWARGS`, or to the given local alias.
-The captured fields preserve the supplied argument types. An empty capture is
-valid. `THIS` and `RETURN` are not captured as unmatched keyword arguments.
-
-The composite is available as an ordinary value expression, supports
-`DECLTYPE`, and can be passed to reflection, transforms, or `APPLY`. The
-positional `PACK_*` operations do not inspect it.
-
-This wrapper supplies a default only when the caller omitted that field:
-
-```quxlang
-::clamp_with_default_minimum FUNCTION(@KWARGS:options ...): I32
-{
-  STATIC_IF (COMPOSITE_CONTAINS(DECLTYPE(options), "minimum"))
-  {
-    RETURN APPLY COMPOSITE_FORWARD(options) TO clamp;
-  }
-  STATIC_ELSE
-  {
-    RETURN APPLY COMPOSITE_JOIN(
-      COMPOSITE_FORWARD(options), :{ .minimum = 10; }
-    ) TO clamp;
-  }
-}
-
-ASSERT(clamp_with_default_minimum(@value 3) == 10);
-ASSERT(clamp_with_default_minimum(@value 3, @minimum 1) == 3);
-```
-
-After ordinary overload ranking ties, a candidate without `KWARGS` is preferred
-to one with it. Among remaining candidates, more explicitly matched named
-parameters are preferred. Declaration order does not select the overload.
-An uninstantiated `KWARGS` function cannot be converted directly to a procedure
-pointer; a procedure pointer needs a concrete parameter interface.
+`@KWARGS ...` and `@KWARGS:name ...` declare named argument packs. Their fields
+are independent genvalues. The [pack reference](packs.md) specifies parameter
+capture, expansion, and consuming forwarding.
 
 ## Static reflection
 
@@ -282,10 +242,7 @@ argument list; named members must not collide with another supplied name.
 `RETURN` is reserved, and an explicit `THIS` cannot collide with a bound receiver.
 
 Expansion works in ordinary calls, constructor argument lists, and `NEW`.
-`COMPOSITE_TIE(pack)` and `COMPOSITE_FORWARD(pack)` also accept a positional
-parameter pack and expose its elements as positional composite members.
-`COMPOSITE_FORWARD` preserves reference categories for a subsequent call.
-
+Positional and named argument packs use [pack expansion](packs.md).
 
 ### Function specialization
 

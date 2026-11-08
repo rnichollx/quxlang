@@ -85,18 +85,20 @@ DOC <$ Structural records support reflected fields and named argument forwarding
   ::clamp_nonnegative FUNCTION(@value I32, @KWARGS ...): I32
   {
     IF (value < 0) { value := 0; }
-    RETURN APPLY COMPOSITE_JOIN(:{ .value = value; }, COMPOSITE_FORWARD(KWARGS)) TO clamp;
+    PACK arguments FUSE(...{ .value = value; }, KWARGS);
+    RETURN FORWARD PACK(arguments) TO clamp;
   }
 
   ::clamp_with_default_minimum FUNCTION(@KWARGS:options ...): I32
   {
-    STATIC_IF (COMPOSITE_CONTAINS(DECLTYPE(options), "minimum"))
+    STATIC_IF (PACK_CONTAINS(options, "minimum"))
     {
-      RETURN APPLY COMPOSITE_FORWARD(options) TO clamp;
+      RETURN FORWARD PACK(options) TO clamp;
     }
     STATIC_ELSE
     {
-      RETURN APPLY COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .minimum = 10; }) TO clamp;
+      PACK arguments FUSE(options, ...{ .minimum = 10; });
+      RETURN FORWARD PACK(arguments) TO clamp;
     }
   }
 
@@ -107,9 +109,10 @@ DOC <$ Structural records support reflected fields and named argument forwarding
 
   ::clamp_then_transform FUNCTION(@KWARGS ...): I32
   {
-    AUTO groups := COMPOSITE_SPLIT(COMPOSITE_TIE(KWARGS), "scale", "offset");
-    VAR clamped I32 := APPLY groups.remainder TO clamp;
-    RETURN APPLY COMPOSITE_JOIN(groups.selected, :{ .value = clamped; }) TO scale_and_offset;
+    PACK transform FISSION FIELDS("scale", "offset") FROM (KWARGS);
+    VAR clamped I32 := FORWARD PACK(KWARGS) TO clamp;
+    PACK arguments FUSE(transform, ...{ .value = clamped; });
+    RETURN FORWARD PACK(arguments) TO scale_and_offset;
   }
 
   ::kwargs_examples DUAL_TEST
@@ -124,16 +127,16 @@ DOC <$ Structural records support reflected fields and named argument forwarding
 
   ::named_field_count FUNCTION(@KWARGS ...): SZ
   {
-    RETURN COMPOSITE_FIELD_COUNT(DECLTYPE(KWARGS));
+    RETURN PACK_FIELD_COUNT(KWARGS);
   }
 
   ::sum_fields FUNCTION(@KWARGS ...): I32
   {
     VAR total I32 := 0;
     STATIC_VAR index SZ := 0;
-    STATIC_WHILE (index < COMPOSITE_FIELD_COUNT(DECLTYPE(KWARGS)))
+    STATIC_WHILE (index < PACK_FIELD_COUNT(KWARGS))
     {
-      total := total + COMPOSITE_FIELD_GET(KWARGS, index);
+      total := total + PACK_FIELD_GET(KWARGS, index);
       STATIC_EVAL index++;
     }
     RETURN total;

@@ -258,14 +258,14 @@ PRIVATE(MODULE)
     accept a fractional precision from zero through eighteen.
     $>
   ::format_arguments TEMPLATE(@T:text VALUE STRING_CONSTANT)
-    FUNCTION(@output MUT& AUTO, @positional CONST& AUTO(positional_type), @named CONST& AUTO(named_type))
+    FUNCTION(@output MUT& AUTO, %...positional CONST& AUTO, @KWARGS ...)
   {
     STATIC_VAR cursor SZ := 0;
     STATIC_VAR automatic SZ := 0;
     STATIC_VAR has_automatic BOOL := FALSE;
     STATIC_VAR has_explicit BOOL := FALSE;
-    STATIC_VAR used_positions [COMPOSITE_FIELD_COUNT(positional_type)]BOOL;
-    STATIC_VAR used_names [COMPOSITE_FIELD_COUNT(named_type)]BOOL;
+    STATIC_VAR used_positions [PACK_FIELD_COUNT(positional)]BOOL;
+    STATIC_VAR used_names [PACK_FIELD_COUNT(KWARGS)]BOOL;
     STATIC length SZ := (text.END() - text.BEGIN()) AS ASSUME SZ;
     STATIC_WHILE(cursor < length)
     {
@@ -345,7 +345,7 @@ PRIVATE(MODULE)
             STATIC_EVAL digit := 0;
             STATIC_WHILE(digit < field.size())
             {
-              STATIC_IF(index >= COMPOSITE_FIELD_COUNT(positional_type))
+              STATIC_IF(index >= PACK_FIELD_COUNT(positional))
               { COMPILATION_ERROR "Format positional index is out of range."; }
               STATIC_EVAL index := index * 10 + ((field[digit] AS U8) - 48 AS SZ);
               STATIC_EVAL digit++;
@@ -355,22 +355,22 @@ PRIVATE(MODULE)
           { COMPILATION_ERROR "Automatic and explicit positional format fields cannot be mixed."; }
           STATIC_IF(field.size() == 0 || numeric)
           {
-            STATIC_IF(index >= COMPOSITE_FIELD_COUNT(positional_type))
+            STATIC_IF(index >= PACK_FIELD_COUNT(positional))
             { COMPILATION_ERROR "Format positional index is out of range."; }
             STATIC_EVAL used_positions[index] := TRUE;
-            format_selected_value#(@style style, @precision precision)(@output output, @value COMPOSITE_FIELD_GET(positional, index));
+            format_selected_value#(@style style, @precision precision)(@output output, @value PACK_ARG(positional, index));
           }
           STATIC_ELSE
           {
             STATIC_VAR found BOOL := FALSE;
             STATIC_VAR member SZ := 0;
-            STATIC_WHILE(member < COMPOSITE_FIELD_COUNT(named_type))
+            STATIC_WHILE(member < PACK_FIELD_COUNT(KWARGS))
             {
-              STATIC_IF(field == COMPOSITE_FIELD_NAME(named_type, member))
+              STATIC_IF(field == PACK_FIELD_NAME(KWARGS, member))
               {
                 STATIC_EVAL found := TRUE;
                 STATIC_EVAL used_names[member] := TRUE;
-                format_selected_value#(@style style, @precision precision)(@output output, @value COMPOSITE_FIELD_GET(named, member));
+                format_selected_value#(@style style, @precision precision)(@output output, @value PACK_FIELD_GET(KWARGS, member));
               }
               STATIC_EVAL member++;
             }
@@ -394,14 +394,14 @@ PRIVATE(MODULE)
       }
     }
     STATIC_VAR member SZ := 0;
-    STATIC_WHILE(member < COMPOSITE_FIELD_COUNT(positional_type))
+    STATIC_WHILE(member < PACK_FIELD_COUNT(positional))
     {
       STATIC_IF(used_positions[member] == FALSE)
       { COMPILATION_ERROR "Unused positional format argument."; }
       STATIC_EVAL member++;
     }
     STATIC_EVAL member := 0;
-    STATIC_WHILE(member < COMPOSITE_FIELD_COUNT(named_type))
+    STATIC_WHILE(member < PACK_FIELD_COUNT(KWARGS))
     {
       STATIC_IF(used_names[member] == FALSE)
       { COMPILATION_ERROR "Unused keyword format argument."; }
@@ -429,7 +429,7 @@ DOC <$
   FUNCTION(%...args CONST& AUTO, @KWARGS ...): string
 {
   VAR output format_string_writer;
-  format_arguments#text(@output output, @positional COMPOSITE_TIE(args), @named KWARGS);
+  format_arguments#text(@output output, ...FORWARD PACK(args), ...FORWARD PACK(KWARGS));
   RETURN output.text AS TEMP& string;
 }
 
@@ -442,7 +442,7 @@ DOC <$
   FUNCTION(%...args CONST& AUTO, @KWARGS ...)
 {
   AUTO output := open_standard_output_writer();
-  format_arguments#text(@output output, @positional COMPOSITE_TIE(args), @named KWARGS);
+  format_arguments#text(@output output, ...FORWARD PACK(args), ...FORWARD PACK(KWARGS));
   output.flush();
 }
 

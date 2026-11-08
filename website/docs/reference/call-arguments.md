@@ -2,7 +2,7 @@
 
 Calls bind named arguments by API name and positional arguments by position.
 Arguments use `@name`, a `% [...]` positional group, the single bare `ARG`
-form, or `COMPOSITE_UNPACK(composite)`.
+form, or `...pack` expansion.
 
 ## Named arguments
 
@@ -100,13 +100,17 @@ VAR combined I32 := combine(
 The four calls occur in that order. After evaluation, the values are mapped to
 the selected candidate's named and positional formal parameters.
 
-## Composite arguments and `APPLY`
+## Pack arguments and forwarding
 
-`APPLY arguments TO target` expands the top-level fields of a composite into
-positional and named arguments. It evaluates the argument composite first,
-then the target, using ordinary parameter adaptation and defaults. It does not
-invoke constructors. See [Composites](composites.md#apply) for
-reference forwarding, receiver restrictions, and the `KWARGS` capture rules.
+`...arguments` expands a pack into positional and named arguments while
+preserving the source binding. `FORWARD PACK(arguments) TO target` consumes
+its argument pack and evaluates the pack before the callable. Consuming
+expansion inside an argument list uses `...FORWARD PACK(arguments)`.
+
+A named pack parameter such as `@args ...` accepts an entire pack as one
+logical argument. `@args FORWARD PACK(arguments)` transfers the pack's owned
+fields. Several named pack parameters can coexist with a final `@KWARGS ...`
+capture. The [pack reference](packs.md) specifies the complete contract.
 
 ## Empty calls and defaults
 

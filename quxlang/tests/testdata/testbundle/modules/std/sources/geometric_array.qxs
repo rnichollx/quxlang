@@ -235,7 +235,7 @@ DOC <$
   }
 
   DOC <$ The emplace_back function constructs an element at the end of the array from the forwarded arguments. The array size increases after construction succeeds. $>
-  .emplace_back FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT: MUT& T
+  .emplace_back FUNCTION(%...values TT, @KWARGS ...) MUT: MUT& T
   {
     IF UNLIKELY (.length >= (((0 AS SZ) #!!) - 1)) { THROW container_error::size_overflow; }
     VAR segment_index SZ := bit_width(.length + 1) - 1;
@@ -243,8 +243,8 @@ DOC <$
     {
       VAR segment geometric_array#(T)::segment :(@EXPLICIT (1 AS SZ) #++ segment_index);
       PLACE AT(segment.storage[0]) T :(
-        COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),
-        COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS))
+        ...FORWARD PACK(values),
+        ...FORWARD PACK(KWARGS)
       );
       segment.count := 1;
       .segments.push_back(MOVE(segment));
@@ -253,8 +253,8 @@ DOC <$
     {
       VAR segment MUT& geometric_array#(T)::segment := .segments[segment_index];
       PLACE AT(segment.storage[segment.count]) T :(
-        COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),
-        COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS))
+        ...FORWARD PACK(values),
+        ...FORWARD PACK(KWARGS)
       );
       segment.count++;
     }

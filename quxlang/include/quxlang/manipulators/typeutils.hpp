@@ -56,6 +56,12 @@ namespace quxlang
     std::string to_string(expression const& expr, bool print_locations);
     /** Returns a runtime carrier, excluding literal values and VOID symbol bindings or references to those bindings. */
     auto parameter_runtime_type(type_symbol const& parameter_type) -> std::optional< type_symbol >;
+
+    /** Encodes one field in the independent-parameter ABI of a named pack. */
+    auto pack_parameter_field_name(std::string const& pack, std::string const& field) -> std::string;
+
+    /** Expands named pack schemas into independent parameter bindings, retaining schema markers. */
+    void expand_pack_parameters(instatype& parameters);
     expression strip_source_locations(expression expr);
     type_symbol strip_source_locations(type_symbol ref);
     temploid_ensig strip_source_locations(temploid_ensig ref);

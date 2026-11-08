@@ -25,9 +25,9 @@ LANGUAGE QUXLANG EN 0.0;
     ::promise_type ALIAS descriptor::RETURN_TYPE::promise#frame_type;
     .promise VAR MUT->promise_type;
 
-    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
     {
-      VAR selected := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
+      VAR selected := child#(@CONTROLLER AUTO, ...PACK_TYPES(arguments));
       RETURN operation#selected(@ARGUMENTS arguments);
     }
     .CO_AWAIT FUNCTION(@ARG AUTO& AUTO(operation_type)): MUT& operation_type { RETURN ARG AS MUT& operation_type; }
@@ -48,12 +48,12 @@ LANGUAGE QUXLANG EN 0.0;
   ::operation TEMPLATE(@T:descriptor TYPE AUTO) STRUCT MOVE_ONLY
   {
     .state VAR MUT->context#descriptor;
-    .CONSTRUCTOR FUNCTION(@ARGUMENTS:arguments AUTO& AUTO)
+    .CONSTRUCTOR FUNCTION(@ARGUMENTS:arguments ...)
     {
       .state := NEW context#descriptor;
       .state->.adapted.promise := .state->.promise<-;
       .state->.promise.frame := .state->.frame<-;
-      TRY { .state->.frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments))); }
+      TRY { .state->.frame.INITIALIZE(...arguments); }
       CATCH DEFAULT { DELETE .state; .state := NULL; RETHROW; }
     }
     .CONSTRUCTOR FUNCTION(@OTHER TEMP& operation#descriptor)
@@ -74,9 +74,9 @@ LANGUAGE QUXLANG EN 0.0;
 
   ::scheduler STRUCT
   {
-    .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+    .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
     {
-      VAR selected := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
+      VAR selected := child#(@CONTROLLER AUTO, ...PACK_TYPES(arguments));
       RETURN operation#selected(@ARGUMENTS arguments);
     }
   }

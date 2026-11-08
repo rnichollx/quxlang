@@ -180,6 +180,7 @@ namespace quxlang
             co_await canonicalize_param(param);
         }
 
+        expand_pack_parameters(result);
         co_return result;
     }
 } // namespace quxlang

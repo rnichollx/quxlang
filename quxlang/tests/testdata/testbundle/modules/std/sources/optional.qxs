@@ -146,12 +146,12 @@ DOC <$ Stores either no value or one T in inline typed storage. Moving preserves
   }
 
   DOC <$ Replaces the contained value by forwarding positional and named arguments to T's constructor. Remains empty if construction throws. $>
-  .emplace FUNCTION(%...values AUTO& AUTO, @KWARGS ...) MUT: MUT& T
+  .emplace FUNCTION(%...values TT, @KWARGS ...) MUT: MUT& T
   {
     .reset();
     VAR placed MUT->T := PLACE AT(.storage) T :(
-      COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)),
-      COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS))
+      ...FORWARD PACK(values),
+      ...FORWARD PACK(KWARGS)
     );
     .engaged := TRUE;
     RETURN placed->;

@@ -2,7 +2,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 DOC <$ Applies all_of to the borrowed range boundaries. $>
 ::all_of FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO all_of; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO all_of;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::all_of FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -10,7 +13,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies any_of to the borrowed range boundaries. $>
 ::any_of FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO any_of; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO any_of;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::any_of FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -18,7 +24,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies none_of to the borrowed range boundaries. $>
 ::none_of FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO none_of; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO none_of;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::none_of FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -26,7 +35,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies count to the borrowed range boundaries. $>
 ::count FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO count; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO count;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::count FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -34,7 +46,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies count_if to the borrowed range boundaries. $>
 ::count_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO count_if; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO count_if;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::count_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -42,7 +57,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies find to the borrowed range boundaries. $>
 ::find FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO find; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO find;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::find FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -50,7 +68,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies find_if to the borrowed range boundaries. $>
 ::find_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO find_if; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO find_if;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::find_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -58,7 +79,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies find_if_not to the borrowed range boundaries. $>
 ::find_if_not FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO find_if_not; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO find_if_not;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::find_if_not FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -66,7 +90,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies for_each to the borrowed range boundaries. $>
 ::for_each FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO for_each; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO for_each;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::for_each FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -74,7 +101,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies find_first_of to the borrowed range boundaries. $>
 ::find_first_of FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO find_first_of; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO find_first_of;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::find_first_of FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -86,7 +116,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies adjacent_find to the borrowed range boundaries. $>
 ::adjacent_find FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO adjacent_find; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO adjacent_find;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::adjacent_find FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -94,7 +127,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies search to the borrowed range boundaries. $>
 ::search FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO search; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO search;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::search FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -106,7 +142,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies find_end to the borrowed range boundaries. $>
 ::find_end FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO find_end; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO find_end;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::find_end FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -118,7 +157,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies search_n to the borrowed range boundaries. $>
 ::search_n FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO search_n; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO search_n;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::search_n FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -126,7 +168,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies equal to the borrowed range boundaries. $>
 ::equal FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO equal; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO equal;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::equal FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -138,7 +183,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies mismatch to the borrowed range boundaries. $>
 ::mismatch FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO mismatch; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO mismatch;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::mismatch FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -150,7 +198,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies lexicographical_compare to the borrowed range boundaries. $>
 ::lexicographical_compare FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO lexicographical_compare; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO lexicographical_compare;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::lexicographical_compare FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -162,7 +213,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies is_permutation to the borrowed range boundaries. $>
 ::is_permutation FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO is_permutation; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO is_permutation;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::is_permutation FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -174,7 +228,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies min_element to the borrowed range boundaries. $>
 ::min_element FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO min_element; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO min_element;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::min_element FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -182,7 +239,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies max_element to the borrowed range boundaries. $>
 ::max_element FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO max_element; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO max_element;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::max_element FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -190,7 +250,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies minmax_element to the borrowed range boundaries. $>
 ::minmax_element FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO minmax_element; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO minmax_element;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::minmax_element FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -198,7 +261,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies fold_left to the borrowed range boundaries. $>
 ::fold_left FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO fold_left; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO fold_left;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::fold_left FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -206,7 +272,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies fold_right to the borrowed range boundaries. $>
 ::fold_right FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO fold_right; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO fold_right;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::fold_right FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -214,7 +283,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies copy to the borrowed range boundaries. $>
 ::copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO copy; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO copy;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -222,7 +294,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies move to the borrowed range boundaries. $>
 ::move FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO move; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO move;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::move FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -230,7 +305,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies copy_backward to the borrowed range boundaries. $>
 ::copy_backward FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO copy_backward; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO copy_backward;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::copy_backward FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -238,7 +316,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies move_backward to the borrowed range boundaries. $>
 ::move_backward FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO move_backward; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO move_backward;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::move_backward FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -246,7 +327,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies copy_if to the borrowed range boundaries. $>
 ::copy_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO copy_if; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO copy_if;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::copy_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -254,7 +338,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies remove_copy to the borrowed range boundaries. $>
 ::remove_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO remove_copy; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO remove_copy;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::remove_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -262,7 +349,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies remove_copy_if to the borrowed range boundaries. $>
 ::remove_copy_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO remove_copy_if; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO remove_copy_if;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::remove_copy_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -270,7 +360,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies transform to the borrowed range boundaries. $>
 ::transform FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO transform; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO transform;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::transform FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -278,7 +371,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies transform to the borrowed range boundaries. $>
 ::transform FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO transform; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO transform;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::transform FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -290,7 +386,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies fill to the borrowed range boundaries. $>
 ::fill FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO fill; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO fill;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::fill FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -298,7 +397,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies generate to the borrowed range boundaries. $>
 ::generate FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO generate; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO generate;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::generate FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -306,7 +408,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies replace to the borrowed range boundaries. $>
 ::replace FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO replace; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO replace;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::replace FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -314,7 +419,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies replace_if to the borrowed range boundaries. $>
 ::replace_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO replace_if; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO replace_if;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::replace_if FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -322,7 +430,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies replace_copy to the borrowed range boundaries. $>
 ::replace_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO replace_copy; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO replace_copy;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::replace_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -330,7 +441,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies replace_copy_if to the borrowed range boundaries. $>
 ::replace_copy_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO replace_copy_if; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO replace_copy_if;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::replace_copy_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -338,7 +452,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies remove to the borrowed range boundaries. $>
 ::remove FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO remove; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO remove;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::remove FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -346,7 +463,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies remove_if to the borrowed range boundaries. $>
 ::remove_if FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO remove_if; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO remove_if;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::remove_if FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -354,7 +474,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies unique to the borrowed range boundaries. $>
 ::unique FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO unique; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO unique;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::unique FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -362,7 +485,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies unique_copy to the borrowed range boundaries. $>
 ::unique_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO unique_copy; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO unique_copy;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::unique_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -370,7 +496,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies reverse to the borrowed range boundaries. $>
 ::reverse FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO reverse; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO reverse;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::reverse FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -378,7 +507,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies reverse_copy to the borrowed range boundaries. $>
 ::reverse_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO reverse_copy; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO reverse_copy;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::reverse_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -386,7 +518,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies rotate to the borrowed range boundaries. $>
 ::rotate FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO rotate; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO rotate;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::rotate FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -394,7 +529,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies rotate_copy to the borrowed range boundaries. $>
 ::rotate_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO rotate_copy; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO rotate_copy;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::rotate_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -402,7 +540,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies swap_ranges to the borrowed range boundaries. $>
 ::swap_ranges FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO swap_ranges; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO swap_ranges;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::swap_ranges FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -414,7 +555,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies partition to the borrowed range boundaries. $>
 ::partition FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partition; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO partition;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::partition FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -422,7 +566,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies is_partitioned to the borrowed range boundaries. $>
 ::is_partitioned FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_partitioned; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO is_partitioned;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::is_partitioned FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -430,7 +577,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies partition_copy to the borrowed range boundaries. $>
 ::partition_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partition_copy; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO partition_copy;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::partition_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -438,7 +588,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies make_heap to the borrowed range boundaries. $>
 ::make_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO make_heap; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO make_heap;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::make_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -446,7 +599,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies push_heap to the borrowed range boundaries. $>
 ::push_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO push_heap; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO push_heap;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::push_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -454,7 +610,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies pop_heap to the borrowed range boundaries. $>
 ::pop_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO pop_heap; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO pop_heap;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::pop_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -462,7 +621,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies sort_heap to the borrowed range boundaries. $>
 ::sort_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO sort_heap; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO sort_heap;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::sort_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -470,7 +632,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies is_heap_until to the borrowed range boundaries. $>
 ::is_heap_until FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_heap_until; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO is_heap_until;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::is_heap_until FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -478,7 +643,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies is_heap to the borrowed range boundaries. $>
 ::is_heap FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_heap; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO is_heap;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::is_heap FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -486,7 +654,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies sort to the borrowed range boundaries. $>
 ::sort FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO sort; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO sort;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::sort FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -494,7 +665,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies nth_element to the borrowed range boundaries. $>
 ::nth_element FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO nth_element; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO nth_element;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::nth_element FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -502,7 +676,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies partial_sort to the borrowed range boundaries. $>
 ::partial_sort FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partial_sort; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO partial_sort;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::partial_sort FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -510,7 +687,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies partial_sort_copy to the borrowed range boundaries. $>
 ::partial_sort_copy FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partial_sort_copy; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO partial_sort_copy;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::partial_sort_copy FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -518,7 +698,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies is_sorted_until to the borrowed range boundaries. $>
 ::is_sorted_until FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_sorted_until; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO is_sorted_until;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::is_sorted_until FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -526,7 +709,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies is_sorted to the borrowed range boundaries. $>
 ::is_sorted FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO is_sorted; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO is_sorted;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::is_sorted FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -534,7 +720,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies lower_bound to the borrowed range boundaries. $>
 ::lower_bound FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO lower_bound; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO lower_bound;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::lower_bound FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -542,7 +731,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies upper_bound to the borrowed range boundaries. $>
 ::upper_bound FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO upper_bound; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO upper_bound;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::upper_bound FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -550,7 +742,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies partition_point to the borrowed range boundaries. $>
 ::partition_point FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO partition_point; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO partition_point;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::partition_point FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -558,7 +753,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies equal_range to the borrowed range boundaries. $>
 ::equal_range FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO equal_range; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO equal_range;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::equal_range FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -566,7 +764,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies binary_search to the borrowed range boundaries. $>
 ::binary_search FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO binary_search; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO binary_search;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::binary_search FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -574,7 +775,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies merge to the borrowed range boundaries. $>
 ::merge FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO merge; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO merge;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::merge FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -586,7 +790,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies set_union to the borrowed range boundaries. $>
 ::set_union FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO set_union; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO set_union;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::set_union FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -598,7 +805,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies set_intersection to the borrowed range boundaries. $>
 ::set_intersection FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO set_intersection; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO set_intersection;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::set_intersection FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -610,7 +820,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies set_difference to the borrowed range boundaries. $>
 ::set_difference FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO set_difference; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO set_difference;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::set_difference FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -622,7 +835,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies set_symmetric_difference to the borrowed range boundaries. $>
 ::set_symmetric_difference FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO set_symmetric_difference; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO set_symmetric_difference;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::set_symmetric_difference FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -634,7 +850,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies includes to the borrowed range boundaries. $>
 ::includes FUNCTION(@range1 AUTO& AUTO, @range2 AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, COMPOSITE_FORWARD(options)) TO includes; }
+{
+  PACK forwarded_arguments FUSE(...{ .first1 = range1.BEGIN(); .last1 = range1.END(); .first2 = range2.BEGIN(); .last2 = range2.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO includes;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::includes FUNCTION(@range1 TEMP& AUTO, @range2 AUTO& AUTO, @KWARGS ...): AUTO
@@ -646,7 +865,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies next_permutation to the borrowed range boundaries. $>
 ::next_permutation FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO next_permutation; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO next_permutation;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::next_permutation FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -654,7 +876,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies prev_permutation to the borrowed range boundaries. $>
 ::prev_permutation FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO prev_permutation; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO prev_permutation;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::prev_permutation FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -662,7 +887,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies stable_partition to the borrowed range boundaries. $>
 ::stable_partition FUNCTION(@range AUTO& AUTO, @KWARGS:options ...): AUTO
-{ RETURN APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO stable_partition; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  RETURN FORWARD PACK(forwarded_arguments) TO stable_partition;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::stable_partition FUNCTION(@range TEMP& AUTO, @KWARGS ...): AUTO
@@ -670,7 +898,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies inplace_merge to the borrowed range boundaries. $>
 ::inplace_merge FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO inplace_merge; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO inplace_merge;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::inplace_merge FUNCTION(@range TEMP& AUTO, @KWARGS ...)
@@ -678,7 +909,10 @@ DOC <$ Rejects a temporary range whose storage may expire. $>
 
 DOC <$ Applies stable_sort to the borrowed range boundaries. $>
 ::stable_sort FUNCTION(@range AUTO& AUTO, @KWARGS:options ...)
-{ APPLY COMPOSITE_JOIN(:{ .first = range.BEGIN(); .last = range.END(); }, COMPOSITE_FORWARD(options)) TO stable_sort; }
+{
+  PACK forwarded_arguments FUSE(...{ .first = range.BEGIN(); .last = range.END(); }, options);
+  FORWARD PACK(forwarded_arguments) TO stable_sort;
+}
 
 DOC <$ Rejects a temporary range whose storage may expire. $>
 ::stable_sort FUNCTION(@range TEMP& AUTO, @KWARGS ...)

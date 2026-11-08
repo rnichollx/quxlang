@@ -18,6 +18,9 @@ rpnx::querygraph::coroutine< quxlang::class_placement_info_spec > quxlang::class
         throw semantic_compilation_error("Physical class placement is unavailable for a layoutless target: " + type_str);
     }
 
+    if (type.type_is< composite_type >() && type.get_as< composite_type >().is_pack_schema)
+        throw semantic_compilation_error("A pack schema has no runtime object layout");
+
     std::uint64_t maximum_extent = machine_info.maximum_object_extent();
     auto validate_placement = [&](class_placement_info placement) -> class_placement_info
     {

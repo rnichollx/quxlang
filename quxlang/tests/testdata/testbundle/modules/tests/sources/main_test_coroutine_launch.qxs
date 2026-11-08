@@ -6,14 +6,14 @@ LANGUAGE QUXLANG EN 0.0;
   {
     .observed VAR MUT->coroutine_call_tests::observations;
 
-    .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: I32
+    .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: I32
     {
-      VAR selected := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER coroutine_call_tests::controller);
+      VAR selected := coroutine_call_tests::specialize#PACK_TYPES(arguments)(@COROUTINE child, @CONTROLLER coroutine_call_tests::controller);
       .observed->.calls += 1;
       VAR adapted coroutine_call_tests::controller;
       adapted.observed := .observed;
       VAR frame selected::FRAME_TYPE;
-      frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      frame.INITIALIZE(...FORWARD PACK(arguments));
       TEST_ASSERT(frame.RESUME(@CONTROLLER adapted));
       RETURN adapted.result;
     }
@@ -81,9 +81,9 @@ LANGUAGE QUXLANG EN 0.0;
   {
     .entry VAR scheduler;
     .ready VAR BOOL;
-    .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
+    .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
     {
-      VAR selected := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER coroutine_call_tests::controller);
+      VAR selected := coroutine_call_tests::specialize#PACK_TYPES(arguments)(@COROUTINE child, @CONTROLLER coroutine_call_tests::controller);
       VAR value := .entry.CO_RUN(@COROUTINE child, @ARGUMENTS arguments);
       STATIC_IF(SAME_TYPES(selected::RETURN_TYPE, VOID))
       {

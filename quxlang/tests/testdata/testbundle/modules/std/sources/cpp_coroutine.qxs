@@ -196,14 +196,14 @@ PRIVATE(MODULE)
   }
 
   DOC <$ Selects a partial coroutine descriptor from the complete binding and unevaluated argument types. $>
-  ::cpp_coroutine_select FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  ::cpp_coroutine_select TEMPLATE(@T:arguments TYPE) FUNCTION(@COROUTINE:child AUTO): AUTO
   {
-    STATIC_IF(COMPOSITE_CONTAINS(TYPEOF(arguments), "RECEIVER"))
+    STATIC_IF(PACK_CONTAINS(arguments, "RECEIVER"))
     {
-      RETURN child#(@CONTROLLER AUTO, @THIS COMPOSITE_FIELD_TYPE(TYPEOF(arguments), "RECEIVER"),
-        COMPOSITE_UNPACK(TYPEOF(COMPOSITE_EXCLUDE(arguments, "RECEIVER"))));
+      RETURN child#(@CONTROLLER AUTO, @THIS PACK_FIELD_TYPE(arguments, "RECEIVER"),
+        ...PACK_TYPES_EXCEPT(arguments, "RECEIVER"));
     }
-    STATIC_ELSE { RETURN child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments))); }
+    STATIC_ELSE { RETURN child#(@CONTROLLER AUTO, ...PACK_TYPES(arguments)); }
   }
 
   DOC <$ Adapts one coroutine specialization to the promise supplied by its declared return type. $>
@@ -257,17 +257,17 @@ PRIVATE(MODULE)
     DOC <$ Completes an instant cancellation notification without a value. $>
     .CO_CANCELLED FUNCTION(@ARG MUT& AUTO) NOEXCEPT {}
     DOC <$ Launches a child with the promise controller selected by its own return type. $>
-    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
     {
       VAR scheduler cpp_style_coroutine_base;
-      VAR result := scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+      VAR result := scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
       RETURN cpp_coroutine_call_result#DECLTYPE(result)(@value MOVE(result));
     }
     DOC <$ Launches a child and returns its ownership object directly. $>
-    .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+    .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
     {
       VAR scheduler cpp_style_coroutine_base;
-      RETURN scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+      RETURN scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
     }
   }
 
@@ -288,7 +288,7 @@ PRIVATE(MODULE)
     .started VAR BOOL;
 
     DOC <$ Captures coroutine arguments and connects the concrete operations to the erased control object. $>
-    .CONSTRUCTOR FUNCTION(@ARGUMENTS:arguments AUTO& AUTO)
+    .CONSTRUCTOR FUNCTION(@ARGUMENTS:arguments ...)
     {
       .control.allocation := THIS<- AS REINTERPRET MUT->VOID;
       .control.promise_pointer := .promise<- AS REINTERPRET MUT->VOID;
@@ -296,7 +296,7 @@ PRIVATE(MODULE)
       .control.release := release<-;
       .controller.promise := .promise<-;
       .controller.control := .control<-;
-      .frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      .frame.INITIALIZE(...FORWARD PACK(arguments));
     }
 
     DOC <$ Starts initial suspension after the return object has been obtained. $>
@@ -369,10 +369,10 @@ DOC <$ Launches coroutines using the declared return type's promise_type and C++
 ::cpp_style_coroutine_base STRUCT
 {
   DOC <$ Allocates stable invocation storage, obtains the promise's return object, and starts initial suspension. $>
-  .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
   {
-    VAR descriptor := cpp_coroutine_select(@COROUTINE child, @ARGUMENTS arguments);
-    RETURN cpp_coroutine_launch#descriptor(@ARGUMENTS COMPOSITE_FORWARD(arguments));
+    VAR descriptor := cpp_coroutine_select#PACK_TYPES(arguments)(@COROUTINE child);
+    RETURN cpp_coroutine_launch#descriptor(@ARGUMENTS FORWARD PACK(arguments));
   }
 }
 
@@ -390,12 +390,12 @@ PRIVATE(MODULE)
   }
 
   DOC <$ Constructs a selected invocation and starts it after obtaining its return object. $>
-  ::cpp_coroutine_launch TEMPLATE(@T:descriptor_type TYPE AUTO) FUNCTION(@ARGUMENTS:arguments AUTO& AUTO): AUTO
+  ::cpp_coroutine_launch TEMPLATE(@T:descriptor_type TYPE AUTO) FUNCTION(@ARGUMENTS:arguments ...): AUTO
   {
     VAR initial_type := TYPEOF(cpp_coroutine_adapt(@ARG descriptor_type::RETURN_TYPE::promise_type().initial_suspend()));
     VAR final_type := TYPEOF(cpp_coroutine_adapt(@ARG descriptor_type::RETURN_TYPE::promise_type().final_suspend()));
     VAR invocation_type := cpp_coroutine_invocation#(@T descriptor_type, @initial_type initial_type, @final_type final_type);
-    VAR invocation MUT->invocation_type := NEW invocation_type:(@ARGUMENTS COMPOSITE_FORWARD(arguments));
+    VAR invocation MUT->invocation_type := NEW invocation_type:(@ARGUMENTS FORWARD PACK(arguments));
     VAR result descriptor_type::RETURN_TYPE := cpp_coroutine_return_object(@invocation invocation);
     invocation->.start();
     RETURN MOVE(result);

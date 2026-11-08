@@ -350,9 +350,11 @@ namespace quxlang::parsers
         }
         auto kw = loc.translate_from(lang, kw_pre_translate);
 
-        if (skip_symbol_if_is(pos, end, ":["))
+        bool pack_literal = false;
+        if ((pack_literal = skip_symbol_if_is(pos, end, "...[")) || skip_symbol_if_is(pos, end, ":["))
         {
             expression_composite_literal literal;
+            literal.is_pack = pack_literal;
             std::vector< expression_arg > elements = parse_positional_argument_sequence(ctx, "]");
             for (std::size_t index = 0; index < elements.size(); ++index)
             {
@@ -365,9 +367,10 @@ namespace quxlang::parsers
             *value_bind_point = std::move(literal);
             have_anything = true;
         }
-        else if (skip_symbol_if_is(pos, end, ":{"))
+        else if ((pack_literal = skip_symbol_if_is(pos, end, "...{")) || skip_symbol_if_is(pos, end, ":{"))
         {
             expression_composite_literal literal;
+            literal.is_pack = pack_literal;
             skip_whitespace_and_comments(pos, end);
             while (!skip_symbol_if_is(pos, end, "}"))
             {
@@ -538,6 +541,76 @@ namespace quxlang::parsers
                 throw syntax_compilation_error("Expected ')' after public field operation");
             }
             *value_bind_point = std::move(intrinsic);
+        }
+        else if (skip_keyword_if_is(pos, end, "COMPOSITE_TO_PACK"))
+        {
+            expression_pack_operation operation{.operation = pack_operation::from_composite};
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after COMPOSITE_TO_PACK");
+            operation.operands.push_back(parse_expression_impl(ctx));
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after COMPOSITE_TO_PACK");
+            *value_bind_point = std::move(operation);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "PACK_FIELD_GET"))
+        {
+            expression_pack_operation operation{.operation = pack_operation::get};
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after PACK_FIELD_GET");
+            operation.operands.push_back(parse_expression_impl(ctx));
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ",")) throw syntax_compilation_error("Expected pack field selector");
+            operation.operands.push_back(parse_expression_impl(ctx));
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after PACK_FIELD_GET");
+            *value_bind_point = std::move(operation);
+            have_anything = true;
+        }
+        else if (kw_pre_translate == "PACK_FIELD_COUNT" || kw_pre_translate == "PACK_FIELD_NAME" || kw_pre_translate == "PACK_CONTAINS")
+        {
+            skip_keyword_if_is(pos, end, kw_pre_translate);
+            expression_composite_operation intrinsic;
+            intrinsic.operation = kw_pre_translate == "PACK_FIELD_COUNT" ? composite_operation::count :
+                kw_pre_translate == "PACK_FIELD_NAME" ? composite_operation::name : composite_operation::contains;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after pack operation");
+            intrinsic.subject_type = decltype_type_ref{.symbol = parse_type_symbol(ctx), .requires_pack = true};
+            skip_whitespace_and_comments(pos, end);
+            if (intrinsic.operation != composite_operation::count)
+            {
+                if (!skip_symbol_if_is(pos, end, ",")) throw syntax_compilation_error("Expected pack field selector");
+                intrinsic.operands.push_back(parse_expression_impl(ctx));
+                skip_whitespace_and_comments(pos, end);
+            }
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after pack operation");
+            *value_bind_point = std::move(intrinsic);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "CAPTURE"))
+        {
+            expression_pack_operation operation{.operation = pack_operation::capture};
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after CAPTURE");
+            operation.operands.push_back(parse_expression_impl(ctx));
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after CAPTURE source");
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "NAMED")) throw syntax_compilation_error("Expected NAMED after CAPTURE");
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after NAMED");
+            operation.operands.push_back(parse_expression_impl(ctx));
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after CAPTURE name");
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "INTO")) throw syntax_compilation_error("Expected INTO after CAPTURE name");
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after INTO");
+            operation.operands.push_back(parse_expression_impl(ctx));
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after CAPTURE destination");
+            *value_bind_point = std::move(operation);
+            have_anything = true;
         }
         else if (kw_pre_translate.starts_with("COMPOSITE_") && kw_pre_translate != "COMPOSITE_FIELD_TYPE")
         {
@@ -945,21 +1018,45 @@ namespace quxlang::parsers
         }
         else if (skip_keyword_if_is(pos, end, "FORWARD"))
         {
-            expression_forward expr;
             skip_whitespace_and_comments(pos, end);
-            if (!skip_symbol_if_is(pos, end, "("))
+            if (skip_keyword_if_is(pos, end, "PACK"))
             {
-                throw syntax_compilation_error("Expected '(' after FORWARD");
+                expression_pack_operation operation{.operation = pack_operation::forward};
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after FORWARD PACK");
+                operation.operands.push_back(parse_expression_impl(ctx));
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after FORWARD PACK source");
+                skip_whitespace_and_comments(pos, end);
+                if (skip_keyword_if_is(pos, end, "TO"))
+                {
+                    expression_call call;
+                    call.composite_arguments = std::move(operation);
+                    call.consumes_pack = true;
+                    call.callee = parse_expression_impl(ctx);
+                    *value_bind_point = std::move(call);
+                }
+                else *value_bind_point = std::move(operation);
+                have_anything = true;
             }
-            skip_whitespace_and_comments(pos, end);
-            expr.symbol = parse_type_symbol(ctx);
-            skip_whitespace_and_comments(pos, end);
-            if (!skip_symbol_if_is(pos, end, ")"))
+            else
             {
-                throw syntax_compilation_error("Expected ')' after FORWARD symbol");
+                expression_forward expr;
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "("))
+                {
+                    throw syntax_compilation_error("Expected '(' after FORWARD");
+                }
+                skip_whitespace_and_comments(pos, end);
+                expr.symbol = parse_type_symbol(ctx);
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ')' after FORWARD symbol");
+                }
+                *value_bind_point = std::move(expr);
+                have_anything = true;
             }
-            *value_bind_point = std::move(expr);
-            have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "MOVE"))
         {

@@ -71,8 +71,8 @@ IMPORT std;
 
   ::forward_increment FUNCTION(%...values AUTO& AUTO, @KWARGS ...)
   {
-    TEST_ASSERT(SAME_TYPES(COMPOSITE_FIELD_TYPE(TYPEOF(COMPOSITE_FORWARD(values)), 0), MUT& I32));
-    increment(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
+    TEST_ASSERT(SAME_TYPES(PACK_FIELD_TYPE(values, 0), MUT& I32));
+    increment(...FORWARD PACK(values), ...FORWARD PACK(KWARGS));
   }
 
   DOC <$ Pack and named forwarding preserve mutable references to their original objects. $>

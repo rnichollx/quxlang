@@ -170,18 +170,18 @@ DOC <$ Owns worker threads and an unbounded intrusive ready queue. Each invocati
   }
 
   DOC <$ Schedules a coroutine with a controller selected from its declared return type and returns its future. $>
-  .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
+  .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
   {
-    STATIC_IF(COMPOSITE_CONTAINS(TYPEOF(arguments), "RECEIVER"))
+    STATIC_IF(PACK_CONTAINS(arguments, "RECEIVER"))
     {
-      VAR descriptor := child#(@CONTROLLER AUTO, @THIS COMPOSITE_FIELD_TYPE(TYPEOF(arguments), "RECEIVER"),
-        COMPOSITE_UNPACK(TYPEOF(COMPOSITE_EXCLUDE(arguments, "RECEIVER"))));
-      RETURN cort_launch#descriptor(@runtime THIS, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+      VAR descriptor := child#(@CONTROLLER AUTO, @THIS PACK_FIELD_TYPE(arguments, "RECEIVER"),
+        ...PACK_TYPES_EXCEPT(arguments, "RECEIVER"));
+      RETURN cort_launch#descriptor(@runtime THIS, @ARGUMENTS FORWARD PACK(arguments));
     }
     STATIC_ELSE
     {
-      VAR descriptor := child#(@CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)));
-      RETURN cort_launch#descriptor(@runtime THIS, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+      VAR descriptor := child#(@CONTROLLER AUTO, ...PACK_TYPES(arguments));
+      RETURN cort_launch#descriptor(@runtime THIS, @ARGUMENTS FORWARD PACK(arguments));
     }
   }
 
@@ -235,45 +235,45 @@ DOC <$ Connects a coroutine result to its pool and stable continuation. Recursiv
     RETURN cort_completion();
   }
   DOC <$ Schedules a child and returns the future directly to a GO expression. $>
-  .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
   {
-    STATIC_IF(STATIC_CHOOSE(COMPOSITE_CONTAINS(TYPEOF(arguments), "RECEIVER"),
-      IS_COROUTINE_CALLABLE_WITH(child, @CONTROLLER AUTO, @THIS COMPOSITE_FIELD_TYPE(TYPEOF(arguments), "RECEIVER"),
-        COMPOSITE_UNPACK(TYPEOF(COMPOSITE_EXCLUDE(arguments, "RECEIVER")))),
-      IS_COROUTINE_CALLABLE_WITH(child, @CONTROLLER AUTO, COMPOSITE_UNPACK(TYPEOF(arguments)))))
+    STATIC_IF(STATIC_CHOOSE(PACK_CONTAINS(arguments, "RECEIVER"),
+      IS_COROUTINE_CALLABLE_WITH(child, @CONTROLLER AUTO, @THIS PACK_FIELD_TYPE(arguments, "RECEIVER"),
+        ...PACK_TYPES_EXCEPT(arguments, "RECEIVER")),
+      IS_COROUTINE_CALLABLE_WITH(child, @CONTROLLER AUTO, ...PACK_TYPES(arguments))))
     {
-      RETURN .entry->.runtime->.CO_RUN(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+      RETURN .entry->.runtime->.CO_RUN(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
     }
     STATIC_ELSE
     {
-      STATIC_IF(COMPOSITE_CONTAINS(TYPEOF(arguments), "RECEIVER"))
+      STATIC_IF(PACK_CONTAINS(arguments, "RECEIVER"))
       {
-        VAR bound := BIND_CALL child(@THIS COMPOSITE_FIELD_GET(arguments, "RECEIVER"),
-          COMPOSITE_UNPACK(COMPOSITE_FORWARD(COMPOSITE_EXCLUDE(arguments, "RECEIVER"))));
+        VAR receiver EMIT FIELD("RECEIVER") FROM (arguments);
+        VAR bound := BIND_CALL child(@THIS FORWARD(receiver), ...FORWARD PACK(arguments));
         RETURN cort_launch_function(@runtime .entry->.runtime->, @bound MOVE(bound));
       }
       STATIC_ELSE
       {
-        VAR bound := BIND_CALL child(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+        VAR bound := BIND_CALL child(...FORWARD PACK(arguments));
         RETURN cort_launch_function(@runtime .entry->.runtime->, @bound MOVE(bound));
       }
     }
   }
   DOC <$ Schedules a coroutine destructor and suspends its caller until cleanup completes. $>
-  .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
   {
-    RETURN cort_launch#child(@runtime .entry->.runtime->, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+    RETURN cort_launch#child(@runtime .entry->.runtime->, @ARGUMENTS FORWARD PACK(arguments));
   }
   DOC <$ Schedules a coroutine constructor against its caller-owned destination. $>
-  .CO_CALL_CTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO, @DESTINATION:destination MUT& AUTO): AUTO
+  .CO_CALL_CTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ..., @DESTINATION:destination MUT& AUTO): AUTO
   {
-    RETURN cort_launch#child(@runtime .entry->.runtime->,
-      @ARGUMENTS COMPOSITE_JOIN(:{ .RECEIVER = destination; }, COMPOSITE_FORWARD(arguments)));
+    PACK invocation FUSE(...{ .RECEIVER = destination; }, arguments);
+    RETURN cort_launch#child(@runtime .entry->.runtime->, @ARGUMENTS FORWARD PACK(invocation));
   }
   DOC <$ Schedules a recursive child whose task is awaited by the ordinary call protocol. $>
-  .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): AUTO
+  .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
   {
-    VAR result := .CO_GO(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+    VAR result := .CO_GO(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
     RETURN task#(DECLTYPE(result)::value_type)(@result MOVE(result));
   }
 }
@@ -292,7 +292,7 @@ PRIVATE(MODULE)
     .frame VAR descriptor::FRAME_TYPE;
 
     DOC <$ Captures arguments before publishing the invocation to workers. $>
-    .CONSTRUCTOR FUNCTION(@runtime MUT& thread_pool_cort_runtime, @ARGUMENTS:arguments AUTO& AUTO)
+    .CONSTRUCTOR FUNCTION(@runtime MUT& thread_pool_cort_runtime, @ARGUMENTS:arguments ...)
     {
       .entry.runtime := runtime<-;
       .entry.owner := THIS<- AS REINTERPRET MUT->VOID;
@@ -301,7 +301,7 @@ PRIVATE(MODULE)
       .entry.continuation.notify := cort_notify<-;
       .controller.entry := .entry<-;
       .controller.producer := .producer<-;
-      .frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      .frame.INITIALIZE(...FORWARD PACK(arguments));
     }
 
     DOC <$ Drives one activation, publishes the result after terminal frame cleanup, and releases a completed invocation. $>
@@ -326,9 +326,9 @@ PRIVATE(MODULE)
   }
 
   DOC <$ Allocates a selected invocation and transfers its ownership to the pool. $>
-  ::cort_launch TEMPLATE(@T:descriptor_type TYPE AUTO) FUNCTION(@runtime MUT& thread_pool_cort_runtime, @ARGUMENTS:arguments AUTO& AUTO): future#descriptor_type::RETURN_TYPE
+  ::cort_launch TEMPLATE(@T:descriptor_type TYPE AUTO) FUNCTION(@runtime MUT& thread_pool_cort_runtime, @ARGUMENTS:arguments ...): future#descriptor_type::RETURN_TYPE
   {
-    VAR invocation MUT->cort_invocation#descriptor_type := NEW cort_invocation#descriptor_type:(@runtime runtime, @ARGUMENTS COMPOSITE_FORWARD(arguments));
+    VAR invocation MUT->cort_invocation#descriptor_type := NEW cort_invocation#descriptor_type:(@runtime runtime, @ARGUMENTS FORWARD PACK(arguments));
     VAR result := invocation->.producer.get_future();
     runtime.submit(@entry invocation->.entry<-);
     RETURN MOVE(result);
@@ -341,7 +341,7 @@ PRIVATE(MODULE)
   DOC <$ Executes a captured synchronous call through the ordinary coroutine completion and cleanup protocol. $>
   ::cort_function_call TEMPLATE(@T:bound_type TYPE) COROUTINE(@bound bound_type): COMPOSITE_FIELD_TYPE(bound_type, "CALLEE")::RETURN_TYPE
   {
-    RETURN APPLY COMPOSITE_FORWARD(COMPOSITE_FIELD_GET(bound, "ARGUMENTS")) TO COMPOSITE_FIELD_GET(bound, "CALLEE");
+    RETURN FORWARD PACK(COMPOSITE_TO_PACK(COMPOSITE_FIELD_GET(MOVE(bound), "ARGUMENTS"))) TO COMPOSITE_FIELD_GET(bound, "CALLEE");
   }
 
   DOC <$ Transfers adapted arguments into a coroutine frame before scheduling a synchronous function. $>
@@ -349,7 +349,7 @@ PRIVATE(MODULE)
   {
     VAR wrapper := cort_function_call#bound_type;
     VAR descriptor := wrapper#(@CONTROLLER AUTO, @bound bound_type);
-    RETURN cort_launch#descriptor(@runtime runtime, @ARGUMENTS :{ .bound = FORWARD(bound); });
+    RETURN cort_launch#descriptor(@runtime runtime, @ARGUMENTS ...{ .bound = FORWARD(bound); });
   }
 }
 

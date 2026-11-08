@@ -197,6 +197,14 @@ a field from a value. Names and indices are selected at compile time; indices
 enumerate positional members numerically, then named fields lexicographically. See [Composite Reflection](composites.md#static-reflection)
 for the exact signatures and access qualifiers.
 
+## Pack metadata
+
+`PACK_CONTAINS`, `PACK_FIELD_COUNT`, `PACK_FIELD_NAME`, and `PACK_FIELD_TYPE`
+inspect the schema of a pack binding. `PACK_TYPES` supplies its field types for
+specialization expansion; `PACK_TYPES_EXCEPT` omits explicitly selected fields.
+These operations preserve pack ownership. The [pack reference](packs.md)
+specifies their selectors and failure conditions.
+
 ## Layout and integer properties
 
 - `SIZEOF(T)` gives byte size where the type has a known size.

@@ -79,10 +79,6 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             {
                 throw quxlang::semantic_compilation_error("Type not found");
             }
-            if (param.second.is_pack)
-            {
-                throw quxlang::semantic_compilation_error("Named variadic packs are not supported");
-            }
             argif resolved = param.second;
             resolved.type = *formal_type_opt;
             formal_ensig.interface.named[param.first] = std::move(resolved);

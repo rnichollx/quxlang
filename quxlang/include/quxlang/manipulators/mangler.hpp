@@ -633,7 +633,7 @@ namespace quxlang
         }
         else if (qt.template type_is< composite_type >())
         {
-            std::string result = "CR";
+            std::string result = qt.get_as< composite_type >().is_pack_schema ? "PK" : "CR";
             for (std::pair< std::string const, type_symbol > const& field : qt.get_as< composite_type >().fields)
             {
                 result += mangle_counted_string(field.first) + mangle_internal(field.second);
@@ -661,7 +661,11 @@ namespace quxlang
         }
         else if (qt.template type_is< decltype_type_ref >())
         {
-            return "DE" + mangle_internal(qt.template get_as< decltype_type_ref >().symbol) + "E";
+            decltype_type_ref const& type = qt.template get_as< decltype_type_ref >();
+            if (!type.requires_pack) return "DE" + mangle_internal(type.symbol) + "E";
+            std::string result = "PT" + mangle_internal(type.symbol) + std::to_string(type.excluded_fields.size()) + "_";
+            for (expression const& field : type.excluded_fields) result += mangle_expression(field);
+            return result + "E";
         }
         else if (qt.template type_is< typeof_type_ref >())
         {

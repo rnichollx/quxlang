@@ -436,7 +436,8 @@ namespace quxlang::vmir2
         void apply_internal(vmir2::invoke const& inv)
         {
             check_state_valid();
-            auto ivk_func_inst = inv.what.get_as< instanciation_reference >();
+            instanciation_reference ivk_func_inst = inv.what.get_as< instanciation_reference >();
+            expand_pack_parameters(ivk_func_inst.params);
 
             std::size_t runtime_positional_index = 0;
             for (std::size_t param_index = 0; param_index < ivk_func_inst.params.positional.size(); param_index++)

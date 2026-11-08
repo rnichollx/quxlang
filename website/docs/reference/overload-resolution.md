@@ -27,7 +27,7 @@ argument, or an incompatible variadic shape.
 [Default Arguments](default-arguments.md) fill omitted parameters only for the
 candidate that declares them. [Variadic Packs](variadic-packs.md) capture a
 remaining positional suffix. A final `@KWARGS ...` captures unmatched named
-arguments as a [composite](composites.md#kwargs-parameters). When ordinary
+arguments as a [pack](packs.md#parameter-packs). When ordinary
 ranking ties, candidates without `KWARGS` are preferred, followed by candidates
 with more explicitly matched named arguments.
 

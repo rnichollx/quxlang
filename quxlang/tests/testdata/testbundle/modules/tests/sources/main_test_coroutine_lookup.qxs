@@ -51,11 +51,11 @@ LANGUAGE QUXLANG EN 0.0;
   ::ordinary_policy STRUCT
   {
     .calls VAR I32;
-    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: coroutine_call_tests::completed_value
+    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: coroutine_call_tests::completed_value
     {
       .calls += 1;
       VAR result coroutine_call_tests::completed_value;
-      result.value := child(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      result.value := child(...FORWARD PACK(arguments));
       RETURN result;
     }
     .CO_AWAIT FUNCTION(@ARG AUTO& coroutine_call_tests::completed_value): MUT& coroutine_call_tests::completed_value
@@ -86,7 +86,7 @@ LANGUAGE QUXLANG EN 0.0;
     CONTROLLER.observed->.integer_yields += 1;
   }
 
-  ::named_count FUNCTION(@KWARGS ...): SZ { RETURN COMPOSITE_FIELD_COUNT(DECLTYPE(KWARGS)); }
+  ::named_count FUNCTION(@KWARGS ...): SZ { RETURN PACK_FIELD_COUNT(KWARGS); }
 
   ::call_controller_functions COROUTINE(@explicit MUT& coroutine_call_tests::controller)
   {

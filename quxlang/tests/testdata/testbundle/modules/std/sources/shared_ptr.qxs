@@ -351,8 +351,8 @@ PRIVATE(MODULE, RUNTIME_MODULE)
     .value VAR T;
 
     DOC <$ Constructs the object directly from forwarded arguments with one owner. $>
-    .CONSTRUCTOR FUNCTION(%...values AUTO& AUTO, @KWARGS ...)
-      :> .value:(COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)))
+    .CONSTRUCTOR FUNCTION(%...values TT, @KWARGS ...)
+      :> .value:(...FORWARD PACK(values), ...FORWARD PACK(KWARGS))
     {
       .count.STORE#ATOMIC_RELEASE(1);
     }
@@ -479,10 +479,10 @@ DOC <$
 
 
 DOC <$ Constructs an object from forwarded arguments together with its reference count and returns its first owner. $>
-::make_shared TEMPLATE(@T TYPE AUTO) FUNCTION(%...values AUTO& AUTO, @KWARGS ...): shared_ptr#(T)
+::make_shared TEMPLATE(@T TYPE AUTO) FUNCTION(%...values TT, @KWARGS ...): shared_ptr#(T)
 {
   VAR allocation MUT->shared_allocation#(T) := NEW shared_allocation#(T) :(
-    COMPOSITE_UNPACK(COMPOSITE_FORWARD(values)), COMPOSITE_UNPACK(COMPOSITE_FORWARD(KWARGS)));
+    ...FORWARD PACK(values), ...FORWARD PACK(KWARGS));
   RETURN shared_ptr#(T)(@allocation allocation);
 }
 

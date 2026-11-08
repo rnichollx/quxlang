@@ -57,14 +57,16 @@ DOC <$ Transfers bidirectional elements backwards and returns the produced desti
 DOC <$ Copies selected elements in their input order and returns final cursors. $>
 ::copy_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO copy_if;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO copy_if;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO copy_if_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO copy_if_iterators;
   }
 }
 
@@ -80,19 +82,22 @@ PRIVATE(MODULE)
 DOC <$ Copies selected elements in their input order and returns final cursors. $>
 ::remove_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO remove_copy;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO remove_copy;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO remove_copy;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO remove_copy;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO remove_copy_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO remove_copy_iterators;
   }
 }
 
@@ -108,14 +113,16 @@ PRIVATE(MODULE)
 DOC <$ Copies selected elements in their input order and returns final cursors. $>
 ::remove_copy_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO remove_copy_if;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO remove_copy_if;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO remove_copy_if_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO remove_copy_if_iterators;
   }
 }
 
@@ -159,21 +166,24 @@ DOC <$ Assigns one generator result to every input position in order. $>
 DOC <$ Replaces selected original elements using their projected relation. $>
 ::replace FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...)
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO replace;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    FORWARD PACK(forwarded_arguments) TO replace;
     RETURN;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO replace;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    FORWARD PACK(forwarded_arguments) TO replace;
     RETURN;
   }
   STATIC_ELSE
   {
-    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO replace_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    FORWARD PACK(forwarded_arguments) TO replace_iterators;
   }
 }
 
@@ -188,15 +198,17 @@ PRIVATE(MODULE)
 DOC <$ Replaces selected original elements using their projected relation. $>
 ::replace_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...)
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO replace_if;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    FORWARD PACK(forwarded_arguments) TO replace_if;
     RETURN;
   }
   STATIC_ELSE
   {
-    APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO replace_if_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    FORWARD PACK(forwarded_arguments) TO replace_if_iterators;
   }
 }
 
@@ -211,19 +223,22 @@ PRIVATE(MODULE)
 DOC <$ Replaces selected original elements using their projected relation. $>
 ::replace_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO replace_copy;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO replace_copy;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO replace_copy;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO replace_copy;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO replace_copy_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO replace_copy_iterators;
   }
 }
 
@@ -242,14 +257,16 @@ PRIVATE(MODULE)
 DOC <$ Replaces selected original elements using their projected relation. $>
 ::replace_copy_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO replace_copy_if;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO replace_copy_if;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO replace_copy_if_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO replace_copy_if_iterators;
   }
 }
 
@@ -268,19 +285,22 @@ PRIVATE(MODULE)
 DOC <$ Stably compacts retained elements and returns their logical end without destroying the suffix. $>
 ::remove FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO remove;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO remove;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO remove;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO remove;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO remove_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO remove_iterators;
   }
 }
 
@@ -303,14 +323,16 @@ PRIVATE(MODULE)
 DOC <$ Stably compacts retained elements and returns their logical end without destroying the suffix. $>
 ::remove_if FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO remove_if;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO remove_if;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO remove_if_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO remove_if_iterators;
   }
 }
 
@@ -333,19 +355,22 @@ PRIVATE(MODULE)
 DOC <$ Stably retains the first element of each adjacent equivalence run. $>
 ::unique FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO unique;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO unique;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO unique;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO unique;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO unique_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO unique_iterators;
   }
 }
 
@@ -372,19 +397,22 @@ PRIVATE(MODULE)
 DOC <$ Copies the first element of each adjacent equivalence run using a forward input. $>
 ::unique_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "equal") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "equal") == FALSE)
   {
     VAR default_value equal_to;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .equal = default_value; })) TO unique_copy;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .equal = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO unique_copy;
   }
-  STATIC_ELSE STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_ELSE STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO unique_copy;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO unique_copy;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO unique_copy_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO unique_copy_iterators;
   }
 }
 
@@ -469,14 +497,16 @@ DOC <$ Exchanges elements until either finite range ends. $>
 DOC <$ Partitions a forward range and returns the first false position. $>
 ::partition FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO partition;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO partition;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO partition_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO partition_iterators;
   }
 }
 
@@ -496,14 +526,16 @@ PRIVATE(MODULE)
 DOC <$ Tests whether every true element precedes every false element. $>
 ::is_partitioned FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO is_partitioned;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO is_partitioned;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO is_partitioned_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO is_partitioned_iterators;
   }
 }
 
@@ -519,14 +551,16 @@ PRIVATE(MODULE)
 DOC <$ Copies true and false elements to separate destinations, preserving their orders. $>
 ::partition_copy FUNCTION(@first AUTO(input_iterator), @last AUTO(sentinel_type), @KWARGS:options ...): AUTO
 {
-  STATIC_IF(COMPOSITE_CONTAINS(DECLTYPE(options), "projection") == FALSE)
+  STATIC_IF(PACK_CONTAINS(options, "projection") == FALSE)
   {
     VAR default_value identity;
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_JOIN(COMPOSITE_FORWARD(options), :{ .projection = default_value; })) TO partition_copy;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options, ...{ .projection = default_value; });
+    RETURN FORWARD PACK(forwarded_arguments) TO partition_copy;
   }
   STATIC_ELSE
   {
-    RETURN APPLY COMPOSITE_JOIN(:{ .first = first AS input_iterator; .last = last AS sentinel_type; }, COMPOSITE_FORWARD(options)) TO partition_copy_iterators;
+    PACK forwarded_arguments FUSE(...{ .first = first AS input_iterator; .last = last AS sentinel_type; }, options);
+    RETURN FORWARD PACK(forwarded_arguments) TO partition_copy_iterators;
   }
 }
 

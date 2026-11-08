@@ -251,6 +251,9 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         }
 
         type_symbol actual_type = parameter_instantiation_type(actual);
+        bool actual_pack = actual_type.type_is< composite_type >() && actual_type.get_as< composite_type >().is_pack_schema;
+        bool named_pack = formal_name.has_value() && formal.is_pack;
+        if (!formal.template_parameter.has_value() && named_pack != actual_pack) co_return std::nullopt;
         if (formal.is_execution_controller) actual_type = remove_ref(actual_type);
         std::optional< type_symbol > initialized_type;
         if (formal.template_parameter.has_value())

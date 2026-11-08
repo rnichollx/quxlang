@@ -108,7 +108,12 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
 
             QUXLANG_DEBUG_NAMED_VALUE(remaining_after_name, std::string(pos, end));
-            arg.type = parse_type_symbol(ctx);
+            if (arg.api_name.has_value() && skip_symbol_if_is(pos, end, "..."))
+            {
+                arg.is_pack = true;
+                arg.type = type_temploidic{};
+            }
+            else arg.type = parse_type_symbol(ctx);
 
             skip_whitespace_and_comments(pos, end);
             if (skip_keyword_if_is(pos, end, "DEFAULT"))

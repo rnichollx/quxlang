@@ -241,8 +241,14 @@ namespace quxlang
             std::map< std::string, value_index > lookup_values;
             /// Names intentionally hidden from enclosing lookup scopes in this block.
             std::set< std::string > lookup_tombstones;
+            /** Names invalidated by an explicit ownership transfer. */
+            std::map< std::string, value_index > ownership_transfers;
+            /** Pack availability at block entry, independent of runtime storage. */
+            std::map< value_index, bool > entry_packs;
+            /** Pack availability after the generated operations in this block. */
+            std::map< value_index, bool > current_packs;
 
-            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, has_incoming_flow, catcher, catch_exception, catch_region, coroutine_handler_root, coroutine_handler_exception, lookup_values, lookup_tombstones);
+            RPNX_MEMBER_METADATA(codegen_block, entry_state, current_state, instructions, terminator, dbg_name, has_incoming_flow, catcher, catch_exception, catch_region, coroutine_handler_root, coroutine_handler_exception, lookup_values, lookup_tombstones, ownership_transfers, entry_packs, current_packs);
         };
 
         struct codegen_argument
@@ -314,7 +320,19 @@ namespace quxlang
             RPNX_MEMBER_METADATA(codegen_pack, values, types);
         };
 
-        using codegen_value = rpnx::variant< codegen_binding, codegen_literal, codegen_local >;
+        /** Owns the schema and independent values of a pack, with a lexical lifetime token. */
+        struct codegen_field_pack
+        {
+            composite_type schema;
+            codegen_invocation_args fields;
+            /** Identifies this version's generation-time availability. */
+            value_index lifetime;
+            /** Identifies the binding preserved by field mutations across lexical scopes. */
+            value_index binding_origin;
+            RPNX_MEMBER_METADATA(codegen_field_pack, schema, fields, lifetime, binding_origin);
+        };
+
+        using codegen_value = rpnx::variant< codegen_binding, codegen_literal, codegen_local, codegen_field_pack >;
 
         struct codegen_static
         {
@@ -579,12 +597,13 @@ namespace quxlang
         class declaration_context_scope
         {
           public:
-            declaration_context_scope(co_vmir_generator2& owner, block_index lookup_block, type_symbol declaration_context) : owner(owner), lookup_block(lookup_block), previous_context(owner.ctx), previous_body(owner.active_body), previous_block_lookups(std::move(owner.state.blocks.at(lookup_block).lookup_values)), previous_block_lookup_tombstones(std::move(owner.state.blocks.at(lookup_block).lookup_tombstones)), previous_top_level_lookups(std::move(owner.state.top_level_lookups)), previous_top_level_lookups_weak(std::move(owner.state.top_level_lookups_weak)), previous_packs(std::move(owner.state.packs)), previous_statics(owner.state.statics), previous_static_scopes(owner.state.static_scopes)
+            declaration_context_scope(co_vmir_generator2& owner, block_index lookup_block, type_symbol declaration_context) : owner(owner), lookup_block(lookup_block), previous_context(owner.ctx), previous_body(owner.active_body), previous_block_lookups(std::move(owner.state.blocks.at(lookup_block).lookup_values)), previous_block_lookup_tombstones(std::move(owner.state.blocks.at(lookup_block).lookup_tombstones)), previous_ownership_transfers(std::move(owner.state.blocks.at(lookup_block).ownership_transfers)), previous_top_level_lookups(std::move(owner.state.top_level_lookups)), previous_top_level_lookups_weak(std::move(owner.state.top_level_lookups_weak)), previous_packs(std::move(owner.state.packs)), previous_statics(owner.state.statics), previous_static_scopes(owner.state.static_scopes)
             {
                 owner.ctx = std::move(declaration_context);
                 owner.active_body.reset();
                 owner.state.blocks.at(lookup_block).lookup_values.clear();
                 owner.state.blocks.at(lookup_block).lookup_tombstones.clear();
+                owner.state.blocks.at(lookup_block).ownership_transfers.clear();
                 owner.state.top_level_lookups.clear();
                 owner.state.top_level_lookups_weak.clear();
                 owner.state.packs.clear();
@@ -600,6 +619,7 @@ namespace quxlang
                 owner.active_body = previous_body;
                 owner.state.blocks.at(lookup_block).lookup_values = std::move(previous_block_lookups);
                 owner.state.blocks.at(lookup_block).lookup_tombstones = std::move(previous_block_lookup_tombstones);
+                owner.state.blocks.at(lookup_block).ownership_transfers = std::move(previous_ownership_transfers);
                 owner.state.top_level_lookups = std::move(previous_top_level_lookups);
                 owner.state.top_level_lookups_weak = std::move(previous_top_level_lookups_weak);
                 owner.state.packs = std::move(previous_packs);
@@ -614,6 +634,7 @@ namespace quxlang
             std::optional< std::uint64_t > previous_body;
             std::map< std::string, value_index > previous_block_lookups;
             std::set< std::string > previous_block_lookup_tombstones;
+            std::map< std::string, value_index > previous_ownership_transfers;
             std::map< std::string, value_index > previous_top_level_lookups;
             std::map< std::string, value_index > previous_top_level_lookups_weak;
             std::map< std::string, codegen_pack > previous_packs;
@@ -656,6 +677,131 @@ namespace quxlang
                                         });
         }
 
+        /** Collects the independent runtime slots owned by a value binding. */
+        void collect_binding_storage(value_index value, std::set< local_index >& storage)
+        {
+            value = genlocal_index(value);
+            if (state.genvalues.at(value).template type_is< codegen_field_pack >())
+            {
+                for (std::pair< std::string const, value_index > const& field : state.genvalues.at(value).template get_as< codegen_field_pack >().fields.named)
+                    collect_binding_storage(field.second, storage);
+            }
+            else if (state.genvalues.at(value).template type_is< codegen_local >()) storage.insert(get_local_index(value));
+        }
+
+        /** Carries a pack's independent local states to a lexical successor. */
+        void inherit_pack_storage(block_index source, block_index destination, value_index value)
+        {
+            value = genlocal_index(value);
+            if (state.genvalues.at(value).template type_is< codegen_field_pack >())
+            {
+                codegen_field_pack const& pack = state.genvalues.at(value).template get_as< codegen_field_pack >();
+                state.blocks.at(destination).entry_packs[pack.lifetime] = state.blocks.at(source).current_packs.at(pack.lifetime);
+                state.blocks.at(destination).current_packs[pack.lifetime] = state.blocks.at(source).current_packs.at(pack.lifetime);
+                for (std::pair< std::string const, value_index > const& field : pack.fields.named)
+                    inherit_pack_storage(source, destination, field.second);
+            }
+            else if (state.genvalues.at(value).template type_is< codegen_local >())
+                generate_survivor_local(source, destination, get_local_index(value));
+        }
+
+        /** Merges pack availability and schema changes at lexical control-flow boundaries. */
+        void merge_pack_flow(block_index source, block_index destination)
+        {
+            codegen_block& from = state.blocks.at(source);
+            codegen_block& to = state.blocks.at(destination);
+            for (codegen_value const& value : state.genvalues)
+            {
+                if (!value.template type_is< codegen_field_pack >()) continue;
+                value_index token = value.template get_as< codegen_field_pack >().lifetime;
+                if (!to.entry_packs.contains(token)) continue;
+                bool incoming_alive = from.current_packs.contains(token) && from.current_packs.at(token);
+                if (!to.has_incoming_flow && to.instructions.empty() && !to.terminator.has_value())
+                {
+                    to.entry_packs[token] = incoming_alive;
+                    to.current_packs[token] = incoming_alive;
+                }
+                else if (incoming_alive != to.entry_packs.at(token))
+                    throw semantic_compilation_error("Pack lifetime differs across control-flow paths");
+            }
+            std::map< std::string, value_index > visible = state.top_level_lookups;
+            for (std::pair< std::string const, value_index > const& binding : to.lookup_values) visible[binding.first] = binding.second;
+            std::set< local_index > transferred_storage;
+            for (std::pair< std::string const, value_index > const& transfer : to.ownership_transfers)
+            {
+                std::optional< value_index > incoming = local_value_direct_lookup(source, transfer.first);
+                if (incoming == transfer.second && value_alive(source, *incoming))
+                    throw semantic_compilation_error("Binding ownership differs across control-flow paths: " + transfer.first);
+            }
+            for (std::pair< std::string const, value_index > const& transfer : from.ownership_transfers)
+            {
+                if (!visible.contains(transfer.first) || visible.at(transfer.first) != transfer.second || to.lookup_tombstones.contains(transfer.first)) continue;
+                if (to.has_incoming_flow || !to.instructions.empty() || to.terminator.has_value())
+                    throw semantic_compilation_error("Binding ownership differs across control-flow paths: " + transfer.first);
+                collect_binding_storage(transfer.second, transferred_storage);
+                to.lookup_values.erase(transfer.first);
+                to.lookup_tombstones.insert(transfer.first);
+                to.ownership_transfers[transfer.first] = transfer.second;
+            }
+            for (std::pair< std::string const, value_index > const& binding : visible)
+            {
+                value_index before = binding.second;
+                if (!state.genvalues.at(before).template type_is< codegen_field_pack >()) continue;
+                collect_binding_storage(before, transferred_storage);
+                std::optional< value_index > incoming = value_alive(source, before) ? std::optional< value_index >(before) : local_value_direct_lookup(source, binding.first);
+                codegen_field_pack const& pack = state.genvalues.at(before).template get_as< codegen_field_pack >();
+                if (incoming.has_value() &&
+                    (!state.genvalues.at(*incoming).template type_is< codegen_field_pack >() ||
+                     state.genvalues.at(*incoming).template get_as< codegen_field_pack >().binding_origin != pack.binding_origin)) incoming.reset();
+                bool expected_alive = to.entry_packs.contains(pack.lifetime) && to.entry_packs.at(pack.lifetime);
+                bool incoming_alive = incoming.has_value() && value_alive(source, *incoming);
+                if (to.has_incoming_flow || !to.instructions.empty() || to.terminator.has_value())
+                {
+                    if (expected_alive != incoming_alive || (incoming_alive && *incoming != before))
+                        throw semantic_compilation_error("Pack ownership or fields differ across control-flow paths: " + binding.first);
+                    continue;
+                }
+                if (incoming_alive)
+                {
+                    to.lookup_values[binding.first] = *incoming;
+                    inherit_pack_storage(source, destination, *incoming);
+                }
+                else
+                {
+                    to.lookup_values.erase(binding.first);
+                    to.lookup_tombstones.insert(binding.first);
+                    to.ownership_transfers[binding.first] = before;
+                }
+                to.entry_packs[pack.lifetime] = from.current_packs.contains(pack.lifetime) && from.current_packs.at(pack.lifetime);
+                to.current_packs[pack.lifetime] = to.entry_packs.at(pack.lifetime);
+                for (std::pair< std::string const, value_index > const& field : pack.fields.named)
+                {
+                    if (!state.genvalues.at(field.second).template type_is< codegen_local >()) continue;
+                    local_index local = get_local_index(field.second);
+                    if (!from.current_state[local].alive())
+                    {
+                        to.entry_state[local] = from.current_state[local];
+                        to.current_state[local] = from.current_state[local];
+                    }
+                }
+            }
+            std::map< std::string, value_index > surviving = state.top_level_lookups;
+            for (std::pair< std::string const, value_index > const& binding : to.lookup_values) surviving[binding.first] = binding.second;
+            for (std::string const& name : to.lookup_tombstones)
+                if (!to.lookup_values.contains(name)) surviving.erase(name);
+            std::set< local_index > retained_storage;
+            for (std::pair< std::string const, value_index > const& binding : surviving)
+                if (value_alive(destination, binding.second)) collect_binding_storage(binding.second, retained_storage);
+            for (local_index local : transferred_storage)
+            {
+                if (retained_storage.contains(local) || !to.entry_state.contains(local)) continue;
+                if (to.has_incoming_flow || !to.instructions.empty() || to.terminator.has_value())
+                    throw semantic_compilation_error("Pack storage ownership differs across control-flow paths");
+                to.entry_state.erase(local);
+                to.current_state.erase(local);
+            }
+        }
+
         /** Carries initialization parameter state across an ordinary control-flow edge. */
         void merge_nvalue_flow(block_index source, block_index target)
         {
@@ -670,6 +816,7 @@ namespace quxlang
                 to.has_incoming_flow = true;
                 return;
             }
+            merge_pack_flow(source, target);
             auto merge_parameter = [&](vmir2::routine_parameter const& parameter)
             {
                 if (!typeis< nvalue_slot >(parameter.type))
@@ -869,9 +1016,18 @@ namespace quxlang
             std::map< std::string, published_name > names;
             std::map< std::string, value_index > visible = state.top_level_lookups;
             for (const auto& [name, value] : state.blocks.at(block).lookup_values) visible[name] = value;
-            for (std::string const& name : state.blocks.at(block).lookup_tombstones) visible.erase(name);
+            for (std::string const& name : state.blocks.at(block).lookup_tombstones)
+                if (!state.blocks.at(block).lookup_values.contains(name)) visible.erase(name);
+            for (std::pair< std::string const, value_index > const& transfer : state.blocks.at(block).ownership_transfers)
+                if (!visible.contains(transfer.first) || visible.at(transfer.first) == transfer.second)
+                    names[transfer.first] = publish_decltype{.declared_type = void_type{}, .expression_type = void_type{}};
             for (const auto& [name, value] : visible)
             {
+                if (state.genvalues.at(value).template type_is< codegen_field_pack >() && !value_alive(block, value))
+                {
+                    names[name] = publish_decltype{.declared_type = void_type{}, .expression_type = void_type{}};
+                    continue;
+                }
                 type_symbol type = current_type(block, value);
                 published_name info;
                 if (typeis< attached_type_reference >(type))
@@ -886,7 +1042,7 @@ namespace quxlang
                 }
                 auto previous = co_await co_find_body_name< CoroutineBaseType >(body_context(), name);
                 if (previous.has_value() && co_await co_read_body_name< CoroutineBaseType >(*previous) == info) continue;
-                names.emplace(name, std::move(info));
+                names[name] = std::move(info);
             }
             if (!names.empty()) co_await co_publish_names(std::move(names));
         }
@@ -1473,6 +1629,11 @@ namespace quxlang
 
         bool value_alive(block_index bidx, value_index idx)
         {
+            if (state.genvalues.at(idx).template type_is< codegen_field_pack >())
+            {
+                value_index lifetime = state.genvalues.at(idx).template get_as< codegen_field_pack >().lifetime;
+                return state.blocks.at(bidx).current_packs.contains(lifetime) && state.blocks.at(bidx).current_packs.at(lifetime);
+            }
             if (state.genvalues.at(idx).template type_is< codegen_literal >())
             {
                 return true;
@@ -2166,6 +2327,12 @@ namespace quxlang
             auto& block = this->state.blocks.at(bidx);
 
             auto& slot = this->state.genvalues.at(idx);
+            if (slot.template type_is< codegen_field_pack >())
+            {
+                codegen_field_pack const& pack = slot.template get_as< codegen_field_pack >();
+                if (!state.blocks.at(bidx).current_packs.contains(pack.lifetime) || !state.blocks.at(bidx).current_packs.at(pack.lifetime)) throw semantic_compilation_error("Pack has already been consumed");
+                return pack.schema;
+            }
             if (slot.template type_is< codegen_literal >())
             {
                 return slot.template get_as< codegen_literal >().type;
@@ -2239,7 +2406,7 @@ namespace quxlang
 
             if (!this->state.genvalues.at(idx).template type_is< codegen_local >())
             {
-                throw compiler_bug("Runtime storage requested for a compile-time value");
+                throw semantic_compilation_error("An ordinary value is required; packs have no aggregate runtime storage");
             }
 
             codegen_local& local = this->state.genvalues.at(idx).template get_as< codegen_local >();
@@ -2410,6 +2577,8 @@ namespace quxlang
         {
             // Locals cannot be nvalue or dvalue slots, that is only the case for parameters.
             assert(!type.template type_is< nvalue_slot >() && !type.template type_is< dvalue_slot >());
+            if (type.template type_is< composite_type >() && type.template get_as< composite_type >().is_pack_schema)
+                throw semantic_compilation_error("A pack cannot have aggregate runtime storage");
             validate_codegen_type(type, "Codegen local type");
             codegen_local storage;
             this->state.locals.push_back(vmir2::local_type{.type = type});
@@ -3154,6 +3323,7 @@ namespace quxlang
         auto materialize_lookup_reference(block_index idx, value_index lookup) -> value_index
         {
             auto lookup_type = this->current_type(idx, lookup);
+            if (state.genvalues.at(lookup).template type_is< codegen_field_pack >()) return lookup;
 
             if (this->state.genvalues.at(lookup).template type_is< codegen_literal >())
             {
@@ -3284,6 +3454,8 @@ namespace quxlang
             {
                 return this->state.genvalues.at(lookup).template get_as< codegen_literal >().type;
             }
+            if (state.genvalues.at(lookup).template type_is< codegen_field_pack >())
+                return state.genvalues.at(lookup).template get_as< codegen_field_pack >().schema;
             local_index local = get_local_index(lookup);
             for (auto const& parameter : this->state.params.positional)
             {
@@ -3795,9 +3967,31 @@ namespace quxlang
             co_return val;
         }
 
-        /** Projects a composite into positional and named arguments without rebinding its fields. */
-        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_unpack_arguments(block_index& block, codegen_invocation_args& result, value_index value) -> co_type< void >
+        /** Expands a pack or composite into positional and named call arguments. */
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_unpack_arguments(block_index& block, codegen_invocation_args& result, value_index value, bool consume_pack = false) -> co_type< void >
         {
+            if (state.genvalues.at(value).template type_is< codegen_field_pack >())
+            {
+                if (!value_alive(block, value)) throw semantic_compilation_error("Pack has already been consumed");
+                codegen_field_pack pack = state.genvalues.at(value).template get_as< codegen_field_pack >();
+                for (std::pair< std::string const, type_symbol > const& field : pack.schema.fields)
+                {
+                    value_index member = pack.fields.named.at(field.first);
+                    if (state.genvalues.at(member).template type_is< codegen_field_pack >())
+                        member = prepare_pack_argument(block, member, consume_pack, result.consumed_fields);
+                    else
+                    {
+                        if (consume_pack) result.consumed_fields.push_back(member);
+                        if (!consume_pack && !is_ref(field.second)) member = materialize_lookup_reference(block, member);
+                        else if (is_ref(field.second)) member = copy_refernece_internal(block, member);
+                    }
+                    if (is_positional_composite_member(field.first)) result.positional.push_back(member);
+                    else if (field.first == "RETURN" || !result.named.emplace(field.first, member).second)
+                        throw semantic_compilation_error("Duplicate or reserved call argument @" + field.first);
+                }
+                if (consume_pack) consume_field_pack(block, pack);
+                co_return;
+            }
             composite_type type = composite_schema(current_type(block, value));
             codegen_invocation_args fields = co_await co_project_composite_fields(block, value, type);
             for (std::pair< std::string const, type_symbol > const& field : type.fields)
@@ -3815,6 +4009,25 @@ namespace quxlang
             co_return;
         }
 
+        /** Adapts a whole-pack argument into independent parameter bindings. */
+        value_index prepare_pack_argument(block_index& block, value_index source, bool consume, std::vector< value_index >& retired)
+        {
+            codegen_field_pack pack = field_pack(block, source);
+            for (std::pair< std::string const, type_symbol >& field : pack.schema.fields)
+            {
+                value_index value = pack.fields.named.at(field.first);
+                if (state.genvalues.at(value).template type_is< codegen_field_pack >())
+                    value = prepare_pack_argument(block, value, consume, retired);
+                else if (is_ref(field.second)) value = copy_refernece_internal(block, value);
+                else if (!consume) value = materialize_lookup_reference(block, value);
+                pack.fields.named[field.first] = value;
+                field.second = current_type(block, value);
+                if (consume && state.genvalues.at(value).template type_is< codegen_local >()) retired.push_back(value);
+            }
+            if (consume) consume_field_pack(block, pack);
+            return create_field_pack(block, std::move(pack.schema), std::move(pack.fields));
+        }
+
         /** Evaluates and binds explicit or unpacked arguments in source order. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_append_arguments(block_index& block, codegen_invocation_args& result, std::vector< expression_arg > const& arguments) -> co_type< void >
         {
@@ -3823,10 +4036,13 @@ namespace quxlang
                 value_index value = co_await co_generate_expr(block, argument.value);
                 if (argument.unpack)
                 {
-                    co_await co_unpack_arguments(block, result, value);
+                    co_await co_unpack_arguments(block, result, value,
+                        !argument.value.template type_is< expression_symbol_reference >());
                 }
                 else if (argument.name.has_value())
                 {
+                    if (state.genvalues.at(value).template type_is< codegen_field_pack >())
+                        value = prepare_pack_argument(block, value, !argument.value.template type_is< expression_symbol_reference >(), result.consumed_fields);
                     if (*argument.name == "RETURN" || !result.named.emplace(*argument.name, value).second)
                     {
                         throw semantic_compilation_error("Duplicate or reserved call argument @" + *argument.name);
@@ -3838,6 +4054,176 @@ namespace quxlang
                 }
             }
             co_return;
+        }
+
+        /** Binds independent field values without constructing aggregate storage. */
+        value_index create_field_pack(block_index& block, composite_type schema, codegen_invocation_args fields, std::optional< value_index > binding_origin = std::nullopt)
+        {
+            composite_type normalized;
+            codegen_invocation_args normalized_fields;
+            std::size_t position = 0;
+            for (std::pair< std::string const, type_symbol > const& field : schema.fields)
+            {
+                std::string name = is_positional_composite_member(field.first) ? std::to_string(position++) : field.first;
+                normalized.fields.emplace(name, field.second);
+                normalized_fields.named.emplace(name, fields.named.at(field.first));
+            }
+            schema = std::move(normalized);
+            fields = std::move(normalized_fields);
+            schema.is_pack_schema = true;
+            value_index lifetime(state.genvalues.size());
+            state.blocks.at(block).current_packs[lifetime] = true;
+            state.genvalues.push_back(codegen_field_pack{std::move(schema), std::move(fields), lifetime, binding_origin.value_or(lifetime)});
+            return value_index(state.genvalues.size() - 1);
+        }
+
+        /** Requires an available pack binding and copies its compile-time field map. */
+        codegen_field_pack field_pack(block_index block, value_index value)
+        {
+            if (!state.genvalues.at(value).template type_is< codegen_field_pack >())
+                throw semantic_compilation_error("Expected a pack");
+            if (!value_alive(block, value)) throw semantic_compilation_error("Pack has already been consumed");
+            return state.genvalues.at(value).template get_as< codegen_field_pack >();
+        }
+
+        /** Rejects a transfer that would invalidate an enclosing exception handler's snapshot. */
+        void require_transferable_local(block_index block, local_index local)
+        {
+            std::optional< vmir2::exception_catcher > catcher = state.blocks.at(block).catcher;
+            while (catcher.has_value())
+            {
+                codegen_block const& handler = state.blocks.at(catcher->handler);
+                vmir2::state_map::const_iterator present = handler.entry_state.find(local);
+                if (present != handler.entry_state.end() && present->second.alive())
+                    throw semantic_compilation_error("Cannot consume a value that is live in an enclosing catch scope");
+                catcher = handler.catcher;
+            }
+        }
+
+        /** Ends a pack binding after validating its exception-scope ownership. */
+        void consume_field_pack(block_index& block, codegen_field_pack const& pack)
+        {
+            std::optional< vmir2::exception_catcher > catcher = state.blocks.at(block).catcher;
+            while (catcher.has_value())
+            {
+                codegen_block const& handler = state.blocks.at(catcher->handler);
+                if (handler.entry_packs.contains(pack.lifetime) && handler.entry_packs.at(pack.lifetime))
+                    throw semantic_compilation_error("Cannot consume a pack that is live in an enclosing catch scope");
+                catcher = handler.catcher;
+            }
+            state.blocks.at(block).current_packs[pack.lifetime] = false;
+        }
+
+        /** Obtains the lexical name required by a pack binding mutation. */
+        static std::string pack_operand_name(expression const& operand)
+        {
+            if (!operand.template type_is< expression_symbol_reference >())
+                throw semantic_compilation_error("Pack mutation requires a named binding");
+            type_symbol const& symbol = operand.template get_as< expression_symbol_reference >().symbol;
+            if (!symbol.template type_is< freebound_identifier >())
+                throw semantic_compilation_error("Pack mutation requires a local binding");
+            return symbol.template get_as< freebound_identifier >().name;
+        }
+
+        /** Transfers fields between lexical packs without invoking constructors. */
+        auto co_generate(block_index& block, expression_pack_operation const& operation) -> co_type< value_index >
+        {
+            if (operation.operation == pack_operation::capture)
+            {
+                std::string source_name = pack_operand_name(operation.operands.at(0));
+                std::optional< value_index > source = local_value_direct_lookup(block, source_name);
+                if (!source.has_value()) throw semantic_compilation_error("CAPTURE requires a visible local binding");
+                std::string destination_name = pack_operand_name(operation.operands.at(2));
+                value_index destination = co_await co_generate_expr(block, operation.operands.at(2));
+                codegen_field_pack pack = field_pack(block, destination);
+                std::string name = co_await co_composite_field_name(operation.operands.at(1));
+                if (pack.schema.fields.contains(name)) throw semantic_compilation_error("Duplicate pack field " + name);
+                if (source_name == destination_name) throw semantic_compilation_error("A pack cannot capture itself");
+                type_symbol type = current_type(block, *source);
+                if (state.genvalues.at(*source).template type_is< codegen_local >()) require_transferable_local(block, get_local_index(*source));
+                value_index captured = *source;
+                if (state.genvalues.at(captured).template type_is< codegen_field_pack >())
+                {
+                    codegen_field_pack nested = field_pack(block, captured);
+                    consume_field_pack(block, nested);
+                    captured = create_field_pack(block, std::move(nested.schema), std::move(nested.fields));
+                }
+                pack.schema.fields.emplace(name, type);
+                pack.fields.named.emplace(name, captured);
+                consume_field_pack(block, pack);
+                value_index result = create_field_pack(block, std::move(pack.schema), std::move(pack.fields), pack.binding_origin);
+                state.blocks.at(block).lookup_values[destination_name] = result;
+                state.blocks.at(block).lookup_values.erase(source_name);
+                state.blocks.at(block).lookup_tombstones.insert(source_name);
+                state.blocks.at(block).ownership_transfers[source_name] = *source;
+                co_return value_index(0);
+            }
+            value_index source = co_await co_generate_expr(block, operation.operands.at(0));
+            if (operation.operation == pack_operation::from_composite)
+            {
+                composite_type schema = composite_schema(current_type(block, source));
+                if (schema.is_pack_schema) throw semantic_compilation_error("COMPOSITE_TO_PACK requires a structural value");
+                codegen_invocation_args fields = co_await co_project_composite_fields(block, source, schema);
+                for (std::pair< std::string const, type_symbol >& field : schema.fields)
+                    field.second = current_type(block, fields.named.at(field.first));
+                co_return create_field_pack(block, std::move(schema), std::move(fields));
+            }
+            codegen_field_pack pack = field_pack(block, source);
+            if (operation.operation == pack_operation::get)
+            {
+                std::string name = co_await co_composite_selector(block, pack.schema, operation.operands.at(1));
+                value_index field = pack.fields.named.at(name);
+                if (state.genvalues.at(field).template type_is< codegen_field_pack >())
+                    throw semantic_compilation_error("A nested pack requires EMIT into a PACK binding");
+                co_return materialize_lookup_reference(block, field);
+            }
+            if (operation.operation == pack_operation::forward)
+            {
+                consume_field_pack(block, pack);
+                co_return create_field_pack(block, std::move(pack.schema), std::move(pack.fields));
+            }
+            if (operation.operation == pack_operation::fuse)
+            {
+                consume_field_pack(block, pack);
+                for (std::size_t index = 1; index < operation.operands.size(); ++index)
+                {
+                    value_index next = co_await co_generate_expr(block, operation.operands.at(index));
+                    codegen_field_pack right = field_pack(block, next);
+                    std::size_t positional = std::count_if(pack.schema.fields.begin(), pack.schema.fields.end(),
+                        [](std::pair< std::string const, type_symbol > const& field) { return is_positional_composite_member(field.first); });
+                    for (std::pair< std::string const, type_symbol > const& field : right.schema.fields)
+                    {
+                        std::string name = is_positional_composite_member(field.first) ? std::to_string(positional++) : field.first;
+                        if (!pack.schema.fields.emplace(name, field.second).second) throw semantic_compilation_error("Duplicate pack field " + name);
+                        pack.fields.named.emplace(name, right.fields.named.at(field.first));
+                    }
+                    consume_field_pack(block, right);
+                }
+                co_return create_field_pack(block, std::move(pack.schema), std::move(pack.fields));
+            }
+            if (operation.operation != pack_operation::fission && operation.operation != pack_operation::emit)
+                throw compiler_bug("Invalid pack operation");
+            std::string source_name = pack_operand_name(operation.operands.at(0));
+            composite_type selected_type;
+            codegen_invocation_args selected;
+            for (std::size_t index = 1; index < operation.operands.size(); ++index)
+            {
+                std::string name = co_await co_composite_field_name(operation.operands.at(index));
+                if (!pack.schema.fields.contains(name)) throw semantic_compilation_error("Unknown or repeated pack field " + name);
+                selected_type.fields.emplace(name, pack.schema.fields.at(name));
+                selected.named.emplace(name, pack.fields.named.at(name));
+                pack.schema.fields.erase(name);
+                pack.fields.named.erase(name);
+            }
+            consume_field_pack(block, pack);
+            value_index remainder = create_field_pack(block, std::move(pack.schema), std::move(pack.fields), pack.binding_origin);
+            state.blocks.at(block).lookup_values[source_name] = remainder;
+            if (operation.operation == pack_operation::emit)
+            {
+                if (selected.named.size() != 1) throw semantic_compilation_error("EMIT requires exactly one field");
+                co_return selected.named.begin()->second;
+            }
+            co_return create_field_pack(block, std::move(selected_type), std::move(selected));
         }
 
         /** Constructs an anonymous record through ordinary struct initialization delegates. */
@@ -3911,6 +4297,12 @@ namespace quxlang
             for (composite_field_initializer const& field : literal.fields)
             {
                 value_index value = co_await co_generate_expr(block, field.value);
+                if (literal.is_pack && state.genvalues.at(value).template type_is< codegen_field_pack >())
+                {
+                    codegen_field_pack nested = field_pack(block, value);
+                    consume_field_pack(block, nested);
+                    value = create_field_pack(block, std::move(nested.schema), std::move(nested.fields));
+                }
                 if (!values.named.emplace(field.name, value).second)
                 {
                     throw semantic_compilation_error("Duplicate composite field " + field.name);
@@ -3923,6 +4315,7 @@ namespace quxlang
                 if (is_positional_composite_member(field.first) && field.first != std::to_string(positional++))
                     throw semantic_compilation_error("Positional composite members must be contiguous from zero");
             }
+            if (literal.is_pack) co_return create_field_pack(block, std::move(type), std::move(values));
             co_return co_await co_construct_composite(block, std::move(type), std::move(values));
         }
 
@@ -4225,39 +4618,6 @@ namespace quxlang
             {
                 throw semantic_compilation_error("Wrong number of composite operation operands");
             }
-            if (unary && expr.operands.at(0).template type_is< expression_symbol_reference >())
-            {
-                type_symbol const& symbol = expr.operands.at(0).template get_as< expression_symbol_reference >().symbol;
-                if (symbol.template type_is< freebound_identifier >())
-                {
-                    std::string const& name = symbol.template get_as< freebound_identifier >().name;
-                    std::optional< std::uint64_t > size;
-                    if (!local_value_direct_lookup(block, name).has_value()) size = co_await co_find_pack_size(name);
-                    if (size.has_value())
-                    {
-                        composite_type pack_type;
-                        codegen_invocation_args fields;
-                        for (std::uint64_t index = 0; index < *size; ++index)
-                        {
-                            std::optional< value_index > element = local_value_direct_lookup(block, pack_element_name(name, index));
-                            if (!element.has_value()) throw semantic_compilation_error("Unavailable positional pack element");
-                            value_index reference;
-                            if (is_ref(current_type(block, *element)))
-                            {
-                                reference = expr.operation == composite_operation::forward ? copy_refernece_internal(block, *element) : materialize_lookup_reference(block, *element);
-                            }
-                            else
-                            {
-                                qualifier access = expr.operation == composite_operation::forward ? qualifier::temp : qualifier::mut;
-                                reference = create_reference(block, *element, ptrref_type{.target = current_type(block, *element), .ptr_class = pointer_class::ref, .qual = access});
-                            }
-                            fields.named.emplace(std::to_string(index), reference);
-                            pack_type.fields.emplace(std::to_string(index), current_type(block, reference));
-                        }
-                        co_return co_await co_construct_composite(block, std::move(pack_type), std::move(fields));
-                    }
-                }
-            }
             value_index source = co_await co_generate_expr(block, expr.operands.at(0));
             type_symbol source_type = current_type(block, source);
             composite_type type = composite_schema(source_type);
@@ -4411,11 +4771,12 @@ namespace quxlang
 
             if (composite_arguments.has_value())
             {
-                if (attached_symbol_kind == symbol_kind::class_)
+                if (attached_symbol_kind == symbol_kind::class_ && !call.consumes_pack)
                 {
                     throw semantic_compilation_error("APPLY does not invoke constructors");
                 }
-                co_await co_unpack_arguments(bidx, args, *composite_arguments);
+                if (call.consumes_pack) field_pack(bidx, *composite_arguments);
+                co_await co_unpack_arguments(bidx, args, *composite_arguments, call.consumes_pack);
             }
             if (!typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type))
             {
@@ -4628,8 +4989,30 @@ namespace quxlang
             return boolv;
         }
 
+        /** Retires consumed pack bindings after argument adaptation and invocation complete. */
+        auto co_gen_call_functanoid(block_index& block, instanciation_reference function, codegen_invocation_args arguments,
+            allowed_adaptations adaptations, bool permit_virtual_dispatch, std::optional< local_index > destruction_target = std::nullopt,
+            bool implicit_controller = false, call_execution_mode execution_mode = call_execution_mode::ordinary,
+            std::optional< value_index > launch_controller = std::nullopt) -> co_type< value_index >
+        {
+            std::vector< value_index > consumed = std::move(arguments.consumed_fields);
+            value_index result = co_await co_gen_selected_call(block, std::move(function), std::move(arguments), adaptations,
+                permit_virtual_dispatch, destruction_target, implicit_controller, execution_mode, launch_controller);
+            if (!consumed.empty())
+            {
+                block_index complete = generate_subblock(block, "pack_call_complete");
+                for (value_index field : consumed)
+                {
+                    if (state.genvalues.at(field).template type_is< codegen_local >()) kill_entry_value(complete, field);
+                }
+                generate_jump(block, complete);
+                block = complete;
+            }
+            co_return result;
+        }
+
         /** Constructs accepted arguments before transferring destruction responsibility to the selected callable. */
-        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations, bool permit_virtual_dispatch, std::optional< vmir2::local_index > destruction_target = std::nullopt, bool implicit_controller = false,
+        QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_selected_call(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations, bool permit_virtual_dispatch, std::optional< vmir2::local_index > destruction_target = std::nullopt, bool implicit_controller = false,
             call_execution_mode execution_mode = call_execution_mode::ordinary, std::optional< value_index > launch_controller = std::nullopt) -> co_type< value_index >
         {
             std::optional< ast2_function_declaration > const& selected_declaration = co_await rpnx::querygraph::request< function_declaration_query >(what.temploid);
@@ -4662,10 +5045,22 @@ namespace quxlang
             if (implicit_controller && !coroutine_call_hook.has_value())
                 expression_args.named.emplace("CONTROLLER", coroutine_borrow(bidx, *state.coroutine_controller));
             if (coroutine_call_hook == "CO_CALL_CORT")
-            {
                 co_return co_await co_coroutine_call(bidx, what, std::move(expression_args), *coroutine_call_hook, destruction_target, execution_mode, launch_controller);
-            }
             auto call_args_types = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
+            auto expand_pack_arguments = [&](auto&& self, std::string const& name, value_index value) -> void
+            {
+                if (!state.genvalues.at(value).template type_is< codegen_field_pack >()) return;
+                codegen_field_pack pack = field_pack(bidx, value);
+                for (std::pair< std::string const, value_index > const& field : pack.fields.named)
+                {
+                    std::string component = pack_parameter_field_name(name, field.first);
+                    expression_args.named.emplace(component, field.second);
+                    self(self, component, field.second);
+                }
+            };
+            std::map< std::string, value_index > pack_arguments = expression_args.named;
+            for (std::pair< std::string const, value_index > const& argument : pack_arguments)
+                expand_pack_arguments(expand_pack_arguments, argument.first, argument.second);
             co_await co_bind_constructor_conversion_argument(bidx, what, expression_args, adaptations);
             if (expression_args.positional.size() > call_args_types.positional.size())
                 throw semantic_compilation_error("Too many positional arguments for the selected function");
@@ -4680,7 +5075,6 @@ namespace quxlang
 
             auto create_arg_value = [&](std::string const& arg_name, value_index arg_expr_index, type_symbol arg_target_type) -> co_type< value_index >
             {
-                // TODO: Support PRValue args
                 auto arg_expr_type = this->current_type(bidx, arg_expr_index);
                 bool arg_alive = this->value_alive(bidx, arg_expr_index);
 
@@ -4801,6 +5195,12 @@ namespace quxlang
 
             if (coroutine_call_hook.has_value())
             {
+                // Controller hooks receive logical arguments after ordinary parameter adaptation.
+                for (std::map< std::string, value_index >::iterator parameter = invocation_args.named.begin(); parameter != invocation_args.named.end();)
+                {
+                    if (!what.params.named.contains(parameter->first)) parameter = invocation_args.named.erase(parameter);
+                    else ++parameter;
+                }
                 co_return co_await co_coroutine_call(bidx, what, std::move(invocation_args), *coroutine_call_hook, destruction_target, execution_mode, launch_controller);
             }
 
@@ -4854,11 +5254,11 @@ namespace quxlang
 
             if (invocation_args.named.contains("RETURN"))
             {
-                assert(invocation_args.size() == what.params.size() + 1);
+                assert(invocation_args.size() == call_args_types.size() + 1);
             }
             else
             {
-                assert(invocation_args.size() == what.params.size());
+                assert(invocation_args.size() == call_args_types.size());
             }
 
             if (destruction_target.has_value()) emit(bidx, vmir2::begin_destruction{.of = *destruction_target});
@@ -7182,6 +7582,9 @@ namespace quxlang
         /// Generates a numeric literal for a positional pack's compile-time size.
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_pack_size expr) -> co_type< value_index >
         {
+            std::optional< value_index > binding = local_value_direct_lookup(bidx, expr.pack_name);
+            if (binding.has_value() && state.genvalues.at(*binding).template type_is< codegen_field_pack >())
+                co_return create_numeric_literal(std::to_string(field_pack(bidx, *binding).schema.fields.size()));
             std::optional< std::uint64_t > size = co_await co_find_pack_size(expr.pack_name);
             if (!size.has_value()) throw semantic_compilation_error("Unknown positional pack '" + expr.pack_name + "'");
             co_return create_numeric_literal(std::to_string(*size));
@@ -7191,6 +7594,17 @@ namespace quxlang
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate(block_index& bidx, expression_pack_arg expr) -> co_type< value_index >
         {
             std::uint64_t index = co_await co_constexpr_u64(bidx, expr.index);
+            std::optional< value_index > binding = local_value_direct_lookup(bidx, expr.pack_name);
+            if (binding.has_value() && state.genvalues.at(*binding).template type_is< codegen_field_pack >())
+            {
+                codegen_field_pack pack = field_pack(bidx, *binding);
+                std::string name = std::to_string(index);
+                if (!pack.fields.named.contains(name)) throw semantic_compilation_error("PACK_ARG index is unavailable");
+                value_index field = pack.fields.named.at(name);
+                if (state.genvalues.at(field).template type_is< codegen_field_pack >())
+                    throw semantic_compilation_error("A nested pack requires EMIT into a PACK binding");
+                co_return materialize_lookup_reference(bidx, field);
+            }
             std::optional< value_index > element = local_value_direct_lookup(bidx, pack_element_name(expr.pack_name, index));
             if (!element.has_value())
             {
@@ -8635,6 +9049,10 @@ namespace quxlang
                     {
                         co_await co_analyze_lambda_expression(analysis, value.source);
                         co_await co_analyze_lambda_expression(analysis, value.selector);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_pack_operation >)
+                    {
+                        for (expression const& operand : value.operands) co_await co_analyze_lambda_expression(analysis, operand);
                     }
                     else if constexpr (std::is_same_v< value_type, expression_composite_operation >)
                     {
@@ -12679,7 +13097,10 @@ namespace quxlang
 
         [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_void_expr(block_index& bidx, expression const& expr) -> co_type< value_index >
         {
-            return co_generate_expr(bidx, expr);
+            value_index value = co_await co_generate_expr(bidx, expr);
+            if (state.genvalues.at(value).template type_is< codegen_field_pack >())
+                throw semantic_compilation_error("A pack requires a pack declaration or a pack argument");
+            co_return value;
         }
 
         [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_block const& st) -> co_type< void >
@@ -12821,6 +13242,25 @@ namespace quxlang
 
         [[nodiscard]] QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_statement_ovl(block_index& current_block, function_var_statement const& st) -> co_type< void >
         {
+            bool emits_field = st.equals_initializer.has_value() && st.equals_initializer->template type_is< expression_pack_operation >() &&
+                st.equals_initializer->template get_as< expression_pack_operation >().operation == pack_operation::emit;
+            if (st.is_pack || emits_field)
+            {
+                if (!st.equals_initializer.has_value() || st.equals_initializer->template type_is< expression_symbol_reference >())
+                    throw semantic_compilation_error("PACK requires a literal or an explicit pack operation");
+                value_index value = co_await co_generate_expr(current_block, *st.equals_initializer);
+                bool is_pack = state.genvalues.at(value).template type_is< codegen_field_pack >();
+                if (st.is_pack != is_pack) throw semantic_compilation_error(is_pack ? "A nested pack requires a PACK binding" : "PACK requires a pack initializer");
+                if (emits_field)
+                {
+                    codegen_value binding = state.genvalues.at(value);
+                    value = value_index(state.genvalues.size());
+                    if (is_pack) binding.template get_as< codegen_field_pack >().binding_origin = value;
+                    state.genvalues.push_back(std::move(binding));
+                }
+                block(current_block).lookup_values[st.name] = value;
+                co_return;
+            }
             if (st.static_kind.has_value())
             {
                 co_await this->co_generate_static_var_statement(current_block, st);
@@ -12851,6 +13291,7 @@ namespace quxlang
                 current_block = new_expr_block;
 
                 value_index init_idx = co_await co_generate_expr(new_expr_block, *st.equals_initializer);
+                if (state.genvalues.at(init_idx).template type_is< codegen_field_pack >()) throw semantic_compilation_error("A pack requires a PACK declaration");
                 type_symbol var_type = remove_ref(this->current_type(new_expr_block, init_idx));
                 if (typeis< nvalue_slot >(var_type))
                 {
@@ -13023,6 +13464,8 @@ namespace quxlang
         /** Resolves members of a value's canonical receiver type with access checks in the caller's scope. */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_generate_dot_access(block_index& bidx, value_index base, std::string field_name, std::vector< expression_arg > template_arguments = {}) -> co_type< value_index >
         {
+            if (state.genvalues.at(base).template type_is< codegen_field_pack >())
+                throw semantic_compilation_error("Pack fields require explicit pack operations");
             auto base_type = this->current_type(bidx, base);
             std::string base_type_str = quxlang::to_string(base_type);
             auto base_type_noref = quxlang::remove_ref(base_type);
@@ -17247,7 +17690,7 @@ namespace quxlang
                 argument_type.fields.emplace(name, current_type(block, value));
                 argument_values.named.emplace(std::move(name), value);
             }
-            value_index packed = co_await co_construct_composite(block, std::move(argument_type), std::move(argument_values));
+            value_index packed = create_field_pack(block, std::move(argument_type), std::move(argument_values));
             std::string const hook = execution_mode == call_execution_mode::run ? "CO_RUN" :
                 execution_mode == call_execution_mode::go ? "CO_GO" : call_hook;
             bool shielded = state.coroutine_shielded;
@@ -17295,10 +17738,11 @@ namespace quxlang
             if (call_hook != "CO_CALL_CORT") lifecycle_complete = generate_subblock(block, "coroutine_lifecycle_operation_complete");
             codegen_invocation_args hook_arguments{.named = {
                 {"COROUTINE", create_binding(value_index(0), std::move(callable))},
-                {"ARGUMENTS", coroutine_borrow(block, packed)},
+                {"ARGUMENTS", packed},
             }};
             if (destination.has_value()) hook_arguments.named["DESTINATION"] = coroutine_borrow(block, *destination);
             value_index operation = co_await co_invoke_coroutine_member(block, controller, hook, std::move(hook_arguments), destruction_target);
+            if (lifecycle_complete.has_value()) inherit_transferred_value_state(block, *lifecycle_complete, packed);
             if (destruction_target.has_value())
             {
                 vmir2::begin_destruction transfer{.of = *destruction_target};
@@ -17504,6 +17948,12 @@ namespace quxlang
         /** Preserves the operand's surviving lifetime state after a controller transfer hook. */
         void inherit_transferred_value_state(block_index source, block_index destination, value_index value)
         {
+            if (state.genvalues.at(value).template type_is< codegen_field_pack >())
+            {
+                for (std::pair< std::string const, value_index > const& field : state.genvalues.at(value).template get_as< codegen_field_pack >().fields.named)
+                    inherit_transferred_value_state(source, destination, field.second);
+                return;
+            }
             value_index const operand = genlocal_index(value);
             if (operand != value_index(0) && state.genvalues.at(operand).template type_is< codegen_local >())
             {
@@ -17653,6 +18103,8 @@ namespace quxlang
             {
                 value_index expr_index = co_await co_generate_expr(current_block, st.expr.value());
                 type_symbol expr_type = this->current_type(current_block, expr_index);
+                if (state.genvalues.at(expr_index).template type_is< codegen_field_pack >())
+                    throw semantic_compilation_error("A pack cannot be returned as an ordinary value");
                 type_symbol deduced_return_type = co_await this->co_deduce_return_type_from_expression(*this->state.declared_return_type, expr_type);
                 co_await co_publish_deduced_return_type(deduced_return_type);
                 if (!parameter_runtime_type(deduced_return_type).has_value())
@@ -17803,6 +18255,9 @@ namespace quxlang
             new_block.current_state = new_block.entry_state;
             new_block.lookup_values = current_block_ref.lookup_values;
             new_block.lookup_tombstones = current_block_ref.lookup_tombstones;
+            new_block.ownership_transfers = current_block_ref.ownership_transfers;
+            new_block.entry_packs = current_block_ref.current_packs;
+            new_block.current_packs = new_block.entry_packs;
 
             return block_index(this->state.blocks.size() - 1);
         }
@@ -18001,8 +18456,18 @@ namespace quxlang
                 return param_idx;
             };
 
-            auto create_named_parameter_lookup = [&](std::string const& api_name, type_symbol const& param_type) -> value_index
+            auto create_named_parameter_lookup = [&](auto&& self, std::string const& api_name, type_symbol const& param_type) -> value_index
             {
+                if (param_type.template type_is< composite_type >() && param_type.template get_as< composite_type >().is_pack_schema)
+                {
+                    composite_type schema = param_type.template get_as< composite_type >();
+                    codegen_invocation_args fields;
+                    for (std::pair< std::string const, type_symbol > const& field : schema.fields)
+                        fields.named.emplace(field.first, self(self, pack_parameter_field_name(api_name, field.first), field.second));
+                    value_index lifetime(state.genvalues.size());
+                    state.genvalues.push_back(codegen_field_pack{std::move(schema), std::move(fields), lifetime, lifetime});
+                    return value_index(state.genvalues.size() - 1);
+                }
                 return create_parameter_lookup(param_type,
                                                [&](type_symbol runtime_type, value_index param_idx)
                                                {
@@ -18058,7 +18523,7 @@ namespace quxlang
                         auto const& api_name = param.api_name.value();
                         handled_named_parameters.insert(api_name);
                         auto const& param_type = parameter_instantiation_type(concrete_params.named.at(api_name));
-                        value_index arg_idx = create_named_parameter_lookup(api_name, param_type);
+                        value_index arg_idx = create_named_parameter_lookup(create_named_parameter_lookup, api_name, param_type);
                         register_parameter_lookup_name(param.name, api_name, arg_idx);
                         continue;
                     }
@@ -18089,7 +18554,7 @@ namespace quxlang
                     {
                         for (std::size_t index = 0; index < pack.values.size(); ++index)
                         {
-                            state.top_level_lookups[pack_element_name(*param.name, index)] = pack.values[index];
+                            state.top_level_lookups_weak[pack_element_name(*param.name, index)] = pack.values[index];
                         }
                         this->state.packs[param.name.value()] = std::move(pack);
                     }
@@ -18101,12 +18566,12 @@ namespace quxlang
                     {
                         continue;
                     }
-                    if (handled_named_parameters.contains(api_name))
+                    if (api_name.starts_with("__PACK_") || handled_named_parameters.contains(api_name))
                     {
                         continue;
                     }
                     auto const& param_type = parameter_instantiation_type(param);
-                    value_index arg_idx = create_named_parameter_lookup(api_name, param_type);
+                    value_index arg_idx = create_named_parameter_lookup(create_named_parameter_lookup, api_name, param_type);
                     if (this->state.named_rest_name.has_value() && api_name != "THIS")
                     {
                         this->state.named_rest_values.named.emplace(api_name, arg_idx);
@@ -18170,7 +18635,7 @@ namespace quxlang
                 {
                     arg_name = arg_names.named.at(api_name);
                 }
-                value_index arg_idx = create_named_parameter_lookup(api_name, param_type);
+                value_index arg_idx = create_named_parameter_lookup(create_named_parameter_lookup, api_name, param_type);
 
                 // If a local name is provided, it's strongly defined and the API name is weakly defined.
                 // Otherwise, the API name is strongly defined.
@@ -18384,20 +18849,34 @@ namespace quxlang
             {
                 exception_region = co_await co_begin_coroutine_exception_region(current_block);
             }
-            if (this->state.named_rest_name.has_value())
+            std::size_t parameter_genvalues = state.genvalues.size();
+            for (std::size_t index = 0; index < parameter_genvalues; ++index)
             {
-                composite_type type;
-                for (std::pair< std::string const, value_index >& field : this->state.named_rest_values.named)
+                if (state.genvalues.at(index).template type_is< codegen_field_pack >())
                 {
-                    type_symbol field_type = current_type(current_block, field.second);
-                    type.fields.emplace(field.first, field_type);
-                    if (!is_ref(field_type) && this->state.genvalues.at(field.second).template type_is< codegen_local >())
-                    {
-                        field.second = create_reference(current_block, field.second, make_tref(field_type));
-                    }
+                    value_index token = state.genvalues.at(index).template get_as< codegen_field_pack >().lifetime;
+                    state.blocks.at(current_block).current_packs[token] = true;
                 }
-                value_index value = co_await co_construct_composite(current_block, std::move(type), this->state.named_rest_values);
-                this->state.top_level_lookups[*this->state.named_rest_name] = value;
+            }
+            for (std::pair< std::string const, codegen_pack > const& parameter_pack : state.packs)
+            {
+                composite_type schema;
+                codegen_invocation_args fields;
+                for (std::size_t index = 0; index < parameter_pack.second.values.size(); ++index)
+                {
+                    std::string name = std::to_string(index);
+                    value_index value = parameter_pack.second.values.at(index);
+                    schema.fields.emplace(name, current_type(current_block, value));
+                    fields.named.emplace(name, value);
+                }
+                state.top_level_lookups[parameter_pack.first] = create_field_pack(current_block, std::move(schema), std::move(fields));
+            }
+            if (state.named_rest_name.has_value())
+            {
+                composite_type schema;
+                for (std::pair< std::string const, value_index > const& field : state.named_rest_values.named)
+                    schema.fields.emplace(field.first, current_type(current_block, field.second));
+                state.top_level_lookups[*state.named_rest_name] = create_field_pack(current_block, std::move(schema), state.named_rest_values);
             }
             co_await this->co_apply_lambda_operator_environment(current_block, func);
             if (co_await rpnx::querygraph::request< function_builtin_query >(func.temploid) == builtin_function_kind::not_builtin)

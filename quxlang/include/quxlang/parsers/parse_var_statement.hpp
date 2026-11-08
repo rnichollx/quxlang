@@ -23,8 +23,9 @@ namespace quxlang::parsers
 
         function_var_statement var_statement;
 
+        var_statement.is_pack = skip_keyword_if_is(pos, end, "PACK");
         bool is_auto = skip_keyword_if_is(pos, end, "AUTO");
-        bool is_var = is_auto || skip_keyword_if_is(pos, end, "VAR");
+        bool is_var = var_statement.is_pack || is_auto || skip_keyword_if_is(pos, end, "VAR");
         if (!is_var && skip_keyword_if_is(pos, end, "STATIC_VAR"))
         {
             var_statement.static_kind = function_static_kind::mutable_;
@@ -43,6 +44,63 @@ namespace quxlang::parsers
         var_statement.name = parse_identifier(pos, end);
 
         skip_whitespace_and_comments(pos, end);
+
+        bool emit_field = skip_keyword_if_is(pos, end, "EMIT");
+        if (var_statement.is_pack || emit_field)
+        {
+            var_statement.type = auto_temploidic{};
+            expression_pack_operation operation;
+            if (emit_field || skip_keyword_if_is(pos, end, "FISSION"))
+            {
+                operation.operation = emit_field ? pack_operation::emit : pack_operation::fission;
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_keyword_if_is(pos, end, emit_field ? "FIELD" : "FIELDS"))
+                    throw syntax_compilation_error("Expected pack field selection");
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' before pack fields");
+                std::vector< expression > selectors;
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    do
+                    {
+                        selectors.push_back(parse_expression(ctx));
+                        skip_whitespace_and_comments(pos, end);
+                    } while (skip_symbol_if_is(pos, end, ","));
+                    if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after pack fields");
+                }
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_keyword_if_is(pos, end, "FROM")) throw syntax_compilation_error("Expected FROM after pack fields");
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after FROM");
+                operation.operands.push_back(parse_expression(ctx));
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after pack source");
+                for (expression& selector : selectors) operation.operands.push_back(std::move(selector));
+                var_statement.equals_initializer = std::move(operation);
+            }
+            else if (skip_keyword_if_is(pos, end, "FUSE"))
+            {
+                operation.operation = pack_operation::fuse;
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, "(")) throw syntax_compilation_error("Expected '(' after FUSE");
+                do
+                {
+                    operation.operands.push_back(parse_expression(ctx));
+                    skip_whitespace_and_comments(pos, end);
+                } while (skip_symbol_if_is(pos, end, ","));
+                if (!skip_symbol_if_is(pos, end, ")")) throw syntax_compilation_error("Expected ')' after FUSE operands");
+                var_statement.equals_initializer = std::move(operation);
+            }
+            else
+            {
+                var_statement.equals_initializer = parse_expression(ctx);
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";")) throw syntax_compilation_error("Expected semicolon after pack operation");
+            var_statement.location = ctx.get_location_optional(begin, pos);
+            return var_statement;
+        }
 
         if (is_auto || (is_var && peek_symbol(pos, end).starts_with(":=")))
         {

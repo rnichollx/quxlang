@@ -10,6 +10,7 @@
 #include <quxlang/parsers/function.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/symbol.hpp>
+#include <quxlang/parsers/peek_symbol.hpp>
 
 #include <iterator>
 #include <string>
@@ -82,7 +83,7 @@ namespace quxlang::parsers
         }
 
         parse_iterator argument_begin = pos;
-        bool const has_explicit_prefix = skip_symbol_if_is(pos, end, "@") || skip_symbol_if_is(pos, end, "%") || skip_keyword_if_is(pos, end, "COMPOSITE_UNPACK");
+        bool const has_explicit_prefix = peek_symbol(pos, end).starts_with("...") || skip_symbol_if_is(pos, end, "@") || skip_symbol_if_is(pos, end, "%") || skip_keyword_if_is(pos, end, "COMPOSITE_UNPACK");
         pos = argument_begin;
         if (!has_explicit_prefix)
         {
@@ -104,7 +105,19 @@ namespace quxlang::parsers
         while (true)
         {
             skip_whitespace_and_comments(pos, end);
-            if (skip_keyword_if_is(pos, end, "COMPOSITE_UNPACK"))
+            parse_iterator spread_begin = pos;
+            if (peek_symbol(pos, end).starts_with("..."))
+            {
+                skip_symbol_if_is(pos, end, "...");
+                expression_arg argument;
+                argument.unpack = true;
+                skip_whitespace_and_comments(pos, end);
+                if (peek_symbol(pos, end) == "{" || peek_symbol(pos, end) == "[") pos = spread_begin;
+                argument.value = detail::parse_expression_impl(ctx);
+                argument.location = ctx.get_location_optional(spread_begin, pos);
+                result.push_back(std::move(argument));
+            }
+            else if (skip_keyword_if_is(pos, end, "COMPOSITE_UNPACK"))
             {
                 parse_iterator begin = pos;
                 expression_arg argument;

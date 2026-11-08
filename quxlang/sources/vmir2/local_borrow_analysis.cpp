@@ -161,7 +161,8 @@ auto quxlang::vmir2::analyze_local_borrows(functanoid_routine3 const& routine,
                         {
                             if (!named_nonescaping(argument.first)) unknown_use(argument.second);
                         }
-                        instanciation_reference const& callable = value.what.template as< instanciation_reference >();
+                        instatype parameters = value.what.template as< instanciation_reference >().params;
+                        expand_pack_parameters(parameters);
                         auto borrowed_address = [&](local_index local)
                         {
                             spend(1);
@@ -179,7 +180,7 @@ auto quxlang::vmir2::analyze_local_borrows(functanoid_routine3 const& routine,
                             if (runtime.has_value() && (runtime->type_is< nvalue_slot >() || runtime->type_is< dvalue_slot >())) borrowed_address(local);
                         };
                         std::size_t positional = 0;
-                        for (parameter_instantiation const& parameter : callable.params.positional)
+                        for (parameter_instantiation const& parameter : parameters.positional)
                         {
                             spend(1);
                             type_symbol type = parameter_instantiation_type(parameter);
@@ -190,7 +191,7 @@ auto quxlang::vmir2::analyze_local_borrows(functanoid_routine3 const& routine,
                             }
                             ++positional;
                         }
-                        for (std::pair< std::string const, parameter_instantiation > const& parameter : callable.params.named)
+                        for (std::pair< std::string const, parameter_instantiation > const& parameter : parameters.named)
                         {
                             spend(1);
                             type_symbol type = parameter_instantiation_type(parameter.second);

@@ -90,18 +90,18 @@ IMPORT std;
       RETURN FALSE;
     }
 
-    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
+    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
     {
-      VAR selected := coroutine_call_tests::specialize(@COROUTINE child, @ARGUMENTS arguments, @CONTROLLER controller);
+      VAR selected := coroutine_call_tests::specialize#PACK_TYPES(arguments)(@COROUTINE child, @CONTROLLER controller);
       RETURN child_operation#selected(@parent THIS, @ARGUMENTS arguments);
     }
 
-    .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO) MUT: AUTO
+    .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
     {
       RETURN child_operation#child(@parent THIS, @ARGUMENTS arguments);
     }
 
-    .CO_CALL_CTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO, @DESTINATION:destination MUT& AUTO(destination_type)) MUT: AUTO
+    .CO_CALL_CTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ..., @DESTINATION:destination MUT& AUTO(destination_type)) MUT: AUTO
     {
       STATIC_IF(SAME_TYPES(destination_type, construction_phase_right))
       {
@@ -141,18 +141,18 @@ IMPORT std;
   ::child_operation TEMPLATE(@T:descriptor TYPE AUTO) STRUCT MOVE_ONLY
   {
     .context VAR MUT->child_context#descriptor;
-    .CONSTRUCTOR FUNCTION(@parent MUT& controller, @ARGUMENTS:arguments AUTO& AUTO)
+    .CONSTRUCTOR FUNCTION(@parent MUT& controller, @ARGUMENTS:arguments ...)
     {
       .context := NEW child_context#descriptor;
       .context->.adapted.gate := parent.gate;
-      TRY { .context->.frame.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments))); }
+      TRY { .context->.frame.INITIALIZE(...arguments); }
       CATCH DEFAULT { DELETE .context; .context := NULL; RETHROW; }
     }
-    .CONSTRUCTOR FUNCTION(@parent MUT& controller, @ARGUMENTS:arguments AUTO& AUTO, @DESTINATION:destination MUT& AUTO)
+    .CONSTRUCTOR FUNCTION(@parent MUT& controller, @ARGUMENTS:arguments ..., @DESTINATION:destination MUT& AUTO)
     {
       .context := NEW child_context#descriptor;
       .context->.adapted.gate := parent.gate;
-      TRY { .context->.frame.INITIALIZE(@RECEIVER destination, COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments))); }
+      TRY { .context->.frame.INITIALIZE(@RECEIVER destination, ...arguments); }
       CATCH DEFAULT { DELETE .context; .context := NULL; RETHROW; }
     }
     .CONSTRUCTOR FUNCTION(@OTHER TEMP& child_operation#descriptor)
@@ -815,7 +815,7 @@ IMPORT std;
   {
     .child VAR MUT->child_operation#descriptor;
     .destination VAR CONST->construction_phase_right;
-    .CONSTRUCTOR FUNCTION(@parent MUT& controller, @ARGUMENTS:arguments AUTO& AUTO, @DESTINATION:destination MUT& construction_phase_right)
+    .CONSTRUCTOR FUNCTION(@parent MUT& controller, @ARGUMENTS:arguments ..., @DESTINATION:destination MUT& construction_phase_right)
     {
       .child := NEW child_operation#descriptor :(@parent parent, @ARGUMENTS arguments, @DESTINATION destination);
       .destination := destination<-;

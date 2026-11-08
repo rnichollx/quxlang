@@ -27,13 +27,13 @@ IMPORT std;
 
   ::scheduler STRUCT
   {
-    .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): DECAY
+    .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): DECAY
     {
       VAR descriptor := child#(@CONTROLLER controller,
-        @THIS COMPOSITE_FIELD_TYPE(TYPEOF(arguments), "RECEIVER"),
-        COMPOSITE_UNPACK(TYPEOF(COMPOSITE_EXCLUDE(arguments, "RECEIVER"))));
+        @THIS PACK_FIELD_TYPE(arguments, "RECEIVER"),
+        ...PACK_TYPES_EXCEPT(arguments, "RECEIVER"));
       VAR pending std::coroutine_handle#descriptor;
-      pending.INITIALIZE(COMPOSITE_UNPACK(COMPOSITE_FORWARD(arguments)));
+      pending.INITIALIZE(...FORWARD PACK(arguments));
       RETURN MOVE(pending);
     }
   }

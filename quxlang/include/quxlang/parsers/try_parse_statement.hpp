@@ -229,7 +229,7 @@ namespace quxlang::parsers
         {
             return parse_static_if_statement(ctx);
         }
-        else if (kw == "AUTO" || kw == "VAR" || kw == "STATIC" || kw == "STATIC_VAR")
+        else if (kw == "PACK" || kw == "AUTO" || kw == "VAR" || kw == "STATIC" || kw == "STATIC_VAR")
         {
             return parse_var_statement(ctx);
         }
