@@ -3,10 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 DOC <$ Owns one object allocated by NEW and deletes it when ownership ends. Moves leave the source empty. $>
 ::unique_ptr TEMPLATE(@T TYPE AUTO) STRUCT MOVE_ONLY
 {
-  PRIVATE(CLASS)
-  {
-    .pointer VAR MUT->T;
-  }
+
 
   DOC <$ Creates an empty owner. $>
   .CONSTRUCTOR FUNCTION()
@@ -92,6 +89,8 @@ DOC <$ Owns one object allocated by NEW and deletes it when ownership ends. Move
     .pointer := pointer;
     DELETE OPTIONAL previous;
   }
+
+  PRIVATE(CLASS) .pointer VAR MUT->T;
 }
 
 DOC <$ Allocates a T with NEW, forwarding positional and named constructor arguments. $>

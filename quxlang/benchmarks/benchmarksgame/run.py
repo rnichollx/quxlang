@@ -35,7 +35,7 @@ def build(options, workloads):
     bundle = options.work_dir / "bundle"
     modules = bundle / "modules"
     standard = REPOSITORY / "quxlang/tests/testdata/testbundle/modules"
-    for name in ("runtime", "std", "syscall", "posix"):
+    for name in ("runtime", "std", "syscall", "posix", "io"):
         for staged in (modules / name).rglob("*.qxs"):
             if not (standard / name / staged.relative_to(modules / name)).exists():
                 staged.unlink()

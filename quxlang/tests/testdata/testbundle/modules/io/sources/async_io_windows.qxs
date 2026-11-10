@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT std;
+
 IMPORT syscall;
 
 
@@ -40,11 +42,11 @@ PRIVATE(MODULE)
   ::associate_windows_async_file INCLUDE_IF(OS_WINDOWS)
     FUNCTION(
       @state MUT& windows_async_context_state,
-      @native_ref file_ref
+      @descriptor io_descriptor_ref
     ): BOOL
   {
     VAR associated ADDRESS := syscall::windows::create_io_completion_port(
-      @file_handle native_ref.handle,
+      @file_handle descriptor.native_handle(),
       @existing_completion_port state.completion_port,
       @completion_key 0,
       @concurrent_threads 0
@@ -92,7 +94,7 @@ PRIVATE(MODULE)
   ::submit_async_read INCLUDE_IF(OS_WINDOWS)
     FUNCTION(
       @request MUT->async_request,
-      @native_ref file_ref,
+      @descriptor io_descriptor_ref,
       @buffer CONST& buffer_ref,
       @offset U64
     ): BOOL
@@ -100,7 +102,7 @@ PRIVATE(MODULE)
     prepare_windows_overlapped(@request request, @offset offset);
     VAR immediate_bytes U32 := 0;
     VAR immediate_success BOOL := syscall::windows::read_file(
-      @handle native_ref.handle,
+      @handle descriptor.native_handle(),
       @buffer buffer.data,
       @count async_transfer_size(@size buffer.size),
       @transferred immediate_bytes<-,
@@ -117,7 +119,7 @@ PRIVATE(MODULE)
   ::submit_async_write INCLUDE_IF(OS_WINDOWS)
     FUNCTION(
       @request MUT->async_request,
-      @native_ref file_ref,
+      @descriptor io_descriptor_ref,
       @buffer CONST& buffer_ref,
       @offset U64
     ): BOOL
@@ -125,7 +127,7 @@ PRIVATE(MODULE)
     prepare_windows_overlapped(@request request, @offset offset);
     VAR immediate_bytes U32 := 0;
     VAR immediate_success BOOL := syscall::windows::write_file(
-      @handle native_ref.handle,
+      @handle descriptor.native_handle(),
       @buffer buffer.data,
       @count async_transfer_size(@size buffer.size),
       @transferred immediate_bytes<-,

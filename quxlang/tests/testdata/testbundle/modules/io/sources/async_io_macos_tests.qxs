@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT std;
+
 PRIVATE(MODULE)
 {
   ::macos_async_abi_layout_test INCLUDE_IF(OS_MACOS) STATIC_TEST

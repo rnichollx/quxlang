@@ -1,0 +1,33 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ A borrowed native I/O descriptor. Copies refer to the same resource. Destruction does not release the resource. $>
+::io_descriptor_ref INCLUDE_IF(OS_LINUX || OS_MACOS) STRUCT
+{
+  PRIVATE(CLASS) { .value VAR I32; }
+  DOC <$ Constructs an invalid descriptor. $>
+  .CONSTRUCTOR FUNCTION() { .value := -1; }
+  DOC <$ Borrows a native descriptor without acquiring ownership. $>
+  .CONSTRUCTOR FUNCTION(@native_handle I32) { .value := native_handle; }
+  DOC <$ Returns the descriptor for native system interfaces. $>
+  .native_handle FUNCTION() CONST: I32 { RETURN .value; }
+  DOC <$ Reports whether the stored descriptor is nonnegative. $>
+  .is_valid FUNCTION() CONST: BOOL { RETURN .value >= 0; }
+}
+
+DOC <$ A borrowed Windows I/O handle. Copies refer to the same resource. Destruction does not release the resource. $>
+::io_descriptor_ref INCLUDE_IF(OS_WINDOWS) STRUCT
+{
+  PRIVATE(CLASS) { .value VAR ADDRESS; }
+  DOC <$ Constructs an invalid handle reference. $>
+  .CONSTRUCTOR FUNCTION() {}
+  DOC <$ Borrows a native handle without acquiring ownership. $>
+  .CONSTRUCTOR FUNCTION(@native_handle ADDRESS) { .value := native_handle; }
+  DOC <$ Returns the handle for native system interfaces. $>
+  .native_handle FUNCTION() CONST: ADDRESS { RETURN .value; }
+  DOC <$ Rejects null and INVALID_HANDLE_VALUE handles. $>
+  .is_valid FUNCTION() CONST: BOOL
+  {
+    VAR zero ADDRESS;
+    RETURN .value != NULL && .value != zero - (1 AS SZ);
+  }
+}

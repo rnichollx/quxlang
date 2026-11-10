@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT io;
+
 // Copyright notice from the Benchmarks Game project license:
 // Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
 // All rights reserved.
@@ -27,9 +29,9 @@ IMPORT std;
       buffer[line * 61 + 60] := 10;
     }
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(length / 17220) DO
-    { output.write(std::buffer_ref(@data buffer[&0], @size 17507)); }
+    { output.write(io::buffer_ref(@data buffer[&0], @size 17507)); }
     VAR remaining SZ := length % 17220;
-    output.write(std::buffer_ref(@data buffer[&0], @size remaining + (remaining / 60)));
+    output.write(io::buffer_ref(@data buffer[&0], @size remaining + (remaining / 60)));
     IF (remaining % 60 != 0) { output.write("\n"); }
   }
 
@@ -58,7 +60,7 @@ IMPORT std;
           buffer[line * 61 + column] := lookup[seed AS SZ];
         }
       }
-      output.write(std::buffer_ref(@data buffer[&0], @size 6100));
+      output.write(io::buffer_ref(@data buffer[&0], @size 6100));
     }
     VAR remaining SZ := length % 6000;
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(remaining) DO
@@ -66,7 +68,7 @@ IMPORT std;
       seed := (seed * 3877 + 29573) % 139968;
       buffer[((index / 60) * 61) + (index % 60)] := lookup[seed AS SZ];
     }
-    output.write(std::buffer_ref(@data buffer[&0], @size remaining + (remaining / 60)));
+    output.write(io::buffer_ref(@data buffer[&0], @size remaining + (remaining / 60)));
     IF (remaining % 60 != 0) { output.write("\n"); }
   }
 }

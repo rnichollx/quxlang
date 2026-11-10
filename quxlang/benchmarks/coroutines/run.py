@@ -92,7 +92,7 @@ def build(args):
     work = args.work_dir
     bundle = work / "bundle"
     standard = REPOSITORY / "quxlang/tests/testdata/testbundle/modules"
-    for name in ("runtime", "std", "syscall", "posix"):
+    for name in ("runtime", "std", "syscall", "posix", "io"):
         shutil.copytree(standard / name, bundle / "modules" / name, dirs_exist_ok=True)
     shutil.copytree(ROOT / "modules/main", bundle / "modules/main", dirs_exist_ok=True)
     config = (ROOT / "qxcbuild.yml").read_text()

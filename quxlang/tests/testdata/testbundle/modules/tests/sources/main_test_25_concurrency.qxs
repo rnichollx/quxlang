@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT io;
+
 IMPORT std;
 IMPORT syscall;
 
@@ -432,9 +434,9 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
 ::async_result_capture INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT
 {
   .completed VAR MUT->BOOL;
-  .captured_result VAR MUT->std::transfer_result;
+  .captured_result VAR MUT->io::transfer_result;
 
-  .OPERATOR() FUNCTION(@result std::transfer_result)
+  .OPERATOR() FUNCTION(@result io::transfer_result)
   {
     .captured_result-> := result;
     .completed-> := TRUE;
@@ -444,7 +446,7 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
 
 ::async_native_thread_pool_dispatch INCLUDE_IF(OS_LINUX || OS_MACOS) UNIT_TEST
 {
-  VAR context std::async_context := std::async_context(@entries 8);
+  VAR context io::async_context := io::async_context(@entries 8);
   IF (context.valid() == FALSE)
   {
     RETURN;
@@ -501,11 +503,11 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
   }
   TEST_ASSERT(descriptor >= 0);
 
-  VAR asynchronous_file std::async_file := std::async_file(
+  VAR asynchronous_file io::async_file := io::async_file(
     @context context,
-    @native_ref std::file_ref(@descriptor descriptor)
+    @native_ref io::file_ref(@descriptor io::io_descriptor_ref(@native_handle descriptor))
   );
-  VAR pool std::thread_pool := std::thread_pool(
+  VAR pool io::thread_pool := io::thread_pool(
     @context context,
     @worker_count 2
   );
@@ -514,12 +516,12 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
   bytes[1] := 2;
   bytes[2] := 3;
   bytes[3] := 4;
-  VAR buffer std::buffer_ref := std::buffer_ref(
+  VAR buffer io::buffer_ref := io::buffer_ref(
     @data bytes[& 0],
     @size 4
   );
   VAR completed BOOL := FALSE;
-  VAR result std::transfer_result;
+  VAR result io::transfer_result;
   VAR capture async_result_capture;
   capture.completed := completed<-;
   capture.captured_result := result<-;
@@ -546,7 +548,7 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
 
 ::async_windows_thread_pool_dispatch INCLUDE_IF(OS_WINDOWS) UNIT_TEST
 {
-  VAR context std::async_context := std::async_context(@entries 4);
+  VAR context io::async_context := io::async_context(@entries 4);
   TEST_ASSERT(context.valid());
 
   VAR path [4]BYTE;
@@ -567,22 +569,22 @@ DOC <$ Copies ownership repeatedly on a worker thread. $>
   VAR invalid_handle ADDRESS := null_address - 1;
   TEST_ASSERT(handle != invalid_handle);
 
-  VAR asynchronous_file std::async_file := std::async_file(
+  VAR asynchronous_file io::async_file := io::async_file(
     @context context,
-    @native_ref std::file_ref(@handle handle)
+    @native_ref io::file_ref(@descriptor io::io_descriptor_ref(@native_handle handle))
   );
-  VAR pool std::thread_pool := std::thread_pool(
+  VAR pool io::thread_pool := io::thread_pool(
     @context context,
     @worker_count 2
   );
   VAR bytes [1]BYTE;
   bytes[0] := 113;
-  VAR buffer std::buffer_ref := std::buffer_ref(
+  VAR buffer io::buffer_ref := io::buffer_ref(
     @data bytes[& 0],
     @size 1
   );
   VAR completed BOOL := FALSE;
-  VAR result std::transfer_result;
+  VAR result io::transfer_result;
   VAR capture async_result_capture;
   capture.completed := completed<-;
   capture.captured_result := result<-;

@@ -1,0 +1,181 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+IMPORT syscall;
+
+PRIVATE(MODULE)
+{
+  DOC <$ Owns an epoll queue, an event counter, and workers for positioned file transfers. The mutex protects the completion queue and stop count. $>
+  ::linux_async_context_state INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE) STRUCT ROOTED
+  {
+    .queue VAR file;
+    .notification VAR file;
+    .mutex VAR std::ordering_mutex;
+    .head VAR MUT->async_request;
+    .tail VAR MUT->async_request;
+    .stops VAR SZ;
+    .workers VAR std::thread_pool_cort_runtime;
+
+    DOC <$ Publishes count completion tokens after their queue entries have been stored. $>
+    .signal FUNCTION(@count U64) MUT
+    {
+      VAR bytes CONST=>>BYTE := IBC_PUN#(CONST=>>BYTE)(@ADDR IBC_GETADDR(@PTR count<-));
+      LOOP DO
+      {
+        VAR written SZ := syscall::linux::write(@fd .notification.reference().descriptor.native_handle(), @buffer bytes, @count 8);
+        IF (written == 8) { RETURN; }
+        IF ((written #&& (4294967295 AS SZ)) != 4294967292) { PANIC "Cannot publish an epoll completion token."; }
+      };
+    }
+
+    DOC <$ Appends a completed request and wakes one completion consumer. $>
+    .publish FUNCTION(@request MUT->async_request) MUT
+    {
+      .mutex.lock();
+      request->.completion_next := NULL;
+      IF (.tail??) { .tail->.completion_next := request; }
+      ELSE { .head := request; }
+      .tail := request;
+      .signal(@count 1);
+      .mutex.unlock();
+    }
+  }
+
+  DOC <$ Creates the completion queue and registers its eventfd with level-triggered readability notification. $>
+  ::initialize_linux_async_context INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE)
+    FUNCTION(@state MUT& linux_async_context_state, @entries U32): BOOL
+  {
+    VAR queue io_descriptor_ref :(@native_handle syscall::linux::epoll_create1(@flags 524288));
+    IF (queue.is_valid() == FALSE) { RETURN FALSE; }
+    state.queue := file(@native_ref file_ref(@descriptor queue));
+    VAR initialized BOOL;
+    DEFER { IF (initialized == FALSE) { state.notification.close(); state.queue.close(); } }
+    VAR notification io_descriptor_ref :(@native_handle syscall::linux::eventfd2(@initial 0, @flags 526337));
+    IF (notification.is_valid() == FALSE) { RETURN FALSE; }
+    state.notification := file(@native_ref file_ref(@descriptor notification));
+    VAR event syscall::linux::epoll_event;
+    event.events := 1;
+    IF (syscall::linux::epoll_ctl(@queue queue.native_handle(), @operation 1,
+      @descriptor notification.native_handle(), @event event<-) != 0) { RETURN FALSE; }
+    initialized := TRUE;
+    RETURN TRUE;
+  }
+
+  DOC <$ Performs one positioned file transfer on an I/O worker and publishes its result to epoll consumers. $>
+  ::linux_positioned_transfer INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE)
+    TEMPLATE(@writing VALUE BOOL) STRUCT
+  {
+    .request VAR MUT->async_request;
+    .descriptor VAR io_descriptor_ref;
+    .offset VAR U64;
+
+    DOC <$ Executes the selected transfer, retrying signal interruptions. $>
+    .OPERATOR() FUNCTION() MUT
+    {
+      VAR size SZ;
+      LOOP DO
+      {
+        STATIC_IF(writing)
+        {
+          size := syscall::linux::pwrite64(@descriptor .descriptor.native_handle(),
+            @buffer .request->.buffer.data, @count async_transfer_size(@size .request->.buffer.size), @offset .offset);
+        }
+        STATIC_ELSE
+        {
+          size := syscall::linux::pread64(@descriptor .descriptor.native_handle(),
+            @buffer .request->.buffer.data, @count async_transfer_size(@size .request->.buffer.size), @offset .offset);
+        }
+        IF ((size #&& (4294967295 AS SZ)) != 4294967292) { BREAK; }
+      };
+      .request->.completion_result.succeeded := size <= async_transfer_size(@size .request->.buffer.size);
+      IF (.request->.completion_result.succeeded) { .request->.completion_result.size := size; }
+      .request->.context_control->.linux.publish(@request .request);
+    }
+  }
+
+  DOC <$ Queues a positioned file read for worker execution and epoll completion delivery. $>
+  ::submit_async_read INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE)
+    FUNCTION(@request MUT->async_request, @descriptor io_descriptor_ref, @buffer CONST& buffer_ref, @offset U64): BOOL
+  {
+    VAR operation linux_positioned_transfer#(@writing FALSE);
+    operation.request := request;
+    operation.descriptor := descriptor;
+    operation.offset := offset;
+    TRY { request->.context_control->.linux.workers.post(@operation MOVE(operation)); }
+    CATCH DEFAULT { RETURN FALSE; }
+    RETURN TRUE;
+  }
+
+  DOC <$ Queues a positioned file write for worker execution and epoll completion delivery. $>
+  ::submit_async_write INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE)
+    FUNCTION(@request MUT->async_request, @descriptor io_descriptor_ref, @buffer CONST& buffer_ref, @offset U64): BOOL
+  {
+    VAR operation linux_positioned_transfer#(@writing TRUE);
+    operation.request := request;
+    operation.descriptor := descriptor;
+    operation.offset := offset;
+    TRY { request->.context_control->.linux.workers.post(@operation MOVE(operation)); }
+    CATCH DEFAULT { RETURN FALSE; }
+    RETURN TRUE;
+  }
+
+  DOC <$ Consumes one completed request or stop token. Competing consumers retry readiness notifications whose token was already consumed. $>
+  ::wait_for_async_completion INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE)
+    FUNCTION(@control MUT->async_context_control): BOOL
+  {
+    VAR state MUT& linux_async_context_state := control->.linux;
+    LOOP DO
+    {
+      VAR event syscall::linux::epoll_event;
+      VAR ready I32 := syscall::linux::epoll_wait(@queue state.queue.reference().descriptor.native_handle(),
+        @event event<-, @maximum 1, @timeout -1);
+      IF (ready == -4) { CONTINUE; }
+      IF (ready != 1) { PANIC "Cannot wait for an epoll completion."; }
+      VAR token U64;
+      VAR bytes MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR token<-));
+      state.mutex.lock();
+      VAR received SZ := syscall::linux::read(@fd state.notification.reference().descriptor.native_handle(), @buffer bytes, @count 8);
+      IF (received != 8)
+      {
+        state.mutex.unlock();
+        IF ((received #&& (4294967295 AS SZ)) == 4294967292 || (received #&& (4294967295 AS SZ)) == 4294967285) { CONTINUE; }
+        PANIC "Cannot consume an epoll completion token.";
+      }
+      VAR request MUT->async_request := state.head;
+      IF (request??)
+      {
+        state.head := request->.completion_next;
+        IF (state.head!?) { state.tail := NULL; }
+        state.mutex.unlock();
+        VAR result transfer_result := request->.completion_result;
+        complete_async_request(@request request, @succeeded result.succeeded, @size result.size);
+        RETURN TRUE;
+      }
+      ASSERT(state.stops > 0, "An epoll completion token requires a request or stop event.");
+      state.stops--;
+      state.mutex.unlock();
+      RETURN FALSE;
+    };
+  }
+
+  DOC <$ Publishes one stop token per completion worker after the context has drained. $>
+  ::request_async_stop INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE)
+    FUNCTION(@control MUT->async_context_control, @worker_count SZ)
+  {
+    control->.linux.mutex.lock();
+    control->.linux.stops += worker_count;
+    control->.linux.signal(@count worker_count AS U64);
+    control->.linux.mutex.unlock();
+  }
+
+  DOC <$ Drains file workers and closes the epoll and eventfd descriptors. $>
+  ::shutdown_async_context INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE)
+    FUNCTION(@control MUT->async_context_control)
+  {
+    control->.linux.workers.drain();
+    VAR notification_closed BOOL := control->.linux.notification.close();
+    VAR queue_closed BOOL := control->.linux.queue.close();
+    control->.valid := FALSE;
+    IF (notification_closed == FALSE || queue_closed == FALSE) { THROW async_error::resource_release_failed; }
+  }
+}

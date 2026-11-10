@@ -1,13 +1,16 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT std;
+
 IMPORT syscall;
 
 DOC <$
-  Identifies a failed async resource release or worker-stop submission.
+  Identifies asynchronous runtime initialization, resource release, and worker-stop failures.
+  initialization_failed denotes an unavailable native completion queue.
   resource_release_failed denotes a failed native queue close or unmap.
   worker_stop_failed denotes a failed submission of a worker-stop notification.
   $>
-::async_error ENUM [resource_release_failed, worker_stop_failed];
+::async_error ENUM [initialization_failed, resource_release_failed, worker_stop_failed];
 
 
 PRIVATE(MODULE)
@@ -19,12 +22,12 @@ PRIVATE(MODULE)
   }
 
   ::async_context_control INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
-    STRUCT MOVE_ONLY
+    STRUCT ROOTED
   {
     .capacity VAR SZ;
     .outstanding VAR ATOMIC#SZ;
-    .drain_mutex VAR ordering_mutex;
-    .drain_condition VAR condition_variable;
+    .drain_mutex VAR std::ordering_mutex;
+    .drain_condition VAR std::condition_variable;
     .pool_attached VAR BOOL;
     .manual_waiters VAR SZ;
     .valid VAR BOOL;
@@ -59,6 +62,8 @@ PRIVATE(MODULE)
     .file_control VAR MUT->async_file_control;
     .context_control VAR MUT->async_context_control;
     .buffer VAR buffer_ref;
+    .completion_next INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE) VAR MUT->async_request;
+    .completion_result INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE) VAR transfer_result;
     .macos_control INCLUDE_IF(OS_MACOS) VAR macos_async_control_block;
   }
 
@@ -81,12 +86,12 @@ PRIVATE(MODULE)
   }
 
   DOC <$
-    Caps one native asynchronous transfer at a 32-bit byte count.
+    Caps one native asynchronous transfer at the maximum signed 32-bit byte count.
     $>
   ::async_transfer_size INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
     FUNCTION(@size SZ): U32
   {
-    VAR maximum U32 := (0 AS U32) #!!;
+    VAR maximum U32 := 2147483647;
     IF (size > maximum AS SZ)
     {
       RETURN maximum;
@@ -112,14 +117,17 @@ PRIVATE(MODULE)
     ): MUT->async_request
   {
     VAR request MUT->async_request := NEW async_request;
+    VAR initialized BOOL;
+    DEFER { IF (initialized == FALSE) { DELETE request; } }
     request->.callback :=
       PLACE AT(request->.callback_storage) async_completion := FORWARD(callback);
     request->.file_control := file_control;
     request->.context_control := context_control;
-    file_control->.pending.ADD#ATOMIC_ACQREL(1);
+    IF (file_control??) { file_control->.pending.ADD#ATOMIC_ACQREL(1); }
     context_control->.drain_mutex.lock();
     context_control->.outstanding.ADD#ATOMIC_ACQREL(1);
     context_control->.drain_mutex.unlock();
+    initialized := TRUE;
     RETURN request;
   }
 
@@ -133,9 +141,11 @@ PRIVATE(MODULE)
       @size SZ
     )
   {
-    VAR file_pending SZ :=
-      request->.file_control->.pending.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
-    ASSERT(file_pending != 0, "Async file pending-operation count underflow.");
+    IF (request->.file_control??)
+    {
+      VAR file_pending SZ := request->.file_control->.pending.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
+      ASSERT(file_pending != 0, "Async file pending-operation count underflow.");
+    }
 
     VAR result transfer_result;
     result.size := size;
@@ -251,7 +261,7 @@ DOC <$
       ASSERT(.outstanding() == 0,
         "An async context cannot be destroyed with outstanding operations.");
       ASSERT(.control->.pool_attached == FALSE,
-        "An async context must outlive its attached thread pool.");
+        "An async context must outlive its attached completion worker pool.");
       ASSERT(.control->.manual_waiters == 0,
         "An async context cannot be destroyed while wait_one is active.");
       DEFER { DELETE FROM(.control); }
@@ -259,6 +269,50 @@ DOC <$
       {
         shutdown_async_context(@control .control);
       }
+    }
+  }
+
+  DOC <$ Submits a positioned read on a borrowed descriptor. The descriptor and buffer remain valid until callback returns. Windows descriptors must support overlapped I/O and belong to this completion port. $>
+  .read FUNCTION(@descriptor io_descriptor_ref, @buffer CONST& buffer_ref, @offset U64, @callback AUTO& AUTO(callback_type))
+  {
+    ASSERT(.valid(), "Cannot submit to an unavailable async context.");
+    VAR file_control MUT->async_file_control;
+    VAR request MUT->async_request := allocate_async_request(
+      @file_control file_control, @context_control .control, @callback FORWARD(callback));
+    request->.buffer := buffer;
+    STATIC_IF(OS_WINDOWS)
+    {
+      IF (associate_windows_async_file(@state .control->.windows, @descriptor descriptor) == FALSE)
+      {
+        complete_async_request(@request request, @succeeded FALSE, @size 0);
+        RETURN;
+      }
+    }
+    IF (submit_async_read(@request request, @descriptor descriptor, @buffer buffer, @offset offset) == FALSE)
+    {
+      complete_async_request(@request request, @succeeded FALSE, @size 0);
+    }
+  }
+
+  DOC <$ Submits a positioned write on a borrowed descriptor. The descriptor and buffer remain valid until callback returns. Windows descriptors must support overlapped I/O and belong to this completion port. $>
+  .write FUNCTION(@descriptor io_descriptor_ref, @buffer CONST& buffer_ref, @offset U64, @callback AUTO& AUTO(callback_type))
+  {
+    ASSERT(.valid(), "Cannot submit to an unavailable async context.");
+    VAR file_control MUT->async_file_control;
+    VAR request MUT->async_request := allocate_async_request(
+      @file_control file_control, @context_control .control, @callback FORWARD(callback));
+    request->.buffer := buffer;
+    STATIC_IF(OS_WINDOWS)
+    {
+      IF (associate_windows_async_file(@state .control->.windows, @descriptor descriptor) == FALSE)
+      {
+        complete_async_request(@request request, @succeeded FALSE, @size 0);
+        RETURN;
+      }
+    }
+    IF (submit_async_write(@request request, @descriptor descriptor, @buffer buffer, @offset offset) == FALSE)
+    {
+      complete_async_request(@request request, @succeeded FALSE, @size 0);
     }
   }
 
@@ -288,7 +342,7 @@ DOC <$
     ASSERT(.valid(), "Cannot wait on an unavailable async context.");
     .control->.drain_mutex.lock();
     ASSERT(.control->.pool_attached == FALSE,
-      "wait_one cannot compete with an attached thread pool.");
+      "wait_one cannot compete with an attached completion worker pool.");
     .control->.manual_waiters++;
     .control->.drain_mutex.unlock();
     VAR result BOOL := wait_for_async_completion(@control .control);
@@ -340,7 +394,7 @@ DOC <$
     {
       IF (associate_windows_async_file(
         @state context.control->.windows,
-        @native_ref .control->.owned_file.reference()
+        @descriptor .control->.owned_file.reference().descriptor
       ) == FALSE)
       {
         PANIC "CreateIoCompletionPort failed while associating an async file.";
@@ -385,12 +439,12 @@ DOC <$
     VAR request MUT->async_request := allocate_async_request(
       @file_control .control,
       @context_control context.control,
-      @callback callback
+      @callback FORWARD(callback)
     );
     request->.buffer := buffer;
     IF (submit_async_read(
       @request request,
-      @native_ref .control->.owned_file.reference(),
+      @descriptor .control->.owned_file.reference().descriptor,
       @buffer buffer,
       @offset offset
     ) == FALSE)
@@ -415,12 +469,12 @@ DOC <$
     VAR request MUT->async_request := allocate_async_request(
       @file_control .control,
       @context_control context.control,
-      @callback callback
+      @callback FORWARD(callback)
     );
     request->.buffer := buffer;
     IF (submit_async_write(
       @request request,
-      @native_ref .control->.owned_file.reference(),
+      @descriptor .control->.owned_file.reference().descriptor,
       @buffer buffer,
       @offset offset
     ) == FALSE)
@@ -466,113 +520,77 @@ DOC <$
   completion callbacks. Destruction drains callbacks, posts stop packets, and
   joins every worker. The referenced context must outlive the pool.
   $>
-::thread_pool INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS)
-  STRUCT MOVE_ONLY
+::thread_pool INCLUDE_IF(OS_LINUX || OS_WINDOWS || OS_MACOS) STRUCT MOVE_ONLY
 {
   PRIVATE(MODULE)
   {
-    .workers VAR MUT=>>TYPED_STORAGE(thread);
-    .worker_count VAR SZ;
+    .workers VAR std::dynarr#std::thread;
     .context_control VAR MUT->async_context_control;
   }
 
-  DOC <$ Starts worker_count completion workers for context. $>
+  DOC <$ Starts worker_count completion workers for context. Partial construction stops and joins every worker already started. $>
   .CONSTRUCTOR FUNCTION(@context MUT& async_context, @worker_count SZ)
   {
-    ASSERT(context.valid(), "Cannot start a thread pool for an unavailable async context.");
-    ASSERT(worker_count != 0, "A thread pool requires at least one worker.");
-    ASSERT(worker_count <= context.control->.capacity,
-      "Thread-pool worker count exceeds async-context capacity.");
+    ASSERT(context.valid(), "Cannot start completion workers for an unavailable context.");
+    ASSERT(worker_count > 0 && worker_count <= context.control->.capacity,
+      "Completion worker count must be positive and within context capacity.");
+    .workers.reserve(worker_count);
     context.control->.drain_mutex.lock();
-    ASSERT(context.control->.pool_attached == FALSE,
-      "An async context supports one attached thread pool.");
-    ASSERT(context.control->.manual_waiters == 0,
-      "A thread pool cannot attach while wait_one is active.");
+    ASSERT(context.control->.pool_attached == FALSE && context.control->.manual_waiters == 0,
+      "An async context supports one completion consumer pool.");
     context.control->.pool_attached := TRUE;
     context.control->.drain_mutex.unlock();
-    .worker_count := worker_count;
     .context_control := context.control;
-    .workers := RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread)::MULTI_ALLOC(
-      @COUNT worker_count
-    );
-    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
+    TRY
     {
-      PLACE AT(.workers[index]) thread := thread(
-        async_worker_entry(@control .context_control)
-      );
-    };
+      LOOP VALUE(index) FROM(0 AS SZ) UNTIL(worker_count) DO
+      {
+        .workers.push_back(std::thread(async_worker_entry(@control .context_control)));
+      };
+    }
+    CATCH DEFAULT
+    {
+      IF (.workers.size() > 0)
+      {
+        request_async_stop(@control .context_control, @worker_count .workers.size());
+        LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.workers.size()) DO { .workers[index].join(); };
+      }
+      .context_control->.drain_mutex.lock();
+      .context_control->.pool_attached := FALSE;
+      .context_control->.drain_mutex.unlock();
+      RETHROW;
+    }
   }
 
-  DOC <$ Transfers worker ownership without changing their context state. $>
+  DOC <$ Transfers worker ownership while preserving the context's stable address. $>
   .CONSTRUCTOR FUNCTION(@OTHER TEMP& thread_pool)
   {
-    VAR empty_workers MUT=>>TYPED_STORAGE(thread);
-    VAR empty_context MUT->async_context_control;
-    .workers := empty_workers;
-    .worker_count := 0;
-    .context_control := empty_context;
-    VAR other_workers MUT& MUT=>>TYPED_STORAGE(thread) :=
-      OTHER.workers AS MUT& MUT=>>TYPED_STORAGE(thread);
-    VAR other_count MUT& SZ := OTHER.worker_count AS MUT& SZ;
-    VAR other_context MUT& MUT->async_context_control :=
-      OTHER.context_control AS MUT& MUT->async_context_control;
-    .workers <-> other_workers;
-    .worker_count <-> other_count;
-    .context_control <-> other_context;
+    .workers <-> OTHER.workers;
+    .context_control <-> OTHER.context_control;
   }
 
-  DOC <$ Drains outstanding callbacks and joins every worker. $>
-  .DESTRUCTOR FUNCTION()
-  {
-    IF (.joinable())
-    {
-      .join();
-    }
-  }
+  DOC <$ Drains callbacks and joins owned workers. $>
+  .DESTRUCTOR FUNCTION() { IF (.joinable()) { .join(); } }
 
-  DOC <$ Reports whether this object still owns worker threads. $>
-  .joinable FUNCTION(): BOOL
-  {
-    RETURN .workers??;
-  }
+  DOC <$ Reports whether this object owns a completion consumer pool. $>
+  .joinable FUNCTION() CONST: BOOL { RETURN .context_control??; }
 
-  DOC <$
-    Drains the context, stops its workers, and consumes pool ownership. No
-    thread may start a new operation on the context after join begins, and a
-    completion callback must not call join on its own pool.
-    A rejected stop notification throws async_error::worker_stop_failed.
-    $>
-  .join FUNCTION()
+  DOC <$ Drains callbacks, posts stop events, and joins workers. External submissions stop before joining, and callbacks cannot join their own pool. $>
+  .join FUNCTION() MUT
   {
-    ASSERT(.joinable(), "Cannot join a non-joinable thread pool.");
+    ASSERT(.joinable(), "Cannot join an empty completion worker pool.");
     .context_control->.drain_mutex.lock();
-    LOOP WHILE (.context_control->.outstanding.LOAD#ATOMIC_ACQUIRE() != 0) DO
+    LOOP WHILE(.context_control->.outstanding.LOAD#ATOMIC_ACQUIRE() != 0) DO
     {
-      .context_control->.drain_condition.wait(
-        @locked_mutex .context_control->.drain_mutex
-      );
+      .context_control->.drain_condition.wait(@locked_mutex .context_control->.drain_mutex);
     }
     .context_control->.drain_mutex.unlock();
-    request_async_stop(@control .context_control, @worker_count .worker_count);
-    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.worker_count) DO
-    {
-      VAR worker MUT& thread := PUN .workers[index] AS thread;
-      worker.join();
-      DESTROY AT(.workers[index]) thread;
-    };
+    request_async_stop(@control .context_control, @worker_count .workers.size());
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(.workers.size()) DO { .workers[index].join(); };
+    .workers.clear();
     .context_control->.drain_mutex.lock();
     .context_control->.pool_attached := FALSE;
     .context_control->.drain_mutex.unlock();
-    VAR released_workers MUT=>>TYPED_STORAGE(thread) := .workers;
-    VAR released_count SZ := .worker_count;
-    VAR empty_workers MUT=>>TYPED_STORAGE(thread);
-    VAR empty_context MUT->async_context_control;
-    .workers := empty_workers;
-    .worker_count := 0;
-    .context_control := empty_context;
-    RUNTIME_MODULE::DEFAULT_ALLOCATOR#(thread)::MULTI_DEALLOC(
-      @PTR released_workers,
-      @COUNT released_count
-    );
+    .context_control := NULL;
   }
 }

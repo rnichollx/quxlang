@@ -51,7 +51,7 @@ def build(args):
     """Assemble the checked-in stdlib and compile both Quxlang benchmarks."""
     bundle = args.work_dir / "bundle"
     standard = REPOSITORY / "quxlang/tests/testdata/testbundle/modules"
-    for name in ("runtime", "std", "syscall", "posix"):
+    for name in ("runtime", "std", "syscall", "posix", "io"):
         shutil.copytree(standard / name, bundle / "modules" / name, dirs_exist_ok=True)
     shutil.copytree(ROOT / "modules/main", bundle / "modules/main", dirs_exist_ok=True)
     host_os = {"Darwin": "macos", "Linux": "linux", "Windows": "windows"}[platform.system()]

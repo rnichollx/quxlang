@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT io;
+
 IMPORT std;
 
 ::input_data STRUCT
@@ -22,15 +24,15 @@ DOC <$ Loads input_data from a file and delegates other argument types to the de
     {
       TEST_ASSERT(.order == 0);
       .order++;
-      VAR file std::file := std::open_read(@path INPUT);
+      VAR file io::file := io::open_read(@path INPUT);
       VAR result input_data;
       result.argument_text := INPUT<-;
       result.parser_alive := .alive<-;
       VAR bytes [256]BYTE;
-      VAR buffer std::buffer_ref := std::buffer_ref(@data bytes[&0], @size 256);
+      VAR buffer io::buffer_ref := io::buffer_ref(@data bytes[&0], @size 256);
       LOOP DO
       {
-        VAR transfer std::transfer_result;
+        VAR transfer io::transfer_result;
         file.read(@buffer buffer, @result transfer);
         TEST_ASSERT(transfer.succeeded);
         IF (transfer.size == 0) { BREAK; }
@@ -64,7 +66,7 @@ ONESHOT
 {
   TEST_ASSERT(data.parser_alive->);
   TEST_ASSERT(data.argument_text->.size() != 0);
-  VAR file std::file := std::open_replace(@path output);
+  VAR file io::file := io::open_replace(@path output);
   MEASURE COUNT(forbidden_count())
   {
     VAR bytes [256]BYTE;
@@ -78,8 +80,8 @@ ONESHOT
       }
       LOOP INIT { VAR written SZ := 0; } WHILE (written < size) DO
       {
-        VAR buffer std::buffer_ref := std::buffer_ref(@data bytes[&written], @size size - written);
-        VAR transfer std::transfer_result;
+        VAR buffer io::buffer_ref := io::buffer_ref(@data bytes[&written], @size size - written);
+        VAR transfer io::transfer_result;
         file.write(@buffer buffer, @result transfer);
         TEST_ASSERT(transfer.succeeded && transfer.size != 0);
         written += transfer.size;

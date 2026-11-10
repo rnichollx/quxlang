@@ -9,6 +9,7 @@ targets:
       posix: {source: posix}
       RUNTIME: {source: runtime}
       std: {source: std}
+      io: {source: io}
       main: {source: main}
 outputs:
   allocations:

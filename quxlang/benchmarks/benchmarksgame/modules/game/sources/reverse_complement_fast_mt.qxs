@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT io;
+
 // Copyright notice from the Benchmarks Game project license:
 // Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
 // All rights reserved.
@@ -93,7 +95,7 @@ IMPORT std;
         }
         state.mutex.lock();
         LOOP WHILE (state.written != end) DO { state.condition.wait(@locked_mutex state.mutex); }
-        state.output->.write(std::buffer_ref(@data chunk_data, @size size));
+        state.output->.write(io::buffer_ref(@data chunk_data, @size size));
         state.written -= size;
         state.condition.notify_all();
         state.mutex.unlock();
@@ -106,7 +108,7 @@ IMPORT std;
   {
     VAR header SZ := 0;
     LOOP WHILE (bytes[header] != 10) DO { header++; }
-    output.write(std::buffer_ref(@data bytes, @size header + 1));
+    output.write(io::buffer_ref(@data bytes, @size header + 1));
     VAR state reverse_complement_chunks;
     state.bytes := bytes; state.table := table;
     state.remaining := size - 1 - header;
@@ -145,7 +147,7 @@ IMPORT std;
     LOOP VALUE(low) FROM(0 AS SZ) UNTIL(256) DO
     { table[high * 256 + low] := (complement[high] AS U16) #|| ((complement[low] AS U16) #++ 8); }
   }
-  VAR input std::file_ref := std::standard_input();
+  VAR input io::file_ref := std::standard_input();
   VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
   VAR bytes std::dynarr#BYTE;
   VAR capacity SZ := 65536;
@@ -154,8 +156,8 @@ IMPORT std;
   LOOP DO
   {
     VAR data MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR bytes[0]<-));
-    VAR buffer std::buffer_ref :(@data data + length, @size 65536);
-    VAR transfer std::transfer_result;
+    VAR buffer io::buffer_ref :(@data data + length, @size 65536);
+    VAR transfer io::transfer_result;
     input.read(@buffer buffer, @result transfer);
     IF (transfer.succeeded == FALSE) { THROW (1 AS I32); }
     IF (transfer.size == 0) { BREAK; }

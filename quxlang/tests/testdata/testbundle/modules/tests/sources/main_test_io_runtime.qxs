@@ -1,0 +1,133 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT io;
+IMPORT std;
+IMPORT syscall;
+
+::io_runtime_tests INCLUDE_IF(OS_LINUX || OS_MACOS || OS_WINDOWS) NAMESPACE
+{
+  DOC <$ Reads through the controller-selected file interface in a nested invocation. $>
+  ::read COROUTINE(@file io::file_ref, @buffer io::buffer_ref): io::transfer_result
+  {
+    VAR result io::transfer_result;
+    file.read(@buffer buffer, @offset 0, @result result);
+    RETURN result;
+  }
+
+  DOC <$ Reads through the ordinary cursor-based interface selected by the I/O controller. $>
+  ::stream_read COROUTINE(@file io::file_ref, @buffer io::buffer_ref): io::transfer_result
+  {
+    VAR result io::transfer_result;
+    file.read(@buffer buffer, @result result);
+    RETURN result;
+  }
+
+  DOC <$ Preserves the I/O controller across a recursive call. $>
+  ::nested_read COROUTINE(@file io::file_ref, @buffer io::buffer_ref): io::transfer_result
+  {
+    RETURN read(@file file, @buffer buffer);
+  }
+
+  DOC <$ Writes through the controller-selected owning file interface. $>
+  ::write COROUTINE(@file MUT& io::file, @buffer io::buffer_ref): io::transfer_result
+  {
+    VAR result io::transfer_result;
+    file.write(@buffer buffer, @offset 0, @result result);
+    RETURN result;
+  }
+
+  DOC <$ Descriptor references retain native values without changing resource ownership. $>
+  ::descriptor_layout DUAL_TEST
+  {
+    VAR empty io::io_descriptor_ref;
+    TEST_ASSERT(empty.is_valid() == FALSE);
+    STATIC_IF(OS_WINDOWS)
+    {
+      TEST_ASSERT(SIZEOF(io::io_descriptor_ref) == SIZEOF(ADDRESS));
+
+    }
+    STATIC_ELSE
+    {
+      TEST_ASSERT(SIZEOF(io::io_descriptor_ref) == SIZEOF(I32));
+      VAR descriptor io::io_descriptor_ref :(@native_handle 7);
+      VAR copied io::io_descriptor_ref := descriptor;
+      TEST_ASSERT(copied.native_handle() == 7);
+      TEST_ASSERT(copied.is_valid());
+    }
+  }
+
+  DOC <$ Windows descriptor references reject INVALID_HANDLE_VALUE. $>
+  ::windows_invalid_descriptor INCLUDE_IF(OS_WINDOWS) UNIT_TEST
+  {
+    VAR zero ADDRESS;
+    VAR invalid io::io_descriptor_ref :(@native_handle zero - (1 AS SZ));
+    TEST_ASSERT(invalid.is_valid() == FALSE);
+  }
+
+  DOC <$ Failed submissions complete nested coroutine invocations and permit runtime draining. $>
+  ::submission_failure UNIT_TEST
+  {
+    VAR runtime io::async_runtime :(@workers 1);
+    VAR file io::file_ref;
+    VAR bytes [4]BYTE;
+    VAR buffer io::buffer_ref :(@data bytes[&0], @size bytes.SIZE());
+    VAR results std::dynarr#std::future#io::transfer_result;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(16) DO
+    {
+      results.push_back(ON(runtime) RUN nested_read(@file file, @buffer buffer));
+    };
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(results.size()) DO
+    {
+      VAR transfer io::transfer_result := results[index].get();
+      TEST_ASSERT(transfer.succeeded == FALSE && transfer.size == 0);
+    };
+    runtime.drain();
+  }
+
+  ::temporary_file INCLUDE_IF(OS_MACOS)
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"mkstemp"]
+    CALLABLE CALLCONV CCALL(@path MUT=>>BYTE; RETURN I32);
+  ::unlink_file INCLUDE_IF(OS_MACOS)
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"unlink"]
+    CALLABLE CALLCONV CCALL(@path CONST=>>BYTE; RETURN I32);
+
+  DOC <$ Positioned writes and nested reads complete on a single scheduler worker, preserving file ownership and byte contents. $>
+  ::positioned_round_trip INCLUDE_IF(OS_MACOS || OS_LINUX) UNIT_TEST
+  {
+    VAR name STRING_CONSTANT := "/tmp/quxlang-io-XXXXXX";
+    VAR path [23]BYTE;
+    LOOP VALUE(index) FROM(0 AS SZ) UNTIL(22) DO { path[index] := name.BEGIN()[index]; };
+    VAR native I32;
+    STATIC_IF(OS_MACOS) { native := temporary_file(@path path[&0]); }
+    STATIC_ELSE { native := syscall::linux::memfd_create(@name path[&0], @flags 1); }
+    TEST_ASSERT(native >= 0);
+    VAR file io::file :(@native_ref io::file_ref(@descriptor io::io_descriptor_ref(@native_handle native)));
+    STATIC_IF(OS_MACOS) { TEST_ASSERT(unlink_file(@path path[&0]) == 0); }
+    VAR bytes [4]BYTE;
+    bytes[0] := 17;
+    bytes[1] := 29;
+    bytes[2] := 43;
+    bytes[3] := 71;
+    VAR buffer io::buffer_ref :(@data bytes[&0], @size bytes.SIZE());
+    VAR runtime io::async_runtime :(@workers 1);
+    VAR written := ON(runtime) RUN write(@file file, @buffer buffer);
+    VAR write_result io::transfer_result := written.get();
+    TEST_ASSERT(write_result.succeeded && write_result.size == 4);
+    bytes[0] := 0;
+    bytes[1] := 0;
+    bytes[2] := 0;
+    bytes[3] := 0;
+    VAR read_result := ON(runtime) RUN nested_read(@file file.reference(), @buffer buffer);
+    VAR transfer io::transfer_result := read_result.get();
+    TEST_ASSERT(transfer.succeeded && transfer.size == 4);
+    TEST_ASSERT(bytes[0] == 17 && bytes[1] == 29 && bytes[2] == 43 && bytes[3] == 71);
+    VAR stream_result := ON(runtime) RUN stream_read(@file file.reference(), @buffer buffer);
+    VAR stream_transfer io::transfer_result := stream_result.get();
+    TEST_ASSERT(stream_transfer.succeeded && stream_transfer.size == 4);
+    VAR end_result := ON(runtime) RUN stream_read(@file file.reference(), @buffer buffer);
+    VAR end_transfer io::transfer_result := end_result.get();
+    TEST_ASSERT(end_transfer.succeeded && end_transfer.size == 0);
+    runtime.drain();
+    TEST_ASSERT(file.is_open());
+  }
+}

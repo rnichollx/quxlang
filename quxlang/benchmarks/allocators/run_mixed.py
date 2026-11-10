@@ -46,7 +46,7 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     bundle = work / 'bundle'
     standard = REPOSITORY / 'quxlang/tests/testdata/testbundle/modules'
-    for name in ('std', 'runtime', 'syscall', 'posix'):
+    for name in ('std', 'runtime', 'syscall', 'posix', 'io'):
         shutil.copytree(standard / name, bundle / 'modules' / name, dirs_exist_ok=True)
     shutil.copytree(ROOT / 'modules/main', bundle / 'modules/main', dirs_exist_ok=True)
     benchmark = 'atomic_mixed_allocations' if args.workload == 'atomic-shared' else 'mixed_allocations'

@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT io;
+
 // Copyright notice from the Benchmarks Game project license:
 // Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
 // All rights reserved.
@@ -70,7 +72,7 @@ IMPORT std;
         { bytes[used] := 10; used++; }
         state.output_mutex.lock();
         LOOP WHILE (state.next_output != start) DO { state.condition.wait(@locked_mutex state.output_mutex); }
-        state.output->.write(std::buffer_ref(@data byte_data, @size used));
+        state.output->.write(io::buffer_ref(@data byte_data, @size used));
         state.next_output += count;
         state.condition.notify_all();
         state.output_mutex.unlock();

@@ -1,0 +1,268 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+DOC <$ Selects io_uring for Linux asynchronous I/O. FALSE selects the epoll completion runtime. $>
+::linux_use_io_uring OPTION BOOL DEFAULT_VALUE(TRUE);
+
+DOC <$ Provides the Linux epoll completion runtime with worker-backed positioned file transfers. $>
+::epoll_async_runtime INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE) ALIAS async_context;
+
+DOC <$ Provides the Linux io_uring completion runtime. $>
+::io_uring_async_runtime INCLUDE_IF(OS_LINUX && linux_use_io_uring) ALIAS async_context;
+DOC <$ Provides the macOS kqueue completion runtime. $>
+::kqueue_async_runtime INCLUDE_IF(OS_MACOS) ALIAS async_context;
+DOC <$ Provides the Windows overlapped I/O completion runtime. $>
+::overlapped_async_runtime INCLUDE_IF(OS_WINDOWS) ALIAS async_context;
+
+PRIVATE(MODULE)
+{
+  ::platform_async_runtime INCLUDE_IF(OS_LINUX && linux_use_io_uring) ALIAS io_uring_async_runtime;
+  ::platform_async_runtime INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE) ALIAS epoll_async_runtime;
+  ::platform_async_runtime INCLUDE_IF(OS_MACOS) ALIAS kqueue_async_runtime;
+  ::platform_async_runtime INCLUDE_IF(OS_WINDOWS) ALIAS overlapped_async_runtime;
+
+  DOC <$ Publishes a native transfer result to its coroutine consumer. $>
+  ::transfer_completion STRUCT MOVE_ONLY
+  {
+    .producer VAR std::promise#transfer_result;
+    DOC <$ Creates the producer for one transfer. $>
+    .CONSTRUCTOR FUNCTION() {}
+    DOC <$ Publishes completion and schedules the registered continuation. $>
+    .OPERATOR() FUNCTION(@result transfer_result) MUT { .producer.set_value(@value result); }
+  }
+}
+
+DOC <$ Owns a platform completion runtime, completion workers, and a coroutine scheduler. Destruction drains coroutine frames before stopping completion workers. Borrowed files and buffers outlive their submitted operations. $>
+::async_runtime INCLUDE_IF(OS_LINUX || OS_MACOS || OS_WINDOWS) STRUCT ROOTED
+{
+  PRIVATE(MODULE)
+  {
+    .platform VAR platform_async_runtime;
+    .completion_workers VAR std::optional#thread_pool;
+    .stream_workers VAR std::thread_pool_cort_runtime;
+    .scheduler VAR std::thread_pool_cort_runtime;
+  }
+
+  DOC <$ Starts workers for coroutine scheduling and completion_workers for native completions. Both counts and entries are positive, and completion_workers does not exceed entries. Queue creation failure throws async_error::initialization_failed. $>
+  .CONSTRUCTOR FUNCTION(@workers SZ DEFAULT(4), @completion_workers SZ DEFAULT(1), @file_workers SZ DEFAULT(2), @entries SZ DEFAULT(256))
+    :> .platform:(@entries entries), .stream_workers:(@workers file_workers), .scheduler:(@workers workers)
+  {
+    IF (.platform.valid() == FALSE) { THROW async_error::initialization_failed; }
+    .completion_workers.emplace(@context .platform, @worker_count completion_workers);
+  }
+
+  DOC <$ Waits for coroutine cleanup before draining and joining completion workers. $>
+  .DESTRUCTOR FUNCTION() { .scheduler.drain(); .completion_workers.reset(); }
+
+  DOC <$ Waits for every scheduled coroutine and its cleanup. External submissions must stop before drain begins. $>
+  .drain FUNCTION() MUT { .scheduler.drain(); }
+
+  DOC <$ Schedules a cursor-based read on a file worker and returns its result future. The operating system manages the shared file position. $>
+  .read FUNCTION(@descriptor io_descriptor_ref, @buffer CONST& buffer_ref) MUT: std::future#transfer_result
+  {
+    VAR operation stream_transfer#(@writing FALSE);
+    operation.reference := file_ref(@descriptor descriptor);
+    operation.buffer := buffer;
+    VAR result := operation.producer.get_future();
+    .stream_workers.post(@operation MOVE(operation));
+    RETURN MOVE(result);
+  }
+
+  DOC <$ Schedules a cursor-based write on a file worker and returns its result future. The operating system manages the shared file position. $>
+  .write FUNCTION(@descriptor io_descriptor_ref, @buffer CONST& buffer_ref) MUT: std::future#transfer_result
+  {
+    VAR operation stream_transfer#(@writing TRUE);
+    operation.reference := file_ref(@descriptor descriptor);
+    operation.buffer := buffer;
+    VAR result := operation.producer.get_future();
+    .stream_workers.post(@operation MOVE(operation));
+    RETURN MOVE(result);
+  }
+
+  DOC <$ Submits a positioned read and returns its single-consumer future. $>
+  .read FUNCTION(@descriptor io_descriptor_ref, @buffer CONST& buffer_ref, @offset U64) MUT: std::future#transfer_result
+  {
+    VAR completion transfer_completion;
+    VAR result := completion.producer.get_future();
+    .platform.read(@descriptor descriptor, @buffer buffer, @offset offset, @callback MOVE(completion));
+    RETURN MOVE(result);
+  }
+
+  DOC <$ Submits a positioned write and returns its single-consumer future. $>
+  .write FUNCTION(@descriptor io_descriptor_ref, @buffer CONST& buffer_ref, @offset U64) MUT: std::future#transfer_result
+  {
+    VAR completion transfer_completion;
+    VAR result := completion.producer.get_future();
+    .platform.write(@descriptor descriptor, @buffer buffer, @offset offset, @callback MOVE(completion));
+    RETURN MOVE(result);
+  }
+
+  DOC <$ Schedules a selected descriptor with the I/O controller for its return type. $>
+  .launch FUNCTION(@COROUTINE:descriptor AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
+  {
+    VAR invocation MUT->async_invocation#descriptor;
+    VAR submitted BOOL;
+    DEFER { IF (submitted == FALSE) { DELETE OPTIONAL invocation; } }
+    invocation := NEW async_invocation#descriptor:(@runtime THIS, @ARGUMENTS FORWARD PACK(arguments));
+    VAR result := .scheduler.CO_RUN(@COROUTINE drive_async_invocation#descriptor,
+      @ARGUMENTS ...{ .invocation = invocation; });
+    submitted := TRUE;
+    RETURN MOVE(result);
+  }
+
+  DOC <$ Selects and schedules a coroutine while preserving the I/O policy for recursive calls. $>
+  .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
+  {
+    STATIC_IF(PACK_CONTAINS(arguments, "RECEIVER"))
+    {
+      VAR descriptor := child#(@CONTROLLER async_controller#VOID, @THIS PACK_FIELD_TYPE(arguments, "RECEIVER"),
+        ...PACK_TYPES_EXCEPT(arguments, "RECEIVER"));
+      RETURN .launch(@COROUTINE descriptor, @ARGUMENTS FORWARD PACK(arguments));
+    }
+    STATIC_ELSE
+    {
+      VAR descriptor := child#(@CONTROLLER async_controller#VOID, ...PACK_TYPES(arguments));
+      RETURN .launch(@COROUTINE descriptor, @ARGUMENTS FORWARD PACK(arguments));
+    }
+  }
+}
+
+DOC <$ Extends thread-pool scheduling with controller-selected file transfers. Nested coroutine calls, GO expressions, constructors, and destructors use the same I/O runtime. $>
+::async_controller TEMPLATE(@T TYPE) STRUCT
+{
+  .scheduling BASE std::thread_pool_cort_controller#T;
+  PRIVATE(MODULE)
+  {
+    .runtime VAR MUT->async_runtime;
+    .value INCLUDE_IF(SAME_TYPES(T, VOID) == FALSE) VAR std::optional#T;
+    .error VAR EXCEPTION_PTR;
+  }
+
+  DOC <$ Borrows the runtime that owns this invocation. $>
+  .CONSTRUCTOR FUNCTION(@runtime MUT& async_runtime) { .runtime := runtime<-; }
+
+  DOC <$ Stages a value until the inner frame has finished cleanup. $>
+  .CO_RETURN FUNCTION(@ARG AUTO& AUTO): completed_operation
+  {
+    .value.emplace(@OTHER FORWARD(ARG));
+    RETURN completed_operation();
+  }
+  DOC <$ Stages successful completion without a value. $>
+  .CO_RETURN FUNCTION(): completed_operation { RETURN completed_operation(); }
+  DOC <$ Stages an exception for publication after frame cleanup. $>
+  .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): completed_operation
+  {
+    .error := ARG;
+    RETURN completed_operation();
+  }
+
+  DOC <$ Schedules coroutine children on this runtime and ordinary functions on its scheduler. $>
+  .CO_GO FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
+  {
+    STATIC_IF(STATIC_CHOOSE(PACK_CONTAINS(arguments, "RECEIVER"),
+      IS_COROUTINE_CALLABLE_WITH(child, @CONTROLLER async_controller#VOID, @THIS PACK_FIELD_TYPE(arguments, "RECEIVER"),
+        ...PACK_TYPES_EXCEPT(arguments, "RECEIVER")),
+      IS_COROUTINE_CALLABLE_WITH(child, @CONTROLLER async_controller#VOID, ...PACK_TYPES(arguments))))
+    {
+      RETURN .runtime->.CO_RUN(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
+    }
+    STATIC_ELSE { RETURN .scheduling.CO_GO(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments)); }
+  }
+
+  DOC <$ Schedules a recursive coroutine and suspends its caller through the returned task. $>
+  .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
+  {
+    VAR result := .CO_GO(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
+    RETURN std::task#(DECLTYPE(result)::value_type)(@result MOVE(result));
+  }
+
+  DOC <$ Schedules coroutine destruction on the owning I/O runtime. $>
+  .CO_CALL_DTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
+  {
+    RETURN .runtime->.launch(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
+  }
+
+  DOC <$ Schedules coroutine construction against the caller-owned destination. $>
+  .CO_CALL_CTOR FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ..., @DESTINATION:destination MUT& AUTO): AUTO
+  {
+    PACK invocation FUSE(...{ .RECEIVER = destination; }, arguments);
+    RETURN .runtime->.launch(@COROUTINE child, @ARGUMENTS FORWARD PACK(invocation));
+  }
+}
+
+PRIVATE(MODULE)
+{
+  DOC <$ Owns one cursor-based transfer and its completion producer. File workers execute the native operation without blocking coroutine scheduling. $>
+  ::stream_transfer TEMPLATE(@writing VALUE BOOL) STRUCT MOVE_ONLY
+  {
+    .reference VAR file_ref;
+    .buffer VAR buffer_ref;
+    .producer VAR std::promise#transfer_result;
+    DOC <$ Executes the selected file operation and publishes its result. $>
+    .OPERATOR() FUNCTION() MUT
+    {
+      VAR result transfer_result;
+      STATIC_IF(writing) { .reference.write(@buffer .buffer, @result result); }
+      STATIC_ELSE { .reference.read(@buffer .buffer, @result result); }
+      .producer.set_value(@value result);
+    }
+  }
+
+  DOC <$ Completes controller bookkeeping without suspending a coroutine. $>
+  ::completed_operation STRUCT
+  {
+    DOC <$ Reports immediate readiness. $>
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN TRUE; }
+    DOC <$ Declines suspension. $>
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL { RETURN FALSE; }
+    DOC <$ Completes without a value. $>
+    .AWAIT_RESUME FUNCTION() {}
+  }
+
+  DOC <$ Owns an I/O coroutine frame driven by an ordinary thread-pool invocation. Each suspension borrows that invocation's stable continuation. $>
+  ::async_invocation TEMPLATE(@T:descriptor_type TYPE AUTO) STRUCT ROOTED
+  {
+    ::result_type ALIAS descriptor_type::RETURN_TYPE;
+    ::descriptor ALIAS descriptor_type#(@CONTROLLER async_controller#result_type);
+    .controller VAR async_controller#result_type;
+    .frame VAR descriptor::FRAME_TYPE;
+    .complete VAR BOOL;
+
+    DOC <$ Captures the runtime and arguments at stable addresses before scheduling. $>
+    .CONSTRUCTOR FUNCTION(@runtime MUT& async_runtime, @ARGUMENTS:arguments ...)
+      :> .controller:(@runtime runtime)
+    {
+      .frame.INITIALIZE(...FORWARD PACK(arguments));
+    }
+
+    DOC <$ Requires one activation of the inner frame. $>
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN FALSE; }
+    DOC <$ Drives the inner frame with the enclosing invocation's continuation and suspends only when that frame suspends. $>
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& std::thread_pool_cort_controller#result_type, @FRAME MUT& AUTO) MUT: BOOL
+    {
+      .controller.scheduling := CONTROLLER;
+      .complete := .frame.RESUME(@CONTROLLER .controller);
+      RETURN .complete == FALSE;
+    }
+    DOC <$ Reports whether the inner frame completed during its latest activation. $>
+    .AWAIT_RESUME FUNCTION() CONST: BOOL { RETURN .complete; }
+    DOC <$ Retains the frame until its registered I/O completion arrives. $>
+    .TRY_CANCEL FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO) CONST NOEXCEPT: BOOL { RETURN FALSE; }
+  }
+
+  DOC <$ Drives an I/O frame through the standard scheduler and publishes its result after cleanup. $>
+  ::drive_async_invocation TEMPLATE(@T:descriptor TYPE AUTO)
+    COROUTINE(@invocation MUT->async_invocation#descriptor): descriptor::RETURN_TYPE
+  {
+    DEFER { DELETE invocation; }
+    LOOP WHILE(AWAIT(invocation->) == FALSE) DO {};
+    IF (invocation->.controller.error??) { THROW_EXCEPTION_PTR(invocation->.controller.error); }
+    STATIC_IF(SAME_TYPES(descriptor::RETURN_TYPE, VOID)) { RETURN; }
+    STATIC_ELSE
+    {
+      VAR value MUT& descriptor::RETURN_TYPE := invocation->.controller.value.value();
+      RETURN MOVE(value);
+    }
+  }
+}

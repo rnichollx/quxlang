@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT io;
+
 // Copyright notice from the Benchmarks Game project license:
 // Copyright © 2004-2008 Brent Fulgham, 2005-2025 Isaac Gouy
 // All rights reserved.
@@ -115,5 +117,5 @@ IMPORT std;
   VAR output std::buffered_writer :(@EXPLICIT std::standard_output());
   output.write("P4\n"); output.write_unsigned(width AS U64); output.write(" ");
   output.write_unsigned(height AS U64); output.write("\n");
-  output.write(std::buffer_ref(@data pixels, @size data.size()));
+  output.write(io::buffer_ref(@data pixels, @size data.size()));
 }

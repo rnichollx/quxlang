@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT io;
+
 IMPORT std;
 IMPORT syscall;
 
@@ -54,8 +56,8 @@ IMPORT syscall;
     TEST_ASSERT(set_socket_timeout(@descriptor descriptors[1], @level 65535,
       @option 4102, @value timeout<-, @length SIZEOF(socket_timeout) AS CHECKED U32) == 0);
 
-    VAR writer std::buffered_writer := std::file_ref(@descriptor descriptors[0]) AS std::buffered_writer;
-    VAR reader std::file_ref :(@descriptor descriptors[1]);
+    VAR writer std::buffered_writer := io::file_ref(@descriptor io::io_descriptor_ref(@native_handle descriptors[0])) AS std::buffered_writer;
+    VAR reader io::file_ref :(@descriptor io::io_descriptor_ref(@native_handle descriptors[1]));
     VAR failed BOOL := FALSE;
     TRY
     {
@@ -78,8 +80,8 @@ IMPORT syscall;
     LOOP VALUE(attempt) FROM(0 AS SZ) UNTIL(64) DO
     {
       TEST_ASSERT(count < received.SIZE());
-      VAR buffer std::buffer_ref :(@data received[&count], @size received.SIZE() - count);
-      VAR transfer std::transfer_result;
+      VAR buffer io::buffer_ref :(@data received[&count], @size received.SIZE() - count);
+      VAR transfer io::transfer_result;
       reader.read(@buffer buffer, @result transfer);
       TEST_ASSERT(transfer.succeeded && transfer.size > 0);
       count += transfer.size;
@@ -91,8 +93,8 @@ IMPORT syscall;
 
     LOOP WHILE (count < received.SIZE()) DO
     {
-      VAR buffer std::buffer_ref :(@data received[&count], @size received.SIZE() - count);
-      VAR transfer std::transfer_result;
+      VAR buffer io::buffer_ref :(@data received[&count], @size received.SIZE() - count);
+      VAR transfer io::transfer_result;
       reader.read(@buffer buffer, @result transfer);
       TEST_ASSERT(transfer.succeeded && transfer.size > 0);
       count += transfer.size;
@@ -105,8 +107,8 @@ IMPORT syscall;
     writer.write_byte(255);
     writer.flush();
     VAR last [1]BYTE;
-    VAR buffer std::buffer_ref :(@data last[&0], @size 1);
-    VAR transfer std::transfer_result;
+    VAR buffer io::buffer_ref :(@data last[&0], @size 1);
+    VAR transfer io::transfer_result;
     reader.read(@buffer buffer, @result transfer);
     TEST_ASSERT(transfer.succeeded && transfer.size == 1 && last[0] == (255 AS BYTE));
   }

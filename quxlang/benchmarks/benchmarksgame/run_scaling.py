@@ -35,7 +35,7 @@ def main():
     baseline = options.baseline_dir.resolve()
     bundle = work / 'bundle'
     standard = REPOSITORY / 'quxlang/tests/testdata/testbundle/modules'
-    for name in ('runtime', 'std', 'syscall', 'posix'):
+    for name in ('runtime', 'std', 'syscall', 'posix', 'io'):
         shutil.copytree(standard / name, bundle / 'modules' / name, dirs_exist_ok=True)
     shutil.copytree(ROOT / 'modules/game', bundle / 'modules/game', dirs_exist_ok=True)
     config = (ROOT / 'qxcbuild.yml').read_text().split('outputs:')[0] + 'outputs:\n'

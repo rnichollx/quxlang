@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT std;
+
 IMPORT syscall;
 
 DOC <$
@@ -101,26 +103,23 @@ DOC <$
 ::file_ref INCLUDE_IF(OS_LINUX)
   STRUCT
 {
-  .descriptor VAR I32;
+  .descriptor VAR io_descriptor_ref;
 
-  DOC <$ Creates an empty file reference. $>
-  .CONSTRUCTOR FUNCTION() { .descriptor := -1; }
+  DOC <$ Creates an empty resource reference. $>
+  .CONSTRUCTOR FUNCTION() {}
 
-  DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
-  .is_valid FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
+  DOC <$ Borrows descriptor without acquiring ownership. $>
+  .CONSTRUCTOR FUNCTION(@descriptor io_descriptor_ref) { .descriptor := descriptor; }
 
-  DOC <$ Creates a non-owning reference to descriptor. $>
-  .CONSTRUCTOR FUNCTION(@descriptor I32)
-  {
-    .descriptor := descriptor;
-  }
+  DOC <$ Reports whether the stored descriptor is valid. $>
+  .is_valid FUNCTION() CONST: BOOL { RETURN .descriptor.is_valid(); }
 
   DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
   .read FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     outcome.size := syscall::linux::read(
-      @fd .descriptor,
+      @fd .descriptor.native_handle(),
       @buffer buffer.data,
       @count buffer.size
     );
@@ -137,7 +136,7 @@ DOC <$
   {
     VAR outcome transfer_result;
     outcome.size := syscall::linux::write(
-      @fd .descriptor,
+      @fd .descriptor.native_handle(),
       @buffer buffer.data,
       @count buffer.size
     );
@@ -155,8 +154,32 @@ DOC <$
     $>
   .close FUNCTION(): BOOL
   {
-    RETURN syscall::linux::close(@fd .descriptor) == 0;
+    RETURN syscall::linux::close(@fd .descriptor.native_handle()) == 0;
   }
+  DOC <$ Submits a positioned read through the selected async runtime and suspends until completion. The descriptor and buffer remain valid through resumption. $>
+  .read COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @offset U64, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.read(@descriptor .descriptor, @buffer buffer, @offset offset));
+  }
+
+  DOC <$ Submits a positioned write through the selected async runtime and suspends until completion. The descriptor and buffer remain valid through resumption. $>
+  .write COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @offset U64, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.write(@descriptor .descriptor, @buffer buffer, @offset offset));
+  }
+
+  DOC <$ Schedules a cursor-based read through the selected I/O runtime and suspends until the transfer completes. $>
+  .read COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.read(@descriptor .descriptor, @buffer buffer));
+  }
+
+  DOC <$ Schedules a cursor-based write through the selected I/O runtime and suspends until the transfer completes. $>
+  .write COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.write(@descriptor .descriptor, @buffer buffer));
+  }
+
 }
 
 DOC <$
@@ -166,26 +189,23 @@ DOC <$
 ::file_ref INCLUDE_IF(OS_MACOS)
   STRUCT
 {
-  .descriptor VAR I32;
+  .descriptor VAR io_descriptor_ref;
 
-  DOC <$ Creates an empty file reference. $>
-  .CONSTRUCTOR FUNCTION() { .descriptor := -1; }
+  DOC <$ Creates an empty resource reference. $>
+  .CONSTRUCTOR FUNCTION() {}
 
-  DOC <$ Reports whether the reference contains a nonnegative descriptor. $>
-  .is_valid FUNCTION() CONST: BOOL { RETURN .descriptor >= 0; }
+  DOC <$ Borrows descriptor without acquiring ownership. $>
+  .CONSTRUCTOR FUNCTION(@descriptor io_descriptor_ref) { .descriptor := descriptor; }
 
-  DOC <$ Creates a non-owning reference to descriptor. $>
-  .CONSTRUCTOR FUNCTION(@descriptor I32)
-  {
-    .descriptor := descriptor;
-  }
+  DOC <$ Reports whether the stored descriptor is valid. $>
+  .is_valid FUNCTION() CONST: BOOL { RETURN .descriptor.is_valid(); }
 
   DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
   .read FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
   {
     VAR outcome transfer_result;
     outcome.size := syscall::macos::read(
-      @fd .descriptor,
+      @fd .descriptor.native_handle(),
       @buffer buffer.data,
       @count buffer.size
     );
@@ -202,7 +222,7 @@ DOC <$
   {
     VAR outcome transfer_result;
     outcome.size := syscall::macos::write(
-      @fd .descriptor,
+      @fd .descriptor.native_handle(),
       @buffer buffer.data,
       @count buffer.size
     );
@@ -220,8 +240,32 @@ DOC <$
     $>
   .close FUNCTION(): BOOL
   {
-    RETURN syscall::macos::close(@fd .descriptor) == 0;
+    RETURN syscall::macos::close(@fd .descriptor.native_handle()) == 0;
   }
+  DOC <$ Submits a positioned read through the selected async runtime and suspends until completion. The descriptor and buffer remain valid through resumption. $>
+  .read COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @offset U64, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.read(@descriptor .descriptor, @buffer buffer, @offset offset));
+  }
+
+  DOC <$ Submits a positioned write through the selected async runtime and suspends until completion. The descriptor and buffer remain valid through resumption. $>
+  .write COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @offset U64, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.write(@descriptor .descriptor, @buffer buffer, @offset offset));
+  }
+
+  DOC <$ Schedules a cursor-based read through the selected I/O runtime and suspends until the transfer completes. $>
+  .read COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.read(@descriptor .descriptor, @buffer buffer));
+  }
+
+  DOC <$ Schedules a cursor-based write through the selected I/O runtime and suspends until the transfer completes. $>
+  .write COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.write(@descriptor .descriptor, @buffer buffer));
+  }
+
 }
 
 DOC <$
@@ -329,23 +373,16 @@ DOC <$
 ::file_ref INCLUDE_IF(OS_WINDOWS)
   STRUCT
 {
-  .handle VAR ADDRESS;
+  .descriptor VAR io_descriptor_ref;
 
-  DOC <$ Creates an empty file reference. $>
-  .CONSTRUCTOR FUNCTION() { }
+  DOC <$ Creates an empty resource reference. $>
+  .CONSTRUCTOR FUNCTION() {}
 
-  DOC <$ Rejects null and INVALID_HANDLE_VALUE references. $>
-  .is_valid FUNCTION() CONST: BOOL
-  {
-    VAR null_address ADDRESS;
-    RETURN .handle != NULL && .handle != null_address - (1 AS SZ);
-  }
+  DOC <$ Borrows descriptor without acquiring ownership. $>
+  .CONSTRUCTOR FUNCTION(@descriptor io_descriptor_ref) { .descriptor := descriptor; }
 
-  DOC <$ Creates a non-owning reference to handle. $>
-  .CONSTRUCTOR FUNCTION(@handle ADDRESS)
-  {
-    .handle := handle;
-  }
+  DOC <$ Reports whether the stored descriptor is valid. $>
+  .is_valid FUNCTION() CONST: BOOL { RETURN .descriptor.is_valid(); }
 
   DOC <$ Reads at most buffer.size bytes into buffer and stores the outcome in result. $>
   .read FUNCTION(@buffer CONST& buffer_ref, @result WRITE& transfer_result)
@@ -354,7 +391,7 @@ DOC <$
     VAR transferred U32 := 0;
     VAR overlapped MUT->syscall::windows::overlapped;
     outcome.succeeded := syscall::windows::read_file(
-      @handle .handle,
+      @handle .descriptor.native_handle(),
       @buffer buffer.data,
       @count windows_transfer_size(@size buffer.size),
       @transferred transferred<-,
@@ -371,7 +408,7 @@ DOC <$
     VAR transferred U32 := 0;
     VAR overlapped MUT->syscall::windows::overlapped;
     outcome.succeeded := syscall::windows::write_file(
-      @handle .handle,
+      @handle .descriptor.native_handle(),
       @buffer buffer.data,
       @count windows_transfer_size(@size buffer.size),
       @transferred transferred<-,
@@ -387,12 +424,36 @@ DOC <$
     $>
   .close FUNCTION(): BOOL
   {
-    RETURN syscall::windows::close_handle(@handle .handle) != 0;
+    RETURN syscall::windows::close_handle(@handle .descriptor.native_handle()) != 0;
   }
+  DOC <$ Submits a positioned read through the selected async runtime and suspends until completion. The descriptor and buffer remain valid through resumption. $>
+  .read COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @offset U64, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.read(@descriptor .descriptor, @buffer buffer, @offset offset));
+  }
+
+  DOC <$ Submits a positioned write through the selected async runtime and suspends until completion. The descriptor and buffer remain valid through resumption. $>
+  .write COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @offset U64, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.write(@descriptor .descriptor, @buffer buffer, @offset offset));
+  }
+
+  DOC <$ Schedules a cursor-based read through the selected I/O runtime and suspends until the transfer completes. $>
+  .read COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.read(@descriptor .descriptor, @buffer buffer));
+  }
+
+  DOC <$ Schedules a cursor-based write through the selected I/O runtime and suspends until the transfer completes. $>
+  .write COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  {
+    result := AWAIT(CONTROLLER.runtime->.write(@descriptor .descriptor, @buffer buffer));
+  }
+
 }
 
 DOC <$
-  A move-only RAII owner of a file_ref. Default construction creates a closed
+  An automatic resource management object with exclusive ownership of a file_ref. Default construction creates a closed
   owner. Construction from a valid file_ref transfers exclusive ownership;
   the caller retains no responsibility for closing the native resource.
   Moving releases the source. Destruction closes a valid owned reference once.
@@ -482,6 +543,34 @@ DOC <$
     VAR previous file_ref := .release();
     RETURN previous.close();
   }
+  DOC <$ Submits a positioned read through the selected async runtime. The owner remains alive through completion. $>
+  .read INCLUDE_IF(OS_LINUX || OS_MACOS || OS_WINDOWS)
+    COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @offset U64, @result WRITE& transfer_result)
+  {
+    .native_ref.read(@buffer buffer, @offset offset, @result result);
+  }
+
+  DOC <$ Submits a positioned write through the selected async runtime. The owner remains alive through completion. $>
+  .write INCLUDE_IF(OS_LINUX || OS_MACOS || OS_WINDOWS)
+    COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @offset U64, @result WRITE& transfer_result)
+  {
+    .native_ref.write(@buffer buffer, @offset offset, @result result);
+  }
+
+  DOC <$ Schedules a cursor-based read through the selected I/O runtime. The owner remains alive through completion. $>
+  .read INCLUDE_IF(OS_LINUX || OS_MACOS || OS_WINDOWS)
+    COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  {
+    .native_ref.read(@buffer buffer, @result result);
+  }
+
+  DOC <$ Schedules a cursor-based write through the selected I/O runtime. The owner remains alive through completion. $>
+  .write INCLUDE_IF(OS_LINUX || OS_MACOS || OS_WINDOWS)
+    COROUTINE(@CONTROLLER async_controller#AUTO(result_type), @buffer CONST& buffer_ref, @result WRITE& transfer_result)
+  {
+    .native_ref.write(@buffer buffer, @result result);
+  }
+
 }
 
 PRIVATE(MODULE)
@@ -495,9 +584,9 @@ PRIVATE(MODULE)
     Creation permissions are read/write for all users, restricted by the process umask.
     $>
   ::open_posix INCLUDE_IF(OS_LINUX || OS_MACOS)
-    FUNCTION(@path CONST& string, @flags posix_filesystem::open_flags): file
+    FUNCTION(@path CONST& std::string, @flags posix_filesystem::open_flags): file
   {
-    VAR native_path dynarr#BYTE;
+    VAR native_path std::dynarr#BYTE;
     LOOP VALUE(index) FROM(0 AS SZ) UNTIL(path.size()) DO
     {
       VAR character BYTE := path[index];
@@ -515,7 +604,7 @@ PRIVATE(MODULE)
         #|| posix_filesystem::file_mode::roth #|| posix_filesystem::file_mode::woth
     );
     IF (descriptor < 0) { THROW descriptor; }
-    RETURN file(@native_ref file_ref(@descriptor descriptor));
+    RETURN file(@native_ref file_ref(@descriptor io_descriptor_ref(@native_handle descriptor)));
   }
 }
 
@@ -524,7 +613,7 @@ DOC <$
   and open failures throw an I32 value. The file is closed during unwinding.
   $>
 ::open_read INCLUDE_IF(OS_LINUX || OS_MACOS)
-  FUNCTION(@path CONST& string): file
+  FUNCTION(@path CONST& std::string): file
 {
   RETURN open_posix(@path path, @flags posix_filesystem::rdonly);
 }
@@ -535,7 +624,7 @@ DOC <$
   throw an I32 value. Creation permissions are restricted by the process umask.
   $>
 ::open_read_write INCLUDE_IF(OS_LINUX || OS_MACOS)
-  FUNCTION(@path CONST& string): file
+  FUNCTION(@path CONST& std::string): file
 {
   RETURN open_posix(@path path,
     @flags posix_filesystem::open_flags::rdwr #|| posix_filesystem::open_flags::creat);
@@ -547,7 +636,7 @@ DOC <$
   throw an I32 value. Creation permissions are restricted by the process umask.
   $>
 ::open_replace INCLUDE_IF(OS_LINUX || OS_MACOS)
-  FUNCTION(@path CONST& string): file
+  FUNCTION(@path CONST& std::string): file
 {
   RETURN open_posix(@path path,
     @flags posix_filesystem::open_flags::rdwr #|| posix_filesystem::open_flags::creat
@@ -559,13 +648,13 @@ DOC <$
   Java I/O exceptions propagate out of the generated JVM program.
   $>
 ::open_read_write INCLUDE_IF(ARCH_IS_JVM)
-  FUNCTION(@path CONST& string): file
+  FUNCTION(@path CONST& std::string): file
 {
   VAR java_path ~> RUNTIME_MODULE::java_string :=
-    java_string_from_string(@value path);
-  VAR mode string := "rw";
+    std::java_string_from_string(@value path);
+  VAR mode std::string := "rw";
   VAR java_mode ~> RUNTIME_MODULE::java_string :=
-    java_string_from_string(@value mode);
+    std::java_string_from_string(@value mode);
   VAR random_access_file ~> java_random_access_file :=
     jvm_random_access_file_constructor(@path java_path, @mode java_mode);
   RETURN file(
@@ -578,13 +667,13 @@ DOC <$
   Java I/O exceptions propagate out of the generated JVM program.
   $>
 ::open_read INCLUDE_IF(ARCH_IS_JVM)
-  FUNCTION(@path CONST& string): file
+  FUNCTION(@path CONST& std::string): file
 {
   VAR java_path ~> RUNTIME_MODULE::java_string :=
-    java_string_from_string(@value path);
-  VAR mode string := "r";
+    std::java_string_from_string(@value path);
+  VAR mode std::string := "r";
   VAR java_mode ~> RUNTIME_MODULE::java_string :=
-    java_string_from_string(@value mode);
+    std::java_string_from_string(@value mode);
   VAR random_access_file ~> java_random_access_file :=
     jvm_random_access_file_constructor(@path java_path, @mode java_mode);
   RETURN file(
@@ -598,13 +687,13 @@ DOC <$
   program.
   $>
 ::open_replace INCLUDE_IF(ARCH_IS_JVM)
-  FUNCTION(@path CONST& string): file
+  FUNCTION(@path CONST& std::string): file
 {
   VAR java_path ~> RUNTIME_MODULE::java_string :=
-    java_string_from_string(@value path);
-  VAR mode string := "rw";
+    std::java_string_from_string(@value path);
+  VAR mode std::string := "rw";
   VAR java_mode ~> RUNTIME_MODULE::java_string :=
-    java_string_from_string(@value mode);
+    std::java_string_from_string(@value mode);
   VAR random_access_file ~> java_random_access_file :=
     jvm_random_access_file_constructor(@path java_path, @mode java_mode);
   VAR reference file_ref := file_ref(
@@ -619,14 +708,14 @@ DOC <$
   returns its path.
   $>
 ::create_temporary_path INCLUDE_IF(ARCH_IS_JVM)
-  FUNCTION(): string
+  FUNCTION(): std::string
 {
-  VAR prefix string := "quxlang-cortado-";
-  VAR suffix string := ".tmp";
+  VAR prefix std::string := "quxlang-cortado-";
+  VAR suffix std::string := ".tmp";
   VAR java_prefix ~> RUNTIME_MODULE::java_string :=
-    java_string_from_string(@value prefix);
+    std::java_string_from_string(@value prefix);
   VAR java_suffix ~> RUNTIME_MODULE::java_string :=
-    java_string_from_string(@value suffix);
+    std::java_string_from_string(@value suffix);
   VAR temporary_file ~> java_file := jvm_file_create_temp_file(
     @prefix java_prefix,
     @suffix java_suffix
@@ -634,5 +723,5 @@ DOC <$
   jvm_file_delete_on_exit(@THIS temporary_file);
   VAR java_path ~> RUNTIME_MODULE::java_string :=
     jvm_file_get_path(@THIS temporary_file);
-  RETURN string_from_java_string(@value java_path);
+  RETURN std::string_from_java_string(@value java_path);
 }

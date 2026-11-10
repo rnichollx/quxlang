@@ -1,33 +1,35 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT io;
+
 IMPORT syscall;
 
 DOC <$ Borrows the process standard output descriptor. $>
 ::standard_output INCLUDE_IF(OS_MACOS || OS_LINUX)
-  FUNCTION(): file_ref
+  FUNCTION(): io::file_ref
 {
-  RETURN file_ref(@descriptor 1);
+  RETURN io::file_ref(@descriptor io::io_descriptor_ref(@native_handle 1));
 }
 
 DOC <$ Borrows the process standard input descriptor. $>
 ::standard_input INCLUDE_IF(OS_MACOS || OS_LINUX)
-  FUNCTION(): file_ref
+  FUNCTION(): io::file_ref
 {
-  RETURN file_ref(@descriptor 0);
+  RETURN io::file_ref(@descriptor io::io_descriptor_ref(@native_handle 0));
 }
 
 DOC <$ Returns the process standard output handle. $>
 ::standard_output INCLUDE_IF(OS_WINDOWS)
-  FUNCTION(): file_ref
+  FUNCTION(): io::file_ref
 {
-  RETURN file_ref(@handle syscall::windows::get_std_handle(@kind -11));
+  RETURN io::file_ref(@descriptor io::io_descriptor_ref(@native_handle syscall::windows::get_std_handle(@kind -11)));
 }
 
 DOC <$ Returns the process standard input handle. $>
 ::standard_input INCLUDE_IF(OS_WINDOWS)
-  FUNCTION(): file_ref
+  FUNCTION(): io::file_ref
 {
-  RETURN file_ref(@handle syscall::windows::get_std_handle(@kind -10));
+  RETURN io::file_ref(@descriptor io::io_descriptor_ref(@native_handle syscall::windows::get_std_handle(@kind -10)));
 }
 
 DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures by exception. $>
@@ -35,7 +37,7 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
 {
   PRIVATE(CLASS)
   {
-    .file VAR file_ref;
+    .file VAR io::file_ref;
     .bytes VAR [16384]BYTE;
     .used VAR SZ;
     DOC <$ Counts the buffered prefix already transferred to the file. $>
@@ -43,7 +45,7 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
   }
 
   DOC <$ Borrows file without assuming responsibility for closing it. $>
-  .CONSTRUCTOR FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
+  .CONSTRUCTOR FUNCTION(@EXPLICIT:file io::file_ref) { .file := file; }
 
   DOC <$
     Writes all pending bytes, including partial native writes, or throws on
@@ -55,8 +57,8 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
     LOOP WHILE (.flushed < .used) DO
     {
       VAR offset SZ := .flushed;
-      VAR buffer buffer_ref :(@data .bytes[&offset], @size .used - offset);
-      VAR transfer transfer_result;
+      VAR buffer io::buffer_ref :(@data .bytes[&offset], @size .used - offset);
+      VAR transfer io::transfer_result;
       .file.write(@buffer buffer, @result transfer);
       IF (transfer.succeeded == FALSE || transfer.size == 0) { THROW (1 AS I32); }
       .flushed += transfer.size;
@@ -89,13 +91,13 @@ DOC <$ Buffers bytes for a borrowed file. Explicit flush reports write failures 
   }
 
   DOC <$ Flushes pending bytes and writes a byte range, completing partial transfers or throwing on failure. $>
-  .write FUNCTION(@ARG:bytes CONST& buffer_ref) MUT
+  .write FUNCTION(@ARG:bytes CONST& io::buffer_ref) MUT
   {
     .flush();
     LOOP INIT { VAR offset SZ := 0; } WHILE (offset < bytes.size) DO
     {
-      VAR remaining buffer_ref :(@data bytes.data + offset, @size bytes.size - offset);
-      VAR transfer transfer_result;
+      VAR remaining io::buffer_ref :(@data bytes.data + offset, @size bytes.size - offset);
+      VAR transfer io::transfer_result;
       .file.write(@buffer remaining, @result transfer);
       IF (transfer.succeeded == FALSE || transfer.size == 0) { THROW (1 AS I32); }
       offset += transfer.size;
@@ -161,22 +163,22 @@ DOC <$ Reads bytes and lines from a borrowed file using bounded read-ahead stora
 {
   PRIVATE(CLASS)
   {
-    .file VAR file_ref;
+    .file VAR io::file_ref;
     .bytes VAR [16384]BYTE;
     .position VAR SZ;
     .available VAR SZ;
   }
 
   DOC <$ Borrows file without assuming responsibility for closing it. $>
-  .CONSTRUCTOR FUNCTION(@EXPLICIT:file file_ref) { .file := file; }
+  .CONSTRUCTOR FUNCTION(@EXPLICIT:file io::file_ref) { .file := file; }
 
   DOC <$ Supplies the next byte and returns true, or supplies zero and returns false at end of file. Read failures throw. $>
   .read_byte FUNCTION(@ARG:value WRITE& BYTE) MUT: BOOL
   {
     IF (.position == .available)
     {
-      VAR buffer buffer_ref :(@data .bytes[&0], @size .bytes.SIZE());
-      VAR transfer transfer_result;
+      VAR buffer io::buffer_ref :(@data .bytes[&0], @size .bytes.SIZE());
+      VAR transfer io::transfer_result;
       .file.read(@buffer buffer, @result transfer);
       IF (transfer.succeeded == FALSE) { THROW (1 AS I32); }
       .position := 0;

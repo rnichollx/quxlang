@@ -1,0 +1,319 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::linux INCLUDE_IF(OS_LINUX) NAMESPACE
+{
+  DOC <$ Matches the Linux epoll_event ABI, including the packed x86 layout. $>
+  ::epoll_event IBC_STRUCT
+  {
+    .events VAR U32;
+    .padding INCLUDE_IF(ARCH_IS_ARM64 || ARCH_IS_Z_ARCH) VAR U32;
+    .data VAR [2]U32;
+  }
+
+  DOC <$ Creates an epoll instance. $>
+  ::epoll_create1 ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@flags I32; RETURN I32)
+  {
+    MOV RAX, 291
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Creates an epoll instance. $>
+  ::epoll_create1 ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@flags I32; RETURN I32)
+  {
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV EAX, 329
+    INT 0x80
+    POP EBX
+    RET
+  }
+
+  DOC <$ Creates an epoll instance. $>
+  ::epoll_create1 ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@flags I32; RETURN I32)
+  {
+    MOV X8, 20
+    SVC 0
+    RET
+  }
+
+  DOC <$ Creates an epoll instance. $>
+  ::epoll_create1 ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@flags I32; RETURN I32)
+  {
+    LGHI %r1, 327
+    SVC 0
+    BR %r14
+  }
+
+  DOC <$ Creates an event counter descriptor. $>
+  ::eventfd2 ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@initial U32, @flags I32; RETURN I32)
+  {
+    MOV RAX, 290
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Creates an event counter descriptor. $>
+  ::eventfd2 ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@initial U32, @flags I32; RETURN I32)
+  {
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
+    MOV EAX, 328
+    INT 0x80
+    POP EBX
+    RET
+  }
+
+  DOC <$ Creates an event counter descriptor. $>
+  ::eventfd2 ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@initial U32, @flags I32; RETURN I32)
+  {
+    MOV X8, 19
+    SVC 0
+    RET
+  }
+
+  DOC <$ Creates an event counter descriptor. $>
+  ::eventfd2 ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@initial U32, @flags I32; RETURN I32)
+  {
+    LGHI %r1, 323
+    SVC 0
+    BR %r14
+  }
+
+  DOC <$ Updates an epoll registration. $>
+  ::epoll_ctl ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@queue I32, @operation I32, @descriptor I32, @event CONST->epoll_event; RETURN I32)
+  {
+    MOV R10, RCX
+    MOV RAX, 233
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Updates an epoll registration. $>
+  ::epoll_ctl ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@queue I32, @operation I32, @descriptor I32, @event CONST->epoll_event; RETURN I32)
+  {
+    PUSH EBX
+    PUSH ESI
+    MOV EBX, [ESP+12]
+    MOV ECX, [ESP+16]
+    MOV EDX, [ESP+20]
+    MOV ESI, [ESP+24]
+    MOV EAX, 255
+    INT 0x80
+    POP ESI
+    POP EBX
+    RET
+  }
+
+  DOC <$ Updates an epoll registration. $>
+  ::epoll_ctl ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@queue I32, @operation I32, @descriptor I32, @event CONST->epoll_event; RETURN I32)
+  {
+    MOV X8, 21
+    SVC 0
+    RET
+  }
+
+  DOC <$ Updates an epoll registration. $>
+  ::epoll_ctl ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@queue I32, @operation I32, @descriptor I32, @event CONST->epoll_event; RETURN I32)
+  {
+    LGHI %r1, 250
+    SVC 0
+    BR %r14
+  }
+
+  DOC <$ Waits for epoll events without changing the signal mask. $>
+  ::epoll_wait ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@queue I32, @event MUT->epoll_event, @maximum I32, @timeout I32; RETURN I32)
+  {
+    MOV R10, RCX
+    MOV RAX, 232
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Waits for epoll events without changing the signal mask. $>
+  ::epoll_wait ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@queue I32, @event MUT->epoll_event, @maximum I32, @timeout I32; RETURN I32)
+  {
+    PUSH EBX
+    PUSH ESI
+    MOV EBX, [ESP+12]
+    MOV ECX, [ESP+16]
+    MOV EDX, [ESP+20]
+    MOV ESI, [ESP+24]
+    MOV EAX, 256
+    INT 0x80
+    POP ESI
+    POP EBX
+    RET
+  }
+
+  DOC <$ Waits for epoll events without changing the signal mask. $>
+  ::epoll_wait ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@queue I32, @event MUT->epoll_event, @maximum I32, @timeout I32; RETURN I32)
+  {
+    MOV X4, 0
+    MOV X5, 8
+    MOV X8, 22
+    SVC 0
+    RET
+  }
+
+  DOC <$ Waits for epoll events without changing the signal mask. $>
+  ::epoll_wait ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@queue I32, @event MUT->epoll_event, @maximum I32, @timeout I32; RETURN I32)
+  {
+    LGHI %r1, 251
+    SVC 0
+    BR %r14
+  }
+
+  DOC <$ Reads a byte range at an explicit file offset. $>
+  ::pread64 ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@descriptor I32, @buffer MUT=>>BYTE, @count SZ, @offset U64; RETURN SZ)
+  {
+    MOV R10, RCX
+    MOV RAX, 17
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Reads a byte range at an explicit file offset. $>
+  ::pread64 ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@descriptor I32, @buffer MUT=>>BYTE, @count SZ, @offset U64; RETURN SZ)
+  {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
+    MOV EBX, [ESP+16]
+    MOV ECX, [ESP+20]
+    MOV EDX, [ESP+24]
+    MOV ESI, [ESP+28]
+    MOV EDI, [ESP+32]
+    MOV EAX, 180
+    INT 0x80
+    POP EDI
+    POP ESI
+    POP EBX
+    RET
+  }
+
+  DOC <$ Reads a byte range at an explicit file offset. $>
+  ::pread64 ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@descriptor I32, @buffer MUT=>>BYTE, @count SZ, @offset U64; RETURN SZ)
+  {
+    MOV X8, 67
+    SVC 0
+    RET
+  }
+
+  DOC <$ Reads a byte range at an explicit file offset. $>
+  ::pread64 ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@descriptor I32, @buffer MUT=>>BYTE, @count SZ, @offset U64; RETURN SZ)
+  {
+    LGHI %r1, 180
+    SVC 0
+    BR %r14
+  }
+
+  DOC <$ Writes a byte range at an explicit file offset. $>
+  ::pwrite64 ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@descriptor I32, @buffer CONST=>>BYTE, @count SZ, @offset U64; RETURN SZ)
+  {
+    MOV R10, RCX
+    MOV RAX, 18
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Writes a byte range at an explicit file offset. $>
+  ::pwrite64 ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@descriptor I32, @buffer CONST=>>BYTE, @count SZ, @offset U64; RETURN SZ)
+  {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
+    MOV EBX, [ESP+16]
+    MOV ECX, [ESP+20]
+    MOV EDX, [ESP+24]
+    MOV ESI, [ESP+28]
+    MOV EDI, [ESP+32]
+    MOV EAX, 181
+    INT 0x80
+    POP EDI
+    POP ESI
+    POP EBX
+    RET
+  }
+
+  DOC <$ Writes a byte range at an explicit file offset. $>
+  ::pwrite64 ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@descriptor I32, @buffer CONST=>>BYTE, @count SZ, @offset U64; RETURN SZ)
+  {
+    MOV X8, 68
+    SVC 0
+    RET
+  }
+
+  DOC <$ Writes a byte range at an explicit file offset. $>
+  ::pwrite64 ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@descriptor I32, @buffer CONST=>>BYTE, @count SZ, @offset U64; RETURN SZ)
+  {
+    LGHI %r1, 181
+    SVC 0
+    BR %r14
+  }
+
+  DOC <$ Creates an anonymous memory-backed file. $>
+  ::memfd_create ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@name CONST=>>BYTE, @flags U32; RETURN I32)
+  {
+    MOV RAX, 319
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Creates an anonymous memory-backed file. $>
+  ::memfd_create ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@name CONST=>>BYTE, @flags U32; RETURN I32)
+  {
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
+    MOV EAX, 356
+    INT 0x80
+    POP EBX
+    RET
+  }
+
+  DOC <$ Creates an anonymous memory-backed file. $>
+  ::memfd_create ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@name CONST=>>BYTE, @flags U32; RETURN I32)
+  {
+    MOV X8, 279
+    SVC 0
+    RET
+  }
+
+  DOC <$ Creates an anonymous memory-backed file. $>
+  ::memfd_create ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@name CONST=>>BYTE, @flags U32; RETURN I32)
+  {
+    LGHI %r1, 350
+    SVC 0
+    BR %r14
+  }
+}
