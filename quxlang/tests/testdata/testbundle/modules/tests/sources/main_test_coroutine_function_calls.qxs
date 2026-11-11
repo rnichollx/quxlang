@@ -1,0 +1,334 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_function_call_tests NAMESPACE
+{
+  DOC <$ Retains a captured ordinary invocation through suspension and delivers its exact return type. $>
+  ::deferred_call TEMPLATE(@T:bound_type TYPE) STRUCT MOVE_ONLY
+  {
+    .bound VAR bound_type;
+    .CONSTRUCTOR FUNCTION(@bound TEMP& bound_type) :> .bound:(@OTHER FORWARD(bound)) {}
+    .AWAIT_READY FUNCTION() CONST: BOOL { RETURN FALSE; }
+    .AWAIT_SUSPEND FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO): BOOL
+    {
+      CONTROLLER.registrations += 1;
+      RETURN CONTROLLER.suspend;
+    }
+    .AWAIT_RESUME FUNCTION() MUT: COMPOSITE_FIELD_TYPE(bound_type, "CALLEE")::RETURN_TYPE
+    {
+      PACK arguments COMPOSITE_TO_PACK(COMPOSITE_FORWARD(COMPOSITE_FIELD_GET(.bound, "ARGUMENTS")));
+      RETURN FORWARD PACK(arguments) TO COMPOSITE_FIELD_GET(.bound, "CALLEE");
+    }
+    .TRY_CANCEL FUNCTION(@CONTROLLER MUT& AUTO, @FRAME MUT& AUTO) CONST NOEXCEPT: BOOL { RETURN FALSE; }
+  }
+
+  DOC <$ Captures ordinary calls for deferred execution while protocol calls execute synchronously. $>
+  ::controller STRUCT
+  {
+    .calls VAR I32;
+    .registrations VAR I32;
+    .suspend VAR BOOL;
+    .CO_FUNCTION_CALL FUNCTION(@FUNCTION:callee AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
+    {
+      .calls += 1;
+      STATIC_IF(PACK_CONTAINS(arguments, "RECEIVER"))
+      {
+        VAR receiver EMIT FIELD("RECEIVER") FROM (arguments);
+        VAR bound := BIND_CALL callee(@THIS FORWARD(receiver), ...FORWARD PACK(arguments));
+        RETURN deferred_call#DECLTYPE(bound)(@bound MOVE(bound));
+      }
+      STATIC_ELSE
+      {
+        VAR bound := BIND_CALL callee(...FORWARD PACK(arguments));
+        RETURN deferred_call#DECLTYPE(bound)(@bound MOVE(bound));
+      }
+    }
+    .CO_AWAIT FUNCTION(@ARG AUTO& deferred_call#AUTO(bound_type)): MUT& deferred_call#bound_type
+    {
+      RETURN ARG AS MUT& deferred_call#bound_type;
+    }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_call_tests::immediate_awaiter
+    {
+      RETURN coroutine_call_tests::immediate_awaiter();
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+  }
+
+  ::argument FUNCTION(@count MUT& I32): I32 { count += 1; RETURN 7; }
+  ::default_argument FUNCTION(): I32 { RETURN 3; }
+  ::add FUNCTION(%value I32, @extra I32 DEFAULT(default_argument())): I32 { RETURN value + extra; }
+  ::add FUNCTION(%value BOOL, @extra I32 DEFAULT(50)): I32 { RETURN extra; }
+  ::calculate COROUTINE(@count MUT& I32, @result MUT& I32)
+  {
+    result := add(% [argument(@count count)]);
+  }
+
+  DOC <$ Interception retains overload selection, evaluates arguments once, and suspends before executing each captured call. $>
+  ::arguments_defaults_and_suspension DUAL_TEST
+  {
+    VAR driver controller;
+    driver.suspend := TRUE;
+    VAR count I32;
+    VAR result I32;
+    VAR frame calculate#(@count MUT& I32, @result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@count count, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(count == 0);
+    TEST_ASSERT(driver.calls == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(count == 1);
+    TEST_ASSERT(result == 0);
+    TEST_ASSERT(driver.calls == 2);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 10);
+    TEST_ASSERT(driver.calls == 2);
+    TEST_ASSERT(driver.registrations == 2);
+  }
+
+  DOC <$ Controllers without the optional hook execute ordinary calls directly. $>
+  ::absent_hook DUAL_TEST
+  {
+    VAR driver coroutine_call_tests::unrelated_destructor_controller;
+    VAR count I32;
+    VAR result I32;
+    VAR frame calculate#(@count MUT& I32, @result MUT& I32, @CONTROLLER DECLTYPE(driver))::FRAME_TYPE;
+    frame.INITIALIZE(@count count, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(count == 1);
+    TEST_ASSERT(result == 10);
+  }
+
+  ::object STRUCT
+  {
+    .value VAR I32;
+    .increase FUNCTION(@amount I32) MUT: MUT& I32 { .value += amount; RETURN .value; }
+    .OPERATOR() FUNCTION(%value I32) CONST: I32 { RETURN .value + value; }
+  }
+  ::inherited_controller STRUCT { .base BASE controller; }
+  ::members COROUTINE(@source MUT& object, @result MUT& I32)
+  {
+    source.increase(@amount 4) += 2;
+    VAR bound := source.increase;
+    bound(@amount 3);
+    result := source(% [5]);
+  }
+
+  DOC <$ Inherited hooks preserve member receivers, bound methods, callable objects, and reference results. $>
+  ::member_calls DUAL_TEST
+  {
+    VAR driver inherited_controller;
+    VAR source object;
+    VAR result I32;
+    VAR frame members#(@source MUT& object, @result MUT& I32, @CONTROLLER inherited_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@source source, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(source.value == 9);
+    TEST_ASSERT(result == 14);
+    TEST_ASSERT(driver.calls == 3);
+  }
+
+  ::increment FUNCTION(@value MUT& I32) { value += 1; }
+  ::fail FUNCTION() { THROW I32(@OTHER 19); }
+  ::relay_void FUNCTION(@value MUT& I32): VOID { RETURN increment(@value value); }
+  ::relay_failure FUNCTION(): VOID { RETURN fail(); }
+  ::bad_void FUNCTION(): VOID { RETURN 7; }
+
+  DOC <$ A synchronous VOID return evaluates its operand and propagates its exceptions. $>
+  ::void_return_operand DUAL_TEST
+  {
+    VAR result I32;
+    relay_void(@value result);
+    TEST_ASSERT(result == 1);
+    TRY { relay_failure(); }
+    CATCH error CONST& I32 { result += error; }
+    TEST_ASSERT(result == 20);
+  }
+
+  DOC <$ A VOID function rejects a return operand with a value type. $>
+  ::invalid_void_return STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    bad_void();
+  }
+
+  ::reference FUNCTION(@value MUT& I32): MUT& I32 { RETURN value; }
+  ::function_pointer COROUTINE(@result MUT& I32)
+  {
+    VAR pointer := increment<-;
+    pointer(@value result);
+    reference(@value result) += 2;
+    TRY { fail(); }
+    CATCH error CONST& I32 { result += error; }
+  }
+
+  DOC <$ Intercepted pointer calls and VOID results execute once, and invocation exceptions reach the coroutine handler. $>
+  ::pointers_void_and_exceptions DUAL_TEST
+  {
+    VAR driver controller;
+    VAR result I32;
+    VAR frame function_pointer#(@result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 22);
+    TEST_ASSERT(driver.calls == 3);
+  }
+
+  ::resource STRUCT MOVE_ONLY
+  {
+    .deaths VAR MUT->I32;
+    .CONSTRUCTOR FUNCTION(@deaths MUT& I32) { .deaths := deaths<-; }
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& resource) { .deaths := OTHER.deaths; OTHER.deaths := NULL; }
+    .DESTRUCTOR FUNCTION() { IF(.deaths??) { .deaths-> += 1; } }
+  }
+  ::consume FUNCTION(@value resource): I32 { RETURN 42; }
+  ::temporary COROUTINE(@deaths MUT& I32, @result MUT& I32)
+  {
+    result := consume(@value resource(@deaths deaths));
+  }
+
+  DOC <$ Move-only arguments survive suspension and are destroyed exactly once after the intercepted invocation. $>
+  ::argument_lifetime DUAL_TEST
+  {
+    VAR driver controller;
+    driver.suspend := TRUE;
+    VAR deaths I32;
+    VAR result I32;
+    VAR frame temporary#(@deaths MUT& I32, @result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@deaths deaths, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(deaths == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(deaths == 1);
+    TEST_ASSERT(result == 42);
+    TEST_ASSERT(driver.calls == 1);
+  }
+
+  ::virtual_base STRUCT POLYMORPHIC
+  {
+    .value FUNCTION() CONST VIRTUAL: I32 { RETURN 1; }
+  }
+  ::virtual_derived STRUCT POLYMORPHIC
+  {
+    .base BASE virtual_base;
+    .value FUNCTION() CONST VIRTUAL(OVERRIDE): I32 { RETURN 37; }
+  }
+  ::immediate_controller STRUCT
+  {
+    .base BASE controller;
+    .CO_FUNCTION_CALL FUNCTION(@FUNCTION:callee AUTO, @ARGUMENTS:arguments ...) MUT: coroutine_call_tests::completed_value
+    {
+      .calls += 1;
+      VAR result coroutine_call_tests::completed_value;
+      result.value := callee(...FORWARD PACK(arguments));
+      RETURN result;
+    }
+    .CO_AWAIT FUNCTION(@ARG AUTO& coroutine_call_tests::completed_value): MUT& coroutine_call_tests::completed_value
+    {
+      RETURN ARG AS MUT& coroutine_call_tests::completed_value;
+    }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_call_tests::immediate_awaiter
+    {
+      RETURN coroutine_call_tests::immediate_awaiter();
+    }
+  }
+  ::virtual_call COROUTINE(@source CONST& virtual_base, @result MUT& I32)
+  {
+    result := source.value();
+  }
+
+  DOC <$ A bound descriptor retains virtual dispatch when a function hook forwards the invocation. $>
+  ::virtual_receiver DUAL_TEST
+  {
+    VAR driver immediate_controller;
+    VAR source virtual_derived;
+    VAR result I32;
+    VAR frame virtual_call#(@source CONST& virtual_base, @result MUT& I32, @CONTROLLER immediate_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@source source, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 37);
+    TEST_ASSERT(driver.calls == 1);
+  }
+
+  ::replacement_controller STRUCT
+  {
+    .base BASE immediate_controller;
+    .CO_FUNCTION_CALL FUNCTION(@FUNCTION:callee AUTO, @ARGUMENTS:arguments ...) MUT: coroutine_call_tests::completed_value
+    {
+      .calls += 1;
+      VAR result coroutine_call_tests::completed_value;
+      result.value := 91;
+      RETURN result;
+    }
+  }
+
+  DOC <$ A controller can supply the call result without invoking the intercepted function. $>
+  ::replacement_result DUAL_TEST
+  {
+    VAR driver replacement_controller;
+    VAR count I32;
+    VAR result I32;
+    VAR frame calculate#(@count MUT& I32, @result MUT& I32, @CONTROLLER replacement_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@count count, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(count == 0);
+    TEST_ASSERT(result == 91);
+    TEST_ASSERT(driver.calls == 2);
+  }
+
+  ::observe FUNCTION(@CONTROLLER MUT& controller) { CONTROLLER.registrations += 10; }
+  ::forwarded COROUTINE(@result MUT& I32)
+  {
+    observe();
+    PACK arguments ...[7];
+    result := add(...FORWARD PACK(arguments));
+    VAR selected := add#(% [I32]);
+    result += selected(% [5]);
+  }
+
+  DOC <$ Interception preserves implicit controller arguments, consumed argument packs, and explicit specializations. $>
+  ::forwarding_and_controller DUAL_TEST
+  {
+    VAR driver controller;
+    VAR result I32;
+    VAR frame forwarded#(@result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 18);
+    TEST_ASSERT(driver.calls == 3);
+    TEST_ASSERT(driver.registrations == 13);
+  }
+
+  ::cancelled_call COROUTINE(@deaths MUT& I32, @result MUT& I32) CANCELLABLE
+  {
+    TRY { result := consume(@value resource(@deaths deaths)); }
+    CATCH cancelled CONST& COROUTINE_CANCELLED { result := 73; }
+  }
+
+  DOC <$ Pending cancellation retains a deferred function's arguments until its continuation completes. $>
+  ::cancellation_lifetime DUAL_TEST
+  {
+    VAR driver controller;
+    driver.suspend := TRUE;
+    VAR deaths I32;
+    VAR result I32;
+    VAR frame cancelled_call#(@deaths MUT& I32, @result MUT& I32, @CONTROLLER controller)::FRAME_TYPE;
+    frame.INITIALIZE(@deaths deaths, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(frame.TRY_CANCEL(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(deaths == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(deaths == 1);
+    TEST_ASSERT(result == 73);
+  }
+
+  ::invalid_controller STRUCT
+  {
+    .base BASE controller;
+    .CO_FUNCTION_CALL FUNCTION() {}
+  }
+
+  DOC <$ A present hook with an incompatible signature rejects the invocation. $>
+  ::invalid_hook STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TEST_ASSERT(SIZEOF(calculate#(@count MUT& I32, @result MUT& I32, @CONTROLLER invalid_controller)::FRAME_TYPE) > 0);
+  }
+}
