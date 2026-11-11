@@ -130,8 +130,9 @@ ordinary parameters:
 }
 ```
 
-A call in a coroutine passes the complete callable binding to `CO_COROUTINE_CALL`
-when the binding contains a coroutine overload. The hook receives the original
+A call in a coroutine passes the complete callable binding to `CO_FUNCTUM_CALL`
+when the controller provides that hook. Otherwise, a binding containing a coroutine
+overload uses `CO_COROUTINE_CALL`. The hook receives the original
 argument pack before overload selection, default argument evaluation, or parameter
 conversion. Explicit argument expressions execute once. The pack includes any
 explicitly supplied controller. The hook selects the overload and the child
@@ -274,6 +275,7 @@ implicit waiting return awaitables representing asynchronous work. `CO_RUN` and
 `CO_GO` return their launch results directly.
 
 ```text
+CO_FUNCTUM_CALL(@FUNCTUM binding, @ARGUMENTS arguments) -> awaitable
 CO_COROUTINE_CALL(@COROUTINE binding, @ARGUMENTS arguments) -> awaitable
 CO_FUNCTION_CALL(@FUNCTION descriptor, @ARGUMENTS arguments) -> awaitable
 CO_CALL_CTOR(@COROUTINE descriptor, @ARGUMENTS arguments,
@@ -289,15 +291,38 @@ CO_EXCEPTION(@ARG CONST& EXCEPTION_PTR) -> awaitable
 CO_CANCELLED(@ARG MUT& frame) NOEXCEPT: VOID
 ```
 
-Ordinary coroutine calls select `CO_COROUTINE_CALL`, coroutine construction selects
+With no `CO_FUNCTUM_CALL` hook, ordinary coroutine calls select
+`CO_COROUTINE_CALL`. Coroutine construction selects
 `CO_CALL_CTOR`, and coroutine destruction selects `CO_CALL_DTOR`. Each invocation
 implicitly awaits the returned value. The selected hook determines child-controller
 adaptation, frame storage, and ownership. `CO_CALL_CTOR` additionally borrows typed
 destination storage through `@DESTINATION`. Hook selection is static.
 
-`CO_FUNCTION_CALL` is optional. An ordinary function call expression in a
-coroutine selects its function overload and then invokes this hook when the
-controller declares or inherits it. An absent hook produces a direct function
+`CO_FUNCTUM_CALL` is optional. An ordinary call expression in a coroutine invokes
+this hook when the controller declares or inherits it. This hook takes precedence
+over `CO_FUNCTION_CALL` and `CO_COROUTINE_CALL`. The hook receives the complete
+callable binding through `@FUNCTUM` before overload resolution and the evaluated
+argument pack through `@ARGUMENTS`. The binding retains any bound receiver and its
+virtual dispatch behavior. A receiver supplied separately from the callable
+binding appears as `RECEIVER` in the argument pack. The hook can inspect overloads, specialize the
+binding, change arguments, select a child controller, or supply a replacement result.
+The caller does not require an overload that accepts the original argument pack.
+The hook supplies any implicit controller argument required by its selected target.
+An explicitly specialized callable retains that specialization.
+
+The hook is a synchronous `FUNCTION`. Its result is implicitly awaited through
+`CO_AWAIT`, and the awaiter's result determines the call expression's value and
+reference category. Explicit argument expressions execute once, and borrowed
+operands and argument temporaries survive the await. A present hook with an
+incompatible or inaccessible signature is a compilation error. Interception
+applies to explicit call expressions and coroutine invocations that otherwise
+use `CO_COROUTINE_CALL`, including overloaded operator invocations. Lifecycle
+operations, synchronous compiler-generated operations, `BIND_CALL`, `RUN`, `GO`,
+and calls in synchronous hook bodies use their respective invocation protocols.
+
+`CO_FUNCTION_CALL` is optional. When `CO_FUNCTUM_CALL` is absent, an ordinary
+function call expression in a coroutine selects its function overload and then
+invokes this hook when the controller declares or inherits it. An absent hook produces a direct function
 call. A present hook must accept the invocation; an incompatible or inaccessible
 hook is a compilation error. The hook is a synchronous `FUNCTION`, and its result
 is implicitly awaited through `CO_AWAIT`. The awaiter's result supplies the value
@@ -320,8 +345,8 @@ for deferred execution. Borrowed operands and argument temporaries remain alive
 through the await. Interception applies to explicit call expressions in the
 coroutine body. Compiler-generated operations, lifecycle calls, `BIND_CALL`
 capture, and calls inside synchronous hook bodies use their existing invocation
-protocols. Bindings containing coroutine overloads use `CO_COROUTINE_CALL`;
-`RUN` and `GO` use their launch hooks.
+protocols. Without `CO_FUNCTUM_CALL`, bindings containing coroutine overloads use
+`CO_COROUTINE_CALL`. `RUN` and `GO` use their launch hooks.
 
 `CO_CALL_DTOR` accepts responsibility for mandatory destruction when
 its invocation begins. Argument preparation completes before that transfer. The

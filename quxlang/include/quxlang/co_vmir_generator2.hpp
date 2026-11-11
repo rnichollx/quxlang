@@ -2192,7 +2192,7 @@ namespace quxlang
 
         /**
          * Resolves and adapts a call, then transfers any destruction obligation at invocation.
-         * Explicit call expressions enable optional controller interception of ordinary functions.
+         * Explicit call expressions enable optional controller interception before or after overload selection.
          */
         QUXLANG_WORKAROUND_MSVC_NOINLINE auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, allowed_adaptations adaptations = allowed_adaptations::destination_rebinding, bool permit_virtual_dispatch = false, std::optional< vmir2::local_index > destruction_target = std::nullopt,
             call_execution_mode execution_mode = call_execution_mode::ordinary, std::optional< value_index > launch_controller = std::nullopt,
@@ -2201,6 +2201,39 @@ namespace quxlang
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
                 co_yield rpnx::querygraph::debug_message("co_gen_call_functum({}){}", quxlang::to_string(func), quxlang::to_string(args));
+            }
+
+            type_symbol const& call_symbol = func.template type_is< instanciation_reference >() ?
+                func.template get_as< instanciation_reference >().temploid.templexoid : func;
+            bool lifecycle = false;
+            if (call_symbol.template type_is< submember >())
+            {
+                std::string const& name = call_symbol.template get_as< submember >().name;
+                lifecycle = keywords::is_constructor_name(name) || name == "DESTRUCTOR" || name == "FULLOBJECT_DESTRUCTOR" || name == "SUBOBJECT_DESTRUCTOR";
+            }
+            if (intercept_function_call && !lifecycle && state.coroutine.has_value() && !state.generating_controller_hook &&
+                execution_mode == call_execution_mode::ordinary)
+            {
+                type_symbol controller_type = remove_ref(current_type(bidx, *state.coroutine_controller));
+                struct_member_lookup_result const& hook = co_await rpnx::querygraph::request< struct_member_lookup_query >(
+                    struct_member_lookup_input{.static_type = std::move(controller_type), .member_name = "CO_FUNCTUM_CALL"});
+                if (!hook.candidates.empty())
+                {
+                    std::vector< value_index > consumed = std::move(args.consumed_fields);
+                    value_index result = co_await co_coroutine_call(bidx, func, std::move(args), "CO_FUNCTUM_CALL",
+                        destruction_target, execution_mode, launch_controller, permit_virtual_dispatch);
+                    if (!consumed.empty())
+                    {
+                        block_index complete = generate_subblock(bidx, "pack_call_complete");
+                        for (value_index field : consumed)
+                        {
+                            if (state.genvalues.at(field).template type_is< codegen_local >()) kill_entry_value(complete, field);
+                        }
+                        generate_jump(bidx, complete);
+                        bidx = complete;
+                    }
+                    co_return result;
+                }
             }
 
             invotype calltype;
@@ -2280,12 +2313,6 @@ namespace quxlang
                 std::map< std::string, argif >::const_iterator controller = candidate.interface.named.find("CONTROLLER");
                 return controller != candidate.interface.named.end() && controller->second.is_execution_controller;
             });
-            bool lifecycle = false;
-            if (func.template type_is< submember >())
-            {
-                std::string const& name = func.template get_as< submember >().name;
-                lifecycle = keywords::is_constructor_name(name) || name == "DESTRUCTOR" || name == "FULLOBJECT_DESTRUCTOR" || name == "SUBOBJECT_DESTRUCTOR";
-            }
             if (!lifecycle && !state.generating_controller_hook && execution_mode != call_execution_mode::capture &&
                 (execution_mode == call_execution_mode::go || (has_coroutine && (state.coroutine.has_value() || execution_mode == call_execution_mode::run))))
             {
@@ -5233,6 +5260,7 @@ namespace quxlang
             {
                 composite_type captured_type;
                 codegen_invocation_args captured_values;
+                value_index bound_receiver(0);
                 auto capture_argument = [&](std::string name, value_index value) -> void
                 {
                     type_symbol type = current_type(bidx, value);
@@ -5246,9 +5274,12 @@ namespace quxlang
                 for (std::size_t index = 0; index < invocation_args.positional.size(); ++index)
                     capture_argument(std::to_string(index), invocation_args.positional.at(index));
                 for (std::pair< std::string const, value_index > const& argument : invocation_args.named)
-                    capture_argument(argument.first, argument.second);
+                {
+                    if (permit_virtual_dispatch && argument.first == "THIS" && is_ref(current_type(bidx, argument.second))) bound_receiver = argument.second;
+                    else capture_argument(argument.first, argument.second);
+                }
                 value_index captured = co_await co_construct_composite(bidx, std::move(captured_type), std::move(captured_values));
-                value_index callable = create_binding(value_index(0), what);
+                value_index callable = create_binding(bound_receiver, what);
                 composite_type result_type{.fields = {{"CALLEE", current_type(bidx, callable)}, {"ARGUMENTS", current_type(bidx, captured)}}};
                 value_index arguments = create_reference(bidx, captured, make_tref(current_type(bidx, captured)));
                 co_return co_await co_construct_composite(bidx, std::move(result_type), codegen_invocation_args{.named = {{"CALLEE", callable}, {"ARGUMENTS", arguments}}});
@@ -17648,7 +17679,7 @@ namespace quxlang
         }
 
         /** Adapts a child invocation through the selected controller call or launch policy. */
-        auto co_coroutine_call(block_index& block, type_symbol callable, codegen_invocation_args arguments, std::string const& call_hook,
+        auto co_coroutine_call(block_index& block, type_symbol callable, codegen_invocation_args arguments, std::string call_hook,
             std::optional< vmir2::local_index > destruction_target = std::nullopt,
             call_execution_mode execution_mode = call_execution_mode::ordinary, std::optional< value_index > launch_controller = std::nullopt,
             bool bind_function_receiver = false) -> co_type< value_index >
@@ -17659,6 +17690,13 @@ namespace quxlang
             }
             bool lifecycle = call_hook == "CO_CALL_CTOR" || call_hook == "CO_CALL_DTOR";
             value_index const controller = launch_controller.has_value() ? *launch_controller : *state.coroutine_controller;
+            if (call_hook == "CO_COROUTINE_CALL" && execution_mode == call_execution_mode::ordinary)
+            {
+                type_symbol controller_type = remove_ref(current_type(block, controller));
+                struct_member_lookup_result const& hook = co_await rpnx::querygraph::request< struct_member_lookup_query >(
+                    struct_member_lookup_input{.static_type = std::move(controller_type), .member_name = "CO_FUNCTUM_CALL"});
+                if (!hook.candidates.empty()) call_hook = "CO_FUNCTUM_CALL";
+            }
             if (!lifecycle && execution_mode != call_execution_mode::run) co_await co_coroutine_check_cancel(block);
             if (lifecycle && !callable.template type_is< instanciation_reference >())
             {
@@ -17770,7 +17808,7 @@ namespace quxlang
             std::optional< block_index > lifecycle_complete;
             if (lifecycle) lifecycle_complete = generate_subblock(block, "coroutine_lifecycle_operation_complete");
             codegen_invocation_args hook_arguments{.named = {
-                {call_hook == "CO_FUNCTION_CALL" ? "FUNCTION" : "COROUTINE", create_binding(bound_receiver, std::move(callable))},
+                {call_hook == "CO_FUNCTUM_CALL" ? "FUNCTUM" : call_hook == "CO_FUNCTION_CALL" ? "FUNCTION" : "COROUTINE", create_binding(bound_receiver, std::move(callable))},
                 {"ARGUMENTS", packed},
             }};
             if (destination.has_value()) hook_arguments.named["DESTINATION"] = coroutine_borrow(block, *destination);

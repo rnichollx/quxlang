@@ -115,7 +115,8 @@ invocation from a contained object's address.
 
 `BIND_CALL function(arguments...)` selects a synchronous function and returns a
 composite with `CALLEE` and `ARGUMENTS` fields. `CALLEE` identifies the selected
-specialization. `ARGUMENTS` owns adapted value parameters and retains reference
+specialization and retains a bound reference receiver, including its virtual dispatch
+behavior. `ARGUMENTS` owns adapted value parameters and retains reference
 parameters. Argument conversions and default expressions run during capture.
 The selected function body runs when the stored call is invoked:
 

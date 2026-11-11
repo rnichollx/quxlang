@@ -384,8 +384,7 @@ namespace quxlang::detail
         }
 
         auto parent_canonical = parent_canonical_opt.value();
-        if (parent_canonical.type_is< attached_type_reference >() &&
-            parent_canonical.get_as< attached_type_reference >().carrying_type.type_is< void_type >())
+        if (parent_canonical.type_is< attached_type_reference >())
         {
             type_symbol attached_symbol = parent_canonical.get_as< attached_type_reference >().attached_symbol;
             parent_canonical = std::move(attached_symbol);

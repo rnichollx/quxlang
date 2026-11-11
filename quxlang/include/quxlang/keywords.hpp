@@ -83,6 +83,7 @@ namespace quxlang
                 "CO_CALL_DTOR",
                 "CO_COROUTINE_CALL",
                 "CO_FUNCTION_CALL",
+                "CO_FUNCTUM_CALL",
                 "CO_RUN",
                 "CO_GO",
                 "CO_AWAIT",

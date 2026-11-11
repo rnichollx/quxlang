@@ -1,0 +1,279 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::coroutine_functum_call_tests NAMESPACE
+{
+  DOC <$ The controller selects a function overload using a replacement argument schema. $>
+  ::selection_controller STRUCT
+  {
+    .base BASE coroutine_function_call_tests::immediate_controller;
+    .CO_FUNCTUM_CALL FUNCTION(@FUNCTUM:callee AUTO, @ARGUMENTS:arguments ...) MUT: coroutine_call_tests::completed_value
+    {
+      TEST_ASSERT(FUNCTUM_OVERLOAD_COUNT(callee) == 2);
+      .calls += 1;
+      VAR first := FUNCTUM_GET_OVERLOAD(callee, 0);
+      VAR second := FUNCTUM_GET_OVERLOAD(callee, 1);
+      VAR selected := STATIC_CHOOSE(FUNCTION_CAN_INSTANTIATE_WITH(first, @flag BOOL), first, second);
+      VAR specialized := selected#(@flag BOOL);
+      VAR result coroutine_call_tests::completed_value;
+      result.value := specialized(@flag FALSE);
+      RETURN result;
+    }
+  }
+  ::candidate FUNCTION(@flag BOOL): I32 { RETURN 43; }
+  ::candidate FUNCTION(@number I32): I32 { RETURN 17; }
+  ::custom_selection COROUTINE(@result MUT& I32)
+  {
+    result := candidate(@original 9);
+  }
+
+  DOC <$ Functum interception precedes argument matching and overrides an inherited function hook. $>
+  ::overload_selection DUAL_TEST
+  {
+    VAR driver selection_controller;
+    VAR result I32;
+    VAR frame custom_selection#(@result MUT& I32, @CONTROLLER selection_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 43);
+    TEST_ASSERT(driver.calls == 1);
+  }
+
+  DOC <$ The controller chooses the synchronous overload of a mixed function and coroutine binding. $>
+  ::synchronous_controller STRUCT
+  {
+    .base BASE coroutine_function_call_tests::immediate_controller;
+    .CO_FUNCTUM_CALL FUNCTION(@FUNCTUM:callee AUTO, @ARGUMENTS:arguments ...) MUT: coroutine_call_tests::completed_value
+    {
+      TEST_ASSERT(FUNCTUM_OVERLOAD_COUNT(callee) == 2);
+      .calls += 1;
+      VAR result coroutine_call_tests::completed_value;
+      result.value := callee(...FORWARD PACK(arguments));
+      RETURN result;
+    }
+  }
+  ::mixed FUNCTION(@value I32): I32 { RETURN value + 10; }
+  ::mixed COROUTINE(@value I32): I32 { RETURN value + 20; }
+  ::mixed_call COROUTINE(@result MUT& I32) { result := mixed(@value 7); }
+
+  DOC <$ A controller can select a synchronous overload from the complete mixed binding. $>
+  ::mixed_synchronous_selection DUAL_TEST
+  {
+    VAR driver synchronous_controller;
+    VAR result I32;
+    VAR frame mixed_call#(@result MUT& I32, @CONTROLLER synchronous_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 17);
+    TEST_ASSERT(driver.calls == 1);
+  }
+
+  DOC <$ The controller chooses a coroutine overload using the child-controller specialization policy. $>
+  ::coroutine_controller STRUCT
+  {
+    .base BASE coroutine_call_tests::controller;
+    .functum_calls VAR I32;
+    .CO_FUNCTUM_CALL FUNCTION(@FUNCTUM:callee AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
+    {
+      TEST_ASSERT(FUNCTUM_OVERLOAD_COUNT(callee) == 2);
+      .functum_calls += 1;
+      RETURN .CO_COROUTINE_CALL(@COROUTINE callee, @ARGUMENTS FORWARD PACK(arguments));
+    }
+  }
+
+  DOC <$ A controller can select a coroutine overload from the complete mixed binding. $>
+  ::mixed_coroutine_selection DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR driver coroutine_controller;
+    driver.observed := observed<-;
+    VAR result I32;
+    VAR frame mixed_call#(@result MUT& I32, @CONTROLLER coroutine_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 27);
+    TEST_ASSERT(observed.calls == 1);
+    TEST_ASSERT(driver.functum_calls == 1);
+  }
+
+  ::arithmetic STRUCT
+  {
+    .value VAR I32;
+    .OPERATOR+ FUNCTION(@OTHER I32) CONST: I32 { RETURN .value + OTHER; }
+    .OPERATOR+ COROUTINE(@OTHER I32) CONST: I32 { RETURN .value + OTHER + 1; }
+  }
+  ::operator_call COROUTINE(@source CONST& arithmetic, @result MUT& I32)
+  {
+    result := source + 7;
+  }
+
+  DOC <$ Functum hooks replace coroutine call hooks for overloaded operator invocations. $>
+  ::coroutine_operator DUAL_TEST
+  {
+    VAR observed coroutine_call_tests::observations;
+    VAR driver coroutine_controller;
+    driver.observed := observed<-;
+    VAR source arithmetic;
+    VAR result I32;
+    VAR frame operator_call#(@source CONST& arithmetic, @result MUT& I32, @CONTROLLER coroutine_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@source source, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 8);
+    TEST_ASSERT(observed.calls == 1);
+    TEST_ASSERT(driver.functum_calls == 1);
+  }
+
+  DOC <$ The controller captures complete callable bindings for execution after suspension. $>
+  ::deferred_controller STRUCT
+  {
+    .calls VAR I32;
+    .registrations VAR I32;
+    .suspend VAR BOOL;
+    .CO_FUNCTUM_CALL FUNCTION(@FUNCTUM:callee AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
+    {
+      .calls += 1;
+      VAR bound := BIND_CALL callee(...FORWARD PACK(arguments));
+      RETURN coroutine_function_call_tests::deferred_call#DECLTYPE(bound)(@bound MOVE(bound));
+    }
+    .CO_AWAIT FUNCTION(@ARG AUTO& coroutine_function_call_tests::deferred_call#AUTO(bound_type)): MUT& coroutine_function_call_tests::deferred_call#bound_type
+    {
+      RETURN ARG AS MUT& coroutine_function_call_tests::deferred_call#bound_type;
+    }
+    .CO_AWAIT FUNCTION(@ARG BOOL): coroutine_call_tests::immediate_awaiter
+    {
+      RETURN coroutine_call_tests::immediate_awaiter();
+    }
+    .CO_RETURN FUNCTION(): BOOL { RETURN TRUE; }
+    .CO_EXCEPTION FUNCTION(@ARG CONST& EXCEPTION_PTR): BOOL { THROW_EXCEPTION_PTR(ARG); }
+  }
+  ::inherited_controller STRUCT { .base BASE deferred_controller; }
+
+  DOC <$ Inherited functum hooks evaluate arguments once and preserve default arguments across suspension. $>
+  ::arguments_and_suspension DUAL_TEST
+  {
+    VAR driver inherited_controller;
+    driver.suspend := TRUE;
+    VAR count I32;
+    VAR result I32;
+    VAR frame coroutine_function_call_tests::calculate#(@count MUT& I32, @result MUT& I32, @CONTROLLER inherited_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@count count, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(count == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(count == 1);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 10);
+    TEST_ASSERT(driver.calls == 2);
+  }
+
+  DOC <$ Complete bindings retain bound receivers, callable objects, and reference results. $>
+  ::member_bindings DUAL_TEST
+  {
+    VAR driver deferred_controller;
+    VAR source coroutine_function_call_tests::object;
+    VAR result I32;
+    VAR frame coroutine_function_call_tests::members#(@source MUT& coroutine_function_call_tests::object, @result MUT& I32, @CONTROLLER deferred_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@source source, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(source.value == 9);
+    TEST_ASSERT(result == 14);
+    TEST_ASSERT(driver.calls == 3);
+  }
+
+  ::pack_call COROUTINE(@result MUT& I32)
+  {
+    PACK arguments ...[7];
+    result := coroutine_function_call_tests::add(...FORWARD PACK(arguments));
+    VAR selected := coroutine_function_call_tests::add#(% [I32]);
+    result += selected(% [5]);
+  }
+
+  DOC <$ Functum interception accepts consumed packs and explicitly specialized callables. $>
+  ::packs_and_specialization DUAL_TEST
+  {
+    VAR driver deferred_controller;
+    VAR result I32;
+    VAR frame pack_call#(@result MUT& I32, @CONTROLLER deferred_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 18);
+    TEST_ASSERT(driver.calls == 2);
+  }
+
+  DOC <$ Move-only argument temporaries survive suspension and are destroyed once. $>
+  ::argument_lifetime DUAL_TEST
+  {
+    VAR driver deferred_controller;
+    driver.suspend := TRUE;
+    VAR deaths I32;
+    VAR result I32;
+    VAR frame coroutine_function_call_tests::temporary#(@deaths MUT& I32, @result MUT& I32, @CONTROLLER deferred_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@deaths deaths, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver) == FALSE);
+    TEST_ASSERT(deaths == 0);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(deaths == 1);
+    TEST_ASSERT(result == 42);
+  }
+
+  DOC <$ Deferred functum bindings preserve virtual dispatch. $>
+  ::virtual_receiver DUAL_TEST
+  {
+    VAR driver deferred_controller;
+    VAR source coroutine_function_call_tests::virtual_derived;
+    VAR result I32;
+    VAR frame coroutine_function_call_tests::virtual_call#(@source CONST& coroutine_function_call_tests::virtual_base, @result MUT& I32, @CONTROLLER deferred_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@source source, @result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 37);
+    TEST_ASSERT(driver.calls == 1);
+  }
+
+  DOC <$ Function pointer calls preserve VOID results, references, and exception propagation. $>
+  ::pointers_and_exceptions DUAL_TEST
+  {
+    VAR driver deferred_controller;
+    VAR result I32;
+    VAR frame coroutine_function_call_tests::function_pointer#(@result MUT& I32, @CONTROLLER deferred_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 22);
+    TEST_ASSERT(driver.calls == 3);
+  }
+
+  DOC <$ The controller supplies a replacement result. $>
+  ::replacement_controller STRUCT
+  {
+    .base BASE coroutine_function_call_tests::immediate_controller;
+    .CO_FUNCTUM_CALL FUNCTION(@FUNCTUM:callee AUTO, @ARGUMENTS:arguments ...) MUT: coroutine_call_tests::completed_value
+    {
+      .calls += 1;
+      VAR result coroutine_call_tests::completed_value;
+      result.value := 91;
+      RETURN result;
+    }
+  }
+
+  DOC <$ A functum hook can replace calls whose original arguments match no overload. $>
+  ::replacement_result DUAL_TEST
+  {
+    VAR driver replacement_controller;
+    VAR result I32;
+    VAR frame custom_selection#(@result MUT& I32, @CONTROLLER replacement_controller)::FRAME_TYPE;
+    frame.INITIALIZE(@result result);
+    TEST_ASSERT(frame.RESUME(@CONTROLLER driver));
+    TEST_ASSERT(result == 91);
+    TEST_ASSERT(driver.calls == 1);
+  }
+
+  ::invalid_controller STRUCT
+  {
+    .base BASE deferred_controller;
+    .CO_FUNCTUM_CALL FUNCTION() {}
+  }
+
+  DOC <$ An incompatible functum hook rejects the invocation. $>
+  ::invalid_hook STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    TEST_ASSERT(SIZEOF(pack_call#(@result MUT& I32, @CONTROLLER invalid_controller)::FRAME_TYPE) > 0);
+  }
+}

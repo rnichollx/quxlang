@@ -31,6 +31,32 @@ occur in interfaces and generic surfaces, while external declarations use
 
 ## Calls in coroutines
 
+The controller's optional
+`CO_FUNCTUM_CALL(@FUNCTUM binding, @ARGUMENTS arguments)` hook intercepts ordinary
+call expressions before overload resolution. The hook takes precedence over
+`CO_FUNCTION_CALL` and `CO_COROUTINE_CALL`. It receives the complete callable
+binding and the evaluated argument pack. The binding retains a bound receiver
+and its virtual dispatch behavior. A receiver supplied separately from the
+callable binding appears as `RECEIVER` in the pack. An explicitly specialized
+callable retains its specialization.
+The hook can inspect and select overloads, change arguments, select a child
+controller, or replace the invocation. The original arguments do not need to
+match an overload. The hook supplies any implicit controller argument required
+by its selected target.
+Coroutine invocations that otherwise use `CO_COROUTINE_CALL`, including
+overloaded operator invocations, also use this hook.
+
+`CO_FUNCTUM_CALL` executes as a synchronous `FUNCTION` and returns an awaitable.
+The coroutine implicitly awaits that result through `CO_AWAIT`. The awaiter's
+result determines the call expression's value and reference category. Each
+explicit argument expression executes once, and argument temporaries and borrowed
+operands survive the await. An inherited hook participates in interception. A
+present hook with an incompatible or inaccessible signature is a compilation error.
+Lifecycle operations, synchronous compiler-generated operations, `BIND_CALL`,
+`RUN`, `GO`, and synchronous hook bodies use their respective invocation protocols.
+
+When `CO_FUNCTUM_CALL` is absent, the following rules apply.
+
 An ordinary function call expression in a coroutine can be intercepted by the
 controller's optional `CO_FUNCTION_CALL(@FUNCTION descriptor, @ARGUMENTS arguments)`
 hook. Overload resolution selects the function before interception. The hook
