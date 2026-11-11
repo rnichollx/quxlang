@@ -25,7 +25,7 @@ LANGUAGE QUXLANG EN 0.0;
     ::promise_type ALIAS descriptor::RETURN_TYPE::promise#frame_type;
     .promise VAR MUT->promise_type;
 
-    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
+    .CO_COROUTINE_CALL FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
     {
       VAR selected := child#(@CONTROLLER AUTO, ...PACK_TYPES(arguments));
       RETURN operation#selected(@ARGUMENTS arguments);

@@ -78,6 +78,11 @@ Reaching the end of a `VOID` function also returns. A function with a concrete
 non-`VOID` return type must initialize its result on every reachable exit; use
 an explicit `RETURN expression;` on each such path.
 
+A `VOID` function can use `RETURN expression;` when the expression has type
+`VOID`. The expression executes before the function returns, and its exceptions
+follow the function's exception contract. An operand with a value type is a
+compilation error.
+
 ## Deduced return types
 
 `AUTO` and other template type patterns may appear in the return position:

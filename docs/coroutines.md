@@ -130,7 +130,7 @@ ordinary parameters:
 }
 ```
 
-A call in a coroutine passes the complete callable binding to `CO_CALL_CORT`
+A call in a coroutine passes the complete callable binding to `CO_COROUTINE_CALL`
 when the binding contains a coroutine overload. The hook receives the original
 argument pack before overload selection, default argument evaluation, or parameter
 conversion. Explicit argument expressions execute once. The pack includes any
@@ -274,7 +274,8 @@ implicit waiting return awaitables representing asynchronous work. `CO_RUN` and
 `CO_GO` return their launch results directly.
 
 ```text
-CO_CALL_CORT(@COROUTINE binding, @ARGUMENTS arguments) -> awaitable
+CO_COROUTINE_CALL(@COROUTINE binding, @ARGUMENTS arguments) -> awaitable
+CO_FUNCTION_CALL(@FUNCTION descriptor, @ARGUMENTS arguments) -> awaitable
 CO_CALL_CTOR(@COROUTINE descriptor, @ARGUMENTS arguments,
              @DESTINATION borrowed_storage) -> awaitable
 CO_CALL_DTOR(@COROUTINE descriptor, @ARGUMENTS arguments) -> awaitable
@@ -288,11 +289,39 @@ CO_EXCEPTION(@ARG CONST& EXCEPTION_PTR) -> awaitable
 CO_CANCELLED(@ARG MUT& frame) NOEXCEPT: VOID
 ```
 
-Ordinary coroutine calls select `CO_CALL_CORT`, coroutine construction selects
+Ordinary coroutine calls select `CO_COROUTINE_CALL`, coroutine construction selects
 `CO_CALL_CTOR`, and coroutine destruction selects `CO_CALL_DTOR`. Each invocation
 implicitly awaits the returned value. The selected hook determines child-controller
 adaptation, frame storage, and ownership. `CO_CALL_CTOR` additionally borrows typed
 destination storage through `@DESTINATION`. Hook selection is static.
+
+`CO_FUNCTION_CALL` is optional. An ordinary function call expression in a
+coroutine selects its function overload and then invokes this hook when the
+controller declares or inherits it. An absent hook produces a direct function
+call. A present hook must accept the invocation; an incompatible or inaccessible
+hook is a compilation error. The hook is a synchronous `FUNCTION`, and its result
+is implicitly awaited through `CO_AWAIT`. The awaiter's result supplies the value
+and reference category of the call expression.
+
+The hook receives the selected function descriptor through `@FUNCTION` and the
+evaluated arguments through `@ARGUMENTS`. Each explicit argument expression
+executes once. Parameter conversions and default arguments are evaluated when the
+hook invokes or captures the selected function. The pack preserves positional
+arguments, named arguments, reference categories, and an implicitly selected
+`CONTROLLER` argument. A bound method retains its receiver in the function
+descriptor, so calling that descriptor preserves virtual dispatch. An explicitly
+supplied `@THIS` argument uses the `RECEIVER` field; a forwarding hook extracts
+that field and supplies it as `@THIS` when invoking the descriptor.
+Function pointer calls, callable objects, bound methods, explicit specializations,
+and calls expanded from packs use this protocol.
+
+A hook may replace the function invocation or retain its arguments in an awaiter
+for deferred execution. Borrowed operands and argument temporaries remain alive
+through the await. Interception applies to explicit call expressions in the
+coroutine body. Compiler-generated operations, lifecycle calls, `BIND_CALL`
+capture, and calls inside synchronous hook bodies use their existing invocation
+protocols. Bindings containing coroutine overloads use `CO_COROUTINE_CALL`;
+`RUN` and `GO` use their launch hooks.
 
 `CO_CALL_DTOR` accepts responsibility for mandatory destruction when
 its invocation begins. Argument preparation completes before that transfer. The

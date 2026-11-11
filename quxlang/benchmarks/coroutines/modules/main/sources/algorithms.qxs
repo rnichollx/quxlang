@@ -23,7 +23,7 @@ DOC <$ Drives heap-owned child frames to completion on the calling thread. $>
 ::controller STRUCT
 {
   .result VAR U64;
-  .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): completed_value
+  .CO_COROUTINE_CALL FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): completed_value
   {
     VAR descriptor := child#(@CONTROLLER controller, COMPOSITE_UNPACK(TYPEOF(arguments)));
     VAR driver controller;
@@ -36,7 +36,7 @@ DOC <$ Drives heap-owned child frames to completion on the calling thread. $>
   }
   .CO_RUN FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments AUTO& AUTO): U64
   {
-    RETURN .CO_CALL_CORT(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments)).value;
+    RETURN .CO_COROUTINE_CALL(@COROUTINE child, @ARGUMENTS COMPOSITE_FORWARD(arguments)).value;
   }
   .CO_AWAIT FUNCTION(@ARG BOOL): awaiter { VAR result awaiter; result.ready := ARG; RETURN result; }
   .CO_AWAIT FUNCTION(@ARG AUTO& completed_value): MUT& completed_value { RETURN ARG AS MUT& completed_value; }

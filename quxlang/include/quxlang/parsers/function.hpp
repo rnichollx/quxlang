@@ -34,9 +34,9 @@ namespace quxlang::parsers
     template < typename It >
     std::string parse_argument_name(It& pos, It end, bool required = true)
     {
-        static constexpr std::array< std::string_view, 64 > argument_keywords = {
+        static constexpr std::array< std::string_view, 65 > argument_keywords = {
             "T", "BITS", "EXPONENT", "ARGUMENT", "CHANNEL", "CLOCK", "ELAPSED", "FIRST", "INPUT", "ITERATIONS", "JSON", "NAME", "OFFSET", "OUTPUT", "REPETITIONS", "START", "STATE", "SIZE", "ALIGN", "PTR", "ADDR", "COUNT", "THIS", "INITVAL", "GENERIC_THIS", "GENERIC_OTHER", "RHS", "LHS", "RETURN", "ARG", "OTHER", "INDEX", "VALUE", "EXPR", "FILE", "LINE", "COLUMN", "TAG", "MESSAGE", "GUARD", "NODE", "DEINITIALIZER", "FRAME", "RECORD", "EXCEPTION", "SUCCESS", "FAILURE", "EXPECTED", "DESIRED", "EXPLICIT", "REINTERPRET", "CHECKED", "ASSUME", "PARTIAL", "APPROXIMATE", "OUTPUT_ITERATOR", "INPUT_ITERATOR", "DESERIALIZE_INPUT_ITERATOR",
-            "CONTROLLER", "KIND", "COROUTINE", "ARGUMENTS", "DESTINATION", "RECEIVER",
+            "CONTROLLER", "KIND", "COROUTINE", "FUNCTION", "ARGUMENTS", "DESTINATION", "RECEIVER",
         };
 
         auto identifier = parse_identifier(pos, end);

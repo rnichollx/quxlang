@@ -18,7 +18,7 @@ LANGUAGE QUXLANG EN 0.0;
     {
       VAR len U64 := 0;
       output := SERIALIZE_UINTANY(@VALUE len, @OUTPUT_ITERATOR output);
-      RETURN output;
+      RETURN;
     }
     ELSE
     {

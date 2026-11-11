@@ -90,7 +90,7 @@ IMPORT std;
       RETURN FALSE;
     }
 
-    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
+    .CO_COROUTINE_CALL FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
     {
       VAR selected := coroutine_call_tests::specialize#PACK_TYPES(arguments)(@COROUTINE child, @CONTROLLER controller);
       RETURN child_operation#selected(@parent THIS, @ARGUMENTS arguments);

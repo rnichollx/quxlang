@@ -48,7 +48,7 @@ LANGUAGE QUXLANG EN 0.0;
     .observed VAR MUT->observations;
     .result VAR I32;
 
-    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
+    .CO_COROUTINE_CALL FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: AUTO
     {
       VAR selected := specialize#PACK_TYPES(arguments)(@COROUTINE child, @CONTROLLER controller);
       .observed->.calls += 1;

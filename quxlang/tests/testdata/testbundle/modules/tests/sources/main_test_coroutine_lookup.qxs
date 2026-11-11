@@ -51,7 +51,7 @@ LANGUAGE QUXLANG EN 0.0;
   ::ordinary_policy STRUCT
   {
     .calls VAR I32;
-    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: coroutine_call_tests::completed_value
+    .CO_COROUTINE_CALL FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...) MUT: coroutine_call_tests::completed_value
     {
       .calls += 1;
       VAR result coroutine_call_tests::completed_value;

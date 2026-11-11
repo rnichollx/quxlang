@@ -21,7 +21,6 @@ IMPORT std;
         (output++)-> := value;
         index++;
       }
-      RETURN output;
     }
   }
 

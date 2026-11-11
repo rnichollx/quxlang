@@ -29,6 +29,28 @@ occur in interfaces and generic surfaces, while external declarations use
 **Functanoid**: The concrete instantiation of a function applied to specific argument types. Functions can have formal parameters with  so-called _temploidic types_, such as `AUTO`, in which case a single _function_ can have multiple associated _functanoids_.
 **Procedure**: A unit of generated machine code which is executable. It's possible for a single _functanoid_ to have multiple associated _procedures_, such as with and without AVX512.
 
+## Calls in coroutines
+
+An ordinary function call expression in a coroutine can be intercepted by the
+controller's optional `CO_FUNCTION_CALL(@FUNCTION descriptor, @ARGUMENTS arguments)`
+hook. Overload resolution selects the function before interception. The hook
+receives the selected descriptor and the evaluated argument pack, returns an
+awaitable, and executes as a synchronous `FUNCTION`. The coroutine implicitly
+awaits that result through `CO_AWAIT`. The awaiter's result determines the call
+expression's value and reference category.
+
+Each explicit argument expression executes once. The descriptor retains a bound
+receiver, including its virtual dispatch behavior. Parameter conversions and
+default argument evaluation occur when the hook invokes or captures the
+descriptor. The hook can defer the invocation or replace its result. Argument
+temporaries and borrowed operands remain alive through the await.
+
+A controller without `CO_FUNCTION_CALL` executes ordinary function calls directly.
+A present hook with an incompatible signature is a compilation error. Compiler
+protocol calls and lifecycle operations retain their own invocation rules.
+Bindings containing coroutine overloads use `CO_COROUTINE_CALL`; `RUN` and `GO`
+use `CO_RUN` and `CO_GO` respectively.
+
 ## Exception contract
 
 Ordinary functions may propagate exceptions. The `NOEXCEPT` modifier requires

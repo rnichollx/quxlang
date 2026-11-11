@@ -42,7 +42,7 @@ coroutine. A function-only binding is selected through ordinary function overloa
 resolution. Explicit specialization selects the declaration before launch.
 
 `std::thread_pool_cort_controller#T` connects an invocation to its pool, result
-producer, and notification target. Its `CO_CALL_CORT` hook returns an eager
+producer, and notification target. Its `CO_COROUTINE_CALL` hook returns an eager
 `std::task#U` for the called coroutine's return type `U`. The ordinary coroutine
 call protocol awaits that task. Each recursive invocation has independent
 allocated storage; the caller suspends while its child is pending. One worker can

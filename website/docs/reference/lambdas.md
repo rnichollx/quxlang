@@ -57,7 +57,7 @@ A plain lambda provides both a synchronous and a coroutine `OPERATOR()`
 overload. The enclosing invocation context and controller select the overload
 through the ordinary function and coroutine call rules. `ON(controller) RUN`
 passes the lambda binding and arguments to the controller's `CO_RUN` hook.
-An ordinary call inside a coroutine passes the mixed binding to `CO_CALL_CORT`,
+An ordinary call inside a coroutine passes the mixed binding to `CO_COROUTINE_CALL`,
 which controls selection. `GO` passes the binding to `CO_GO` and returns that
 hook's result.
 

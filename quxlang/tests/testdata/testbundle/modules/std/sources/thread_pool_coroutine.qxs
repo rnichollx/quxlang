@@ -271,7 +271,7 @@ DOC <$ Connects a coroutine result to its pool and stable continuation. Recursiv
     RETURN cort_launch#child(@runtime .entry->.runtime->, @ARGUMENTS FORWARD PACK(invocation));
   }
   DOC <$ Schedules a recursive child whose task is awaited by the ordinary call protocol. $>
-  .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
+  .CO_COROUTINE_CALL FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
   {
     VAR result := .CO_GO(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
     RETURN task#(DECLTYPE(result)::value_type)(@result MOVE(result));

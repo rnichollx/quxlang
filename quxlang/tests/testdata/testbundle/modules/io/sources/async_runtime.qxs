@@ -171,7 +171,7 @@ DOC <$ Extends thread-pool scheduling with controller-selected file transfers. N
   }
 
   DOC <$ Schedules a recursive coroutine and suspends its caller through the returned task. $>
-  .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
+  .CO_COROUTINE_CALL FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
   {
     VAR result := .CO_GO(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
     RETURN std::task#(DECLTYPE(result)::value_type)(@result MOVE(result));

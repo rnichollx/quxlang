@@ -257,7 +257,7 @@ PRIVATE(MODULE)
     DOC <$ Completes an instant cancellation notification without a value. $>
     .CO_CANCELLED FUNCTION(@ARG MUT& AUTO) NOEXCEPT {}
     DOC <$ Launches a child with the promise controller selected by its own return type. $>
-    .CO_CALL_CORT FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
+    .CO_COROUTINE_CALL FUNCTION(@COROUTINE:child AUTO, @ARGUMENTS:arguments ...): AUTO
     {
       VAR scheduler cpp_style_coroutine_base;
       VAR result := scheduler.CO_RUN(@COROUTINE child, @ARGUMENTS FORWARD PACK(arguments));
