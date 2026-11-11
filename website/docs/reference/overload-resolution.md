@@ -117,6 +117,40 @@ Deduction that cannot resolve every required template binding removes the
 candidate. A successful deduction does not automatically outrank a concrete
 candidate; the argument adaptation ranks above determine the fit.
 
+## `PRIORITY` and `WEAK_PRIORITY`
+
+`PRIORITY(integer)` and `WEAK_PRIORITY(integer)` follow a function's parameter
+list and precede `ENABLE_IF` and the return type. Each modifier may occur once,
+and both modifiers may appear on the same declaration in either order. The
+arguments are decimal integer literals with an optional leading minus sign.
+`PRIORITY` accepts signed 32-bit values. `WEAK_PRIORITY` accepts signed 64-bit
+values. An omitted modifier has value zero.
+
+```quxlang
+::choose FUNCTION(@ARG I32) WEAK_PRIORITY(-1): I32 { RETURN 1; }
+::choose FUNCTION(@ARG AUTO) WEAK_PRIORITY(10): I32 { RETURN 2; }
+
+ASSERT(choose(7 AS I32) == 1);
+```
+
+After viability filtering, the candidates with the greatest `PRIORITY` value
+participate in ordinary ranking. Ordinary ranking compares argument adaptations,
+then named argument capture, fixed positional parameters, and variadic prefix
+length. If multiple candidates survive these rules, the candidates with the
+greatest `WEAK_PRIORITY` value survive. A unique survivor is selected. Multiple
+survivors with equal weak priority produce an ambiguity error.
+
+Weak priority cannot select a candidate eliminated by any earlier ranking rule.
+A candidate that is worse for at least one argument and better for none is
+eliminated before weak priority is considered. Weak priority can resolve a tie
+between candidates that each provide a better match for different arguments.
+
+These modifiers also apply after a `TEMPLATE(...)` parameter list and before
+its `ENABLE_IF` or declaration. Template selection filters viable candidates
+by `PRIORITY`, then resolves remaining ties by `WEAK_PRIORITY`. Virtual functions,
+declarations matching inherited virtual slots, and interface functions reject
+either priority modifier.
+
 ## `ENABLE_IF`
 
 `ENABLE_IF(condition)` appears after the parameter list and before the return
@@ -155,8 +189,8 @@ signature.
 
 Selection must produce one uniquely better candidate. If no candidate is
 viable, the call is ill-formed. If two viable candidates have indistinguishable
-best fit, the call is ambiguous and is also ill-formed; declaration order does
-not break the tie.
+best fit and equal weak priority, the call is ambiguous and is also ill-formed.
+Declaration order does not break the tie.
 
 See [Call Arguments](call-arguments.md), [References](references.md),
 [Conversions](conversions.md), and [Templates](templates-and-value-parameters.md)

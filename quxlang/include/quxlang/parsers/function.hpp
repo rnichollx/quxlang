@@ -11,12 +11,66 @@
 #include <quxlang/parsers/peek_symbol.hpp>
 #include <algorithm>
 #include <array>
+#include <charconv>
+#include <cstdint>
+#include <limits>
+#include <optional>
 #include <iterator>
 #include <string>
 #include <string_view>
 
 namespace quxlang::parsers
 {
+    /** Parses one numeric overload ranking modifier for a function or template. */
+    inline auto try_parse_overload_priority(parsing_context& ctx, std::optional< std::int64_t >& priority, std::optional< std::int64_t >& weak_priority) -> bool
+    {
+        parse_iterator& pos = ctx.iter_pos;
+        parse_iterator end = ctx.iter_end;
+        skip_whitespace_and_comments(pos, end);
+        std::optional< std::string_view > keyword = skip_keyword_if_one_of(pos, end, {"PRIORITY", "WEAK_PRIORITY"});
+        if (!keyword.has_value())
+        {
+            return false;
+        }
+        std::optional< std::int64_t >& destination = *keyword == "PRIORITY" ? priority : weak_priority;
+        if (destination.has_value())
+        {
+            throw syntax_compilation_error("Duplicate " + std::string(*keyword) + " modifier");
+        }
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, "("))
+        {
+            throw syntax_compilation_error("Expected '(' after " + std::string(*keyword));
+        }
+        skip_whitespace_and_comments(pos, end);
+        std::string number;
+        if (pos != end && *pos == '-')
+        {
+            number += *pos++;
+        }
+        while (pos != end && *pos >= '0' && *pos <= '9')
+        {
+            number += *pos++;
+        }
+        std::int64_t value = 0;
+        std::from_chars_result parsed = std::from_chars(number.data(), number.data() + number.size(), value);
+        if (parsed.ec != std::errc{} || parsed.ptr != number.data() + number.size())
+        {
+            throw syntax_compilation_error("Expected a signed 64-bit decimal integer in " + std::string(*keyword));
+        }
+        if (*keyword == "PRIORITY" && (value < std::numeric_limits< std::int32_t >::min() || value > std::numeric_limits< std::int32_t >::max()))
+        {
+            throw syntax_compilation_error("PRIORITY requires a signed 32-bit integer");
+        }
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, ")"))
+        {
+            throw syntax_compilation_error("Expected ')' after " + std::string(*keyword) + " integer");
+        }
+        destination = value;
+        return true;
+    }
+
     /** Parses the options following CANCELLABLE for a coroutine invocation. */
     inline auto parse_coroutine_cancellation_mode(parsing_context& ctx) -> coroutine_cancellation_mode
     {

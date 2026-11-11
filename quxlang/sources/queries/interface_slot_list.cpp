@@ -33,7 +33,7 @@ rpnx::querygraph::coroutine< quxlang::interface_slot_list_spec > quxlang::interf
 
     for (ast2_interface_function_declaration const& function : interface_decl.functions)
     {
-        if (function.header.enable_if.has_value() || function.header.priority.has_value())
+        if (function.header.enable_if.has_value() || function.header.priority.has_value() || function.header.weak_priority.has_value())
         {
             throw quxlang::semantic_compilation_error("Interface functions cannot use overload priority or ENABLE_IF");
         }

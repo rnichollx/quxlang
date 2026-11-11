@@ -384,10 +384,12 @@ namespace quxlang
         declared_parameters m_template_args;
         declaration m_declaration;
         std::optional< std::int64_t > priority;
+        /** Breaks ties after ordinary overload ranking. */
+        std::optional< std::int64_t > weak_priority;
         /** Filters this template after its arguments are bound and before overload selection. */
         std::optional< expression > enable_if;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_template_declaration, m_template_args, m_declaration, priority, enable_if);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_template_declaration, m_template_args, m_declaration, priority, weak_priority, enable_if);
     };
 
     struct ast2_templex
@@ -425,13 +427,15 @@ namespace quxlang
         std::optional< expression > noexcept_if;
 
         std::optional< std::int64_t > priority;
+        /** Breaks ties after ordinary overload ranking. */
+        std::optional< std::int64_t > weak_priority;
         std::optional< expression > enable_if;
         /// Virtual-slot behavior explicitly requested by this declaration.
         std::optional< ast2_virtual_specifier > virtual_specifier;
         /// True when a destructor explicitly opts out of polymorphic dispatch.
         bool is_nonvirtual = false;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, execution_kind, cancellation_mode, controller_parameter, is_noexcept, noexcept_if, priority, enable_if, virtual_specifier, is_nonvirtual);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, execution_kind, cancellation_mode, controller_parameter, is_noexcept, noexcept_if, priority, weak_priority, enable_if, virtual_specifier, is_nonvirtual);
     };
 
     struct parameters

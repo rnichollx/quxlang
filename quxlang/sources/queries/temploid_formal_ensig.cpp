@@ -185,6 +185,7 @@ namespace quxlang
             std::optional< temploid_ensig > signature = co_await declared_parameters_to_ensig(tmpl.m_template_args, tmpl.priority, template_context);
             if (signature.has_value())
             {
+                signature->weak_priority = tmpl.weak_priority;
                 signature->enable_if = tmpl.enable_if;
             }
             co_return signature;

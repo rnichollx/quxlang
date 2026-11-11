@@ -494,6 +494,19 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
     if (best_match.size() > 1)
     {
+        std::int64_t highest_weak_priority = best_match.front().ensig.weak_priority.value_or(0);
+        for (detail::functum_select_function_helpers::function_overload_candidate const& candidate : best_match)
+        {
+            highest_weak_priority = std::max(highest_weak_priority, candidate.ensig.weak_priority.value_or(0));
+        }
+        std::erase_if(best_match, [&](detail::functum_select_function_helpers::function_overload_candidate const& candidate)
+        {
+            return candidate.ensig.weak_priority.value_or(0) < highest_weak_priority;
+        });
+    }
+
+    if (best_match.size() > 1)
+    {
         std::stringstream message;
         message << "Ambiguous overload resolution for " << to_string(input) << " candidates:";
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)

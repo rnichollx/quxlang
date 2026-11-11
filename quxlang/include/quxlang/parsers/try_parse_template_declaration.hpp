@@ -161,6 +161,10 @@ namespace quxlang::parsers
         else if (skip_symbol_if_is(pos, end, ")"))
         {
             skip_whitespace_and_comments(pos, end);
+            while (try_parse_overload_priority(ctx, ct->priority, ct->weak_priority))
+            {
+                skip_whitespace_and_comments(pos, end);
+            }
             if (skip_keyword_if_is(pos, end, "ENABLE_IF"))
             {
                 skip_whitespace_and_comments(pos, end);

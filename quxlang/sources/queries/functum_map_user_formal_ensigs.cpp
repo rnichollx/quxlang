@@ -65,6 +65,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
         temploid_ensig formal_ensig;
         formal_ensig.interface.accepts_named_rest = decl.interface.accepts_named_rest;
         formal_ensig.priority = decl.priority;
+        formal_ensig.weak_priority = decl.weak_priority;
         formal_ensig.enable_if = decl.enable_if;
         for (auto const& param : decl.interface.named)
         {

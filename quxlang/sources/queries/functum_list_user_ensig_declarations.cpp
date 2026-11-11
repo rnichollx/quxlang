@@ -28,6 +28,7 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_ensig_declarations_spec 
 
         temploid_ensig ensig;
         ensig.priority = head.priority;
+        ensig.weak_priority = head.weak_priority;
         ensig.enable_if = head.enable_if;
 
         for (std::size_t y = 0; y < head.call_parameters.size(); y++)

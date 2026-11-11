@@ -142,6 +142,10 @@ namespace quxlang::parsers
         bool has_this_parameter = false;
         while (true)
         {
+            if (try_parse_overload_priority(ctx, out->header.priority, out->header.weak_priority))
+            {
+                continue;
+            }
             if (std::optional< ast2_function_parameter > this_parameter = try_parse_function_this_parameter(ctx); this_parameter.has_value())
             {
                 if (has_this_parameter)

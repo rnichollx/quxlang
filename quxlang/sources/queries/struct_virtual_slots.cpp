@@ -125,7 +125,7 @@ rpnx::querygraph::coroutine< quxlang::struct_virtual_slots_spec > quxlang::struc
             struct_virtual_signature signature;
             signature.name = member.name;
             signature.this_parameter = is_destructor ? type_symbol(dvalue_slot{.target = thistype{}}) : type_symbol(ptrref_type{.target = thistype{}, .ptr_class = pointer_class::ref, .qual = qualifier::auto_});
-            bool has_forbidden_virtual_features = function.header.priority.has_value();
+            bool has_forbidden_virtual_features = (function.header.priority.has_value() || function.header.weak_priority.has_value());
             instatype enable_if_parameters;
             for (ast2_function_parameter const& parameter : function.header.call_parameters)
             {

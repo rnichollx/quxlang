@@ -46,6 +46,7 @@ rpnx::querygraph::coroutine< quxlang::struct_constructor_forms_spec > quxlang::s
         ast2_function_declaration const& declaration = member.decl.get_as< ast2_function_declaration >();
         temploid_ensig signature;
         signature.priority = declaration.header.priority;
+        signature.weak_priority = declaration.header.weak_priority;
         signature.enable_if = declaration.header.enable_if;
         bool has_this = false;
         for (ast2_function_parameter const& parameter : declaration.header.call_parameters)

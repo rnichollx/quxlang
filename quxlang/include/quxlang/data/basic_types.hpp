@@ -400,9 +400,11 @@ namespace quxlang
     {
         intertype interface;
         std::optional< std::int32_t > priority;
+        /** Breaks ties after ordinary overload ranking. */
+        std::optional< std::int64_t > weak_priority;
         std::optional< expression > enable_if;
 
-        RPNX_MEMBER_METADATA(temploid_ensig, interface, priority, enable_if);
+        RPNX_MEMBER_METADATA(temploid_ensig, interface, priority, weak_priority, enable_if);
     };
 
     struct overload

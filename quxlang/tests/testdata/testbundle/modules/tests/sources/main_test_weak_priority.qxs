@@ -1,0 +1,98 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::weak_priority_cases NAMESPACE
+{
+  ::tied FUNCTION(@ARG I32) WEAK_PRIORITY(1): I32 { RETURN 1; }
+  ::tied FUNCTION(@ARG I32) WEAK_PRIORITY(2): I32 { RETURN 2; }
+  ::default_zero FUNCTION(@ARG I32): I32 { RETURN 1; }
+  ::default_zero FUNCTION(@ARG I32) WEAK_PRIORITY(-1): I32 { RETURN 2; }
+  ::exact FUNCTION(@ARG I32) WEAK_PRIORITY(-9223372036854775808): I32 { RETURN 1; }
+  ::exact FUNCTION(@ARG AUTO) WEAK_PRIORITY(9223372036854775807): I32 { RETURN 2; }
+  ::reference FUNCTION(@ARG MUT& I32) WEAK_PRIORITY(-1): I32 { RETURN 1; }
+  ::reference FUNCTION(@ARG CONST& I32) WEAK_PRIORITY(99): I32 { RETURN 2; }
+  ::strong FUNCTION(@ARG I32) PRIORITY(1) WEAK_PRIORITY(-1): I32 { RETURN 1; }
+  ::strong FUNCTION(@ARG AUTO) WEAK_PRIORITY(99): I32 { RETURN 2; }
+  ::strong_first FUNCTION(@ARG I32): I32 { RETURN 1; }
+  ::strong_first FUNCTION(@ARG AUTO) WEAK_PRIORITY(-1) PRIORITY(1): I32 { RETURN 2; }
+  ::disabled FUNCTION(@ARG I32) WEAK_PRIORITY(10) ENABLE_IF(FALSE): I32 { RETURN 1; }
+  ::disabled FUNCTION(@ARG I32): I32 { RETURN 2; }
+
+  ::fixed FUNCTION(%value I32): I32 { RETURN 1; }
+  ::fixed FUNCTION(%...values I32) WEAK_PRIORITY(99): I32 { RETURN 2; }
+  ::prefix FUNCTION(%value I32, %...values I32): I32 { RETURN 1; }
+  ::prefix FUNCTION(%...values I32) WEAK_PRIORITY(99): I32 { RETURN 2; }
+  ::named FUNCTION(@value I32): I32 { RETURN 1; }
+  ::named FUNCTION(@value I32, @KWARGS ...) WEAK_PRIORITY(99): I32 { RETURN 2; }
+  ::named_count FUNCTION(@value I32, @KWARGS ...): I32 { RETURN 1; }
+  ::named_count FUNCTION(@KWARGS ...) WEAK_PRIORITY(99): I32 { RETURN 2; }
+
+  ::cross FUNCTION(@left I32, @right AUTO) WEAK_PRIORITY(1): I32 { RETURN 1; }
+  ::cross FUNCTION(@left AUTO, @right I32) WEAK_PRIORITY(2): I32 { RETURN 2; }
+  ::cross FUNCTION(@left AUTO, @right AUTO) WEAK_PRIORITY(99): I32 { RETURN 3; }
+
+  ::equal FUNCTION(@ARG AUTO(a)) WEAK_PRIORITY(5): I32 { RETURN 1; }
+  ::equal FUNCTION(@ARG AUTO(b)) WEAK_PRIORITY(5): I32 { RETURN 2; }
+
+  ::selected TEMPLATE(@T TYPE AUTO) WEAK_PRIORITY(1) FUNCTION(): I32 { RETURN 1; }
+  ::selected TEMPLATE(@T TYPE AUTO) WEAK_PRIORITY(2) FUNCTION(): I32 { RETURN 2; }
+
+  ::template_equal TEMPLATE(@T TYPE AUTO(a)) WEAK_PRIORITY(5) FUNCTION(): I32 { RETURN 1; }
+  ::template_equal TEMPLATE(@T TYPE AUTO(b)) WEAK_PRIORITY(5) FUNCTION(): I32 { RETURN 2; }
+
+  ::virtual_priority STRUCT POLYMORPHIC
+  {
+    .value FUNCTION() CONST VIRTUAL WEAK_PRIORITY(1): I32 { RETURN 1; }
+  }
+
+  ::constructed STRUCT
+  {
+    .value VAR I32;
+    .CONSTRUCTOR FUNCTION() WEAK_PRIORITY(1) { .value := 1; }
+    .CONSTRUCTOR FUNCTION() WEAK_PRIORITY(2) { .value := 2; }
+  }
+}
+
+DOC <$ Weak priority selects the greatest value among candidates tied by ordinary ranking. $>
+::weak_priority_selection DUAL_TEST
+{
+  TEST_ASSERT(weak_priority_cases::tied(7 AS I32) == 2);
+  TEST_ASSERT(weak_priority_cases::default_zero(7 AS I32) == 1);
+  TEST_ASSERT(weak_priority_cases::disabled(7 AS I32) == 2);
+  TEST_ASSERT(weak_priority_cases::selected#(I32)() == 2);
+  VAR object weak_priority_cases::constructed;
+  TEST_ASSERT(object.value == 2);
+}
+
+DOC <$ Ordinary type, strong priority, named argument, and positional pack ranking precede weak priority. $>
+::weak_priority_ordinary_ranking DUAL_TEST
+{
+  VAR value I32 := 7;
+  TEST_ASSERT(weak_priority_cases::reference(value) == 1);
+  TEST_ASSERT(weak_priority_cases::exact(7 AS I32) == 1);
+  TEST_ASSERT(weak_priority_cases::strong(7 AS I32) == 1);
+  TEST_ASSERT(weak_priority_cases::strong_first(7 AS I32) == 2);
+  TEST_ASSERT(weak_priority_cases::fixed(% [7 AS I32]) == 1);
+  TEST_ASSERT(weak_priority_cases::prefix(% [7 AS I32, 8 AS I32]) == 1);
+  TEST_ASSERT(weak_priority_cases::named(@value 7 AS I32) == 1);
+  TEST_ASSERT(weak_priority_cases::named_count(@value 7 AS I32) == 1);
+  TEST_ASSERT(weak_priority_cases::cross(@left 7 AS I32, @right 8 AS I32) == 2);
+}
+
+DOC <$ Equal weak priorities preserve overload ambiguity. $>
+::weak_priority_equal_ambiguity STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value I32 := weak_priority_cases::equal(7 AS I32);
+}
+
+DOC <$ Equal weak priorities preserve template ambiguity. $>
+::weak_priority_equal_template_ambiguity STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value I32 := weak_priority_cases::template_equal#(I32)();
+}
+
+DOC <$ Virtual slots reject overload priority modifiers. $>
+::weak_priority_virtual_rejected STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR value weak_priority_cases::virtual_priority;
+  TEST_ASSERT(value.value() == 1);
+}

@@ -6,6 +6,7 @@
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 
+#include <algorithm>
 #include <map>
 #include <optional>
 #include <string>
@@ -304,6 +305,19 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
     {
         QUX_WHY("No matching template found");
         co_return std::nullopt;
+    }
+
+    if (matches.size() > 1)
+    {
+        std::int64_t highest_weak_priority = templex.templates.at(matches.front().overload_id.value()).weak_priority.value_or(0);
+        for (temploid_reference const& candidate : matches)
+        {
+            highest_weak_priority = std::max(highest_weak_priority, templex.templates.at(candidate.overload_id.value()).weak_priority.value_or(0));
+        }
+        std::erase_if(matches, [&](temploid_reference const& candidate)
+        {
+            return templex.templates.at(candidate.overload_id.value()).weak_priority.value_or(0) < highest_weak_priority;
+        });
     }
 
     if (matches.size() > 1)
