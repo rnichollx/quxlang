@@ -104,9 +104,9 @@ Other RPNX Libraries:
 
 Third-Party libraries
 
-* YAMLCpp (Suggest using my fork at https://github.com/rnichollx/yaml-cpp, it can be made to compile with the official one but some CMake / CBuild integration doesn't work)
+* YAMLCpp (Suggest using my fork at https://github.com/rpnx/yaml-cpp, it can be made to compile with the official one but some CMake / CBuild integration doesn't work)
 * GTest (For tests)
-* Benchmark (For benchmarks; using my fork https://github.com/rnichollx/google-benchmark is suggested, although this mostly only matters if you want to use CBuild/CSetup)
+* Benchmark (For benchmarks; using my fork https://github.com/rpnx/google-benchmark is suggested, although this mostly only matters if you want to use CBuild/CSetup)
 * LLVM v22
 
 If you follow quick setup guide below, CBuild/CSetup are also required, but it's just a wrapper around CMake, so you don't need it.

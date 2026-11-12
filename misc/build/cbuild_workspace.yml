@@ -1,7 +1,7 @@
 sources:
     benchmark:
         git:
-            repository: https://github.com/rnichollx/google-benchmark.git
+            repository: https://github.com/rpnx/google-benchmark.git
             revision: b514eee1c23e3322693a6d98eee00f93652073d6
             branch: main
     compress:
@@ -16,7 +16,7 @@ sources:
             revision: 7628c68b381cebf738eac8ad917ce56769817236
     googletest:
         git:
-            repository: https://github.com/rnichollx/googletest.git
+            repository: https://github.com/rpnx/googletest.git
             revision: 0ccfdbb8ce09abf507836e310ccf4562a92223cb
     llvm:
         git:
@@ -40,7 +40,7 @@ sources:
             repository: https://gitlab.com/rpnx/serialization.git
     yaml-cpp:
         git:
-            repository: https://github.com/rnichollx/yaml-cpp.git
+            repository: https://github.com/rpnx/yaml-cpp.git
             revision: d1f45aa4d71f308a37024a23a2b91413b1951d38
 targets:
     benchmark:
