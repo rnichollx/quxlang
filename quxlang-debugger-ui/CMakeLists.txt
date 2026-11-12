@@ -3,7 +3,6 @@ project(QuxlangDebuggerUI LANGUAGES CXX)
 
 include(GNUInstallDirs)
 
-find_package(RPNXCow REQUIRED)
 find_package(RPNXMetalib REQUIRED)
 find_package(RPNXSerialization REQUIRED)
 find_package(RPNXDataStructures REQUIRED)
@@ -30,7 +29,7 @@ target_include_directories(quxlang-debugger-ui PRIVATE
 )
 
 target_link_libraries(quxlang-debugger-ui PRIVATE
-        RPNX::cow
+        RPNX::datastructures
         Quxlang::quxlang
         RPNX::querygraph-ui
 )

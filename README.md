@@ -95,11 +95,10 @@ Build system:
 
 Other RPNX Libraries:
 
-* [RPNX::DataStructures](https://gitlab.com/rpnx/datastructures) - An implementation of several data structures used in the project, like `rpnx::variant`, `rpnx::annex`, `rpnx::sharded_unordered_map` and others.
+* [RPNX::DataStructures](https://gitlab.com/rpnx/datastructures) - An implementation of several data structures used in the project, like `rpnx::cow`, `rpnx::variant`, `rpnx::annex`, `rpnx::sharded_unordered_map` and others.
 * [RPNX::QueryGraph](https://gitlab.com/rpnx/querygraph) - This library basically does most of the heavy lifting regarding dyanamic memoization and thread scheduling (this is library is essentially why I am able to write a multi-threaded compiler by myself).
 * [RPNX::Metalib](https://gitlab.com/rpnx/metalib) - This library is mostly for adding reflection support without having C++26 reflection. Mostly used as glue for the next library.
 * [RPNX::Serailization](https://gitlab.com/rpnx/serialization) - This library is for serializing data structures to/from binary. Used mostly by QueryGraph for inspecting debug compiler graph dumps. Also does JSON/YAML output.
-* [RPNX::COW](https://gitlab.com/rpnx/cow) - Copy-on-Write data structure. This really should be folded into RPNX::DataStructures but I'm lazy.
 * [RPNX::Cortado](https://gitlab.com/rpnx/cortado) - For generating JVM Bytecode.
 * [RPNX::Compress](https://gitlab.com/rpnx/compress) -  Dependency of RPNX::Cortado.
 

@@ -23,7 +23,6 @@ find_package(mimalloc CONFIG REQUIRED)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 
-find_package(RPNXCow REQUIRED)
 find_package(benchmark REQUIRED)
 
 
@@ -727,7 +726,7 @@ list(APPEND QUXLANG_SOURCES sources/compiler_querygraph_01.cpp
         include/quxlang/data/functum_types.hpp
         include/quxlang/data/symbol_functum_types.hpp
         include/quxlang/data/tempar_types.hpp)
-target_link_libraries(quxlang-headers INTERFACE RPNX::cow RPNX::datastructures RPNX::querygraph RPNX::metalib)
+target_link_libraries(quxlang-headers INTERFACE RPNX::datastructures RPNX::querygraph RPNX::metalib)
 
 # Distribute sources between archives to stay below the COFF archive size limit.
 set(QUXLANG_HEADER_SOURCES ${QUXLANG_SOURCES})
