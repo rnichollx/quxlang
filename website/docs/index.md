@@ -35,7 +35,7 @@ representation, which makes translation relatively trivial.
 
 ## Other Links
 
-- [Code Repository](https://github.com/rnichollx/quxlang)
+- [Code Repository](https://github.com/quxlang/quxlang)
 - [Quxlang Blog](https://quxlang.blog/)
 
 ## Website Content
