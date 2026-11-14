@@ -131,6 +131,13 @@ PRIVATE(MODULE)
         @event event<-, @maximum 1, @timeout -1);
       IF (ready == -4) { CONTINUE; }
       IF (ready != 1) { PANIC "Cannot wait for an epoll completion."; }
+      VAR bits SZ := event.data[0];
+      STATIC_IF(BITS(SZ) == 64) { bits := bits #|| ((event.data[1] AS SZ) #++ 32); }
+      IF (bits != 0)
+      {
+        complete_native_operation(@request async_request_at(@address (NULL AS ADDRESS) + bits), @size 0, @error 0);
+        RETURN TRUE;
+      }
       VAR token U64;
       VAR bytes MUT=>>BYTE := IBC_PUN#(MUT=>>BYTE)(@ADDR IBC_GETADDR(@PTR token<-));
       state.mutex.lock();

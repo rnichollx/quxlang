@@ -1,0 +1,39 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::windows INCLUDE_IF(OS_WINDOWS) NAMESPACE
+{
+  DOC <$ Matches the Windows GUID ABI used to identify Winsock extension functions. $>
+  ::socket_extension_identifier IBC_STRUCT
+  {
+    .first VAR U32;
+    .second VAR U16;
+    .third VAR U16;
+    .data VAR [8]U8;
+  }
+
+  DOC <$ Queries or controls a Windows socket through WSAIoctl. $>
+  ::socket_control EXTERN_PROCEDURE["ws2_32":"WSAIoctl"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @code U32, @input ADDRESS, @input_size U32,
+      @output ADDRESS, @output_size U32, @transferred MUT->U32, @overlapped MUT->overlapped,
+      @completion ADDRESS; RETURN I32);
+
+  DOC <$ Invokes the provider-specific ConnectEx entry point using its Windows ABI. $>
+  ::connect_extended ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @destination CONST->socket_address_storage, @length I32,
+      @buffer ADDRESS, @size U32, @transferred MUT->U32, @overlapped MUT->overlapped,
+      @entry ADDRESS; RETURN I32)
+  {
+    MOV RAX, [RSP+64]
+    JMP RAX
+  }
+
+  DOC <$ Invokes the provider-specific AcceptEx entry point using its Windows ABI. $>
+  ::accept_extended ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@listener UINTPTR, @accepted UINTPTR, @buffer ADDRESS, @size U32,
+      @local_size U32, @remote_size U32, @transferred MUT->U32, @overlapped MUT->overlapped,
+      @entry ADDRESS; RETURN I32)
+  {
+    MOV RAX, [RSP+72]
+    JMP RAX
+  }
+}

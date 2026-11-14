@@ -1,0 +1,330 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT io;
+IMPORT std;
+IMPORT syscall;
+
+PRIVATE(MODULE)
+{
+  DOC <$ Identifies the native socket operation and its completion contract. $>
+  ::socket_operation_kind ENUM [connect, accept, read, write, send, receive];
+
+  DOC <$ Owns the state of one socket operation until its runtime publishes completion. $>
+  ::socket_operation TEMPLATE(@kind VALUE socket_operation_kind) STRUCT MOVE_ONLY
+  {
+    DOC <$ Identifies the connect result type. $>
+    ::value_type INCLUDE_IF(kind == socket_operation_kind::connect) ALIAS VOID;
+    DOC <$ Identifies the accept result type. $>
+    ::value_type INCLUDE_IF(kind == socket_operation_kind::accept) ALIAS tcp_connection;
+    DOC <$ Identifies the read result type. $>
+    ::value_type INCLUDE_IF(kind == socket_operation_kind::read) ALIAS SZ;
+    DOC <$ Identifies the write result type. $>
+    ::value_type INCLUDE_IF(kind == socket_operation_kind::write) ALIAS SZ;
+    DOC <$ Identifies the send result type. $>
+    ::value_type INCLUDE_IF(kind == socket_operation_kind::send) ALIAS SZ;
+    DOC <$ Identifies the receive result type. $>
+    ::value_type INCLUDE_IF(kind == socket_operation_kind::receive) ALIAS datagram_result;
+    .handle VAR native_socket_ref;
+    .endpoint INCLUDE_IF(kind == socket_operation_kind::connect) VAR endpoint;
+    .destination INCLUDE_IF(kind == socket_operation_kind::send) VAR endpoint;
+    .buffer INCLUDE_IF(kind != socket_operation_kind::connect && kind != socket_operation_kind::accept) VAR io::buffer_ref;
+    .value INCLUDE_IF(kind != socket_operation_kind::connect) VAR std::optional#value_type;
+
+    .linux_endpoint INCLUDE_IF(OS_LINUX && io::linux_use_io_uring && (kind == socket_operation_kind::connect || kind == socket_operation_kind::send || kind == socket_operation_kind::receive)) VAR encoded_endpoint;
+    .linux_vector INCLUDE_IF(OS_LINUX && io::linux_use_io_uring && (kind == socket_operation_kind::send || kind == socket_operation_kind::receive)) VAR syscall::datagram_vector;
+    .linux_message INCLUDE_IF(OS_LINUX && io::linux_use_io_uring && (kind == socket_operation_kind::send || kind == socket_operation_kind::receive)) VAR syscall::datagram_message;
+    .linux_scratch INCLUDE_IF(OS_LINUX && io::linux_use_io_uring && kind == socket_operation_kind::receive) VAR [1]BYTE;
+
+    DOC <$ Submits native socket transport directly to the runtime's io_uring. $>
+    .start INCLUDE_IF(OS_LINUX && io::linux_use_io_uring) FUNCTION(@submission CONST& io::async_submission_ref) MUT: BOOL
+    {
+      IF (.handle == invalid_socket_handle()) { THROW error::closed; }
+      VAR entry syscall::linux::io_uring_submission_entry;
+      entry.descriptor := .handle;
+      STATIC_IF(kind == socket_operation_kind::connect)
+      {
+        .linux_endpoint := encode_socket_endpoint(@endpoint .endpoint);
+        entry.opcode := 16;
+        entry.address.value := IBC_GETADDR(@PTR .linux_endpoint.address<-);
+        entry.offset := .linux_endpoint.length AS U64;
+      }
+      STATIC_IF(kind == socket_operation_kind::accept)
+      {
+        entry.opcode := 13;
+        entry.operation_flags := 526336;
+      }
+      STATIC_IF(kind == socket_operation_kind::read || kind == socket_operation_kind::write)
+      {
+        IF (.buffer.size == 0) { .value.emplace(@OTHER 0 AS SZ); RETURN TRUE; }
+        entry.opcode := 27;
+        STATIC_IF(kind == socket_operation_kind::write) { entry.opcode := 26; entry.operation_flags := 16384; }
+        entry.address.value := IBC_GETADDR(@PTR .buffer.data);
+        entry.length := socket_transfer_size(@size .buffer.size);
+      }
+      STATIC_IF(kind == socket_operation_kind::send || kind == socket_operation_kind::receive)
+      {
+        .linux_vector.address := IBC_GETADDR(@PTR .buffer.data);
+        .linux_vector.length := socket_transfer_size(@size .buffer.size) AS SZ;
+        .linux_message.name := IBC_GETADDR(@PTR .linux_endpoint.address<-);
+        .linux_message.vectors := IBC_GETADDR(@PTR .linux_vector<-);
+        .linux_message.vector_count := 1;
+        .linux_message.flags := 0;
+        entry.address.value := IBC_GETADDR(@PTR .linux_message<-);
+        entry.length := 1;
+        STATIC_IF(kind == socket_operation_kind::send)
+        {
+          IF (.buffer.size > 2147483647) { THROW error::message_too_large; }
+          .linux_endpoint := encode_socket_endpoint(@endpoint .destination);
+          .linux_message.name_length := .linux_endpoint.length;
+          entry.opcode := 9;
+          entry.operation_flags := 16384;
+        }
+        STATIC_ELSE
+        {
+          IF (.buffer.size == 0)
+          {
+            .linux_vector.address := IBC_GETADDR(@PTR .linux_scratch[&0]);
+            .linux_vector.length := 1;
+          }
+          .linux_message.name_length := 128;
+          entry.opcode := 10;
+        }
+      }
+      submission.submit(@entry entry);
+      RETURN FALSE;
+    }
+
+    DOC <$ Converts a completed io_uring socket result into the operation's portable value. $>
+    .complete INCLUDE_IF(OS_LINUX && io::linux_use_io_uring)
+      FUNCTION(@submission CONST& io::async_submission_ref, @size SZ, @error U32) MUT: BOOL
+    {
+      STATIC_IF(kind != socket_operation_kind::connect)
+      { IF (error == 4) { RETURN .start(@submission submission); } }
+      IF (error != 0) { THROW translate_socket_error(@code error AS I64); }
+      STATIC_IF(kind == socket_operation_kind::accept)
+      {
+        .value.emplace(@reference tcp_connection_ref(@handle size AS CHECKED I32));
+      }
+      STATIC_IF(kind == socket_operation_kind::read || kind == socket_operation_kind::write || kind == socket_operation_kind::send)
+      { .value.emplace(@OTHER size); }
+      STATIC_IF(kind == socket_operation_kind::receive)
+      {
+        VAR result datagram_result;
+        result.size := size;
+        result.truncated := (.linux_message.flags #&& 32) != 0 || size > .buffer.size;
+        IF (result.size > .buffer.size) { result.size := .buffer.size; }
+        .linux_endpoint.length := .linux_message.name_length;
+        result.source := decode_socket_endpoint(@encoded .linux_endpoint);
+        .value.emplace(@OTHER result);
+      }
+      RETURN TRUE;
+    }
+
+    .native_transferred INCLUDE_IF(OS_WINDOWS) VAR U32;
+    .native_buffer INCLUDE_IF(OS_WINDOWS && kind != socket_operation_kind::connect && kind != socket_operation_kind::accept) VAR syscall::windows::socket_buffer;
+    .native_endpoint INCLUDE_IF(OS_WINDOWS && (kind == socket_operation_kind::connect || kind == socket_operation_kind::send || kind == socket_operation_kind::receive)) VAR encoded_endpoint;
+    .native_length INCLUDE_IF(OS_WINDOWS && kind == socket_operation_kind::receive) VAR I32;
+    .native_flags INCLUDE_IF(OS_WINDOWS && (kind == socket_operation_kind::read || kind == socket_operation_kind::receive)) VAR U32;
+    .scratch INCLUDE_IF(OS_WINDOWS && kind == socket_operation_kind::receive) VAR [1]BYTE;
+    .accepted INCLUDE_IF(OS_WINDOWS && kind == socket_operation_kind::accept) VAR tcp_connection;
+    .accept_addresses INCLUDE_IF(OS_WINDOWS && kind == socket_operation_kind::accept) VAR [288]BYTE;
+
+    DOC <$ Starts overlapped socket I/O whose completion is delivered to the runtime's IOCP. $>
+    .start INCLUDE_IF(OS_WINDOWS) FUNCTION(@submission CONST& io::async_submission_ref) MUT: BOOL
+    {
+      IF (.handle == invalid_socket_handle()) { THROW error::closed; }
+      STATIC_IF(kind == socket_operation_kind::read || kind == socket_operation_kind::write)
+      {
+        IF (.buffer.size == 0) { .value.emplace(@OTHER 0 AS SZ); RETURN TRUE; }
+      }
+      submission.associate(@handle (NULL AS ADDRESS) + (.handle AS SZ));
+      VAR status I32;
+      STATIC_IF(kind == socket_operation_kind::connect)
+      {
+        // ConnectEx requires a local binding. Preserve explicitly bound endpoints.
+        VAR local endpoint;
+        VAR bound BOOL;
+        TRY { local := socket_local_endpoint(@handle .handle); bound := local.port != 0; }
+        CATCH failure CONST& error { IF (failure != error::invalid_argument) { RETHROW; } }
+        IF (bound == FALSE)
+        {
+          IF (.endpoint.address ISA ipv6_address) { local.address := ip_address(@OTHER ipv6_address()); }
+          bind_socket(@handle .handle, @endpoint local);
+        }
+        .native_endpoint := encode_socket_endpoint(@endpoint .endpoint);
+        VAR entry ADDRESS := socket_extension#(@accepting FALSE)(@handle .handle);
+        status := syscall::windows::connect_extended(@socket .handle,
+          @destination .native_endpoint.address<-, @length .native_endpoint.length AS CHECKED I32,
+          @buffer NULL, @size 0, @transferred .native_transferred<-, @overlapped submission.overlapped(), @entry entry);
+        IF (status != 0) { RETURN FALSE; }
+      }
+      STATIC_ELSE STATIC_IF(kind == socket_operation_kind::accept)
+      {
+        VAR local endpoint := socket_local_endpoint(@handle .handle);
+        .accepted := tcp_connection(@address local.address);
+        VAR entry ADDRESS := socket_extension#(@accepting TRUE)(@handle .handle);
+        status := syscall::windows::accept_extended(@listener .handle, @accepted .accepted.reference().handle,
+          @buffer IBC_GETADDR(@PTR .accept_addresses[&0]), @size 0, @local_size 144, @remote_size 144,
+          @transferred .native_transferred<-, @overlapped submission.overlapped(), @entry entry);
+        IF (status != 0) { RETURN FALSE; }
+      }
+      STATIC_ELSE
+      {
+        .native_buffer.data := IBC_GETADDR(@PTR .buffer.data);
+        .native_buffer.length := socket_transfer_size(@size .buffer.size);
+        STATIC_IF(kind == socket_operation_kind::read)
+        {
+          status := syscall::windows::socket_receive(@socket .handle, @buffers .native_buffer<-, @count 1,
+            @transferred .native_transferred<-, @flags .native_flags<-, @overlapped submission.overlapped(), @completion NULL);
+        }
+        STATIC_IF(kind == socket_operation_kind::write)
+        {
+          status := syscall::windows::socket_send(@socket .handle, @buffers .native_buffer<-, @count 1,
+            @transferred .native_transferred<-, @flags 0, @overlapped submission.overlapped(), @completion NULL);
+        }
+        STATIC_IF(kind == socket_operation_kind::send)
+        {
+          IF (.buffer.size > 2147483647) { THROW error::message_too_large; }
+          .native_endpoint := encode_socket_endpoint(@endpoint .destination);
+          status := syscall::windows::socket_send_to(@socket .handle, @buffers .native_buffer<-, @count 1,
+            @transferred .native_transferred<-, @flags 0, @destination .native_endpoint.address<-,
+            @length .native_endpoint.length AS CHECKED I32, @overlapped submission.overlapped(), @completion NULL);
+        }
+        STATIC_IF(kind == socket_operation_kind::receive)
+        {
+          IF (.buffer.size == 0)
+          {
+            .native_buffer.data := IBC_GETADDR(@PTR .scratch[&0]);
+            .native_buffer.length := 1;
+          }
+          .native_length := 128;
+          status := syscall::windows::socket_receive_from(@socket .handle, @buffers .native_buffer<-, @count 1,
+            @transferred .native_transferred<-, @flags .native_flags<-, @source .native_endpoint.address<-,
+            @length .native_length<-, @overlapped submission.overlapped(), @completion NULL);
+        }
+        IF (status == 0) { RETURN FALSE; }
+      }
+      VAR failure I32 := syscall::windows::socket_last_error();
+      IF (failure == 997) { RETURN FALSE; }
+      STATIC_IF(kind == socket_operation_kind::receive)
+      {
+        IF (failure == 10040)
+        { RETURN .complete(@submission submission, @size .native_buffer.length AS SZ, @error 10040); }
+      }
+      THROW translate_socket_error(@code failure AS I64);
+    }
+
+    DOC <$ Publishes the result of completed overlapped transport and applies connection context updates. $>
+    .complete INCLUDE_IF(OS_WINDOWS) FUNCTION(@submission CONST& io::async_submission_ref, @size SZ, @error U32) MUT: BOOL
+    {
+      STATIC_IF(kind == socket_operation_kind::receive)
+      {
+        IF (error != 0 && error != 10040 && error != 234) { THROW translate_socket_error(@code error AS I64); }
+        VAR result datagram_result;
+        result.size := size;
+        result.truncated := error != 0 || size > .buffer.size || (.native_flags #&& 32768) != 0;
+        IF (error != 0) { result.size := .native_buffer.length AS SZ; }
+        IF (result.size > .buffer.size) { result.size := .buffer.size; }
+        .native_endpoint.length := .native_length AS CHECKED U32;
+        result.source := decode_socket_endpoint(@encoded .native_endpoint);
+        .value.emplace(@OTHER result);
+      }
+      STATIC_ELSE
+      {
+        IF (error != 0) { THROW translate_socket_error(@code error AS I64); }
+        STATIC_IF(kind == socket_operation_kind::connect)
+        {
+          IF (syscall::windows::set_socket_option(@socket .handle, @level 65535, @option 28688, @value NULL, @length 0) != 0)
+          { THROW translate_socket_error(@code syscall::windows::socket_last_error() AS I64); }
+        }
+        STATIC_ELSE STATIC_IF(kind == socket_operation_kind::accept)
+        {
+          IF (syscall::windows::set_socket_option(@socket .accepted.reference().handle, @level 65535, @option 28683,
+            @value IBC_GETADDR(@PTR .handle<-), @length SIZEOF(native_socket_ref) AS CHECKED I32) != 0)
+          { THROW translate_socket_error(@code syscall::windows::socket_last_error() AS I64); }
+          VAR accepted MUT& tcp_connection := .accepted;
+          .value.emplace(@OTHER MOVE(accepted));
+        }
+        STATIC_ELSE { .value.emplace(@OTHER size); }
+      }
+      RETURN TRUE;
+    }
+
+    DOC <$ Executes one transport attempt without waiting for readiness on POSIX systems. $>
+    .attempt FUNCTION() MUT
+    {
+      STATIC_IF(kind == socket_operation_kind::connect) { connect_socket(@handle .handle, @endpoint .endpoint); }
+      STATIC_IF(kind == socket_operation_kind::accept) { .value.emplace(@OTHER accept_socket(@handle .handle)); }
+      STATIC_IF(kind == socket_operation_kind::read) { .value.emplace(@OTHER transfer_socket#(@writing FALSE)(@handle .handle, @buffer .buffer)); }
+      STATIC_IF(kind == socket_operation_kind::write) { .value.emplace(@OTHER transfer_socket#(@writing TRUE)(@handle .handle, @buffer .buffer)); }
+      STATIC_IF(kind == socket_operation_kind::send) { .value.emplace(@OTHER send_datagram(@handle .handle, @buffer .buffer, @destination .destination)); }
+      STATIC_IF(kind == socket_operation_kind::receive) { .value.emplace(@OTHER receive_datagram(@handle .handle, @buffer .buffer)); }
+    }
+
+    DOC <$ Returns the completed operation's value and transfers accepted-socket ownership. $>
+    .result FUNCTION() MUT: value_type
+    {
+      STATIC_IF(kind == socket_operation_kind::connect) { RETURN; }
+      STATIC_ELSE { VAR value MUT& value_type := .value.value(); RETURN MOVE(value); }
+    }
+
+    DOC <$ Performs the synchronous API operation, waiting on the calling thread when transport is not ready. $>
+    .OPERATOR() FUNCTION() MUT: value_type
+    {
+      LOOP DO
+      {
+        TRY { .attempt(); RETURN .result(); }
+        CATCH failure CONST& error
+        {
+          STATIC_IF(OS_WINDOWS) { RETHROW; }
+          STATIC_ELSE
+          {
+            IF (failure != error::would_block) { RETHROW; }
+            wait_socket(@handle .handle, @writing kind == socket_operation_kind::connect || kind == socket_operation_kind::write || kind == socket_operation_kind::send);
+            STATIC_IF(kind == socket_operation_kind::connect) { finish_socket_connect(@handle .handle); RETURN; }
+          }
+        }
+      };
+    }
+
+    DOC <$ Starts a nonblocking POSIX attempt and registers native readiness when necessary. $>
+    .start INCLUDE_IF(OS_MACOS || (OS_LINUX && io::linux_use_io_uring == FALSE)) FUNCTION(@submission CONST& io::async_submission_ref) MUT: BOOL
+    {
+      TRY { .attempt(); RETURN TRUE; }
+      CATCH failure CONST& error
+      {
+        IF (failure != error::would_block) { RETHROW; }
+      }
+      submission.wait(@descriptor .handle,
+        @writing kind == socket_operation_kind::connect || kind == socket_operation_kind::write || kind == socket_operation_kind::send);
+      RETURN FALSE;
+    }
+
+    DOC <$ Consumes readiness and retries nonblocking transport, rearming after spurious readiness. $>
+    .complete INCLUDE_IF(OS_MACOS || (OS_LINUX && io::linux_use_io_uring == FALSE)) FUNCTION(@submission CONST& io::async_submission_ref, @size SZ, @error U32) MUT: BOOL
+    {
+      IF (error != 0) { THROW translate_socket_error(@code error AS I64); }
+      STATIC_IF(kind == socket_operation_kind::connect) { finish_socket_connect(@handle .handle); RETURN TRUE; }
+      STATIC_ELSE { RETURN .start(@submission submission); }
+    }
+  }
+
+  DOC <$ Stores one connect operation for native runtime submission. $>
+  ::connect_operation ALIAS socket_operation#(@kind socket_operation_kind::connect);
+
+  DOC <$ Stores one accept operation for native runtime submission. $>
+  ::accept_operation ALIAS socket_operation#(@kind socket_operation_kind::accept);
+
+  DOC <$ Stores one read operation for native runtime submission. $>
+  ::read_operation ALIAS socket_operation#(@kind socket_operation_kind::read);
+
+  DOC <$ Stores one write operation for native runtime submission. $>
+  ::write_operation ALIAS socket_operation#(@kind socket_operation_kind::write);
+
+  DOC <$ Stores one send operation for native runtime submission. $>
+  ::send_operation ALIAS socket_operation#(@kind socket_operation_kind::send);
+
+  DOC <$ Stores one receive operation for native runtime submission. $>
+  ::receive_operation ALIAS socket_operation#(@kind socket_operation_kind::receive);
+
+}

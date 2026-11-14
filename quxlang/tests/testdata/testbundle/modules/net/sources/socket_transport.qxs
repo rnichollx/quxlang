@@ -1,0 +1,752 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+IMPORT io;
+IMPORT syscall;
+
+PRIVATE(MODULE)
+{
+  DOC <$ The translate_socket_error function translates the target's socket error numbers into portable categories. $>
+  ::translate_socket_error FUNCTION(@code I64): error
+  {
+    STATIC_IF(OS_LINUX)
+    {
+      IF (code == 9)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 13)
+      {
+        RETURN error::permission_denied;
+      }
+      IF (code == 98)
+      {
+        RETURN error::address_in_use;
+      }
+      IF (code == 99)
+      {
+        RETURN error::address_unavailable;
+      }
+      IF (code == 111)
+      {
+        RETURN error::connection_refused;
+      }
+      IF (code == 104)
+      {
+        RETURN error::connection_reset;
+      }
+      IF (code == 103)
+      {
+        RETURN error::connection_aborted;
+      }
+      IF (code == 101)
+      {
+        RETURN error::network_unreachable;
+      }
+      IF (code == 110)
+      {
+        RETURN error::timed_out;
+      }
+      IF (code == 11)
+      {
+        RETURN error::would_block;
+      }
+      IF (code == 4)
+      {
+        RETURN error::interrupted;
+      }
+      IF (code == 24)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 90)
+      {
+        RETURN error::message_too_large;
+      }
+      IF (code == 22)
+      {
+        RETURN error::invalid_argument;
+      }
+      IF (code == 95)
+      {
+        RETURN error::unsupported;
+      }
+      IF (code == 12)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 23)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 105)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 32)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 107)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 97)
+      {
+        RETURN error::unsupported;
+      }
+      IF (code == 113)
+      {
+        RETURN error::network_unreachable;
+      }
+    }
+    STATIC_IF(OS_MACOS)
+    {
+      IF (code == 9)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 13)
+      {
+        RETURN error::permission_denied;
+      }
+      IF (code == 48)
+      {
+        RETURN error::address_in_use;
+      }
+      IF (code == 49)
+      {
+        RETURN error::address_unavailable;
+      }
+      IF (code == 61)
+      {
+        RETURN error::connection_refused;
+      }
+      IF (code == 54)
+      {
+        RETURN error::connection_reset;
+      }
+      IF (code == 53)
+      {
+        RETURN error::connection_aborted;
+      }
+      IF (code == 51)
+      {
+        RETURN error::network_unreachable;
+      }
+      IF (code == 60)
+      {
+        RETURN error::timed_out;
+      }
+      IF (code == 35)
+      {
+        RETURN error::would_block;
+      }
+      IF (code == 4)
+      {
+        RETURN error::interrupted;
+      }
+      IF (code == 24)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 40)
+      {
+        RETURN error::message_too_large;
+      }
+      IF (code == 22)
+      {
+        RETURN error::invalid_argument;
+      }
+      IF (code == 45)
+      {
+        RETURN error::unsupported;
+      }
+      IF (code == 12)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 23)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 55)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 32)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 57)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 47)
+      {
+        RETURN error::unsupported;
+      }
+      IF (code == 65)
+      {
+        RETURN error::network_unreachable;
+      }
+    }
+    STATIC_IF(OS_WINDOWS)
+    {
+      IF (code == 64) { RETURN error::connection_reset; }
+      IF (code == 995 || code == 1236) { RETURN error::connection_aborted; }
+      IF (code == 1231 || code == 1232) { RETURN error::network_unreachable; }
+      IF (code == 1225) { RETURN error::connection_refused; }
+      IF (code == 121 || code == 1460) { RETURN error::timed_out; }
+      IF (code == 6 || code == 109) { RETURN error::closed; }
+      IF (code == 5) { RETURN error::permission_denied; }
+      IF (code == 8 || code == 1450) { RETURN error::resource_limit; }
+      // Every open socket retains Winsock initialization. An uninitialized
+      // subsystem therefore identifies a reference with no open socket.
+      IF (code == 10093)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 10038)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 10013)
+      {
+        RETURN error::permission_denied;
+      }
+      IF (code == 10048)
+      {
+        RETURN error::address_in_use;
+      }
+      IF (code == 10049)
+      {
+        RETURN error::address_unavailable;
+      }
+      IF (code == 10061)
+      {
+        RETURN error::connection_refused;
+      }
+      IF (code == 10054)
+      {
+        RETURN error::connection_reset;
+      }
+      IF (code == 10053)
+      {
+        RETURN error::connection_aborted;
+      }
+      IF (code == 10051)
+      {
+        RETURN error::network_unreachable;
+      }
+      IF (code == 10060)
+      {
+        RETURN error::timed_out;
+      }
+      IF (code == 10035)
+      {
+        RETURN error::would_block;
+      }
+      IF (code == 10004)
+      {
+        RETURN error::interrupted;
+      }
+      IF (code == 10024)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 10040)
+      {
+        RETURN error::message_too_large;
+      }
+      IF (code == 10022)
+      {
+        RETURN error::invalid_argument;
+      }
+      IF (code == 10045)
+      {
+        RETURN error::unsupported;
+      }
+      IF (code == 10055)
+      {
+        RETURN error::resource_limit;
+      }
+      IF (code == 10058)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 10057)
+      {
+        RETURN error::closed;
+      }
+      IF (code == 10047)
+      {
+        RETURN error::unsupported;
+      }
+      IF (code == 10065)
+      {
+        RETURN error::network_unreachable;
+      }
+    }
+    RETURN error::system_failure;
+  }
+
+  DOC <$ The socket_failure_code function returns a failing native call's positive error number. $>
+  ::socket_failure_code FUNCTION(@status I64): I64
+  {
+    STATIC_IF(OS_LINUX)
+    {
+      RETURN 0 - status;
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      RETURN syscall::macos::errno_location()-> AS I64;
+    }
+    STATIC_ELSE
+    {
+      RETURN syscall::windows::socket_last_error() AS I64;
+    }
+  }
+
+  DOC <$ The socket_kind type identifies a socket's transport contract. $>
+  ::socket_kind ENUM [connection, listener, datagram];
+
+  DOC <$ The invalid_socket_handle function returns the target's invalid socket value. $>
+  ::invalid_socket_handle FUNCTION(): native_socket_ref
+  {
+    STATIC_IF(OS_WINDOWS)
+    {
+      RETURN (0 AS UINTPTR) #!!;
+    }
+    STATIC_ELSE
+    {
+      RETURN -1;
+    }
+  }
+
+  DOC <$ The create_socket function creates a non-inheritable socket with nonblocking POSIX transport and suppresses SIGPIPE on Darwin. Each Windows socket owns one Winsock startup reference. $>
+  ::create_socket FUNCTION(@address CONST& ip_address, @kind socket_kind): native_socket_ref
+  {
+    VAR family I32 := native_address_family(@address address);
+    VAR protocol I32 := 6;
+    VAR native_kind I32 := 1;
+    IF (kind == socket_kind::datagram)
+    {
+      protocol := 17; native_kind := 2;
+    }
+    VAR handle native_socket_ref := invalid_socket_handle();
+    STATIC_IF(OS_WINDOWS)
+    {
+      VAR startup [64]U64;
+      VAR code I32 := syscall::windows::socket_startup(@version 514, @data IBC_GETADDR(@PTR startup[&0]));
+      IF (code != 0)
+      {
+        THROW translate_socket_error(@code code AS I64);
+      }
+      handle := syscall::windows::socket(@family family, @kind native_kind, @protocol protocol,
+        @information NULL, @group 0, @flags 129);
+      IF (handle == invalid_socket_handle())
+      {
+        VAR failure error := translate_socket_error(@code syscall::windows::socket_last_error() AS I64);
+        syscall::windows::socket_cleanup();
+        THROW failure;
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_LINUX)
+    {
+      handle := syscall::linux::socket(@family family, @kind native_kind #|| 526336, @protocol protocol);
+      IF (handle < 0)
+      {
+        THROW translate_socket_error(@code 0 - (handle AS I64));
+      }
+    }
+    STATIC_ELSE
+    {
+      handle := syscall::macos::socket(@family family, @kind native_kind, @protocol protocol);
+      IF (handle < 0)
+      {
+        THROW translate_socket_error(@code syscall::macos::errno_location()-> AS I64);
+      }
+      VAR ready BOOL;
+      DEFER
+      {
+        IF (ready == FALSE)
+        {
+          close_native_socket(@handle handle);
+        }
+      }
+      IF (syscall::macos::fcntl(@socket handle, @command 2, @argument 1) < 0)
+      {
+        THROW translate_socket_error(@code syscall::macos::errno_location()-> AS I64);
+      }
+      IF (syscall::macos::fcntl(@socket handle, @command 4, @argument 4) < 0)
+      { THROW translate_socket_error(@code syscall::macos::errno_location()-> AS I64); }
+      VAR code I64 := set_socket_integer_option(@handle handle, @level 65535, @option 4130, @value 1);
+      IF (code != 0)
+      {
+        THROW translate_socket_error(@code code);
+      }
+      ready := TRUE;
+    }
+    RETURN handle;
+  }
+
+  DOC <$ The connect_socket function starts a TCP connection. Failed connections retain their closing obligation. $>
+  ::connect_socket FUNCTION(@handle native_socket_ref, @endpoint CONST& endpoint)
+  {
+    VAR destination encoded_endpoint := encode_socket_endpoint(@endpoint endpoint);
+    VAR status I32;
+    STATIC_IF(OS_LINUX)
+    {
+      status := syscall::linux::connect(@socket handle, @address destination.address<-, @length destination.length);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      status := syscall::macos::connect(@socket handle, @address destination.address<-, @length destination.length);
+    }
+    STATIC_ELSE
+    {
+      status := syscall::windows::connect(@socket handle, @address destination.address<-, @length destination.length AS CHECKED I32);
+    }
+    IF (status != 0)
+    {
+      VAR code I64 := socket_failure_code(@status status AS I64);
+      STATIC_IF(OS_LINUX) { IF (code == 115 || code == 4) { THROW error::would_block; } }
+      STATIC_IF(OS_MACOS) { IF (code == 36 || code == 4) { THROW error::would_block; } }
+      THROW translate_socket_error(@code code);
+    }
+  }
+
+  DOC <$ The listen_socket function places a bound TCP socket into the listening state. $>
+  ::listen_socket FUNCTION(@handle native_socket_ref, @backlog I32)
+  {
+    IF (backlog <= 0)
+    {
+      THROW error::invalid_argument;
+    }
+    VAR status I32;
+    STATIC_IF(OS_LINUX)
+    {
+      status := syscall::linux::listen(@socket handle, @backlog backlog);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      status := syscall::macos::listen(@socket handle, @backlog backlog);
+    }
+    STATIC_ELSE
+    {
+      status := syscall::windows::listen(@socket handle, @backlog backlog);
+    }
+    IF (status != 0)
+    {
+      THROW translate_socket_error(@code socket_failure_code(@status status AS I64));
+    }
+  }
+
+  DOC <$ The accept_socket function accepts one connection and configures its closing and signal policy. $>
+  ::accept_socket FUNCTION(@handle native_socket_ref): tcp_connection
+  {
+    VAR accepted native_socket_ref := invalid_socket_handle();
+    STATIC_IF(OS_LINUX)
+    {
+      accepted := syscall::linux::accept(@socket handle, @address NULL, @length NULL, @flags 526336);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      accepted := syscall::macos::accept(@socket handle, @address NULL, @length NULL);
+    }
+    STATIC_ELSE
+    {
+      accepted := syscall::windows::accept(@socket handle, @address NULL, @length NULL);
+    }
+    STATIC_IF(OS_WINDOWS)
+    {
+      IF (accepted == invalid_socket_handle())
+      {
+        THROW translate_socket_error(@code syscall::windows::socket_last_error() AS I64);
+      }
+    }
+    STATIC_ELSE
+    {
+      IF (accepted < 0)
+      {
+        THROW translate_socket_error(@code socket_failure_code(@status accepted AS I64));
+      }
+    }
+    STATIC_IF(OS_WINDOWS)
+    {
+      VAR startup [64]U64;
+      VAR code I32 := syscall::windows::socket_startup(@version 514, @data IBC_GETADDR(@PTR startup[&0]));
+      IF (code != 0)
+      {
+        syscall::windows::socket_close(@socket accepted);
+        THROW translate_socket_error(@code code AS I64);
+      }
+    }
+    VAR connection tcp_connection :(@reference tcp_connection_ref(@handle accepted));
+    STATIC_IF(OS_MACOS)
+    {
+      IF (syscall::macos::fcntl(@socket accepted, @command 2, @argument 1) < 0)
+      {
+        THROW translate_socket_error(@code syscall::macos::errno_location()-> AS I64);
+      }
+      IF (syscall::macos::fcntl(@socket accepted, @command 4, @argument 4) < 0)
+      { THROW translate_socket_error(@code syscall::macos::errno_location()-> AS I64); }
+      VAR code I64 := set_socket_integer_option(@handle accepted, @level 65535, @option 4130, @value 1);
+      IF (code != 0)
+      {
+        THROW translate_socket_error(@code code);
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_WINDOWS)
+    {
+      IF (syscall::windows::set_handle_information(@handle (NULL AS ADDRESS) + (accepted AS SZ), @mask 1, @flags 0) == 0)
+      {
+        THROW error::system_failure;
+      }
+    }
+    RETURN MOVE(connection);
+  }
+
+  DOC <$ The shutdown_socket function disables the selected TCP directions without releasing the socket. $>
+  ::shutdown_socket FUNCTION(@handle native_socket_ref, @direction shutdown_direction)
+  {
+    VAR native_direction I32;
+    IF (direction == shutdown_direction::send)
+    {
+      native_direction := 1;
+    }
+    ELSE IF (direction == shutdown_direction::both)
+    {
+      native_direction := 2;
+    }
+    VAR status I32;
+    STATIC_IF(OS_LINUX)
+    {
+      status := syscall::linux::shutdown(@socket handle, @direction native_direction);
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      status := syscall::macos::shutdown(@socket handle, @direction native_direction);
+    }
+    STATIC_ELSE
+    {
+      status := syscall::windows::shutdown(@socket handle, @direction native_direction);
+    }
+    IF (status != 0)
+    {
+      THROW translate_socket_error(@code socket_failure_code(@status status AS I64));
+    }
+  }
+
+  DOC <$ The transfer_socket function transfers one TCP prefix. Empty requests return zero; a zero-byte read of a nonempty request denotes orderly EOF. Interrupted calls retry before publishing an outcome. $>
+  ::transfer_socket TEMPLATE(@writing VALUE BOOL)
+    FUNCTION(@handle native_socket_ref, @buffer CONST& io::buffer_ref): SZ
+  {
+    IF (buffer.size == 0)
+    {
+      RETURN 0;
+    }
+    LOOP WHILE(TRUE) DO
+    {
+      VAR transferred syscall::signed_byte_count;
+      STATIC_IF(OS_WINDOWS)
+      {
+        VAR native_buffer syscall::windows::socket_buffer;
+        native_buffer.data := IBC_GETADDR(@PTR buffer.data);
+        native_buffer.length := socket_transfer_size(@size buffer.size);
+        VAR size U32;
+        VAR status I32;
+        STATIC_IF(writing)
+        {
+          status := syscall::windows::socket_send(@socket handle, @buffers native_buffer<-, @count 1,
+            @transferred size<-, @flags 0, @overlapped NULL, @completion NULL);
+        }
+        STATIC_ELSE
+        {
+          VAR flags U32;
+          status := syscall::windows::socket_receive(@socket handle, @buffers native_buffer<-, @count 1,
+            @transferred size<-, @flags flags<-, @overlapped NULL, @completion NULL);
+        }
+        IF (status == 0)
+        {
+          RETURN size AS SZ;
+        }
+        transferred := -1;
+      }
+      STATIC_ELSE STATIC_IF(OS_LINUX)
+      {
+        STATIC_IF(writing)
+        {
+          transferred := syscall::linux::send_to(@socket handle, @buffer buffer.data, @count socket_transfer_size(@size buffer.size) AS SZ,
+            @flags 16384, @address NULL, @length 0);
+        }
+        STATIC_ELSE
+        {
+          transferred := syscall::linux::receive_from(@socket handle, @buffer buffer.data, @count socket_transfer_size(@size buffer.size) AS SZ,
+            @flags 0, @address NULL, @length NULL);
+        }
+      }
+      STATIC_ELSE
+      {
+        STATIC_IF(writing)
+        {
+          transferred := syscall::macos::send(@socket handle, @buffer buffer.data, @count socket_transfer_size(@size buffer.size) AS SZ, @flags 0);
+        }
+        STATIC_ELSE
+        {
+          transferred := syscall::macos::receive(@socket handle, @buffer buffer.data, @count socket_transfer_size(@size buffer.size) AS SZ, @flags 0);
+        }
+      }
+      IF (transferred >= 0)
+      {
+        RETURN transferred AS CHECKED SZ;
+      }
+      VAR failure error := translate_socket_error(@code socket_failure_code(@status transferred AS I64));
+      IF (failure != error::interrupted)
+      {
+        THROW failure;
+      }
+    };
+  }
+
+  DOC <$ The send_datagram function sends one complete UDP message. Oversized messages fail before transmission. $>
+  ::send_datagram FUNCTION(@handle native_socket_ref, @buffer CONST& io::buffer_ref, @destination CONST& endpoint): SZ
+  {
+    IF (buffer.size > 2147483647)
+    {
+      THROW error::message_too_large;
+    }
+    VAR encoded encoded_endpoint := encode_socket_endpoint(@endpoint destination);
+    LOOP WHILE(TRUE) DO
+    {
+      VAR transferred syscall::signed_byte_count;
+      STATIC_IF(OS_WINDOWS)
+      {
+        VAR native_buffer syscall::windows::socket_buffer;
+        native_buffer.data := IBC_GETADDR(@PTR buffer.data);
+        native_buffer.length := buffer.size AS CHECKED U32;
+        VAR size U32;
+        VAR status I32 := syscall::windows::socket_send_to(@socket handle, @buffers native_buffer<-, @count 1,
+          @transferred size<-, @flags 0, @destination encoded.address<-, @length encoded.length AS CHECKED I32,
+          @overlapped NULL, @completion NULL);
+        IF (status == 0)
+        {
+          RETURN size AS SZ;
+        }
+        transferred := -1;
+      }
+      STATIC_ELSE STATIC_IF(OS_LINUX)
+      {
+        transferred := syscall::linux::send_to(@socket handle, @buffer buffer.data, @count buffer.size, @flags 16384,
+          @address encoded.address<-, @length encoded.length);
+      }
+      STATIC_ELSE
+      {
+        transferred := syscall::macos::send_to(@socket handle, @buffer buffer.data, @count buffer.size, @flags 0,
+          @destination encoded.address<-, @length encoded.length);
+      }
+      IF (transferred >= 0)
+      {
+        RETURN transferred AS CHECKED SZ;
+      }
+      VAR failure error := translate_socket_error(@code socket_failure_code(@status transferred AS I64));
+      IF (failure != error::interrupted)
+      {
+        THROW failure;
+      }
+    };
+  }
+
+  DOC <$ The receive_datagram function consumes one UDP message and reports its source and truncation status. $>
+  ::receive_datagram FUNCTION(@handle native_socket_ref, @buffer CONST& io::buffer_ref): datagram_result
+  {
+    // A nonempty native destination consumes messages even when the public
+    // buffer is empty. The copied byte distinguishes empty messages from loss.
+    VAR scratch [1]BYTE;
+    VAR receive_buffer io::buffer_ref := buffer;
+    IF (buffer.size == 0)
+    {
+      receive_buffer := io::buffer_ref(@data scratch[&0], @size 1);
+    }
+    LOOP WHILE(TRUE) DO
+    {
+      VAR source encoded_endpoint;
+      source.length := 128;
+      VAR result datagram_result;
+      VAR transferred syscall::signed_byte_count;
+      STATIC_IF(OS_WINDOWS)
+      {
+        VAR native_buffer syscall::windows::socket_buffer;
+        native_buffer.data := IBC_GETADDR(@PTR receive_buffer.data);
+        native_buffer.length := socket_transfer_size(@size receive_buffer.size);
+        VAR size U32;
+        VAR flags U32;
+        VAR length I32 := 128;
+        VAR status I32 := syscall::windows::socket_receive_from(@socket handle, @buffers native_buffer<-, @count 1,
+          @transferred size<-, @flags flags<-, @source source.address<-, @length length<-, @overlapped NULL, @completion NULL);
+        source.length := length AS CHECKED U32;
+        IF (status == 0 || syscall::windows::socket_last_error() == 10040)
+        {
+          IF (status != 0)
+          {
+            size := native_buffer.length;
+          }
+          result.size := size AS SZ;
+          result.truncated := status != 0 || result.size > buffer.size;
+          IF (result.size > buffer.size)
+          {
+            result.size := buffer.size;
+          }
+          result.source := decode_socket_endpoint(@encoded source);
+          RETURN result;
+        }
+        transferred := -1;
+      }
+      STATIC_ELSE
+      {
+        VAR vector syscall::datagram_vector;
+        vector.address := IBC_GETADDR(@PTR receive_buffer.data);
+        vector.length := socket_transfer_size(@size receive_buffer.size) AS SZ;
+        VAR message syscall::datagram_message;
+        message.name := IBC_GETADDR(@PTR source.address<-);
+        message.name_length := 128;
+        message.vectors := IBC_GETADDR(@PTR vector<-);
+        message.vector_count := 1;
+        STATIC_IF(OS_LINUX)
+        {
+          transferred := syscall::linux::receive_message(@socket handle, @message message<-, @flags 0);
+        }
+        STATIC_ELSE
+        {
+          transferred := syscall::macos::receive_message(@socket handle, @message message<-, @flags 0);
+        }
+        IF (transferred >= 0)
+        {
+          result.size := transferred AS CHECKED SZ;
+          source.length := message.name_length;
+          result.source := decode_socket_endpoint(@encoded source);
+          STATIC_IF(OS_LINUX)
+          {
+            result.truncated := (message.flags #&& 32) != 0;
+          }
+          STATIC_ELSE
+          {
+            result.truncated := (message.flags #&& 16) != 0;
+          }
+          result.truncated := result.truncated || result.size > buffer.size;
+          IF (result.size > buffer.size)
+          {
+            result.size := buffer.size;
+          }
+          RETURN result;
+        }
+      }
+      VAR failure error := translate_socket_error(@code socket_failure_code(@status transferred AS I64));
+      IF (failure != error::interrupted)
+      {
+        THROW failure;
+      }
+    };
+  }
+}

@@ -9,8 +9,9 @@ DOC <$
   initialization_failed denotes an unavailable native completion queue.
   resource_release_failed denotes a failed native queue close or unmap.
   worker_stop_failed denotes a failed submission of a worker-stop notification.
+  submission_failed denotes a rejected native operation registration.
   $>
-::async_error ENUM [initialization_failed, resource_release_failed, worker_stop_failed];
+::async_error ENUM [initialization_failed, resource_release_failed, worker_stop_failed, submission_failed];
 
 
 PRIVATE(MODULE)
@@ -57,6 +58,10 @@ PRIVATE(MODULE)
     // OVERLAPPED must remain first so an IOCP completion pointer identifies
     // the enclosing request without storing a non-event value in hEvent.
     .windows_overlapped INCLUDE_IF(OS_WINDOWS) VAR syscall::windows::overlapped;
+    .native_storage VAR TYPED_STORAGE(native_operation);
+    .native VAR MUT->native_operation;
+    .submission_mutex VAR std::ordering_mutex;
+    .readiness_descriptor INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE) VAR std::optional#I32;
     .callback_storage VAR TYPED_STORAGE(async_completion);
     .callback VAR MUT->async_completion;
     .file_control VAR MUT->async_file_control;
@@ -64,7 +69,7 @@ PRIVATE(MODULE)
     .buffer VAR buffer_ref;
     .completion_next INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE) VAR MUT->async_request;
     .completion_result INCLUDE_IF(OS_LINUX && linux_use_io_uring == FALSE) VAR transfer_result;
-    .macos_control INCLUDE_IF(OS_MACOS) VAR macos_async_control_block;
+    .macos_control INCLUDE_IF(OS_MACOS) VAR syscall::macos::async_control_block;
   }
 
   DOC <$
@@ -131,6 +136,18 @@ PRIVATE(MODULE)
     RETURN request;
   }
 
+  DOC <$ Releases a completed request and wakes context drain waiters. $>
+  ::retire_async_request FUNCTION(@request MUT->async_request)
+  {
+    VAR control MUT->async_context_control := request->.context_control;
+    DELETE request;
+    control->.drain_mutex.lock();
+    VAR context_outstanding SZ := control->.outstanding.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
+    ASSERT(context_outstanding != 0, "Async context outstanding-operation count underflow.");
+    IF (context_outstanding == 1) { control->.drain_condition.notify_all(); }
+    control->.drain_mutex.unlock();
+  }
+
   DOC <$
     Delivers one completion, releases its erased callable, and frees request state.
     $>
@@ -153,17 +170,7 @@ PRIVATE(MODULE)
     (request->.callback->)(@result result);
     DESTROY AT(request->.callback_storage) async_completion;
 
-    request->.context_control->.drain_mutex.lock();
-    VAR context_outstanding SZ :=
-      request->.context_control->.outstanding.FETCH_SUBTRACT#ATOMIC_ACQREL(1);
-    ASSERT(context_outstanding != 0, "Async context outstanding-operation count underflow.");
-    request->.context_control->.drain_mutex.unlock();
-    IF (context_outstanding == 1)
-    {
-      request->.context_control->.drain_condition.notify_all();
-    }
-
-    DELETE request;
+    retire_async_request(@request request);
   }
 
 }
@@ -270,6 +277,44 @@ DOC <$
         shutdown_async_context(@control .control);
       }
     }
+  }
+
+  DOC <$ Owns an operation at a stable address until its native completion. The operation supplies start, complete, result, and value_type. $>
+  .submit FUNCTION(@operation AUTO& AUTO(operation_type)): std::future#(operation_type::value_type)
+  {
+    ASSERT(.valid(), "Cannot submit to an unavailable async context.");
+    VAR invocation native_invocation#operation_type :(@operation FORWARD(operation));
+    VAR result := invocation.producer.get_future();
+    VAR request MUT->async_request := NEW async_request;
+    VAR initialized BOOL;
+    DEFER { IF (initialized == FALSE) { DELETE request; } }
+    request->.native := PLACE AT(request->.native_storage) native_operation := MOVE(invocation);
+    request->.context_control := .control;
+    .control->.drain_mutex.lock();
+    .control->.outstanding.ADD#ATOMIC_ACQREL(1);
+    .control->.drain_mutex.unlock();
+    initialized := TRUE;
+    VAR submission async_submission_ref :(@request request);
+    request->.submission_mutex.lock();
+    VAR complete BOOL := request->.native->.start(@submission submission);
+    request->.submission_mutex.unlock();
+    IF (complete)
+    {
+      DESTROY AT(request->.native_storage) native_operation;
+      retire_async_request(@request request);
+    }
+    RETURN MOVE(result);
+  }
+
+  DOC <$ Waits until every submitted operation and callback has finished. External submissions stop before this call. $>
+  .drain FUNCTION()
+  {
+    .control->.drain_mutex.lock();
+    LOOP WHILE (.control->.outstanding.LOAD#ATOMIC_ACQUIRE() != 0) DO
+    {
+      .control->.drain_condition.wait(@locked_mutex .control->.drain_mutex);
+    }
+    .control->.drain_mutex.unlock();
   }
 
   DOC <$ Submits a positioned read on a borrowed descriptor. The descriptor and buffer remain valid until callback returns. Windows descriptors must support overlapped I/O and belong to this completion port. $>

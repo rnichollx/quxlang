@@ -1,0 +1,142 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::linux INCLUDE_IF(OS_LINUX) NAMESPACE
+{
+  DOC <$ Updates or queries descriptor flags. $>
+  ::fcntl ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@socket I32, @command I32, @argument I32; RETURN I32)
+  {
+    MOV RAX, 72
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Updates or queries descriptor flags. $>
+  ::fcntl ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@socket I32, @command I32, @argument I32; RETURN I32)
+  {
+    PUSH EBX
+    MOV EBX, [ESP+8]
+    MOV ECX, [ESP+12]
+    MOV EDX, [ESP+16]
+    MOV EAX, 55
+    INT 0x80
+    POP EBX
+    RET
+  }
+
+  DOC <$ Updates or queries descriptor flags. $>
+  ::fcntl ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@socket I32, @command I32, @argument I32; RETURN I32)
+  {
+    MOV X8, 25
+    SVC 0
+    RET
+  }
+
+  DOC <$ Updates or queries descriptor flags. $>
+  ::fcntl ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@socket I32, @command I32, @argument I32; RETURN I32)
+  {
+    LGHI %r1, 55
+    SVC 0
+    BR %r14
+  }
+
+  DOC <$ Reads a socket integer option. $>
+  ::get_socket_option ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@socket I32, @level I32, @option I32, @value MUT->I32, @length MUT->U32; RETURN I32)
+  {
+    MOV R10, RCX
+    MOV RAX, 55
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Reads a socket integer option. $>
+  ::get_socket_option ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@socket I32, @level I32, @option I32, @value MUT->I32, @length MUT->U32; RETURN I32)
+  {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
+    MOV EBX, [ESP+16]
+    MOV ECX, [ESP+20]
+    MOV EDX, [ESP+24]
+    MOV ESI, [ESP+28]
+    MOV EDI, [ESP+32]
+    MOV EAX, 365
+    INT 0x80
+    POP EDI
+    POP ESI
+    POP EBX
+    RET
+  }
+
+  DOC <$ Reads a socket integer option. $>
+  ::get_socket_option ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@socket I32, @level I32, @option I32, @value MUT->I32, @length MUT->U32; RETURN I32)
+  {
+    MOV X8, 209
+    SVC 0
+    RET
+  }
+
+  DOC <$ Reads a socket integer option. $>
+  ::get_socket_option ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@socket I32, @level I32, @option I32, @value MUT->I32, @length MUT->U32; RETURN I32)
+  {
+    LGHI %r1, 365
+    SVC 0
+    BR %r14
+  }
+
+  DOC <$ Waits for descriptor readiness with an optional timeout and signal mask. $>
+  ::ppoll ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@descriptors MUT->poll_descriptor, @count SZ, @timeout ADDRESS, @signal_mask ADDRESS, @signal_size SZ; RETURN I32)
+  {
+    MOV R10, RCX
+    MOV RAX, 271
+    SYSCALL
+    RET
+  }
+
+  DOC <$ Waits for descriptor readiness with an optional timeout and signal mask. $>
+  ::ppoll ASM_PROCEDURE X86
+    CALLABLE CALLCONV CCALL(@descriptors MUT->poll_descriptor, @count SZ, @timeout ADDRESS, @signal_mask ADDRESS, @signal_size SZ; RETURN I32)
+  {
+    PUSH EBX
+    PUSH ESI
+    PUSH EDI
+    MOV EBX, [ESP+16]
+    MOV ECX, [ESP+20]
+    MOV EDX, [ESP+24]
+    MOV ESI, [ESP+28]
+    MOV EDI, [ESP+32]
+    MOV EAX, 309
+    INT 0x80
+    POP EDI
+    POP ESI
+    POP EBX
+    RET
+  }
+
+  DOC <$ Waits for descriptor readiness with an optional timeout and signal mask. $>
+  ::ppoll ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@descriptors MUT->poll_descriptor, @count SZ, @timeout ADDRESS, @signal_mask ADDRESS, @signal_size SZ; RETURN I32)
+  {
+    MOV X8, 73
+    SVC 0
+    RET
+  }
+
+  DOC <$ Waits for descriptor readiness with an optional timeout and signal mask. $>
+  ::ppoll ASM_PROCEDURE Z_ARCH
+    CALLABLE CALLCONV CCALL(@descriptors MUT->poll_descriptor, @count SZ, @timeout ADDRESS, @signal_mask ADDRESS, @signal_size SZ; RETURN I32)
+  {
+    LGHI %r1, 302
+    SVC 0
+    BR %r14
+  }
+
+}

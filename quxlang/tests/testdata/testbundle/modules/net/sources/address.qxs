@@ -1,0 +1,37 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ The ipv4_address type stores four IPv4 address bytes in network order. $>
+::ipv4_address STRUCT
+{
+  .data VAR [4]U8;
+}
+
+DOC <$ The ipv6_address type stores sixteen IPv6 address bytes in network order. $>
+::ipv6_address STRUCT
+{
+  .data VAR [16]U8;
+}
+
+DOC <$ The ip_address type contains an IPv4 or IPv6 address selected by its active alternative type. $>
+::ip_address INLINE_VARIANT [ipv4_address DEFAULT, ipv6_address];
+
+DOC <$ The endpoint type identifies an IP address, a host-order port, and an IPv6 interface scope. Port zero requests an ephemeral local port during binding. $>
+::endpoint STRUCT
+{
+  .address VAR ip_address;
+  .port VAR U16;
+  .scope_id VAR U32;
+}
+
+DOC <$ The error type identifies portable socket failures. Native error numbers are translated at the platform boundary. $>
+::error ENUM [invalid_argument, closed, permission_denied, address_in_use, address_unavailable,
+  connection_refused, connection_reset, connection_aborted, network_unreachable, timed_out,
+  would_block, interrupted, resource_limit, message_too_large, unsupported, system_failure];
+
+DOC <$ The datagram_result type reports one received datagram. Empty datagrams succeed with size zero. Truncated datagrams consume the entire message and report the copied prefix. $>
+::datagram_result STRUCT
+{
+  .size VAR SZ;
+  .source VAR endpoint;
+  .truncated VAR BOOL;
+}

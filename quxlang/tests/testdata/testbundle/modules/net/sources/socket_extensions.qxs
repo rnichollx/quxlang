@@ -1,0 +1,33 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+PRIVATE(MODULE)
+{
+  DOC <$ Retrieves the socket provider's AcceptEx or ConnectEx entry point. $>
+  ::socket_extension INCLUDE_IF(OS_WINDOWS) TEMPLATE(@accepting VALUE BOOL)
+    FUNCTION(@handle native_socket_ref): ADDRESS
+  {
+    VAR identifier syscall::windows::socket_extension_identifier;
+    STATIC_IF(accepting)
+    {
+      identifier.first := 3040247281; identifier.second := 52140; identifier.third := 4559;
+      identifier.data[0] := 149; identifier.data[1] := 202; identifier.data[2] := 0; identifier.data[3] := 128;
+      identifier.data[4] := 95; identifier.data[5] := 72; identifier.data[6] := 161; identifier.data[7] := 146;
+    }
+    STATIC_ELSE
+    {
+      identifier.first := 631375801; identifier.second := 56819; identifier.third := 18016;
+      identifier.data[0] := 142; identifier.data[1] := 233; identifier.data[2] := 118; identifier.data[3] := 229;
+      identifier.data[4] := 140; identifier.data[5] := 116; identifier.data[6] := 6; identifier.data[7] := 62;
+    }
+    VAR entry ADDRESS;
+    VAR transferred U32;
+    IF (syscall::windows::socket_control(@socket handle, @code 3355443206,
+      @input IBC_GETADDR(@PTR identifier<-), @input_size 16,
+      @output IBC_GETADDR(@PTR entry<-), @output_size SIZEOF(ADDRESS) AS CHECKED U32,
+      @transferred transferred<-, @overlapped NULL, @completion NULL) != 0)
+    { THROW translate_socket_error(@code syscall::windows::socket_last_error() AS I64); }
+    RETURN entry;
+  }
+}

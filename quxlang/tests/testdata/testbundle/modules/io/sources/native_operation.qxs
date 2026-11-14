@@ -1,0 +1,172 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+IMPORT syscall;
+
+DOC <$ Provides one stable operation's access to its owning native completion queue. Instances are valid until that operation completes. $>
+::async_submission_ref STRUCT
+{
+  PRIVATE(MODULE)
+  {
+    .request VAR MUT->async_request;
+    DOC <$ References one live native request. $>
+    .CONSTRUCTOR FUNCTION(@request MUT->async_request) { .request := request; }
+  }
+
+  DOC <$ Submits an io_uring entry with this operation's completion identity. Kernel-referenced storage remains alive until completion. $>
+  .submit INCLUDE_IF(OS_LINUX && linux_use_io_uring)
+    FUNCTION(@entry syscall::linux::io_uring_submission_entry) CONST
+  {
+    entry.user_data.value := async_request_address(@request .request);
+    IF (submit_linux_io_uring_entry(@state .request->.context_control->.linux, @entry entry) == FALSE)
+    { THROW async_error::submission_failed; }
+  }
+
+  DOC <$ Registers one readiness notification. The descriptor remains valid until completion. One read and one write may be pending per descriptor. Failure throws async_error::submission_failed. $>
+  .wait INCLUDE_IF(OS_LINUX || OS_MACOS) FUNCTION(@descriptor I32, @writing BOOL) CONST
+  {
+    STATIC_IF(OS_LINUX && linux_use_io_uring)
+    {
+      VAR entry syscall::linux::io_uring_submission_entry;
+      entry.opcode := 6;
+      entry.descriptor := descriptor;
+      entry.operation_flags := 1;
+      IF (writing) { entry.operation_flags := 4; }
+      STATIC_IF(ARCH_IS_Z_ARCH) { entry.operation_flags := entry.operation_flags #++ 16; }
+      entry.user_data.value := async_request_address(@request .request);
+      IF (submit_linux_io_uring_entry(@state .request->.context_control->.linux, @entry entry) == FALSE)
+      { THROW async_error::submission_failed; }
+    }
+    STATIC_ELSE STATIC_IF(OS_LINUX)
+    {
+      // Distinct descriptors allow simultaneous read and write registrations.
+      VAR duplicate I32 := syscall::linux::fcntl(@socket descriptor, @command 1030, @argument 0);
+      IF (duplicate < 0) { THROW async_error::submission_failed; }
+      VAR registered BOOL;
+      DEFER { IF (registered == FALSE) { syscall::linux::close(@fd duplicate); } }
+      VAR event syscall::linux::epoll_event;
+      event.events := 1073741825;
+      IF (writing) { event.events := 1073741828; }
+      VAR address ADDRESS := async_request_address(@request .request);
+      VAR bits SZ := address - (NULL AS ADDRESS);
+      STATIC_IF(BITS(SZ) == 64)
+      {
+        event.data[0] := bits AS PARTIAL U32;
+        event.data[1] := (bits #-- 32) AS CHECKED U32;
+      }
+      STATIC_ELSE { event.data[0] := bits; }
+      .request->.readiness_descriptor.emplace(duplicate);
+      IF (syscall::linux::epoll_ctl(@queue .request->.context_control->.linux.queue.reference().descriptor.native_handle(),
+        @operation 1, @descriptor duplicate, @event event<-) != 0)
+      { .request->.readiness_descriptor.reset(); THROW async_error::submission_failed; }
+      registered := TRUE;
+    }
+    STATIC_ELSE
+    {
+      VAR change syscall::macos::kernel_event;
+      change.identifier := descriptor AS CHECKED U64;
+      change.filter := -1;
+      IF (writing) { change.filter := -2; }
+      change.flags := 17;
+      change.user_data := async_request_address(@request .request);
+      LOOP DO
+      {
+        VAR status I32 := syscall::macos::kevent64(@queue_descriptor .request->.context_control->.macos.queue_descriptor,
+          @change_list change<-, @change_count 1, @event_list NULL, @event_count 0, @flags 0, @timeout NULL);
+        IF (status == 0) { RETURN; }
+        IF (syscall::macos::errno_location()-> != 4) { THROW async_error::submission_failed; }
+      };
+    }
+  }
+
+  DOC <$ Associates a native overlapped handle with this operation's completion port. $>
+  .associate INCLUDE_IF(OS_WINDOWS) FUNCTION(@handle ADDRESS) CONST
+  {
+    IF (associate_windows_async_file(@state .request->.context_control->.windows,
+      @descriptor io_descriptor_ref(@native_handle handle)) == FALSE)
+    { THROW async_error::submission_failed; }
+  }
+
+  DOC <$ Returns the stable OVERLAPPED address whose completion identifies this operation. $>
+  .overlapped INCLUDE_IF(OS_WINDOWS) FUNCTION() CONST: MUT->syscall::windows::overlapped
+  {
+    RETURN .request->.windows_overlapped<-;
+  }
+}
+
+PRIVATE(MODULE)
+{
+  DOC <$ Erases an owned native operation while preserving its submission and completion protocols. TRUE denotes completion; FALSE denotes a registered native request. $>
+  ::native_operation GENERIC MOVE_ONLY INCOMPARABLE
+  {
+    DOC <$ Starts one operation and reports whether it completed immediately. $>
+    .start FUNCTION(@submission CONST& async_submission_ref) MUT: BOOL;
+    DOC <$ Processes one notification and reports whether the operation is complete. $>
+    .complete FUNCTION(@submission CONST& async_submission_ref, @size SZ, @error U32) MUT: BOOL;
+  }
+
+  DOC <$ Owns one native operation and publishes its value or exception exactly once. $>
+  ::native_invocation TEMPLATE(@T:operation_type TYPE AUTO) STRUCT MOVE_ONLY
+  {
+    .operation VAR operation_type;
+    .producer VAR std::promise#(operation_type::value_type);
+
+    DOC <$ Moves an operation into completion-owned storage. $>
+    .CONSTRUCTOR FUNCTION(@operation AUTO& operation_type) :> .operation:(@OTHER FORWARD(operation)) {}
+
+    DOC <$ Publishes the operation's completed result. $>
+    .publish FUNCTION() MUT
+    {
+      STATIC_IF(SAME_TYPES(operation_type::value_type, VOID))
+      { .operation.result(); .producer.set_value(); }
+      STATIC_ELSE { .producer.set_value(@value .operation.result()); }
+    }
+
+    DOC <$ Starts the operation and captures immediate failures in its future. $>
+    .start FUNCTION(@submission CONST& async_submission_ref) MUT: BOOL
+    {
+      TRY
+      {
+        IF (.operation.start(@submission submission) == FALSE) { RETURN FALSE; }
+        .publish();
+      }
+      CATCH DEFAULT { .producer.set_exception(@error CURRENT_EXCEPTION()); }
+      RETURN TRUE;
+    }
+
+    DOC <$ Processes one native notification, including readiness retries, and publishes final completion. $>
+    .complete FUNCTION(@submission CONST& async_submission_ref, @size SZ, @error U32) MUT: BOOL
+    {
+      TRY
+      {
+        IF (.operation.complete(@submission submission, @size size, @error error) == FALSE) { RETURN FALSE; }
+        .publish();
+      }
+      CATCH DEFAULT { .producer.set_exception(@error CURRENT_EXCEPTION()); }
+      RETURN TRUE;
+    }
+  }
+
+  DOC <$ Serializes native completion against submission and retires the operation after its final notification. $>
+  ::complete_native_operation FUNCTION(@request MUT->async_request, @size SZ, @error U32)
+  {
+    request->.submission_mutex.lock();
+    STATIC_IF(OS_LINUX && linux_use_io_uring == FALSE)
+    {
+      VAR descriptor I32 := request->.readiness_descriptor.value();
+      VAR status I32 := syscall::linux::epoll_ctl(@queue request->.context_control->.linux.queue.reference().descriptor.native_handle(),
+        @operation 2, @descriptor descriptor, @event NULL);
+      IF (status != 0) { PANIC "Cannot remove completed readiness registration."; }
+      syscall::linux::close(@fd descriptor);
+      request->.readiness_descriptor.reset();
+    }
+    VAR submission async_submission_ref :(@request request);
+    VAR complete BOOL := request->.native->.complete(@submission submission, @size size, @error error);
+    request->.submission_mutex.unlock();
+    IF (complete)
+    {
+      DESTROY AT(request->.native_storage) native_operation;
+      retire_async_request(@request request);
+    }
+  }
+}

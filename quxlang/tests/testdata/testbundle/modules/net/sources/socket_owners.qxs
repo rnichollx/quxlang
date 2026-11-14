@@ -1,0 +1,208 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT io;
+IMPORT std;
+
+PRIVATE(MODULE)
+{
+  DOC <$ The socket_owner type owns one socket reference. Move operations transfer the closing obligation. The resource and any referenced buffer storage outlive asynchronous operations. Destruction closes the owned socket once. $>
+  ::socket_owner TEMPLATE(@kind VALUE socket_kind) STRUCT MOVE_ONLY
+  {
+    PRIVATE(CLASS)
+    {
+      .native_ref VAR socket_reference#(@kind kind);
+    }
+    DOC <$ The constructor creates a closed owner. $>
+    .CONSTRUCTOR FUNCTION()
+    {
+    }
+    DOC <$ The constructor creates a socket for the selected address version. $>
+    .CONSTRUCTOR FUNCTION(@address CONST& ip_address)
+    {
+      .native_ref := socket_reference#(@kind kind)(@handle create_socket(@address address, @kind kind));
+    }
+    DOC <$ The constructor adopts the reference's exclusive closing obligation. $>
+    .CONSTRUCTOR FUNCTION(@reference socket_reference#(@kind kind))
+    {
+      .native_ref := reference;
+    }
+    DOC <$ The constructor transfers ownership and leaves OTHER closed. $>
+    .CONSTRUCTOR FUNCTION(@OTHER TEMP& socket_owner#(@kind kind))
+    {
+      .native_ref := OTHER.release();
+    }
+    DOC <$ The assignment operator closes the owned socket and transfers ownership. Self-move preserves the resource. $>
+    .OPERATOR:= FUNCTION(@OTHER TEMP& socket_owner#(@kind kind)) MUT
+    {
+      VAR incoming socket_reference#(@kind kind) := OTHER.release();
+      .close();
+      .native_ref := incoming;
+    }
+    DOC <$ The destructor closes the resource. All pending operations must have completed before destruction. $>
+    .DESTRUCTOR FUNCTION()
+    {
+      .close();
+    }
+    DOC <$ The reference function returns a reference without transferring the closing obligation. $>
+    .reference FUNCTION() CONST: socket_reference#(@kind kind)
+    {
+      RETURN .native_ref;
+    }
+    DOC <$ The is_open function reports whether this owner contains a socket. $>
+    .is_open FUNCTION() CONST: BOOL
+    {
+      RETURN .native_ref.is_valid();
+    }
+    DOC <$ The release function transfers the closing obligation to the caller and leaves this owner closed. $>
+    .release FUNCTION() MUT: socket_reference#(@kind kind)
+    {
+      VAR previous socket_reference#(@kind kind) := .native_ref;
+      .native_ref := socket_reference#(@kind kind)();
+      RETURN previous;
+    }
+    DOC <$ The close function relinquishes ownership and closes the socket. Failed closes are not retried. $>
+    .close FUNCTION() MUT: BOOL
+    {
+      VAR previous socket_reference#(@kind kind) := .release();
+      RETURN previous.close();
+    }
+    DOC <$ The local_endpoint function returns the local address and port through the owned reference. $>
+    .local_endpoint FUNCTION() CONST: endpoint
+    {
+      RETURN .native_ref.local_endpoint();
+    }
+    DOC <$ The bind function binds the owned socket to a local endpoint. $>
+    .bind FUNCTION(@endpoint CONST& endpoint) CONST
+    {
+      .native_ref.bind(@endpoint endpoint);
+    }
+    DOC <$ The listen function starts accepting connections on a bound listener. $>
+    .listen INCLUDE_IF(kind == socket_kind::listener) FUNCTION(@backlog I32 DEFAULT(128)) CONST
+    {
+      .native_ref.listen(@backlog backlog);
+    }
+    DOC <$ The shutdown function disables the selected connection directions through the owned reference. $>
+    .shutdown INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@direction shutdown_direction) CONST
+    {
+      .native_ref.shutdown(@direction direction);
+    }
+
+    DOC <$ The connect function executes a connect operation through the owned socket reference. $>
+    .connect INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@endpoint CONST& endpoint) CONST: VOID
+    {
+      .native_ref.connect(@endpoint endpoint);
+    }
+
+    DOC <$ The async_connect function executes a connect operation through the owned socket reference. The socket outlives completion. $>
+    .async_connect INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@runtime MUT& io::async_runtime, @endpoint CONST& endpoint) CONST: std::future#VOID
+    {
+      RETURN .native_ref.async_connect(@runtime runtime, @endpoint endpoint);
+    }
+
+    DOC <$ The connect coroutine executes a connect operation through the owned socket reference. The socket outlives completion. $>
+    .connect INCLUDE_IF(kind == socket_kind::connection) COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @endpoint CONST& endpoint) CONST: VOID
+    {
+      .native_ref.connect(@endpoint endpoint);
+    }
+
+    DOC <$ The accept function executes an accept operation through the owned socket reference. $>
+    .accept INCLUDE_IF(kind == socket_kind::listener) FUNCTION() CONST: tcp_connection
+    {
+      RETURN .native_ref.accept();
+    }
+
+    DOC <$ The async_accept function executes an accept operation through the owned socket reference. The socket outlives completion. $>
+    .async_accept INCLUDE_IF(kind == socket_kind::listener) FUNCTION(@runtime MUT& io::async_runtime) CONST: std::future#tcp_connection
+    {
+      RETURN .native_ref.async_accept(@runtime runtime);
+    }
+
+    DOC <$ The accept coroutine executes an accept operation through the owned socket reference. The socket outlives completion. $>
+    .accept INCLUDE_IF(kind == socket_kind::listener) COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type)) CONST: tcp_connection
+    {
+      RETURN .native_ref.accept();
+    }
+
+    DOC <$ The read function executes a read operation through the owned socket reference. $>
+    .read INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@buffer CONST& io::buffer_ref) CONST: SZ
+    {
+      RETURN .native_ref.read(@buffer buffer);
+    }
+
+    DOC <$ The async_read function executes a read operation through the owned socket reference. The socket outlives completion. $>
+    .async_read INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@runtime MUT& io::async_runtime, @buffer CONST& io::buffer_ref) CONST: std::future#SZ
+    {
+      RETURN .native_ref.async_read(@runtime runtime, @buffer buffer);
+    }
+
+    DOC <$ The read coroutine executes a read operation through the owned socket reference. The socket outlives completion. $>
+    .read INCLUDE_IF(kind == socket_kind::connection) COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @buffer CONST& io::buffer_ref) CONST: SZ
+    {
+      RETURN .native_ref.read(@buffer buffer);
+    }
+
+    DOC <$ The write function executes a write operation through the owned socket reference. $>
+    .write INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@buffer CONST& io::buffer_ref) CONST: SZ
+    {
+      RETURN .native_ref.write(@buffer buffer);
+    }
+
+    DOC <$ The async_write function executes a write operation through the owned socket reference. The socket outlives completion. $>
+    .async_write INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@runtime MUT& io::async_runtime, @buffer CONST& io::buffer_ref) CONST: std::future#SZ
+    {
+      RETURN .native_ref.async_write(@runtime runtime, @buffer buffer);
+    }
+
+    DOC <$ The write coroutine executes a write operation through the owned socket reference. The socket outlives completion. $>
+    .write INCLUDE_IF(kind == socket_kind::connection) COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @buffer CONST& io::buffer_ref) CONST: SZ
+    {
+      RETURN .native_ref.write(@buffer buffer);
+    }
+
+    DOC <$ The send function executes a send operation through the owned socket reference. $>
+    .send INCLUDE_IF(kind == socket_kind::datagram) FUNCTION(@buffer CONST& io::buffer_ref, @destination CONST& endpoint) CONST: SZ
+    {
+      RETURN .native_ref.send(@buffer buffer, @destination destination);
+    }
+
+    DOC <$ The async_send function executes a send operation through the owned socket reference. The socket outlives completion. $>
+    .async_send INCLUDE_IF(kind == socket_kind::datagram) FUNCTION(@runtime MUT& io::async_runtime, @buffer CONST& io::buffer_ref, @destination CONST& endpoint) CONST: std::future#SZ
+    {
+      RETURN .native_ref.async_send(@runtime runtime, @buffer buffer, @destination destination);
+    }
+
+    DOC <$ The send coroutine executes a send operation through the owned socket reference. The socket outlives completion. $>
+    .send INCLUDE_IF(kind == socket_kind::datagram) COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @buffer CONST& io::buffer_ref, @destination CONST& endpoint) CONST: SZ
+    {
+      RETURN .native_ref.send(@buffer buffer, @destination destination);
+    }
+
+    DOC <$ The receive function executes a receive operation through the owned socket reference. $>
+    .receive INCLUDE_IF(kind == socket_kind::datagram) FUNCTION(@buffer CONST& io::buffer_ref) CONST: datagram_result
+    {
+      RETURN .native_ref.receive(@buffer buffer);
+    }
+
+    DOC <$ The async_receive function executes a receive operation through the owned socket reference. The socket outlives completion. $>
+    .async_receive INCLUDE_IF(kind == socket_kind::datagram) FUNCTION(@runtime MUT& io::async_runtime, @buffer CONST& io::buffer_ref) CONST: std::future#datagram_result
+    {
+      RETURN .native_ref.async_receive(@runtime runtime, @buffer buffer);
+    }
+
+    DOC <$ The receive coroutine executes a receive operation through the owned socket reference. The socket outlives completion. $>
+    .receive INCLUDE_IF(kind == socket_kind::datagram) COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @buffer CONST& io::buffer_ref) CONST: datagram_result
+    {
+      RETURN .native_ref.receive(@buffer buffer);
+    }
+  }
+}
+
+DOC <$ The tcp_connection type automatically manages the lifetime of a tcp connection. $>
+::tcp_connection ALIAS socket_owner#(@kind socket_kind::connection);
+
+DOC <$ The tcp_listener type automatically manages the lifetime of a tcp listener. $>
+::tcp_listener ALIAS socket_owner#(@kind socket_kind::listener);
+
+DOC <$ The udp_session type automatically manages the lifetime of a udp session. $>
+::udp_session ALIAS socket_owner#(@kind socket_kind::datagram);
+

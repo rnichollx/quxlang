@@ -1,0 +1,104 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::macos INCLUDE_IF(OS_MACOS) NAMESPACE
+{
+  DOC <$ The socket procedure binds the Darwin socket socket interface. $>
+  ::socket
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"socket"]
+    CALLABLE CALLCONV CCALL(@family I32, @kind I32, @protocol I32; RETURN I32);
+
+  DOC <$ The bind procedure binds the Darwin bind socket interface. $>
+  ::bind
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"bind"]
+    CALLABLE CALLCONV CCALL(@socket I32, @address CONST->socket_address_storage, @length U32; RETURN I32);
+
+  DOC <$ The connect procedure binds the Darwin connect socket interface. $>
+  ::connect
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"connect"]
+    CALLABLE CALLCONV CCALL(@socket I32, @address CONST->socket_address_storage, @length U32; RETURN I32);
+
+  DOC <$ The listen procedure binds the Darwin listen socket interface. $>
+  ::listen
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"listen"]
+    CALLABLE CALLCONV CCALL(@socket I32, @backlog I32; RETURN I32);
+
+  DOC <$ The accept procedure binds the Darwin accept socket interface. $>
+  ::accept
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"accept"]
+    CALLABLE CALLCONV CCALL(@socket I32, @address MUT->socket_address_storage, @length MUT->U32; RETURN I32);
+
+  DOC <$ The socket_name procedure binds the Darwin getsockname socket interface. $>
+  ::socket_name
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"getsockname"]
+    CALLABLE CALLCONV CCALL(@socket I32, @address MUT->socket_address_storage, @length MUT->U32; RETURN I32);
+
+  DOC <$ The set_socket_option procedure binds the Darwin setsockopt socket interface. $>
+  ::set_socket_option
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"setsockopt"]
+    CALLABLE CALLCONV CCALL(@socket I32, @level I32, @option I32, @value CONST->I32, @length U32; RETURN I32);
+
+  DOC <$ The receive procedure binds the Darwin recv socket interface. $>
+  ::receive
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"recv"]
+    CALLABLE CALLCONV CCALL(@socket I32, @buffer MUT=>>BYTE, @count SZ, @flags I32; RETURN signed_byte_count);
+
+  DOC <$ The send procedure binds the Darwin send socket interface. $>
+  ::send
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"send"]
+    CALLABLE CALLCONV CCALL(@socket I32, @buffer CONST=>>BYTE, @count SZ, @flags I32; RETURN signed_byte_count);
+
+  PRIVATE(MODULE)
+  {
+    DOC <$ The fcntl_variadic procedure binds Darwin fcntl with its fixed arguments before native variadic adaptation. $>
+    ::fcntl_variadic
+      EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"fcntl"]
+      CALLABLE CALLCONV CCALL(@socket I32, @command I32; RETURN I32);
+  }
+
+  DOC <$ The fcntl procedure places the fcntl integer argument in Darwin ARM64's variadic stack slot. $>
+  ::fcntl ASM_PROCEDURE ARM64
+    CALLABLE CALLCONV CCALL(@socket I32, @command I32, @argument I32; RETURN I32)
+  {
+    SUB SP, SP, 32
+    STP X29, X30, [SP, 16]
+    ADD X29, SP, 16
+    STR W2, [SP]
+    BL PROCEDURE_REF("CCALL", fcntl_variadic!$[0])
+    LDP X29, X30, [SP, 16]
+    ADD SP, SP, 32
+    RET
+  }
+
+  DOC <$ The fcntl procedure marks the Darwin x64 fcntl variadic call as having no vector arguments. $>
+  ::fcntl ASM_PROCEDURE X64
+    CALLABLE CALLCONV CCALL(@socket I32, @command I32, @argument I32; RETURN I32)
+  {
+    XOR EAX, EAX
+    JMP PROCEDURE_REF("CCALL", fcntl_variadic!$[0])
+  }
+
+  DOC <$ The errno_location procedure binds the Darwin __error socket interface. $>
+  ::errno_location
+    EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"__error"]
+    CALLABLE CALLCONV CCALL(; RETURN MUT->I32);
+
+  DOC <$ The receive_message procedure binds the Darwin datagram receive interface. $>
+  ::receive_message EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"recvmsg"]
+    CALLABLE CALLCONV CCALL(@socket I32, @message MUT->datagram_message, @flags I32; RETURN signed_byte_count);
+
+  DOC <$ The send_to procedure binds the Darwin datagram send interface. $>
+  ::send_to EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"sendto"]
+    CALLABLE CALLCONV CCALL(@socket I32, @buffer CONST=>>BYTE, @count SZ,
+      @flags I32, @destination CONST->socket_address_storage, @length U32; RETURN signed_byte_count);
+
+  DOC <$ The shutdown procedure binds Darwin connection shutdown. $>
+  ::shutdown EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"shutdown"]
+    CALLABLE CALLCONV CCALL(@socket I32, @direction I32; RETURN I32);
+  DOC <$ Reads a socket integer option. $>
+  ::get_socket_option EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"getsockopt"]
+    CALLABLE CALLCONV CCALL(@socket I32, @level I32, @option I32, @value MUT->I32, @length MUT->U32; RETURN I32);
+
+  DOC <$ Waits for readiness on POSIX descriptors. $>
+  ::poll EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"poll"]
+    CALLABLE CALLCONV CCALL(@descriptors MUT->poll_descriptor, @count U32, @timeout I32; RETURN I32);
+}

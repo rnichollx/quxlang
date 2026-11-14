@@ -1,0 +1,84 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::windows INCLUDE_IF(OS_WINDOWS) NAMESPACE
+{
+  DOC <$ The socket_buffer type matches the native WSABUF ABI. $>
+  ::socket_buffer IBC_STRUCT
+  {
+    .length VAR U32;
+    .data VAR ADDRESS;
+  }
+
+  DOC <$ The socket_startup procedure binds the Windows WSAStartup socket interface. $>
+  ::socket_startup EXTERN_PROCEDURE["ws2_32":"WSAStartup"]
+    CALLABLE CALLCONV CCALL(@version U16, @data ADDRESS; RETURN I32);
+
+  DOC <$ The socket_cleanup procedure binds the Windows WSACleanup socket interface. $>
+  ::socket_cleanup EXTERN_PROCEDURE["ws2_32":"WSACleanup"]
+    CALLABLE CALLCONV CCALL(; RETURN I32);
+
+  DOC <$ The socket_last_error procedure binds the Windows WSAGetLastError socket interface. $>
+  ::socket_last_error EXTERN_PROCEDURE["ws2_32":"WSAGetLastError"]
+    CALLABLE CALLCONV CCALL(; RETURN I32);
+
+  DOC <$ The socket procedure binds the Windows WSASocketW socket interface. $>
+  ::socket EXTERN_PROCEDURE["ws2_32":"WSASocketW"]
+    CALLABLE CALLCONV CCALL(@family I32, @kind I32, @protocol I32, @information ADDRESS, @group U32, @flags U32; RETURN UINTPTR);
+
+  DOC <$ The set_handle_information procedure configures inheritance flags on a Windows socket handle. $>
+  ::set_handle_information EXTERN_PROCEDURE["kernel32":"SetHandleInformation"]
+    CALLABLE CALLCONV CCALL(@handle ADDRESS, @mask U32, @flags U32; RETURN I32);
+
+  DOC <$ The socket_close procedure binds the Windows closesocket socket interface. $>
+  ::socket_close EXTERN_PROCEDURE["ws2_32":"closesocket"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR; RETURN I32);
+
+  DOC <$ The bind procedure binds the Windows bind socket interface. $>
+  ::bind EXTERN_PROCEDURE["ws2_32":"bind"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @address CONST->socket_address_storage, @length I32; RETURN I32);
+
+  DOC <$ The listen procedure binds the Windows listen socket interface. $>
+  ::listen EXTERN_PROCEDURE["ws2_32":"listen"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @backlog I32; RETURN I32);
+
+  DOC <$ The connect procedure binds synchronous Windows connection establishment. $>
+  ::connect EXTERN_PROCEDURE["ws2_32":"connect"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @address CONST->socket_address_storage, @length I32; RETURN I32);
+
+  DOC <$ The accept procedure binds synchronous Windows connection acceptance with optional peer-address output. $>
+  ::accept EXTERN_PROCEDURE["ws2_32":"accept"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @address MUT->socket_address_storage, @length MUT->I32; RETURN UINTPTR);
+
+
+  DOC <$ The socket_name procedure binds the Windows getsockname socket interface. $>
+  ::socket_name EXTERN_PROCEDURE["ws2_32":"getsockname"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @address MUT->socket_address_storage, @length MUT->I32; RETURN I32);
+
+  DOC <$ The set_socket_option procedure binds the Windows setsockopt socket interface. $>
+  ::set_socket_option EXTERN_PROCEDURE["ws2_32":"setsockopt"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @level I32, @option I32, @value ADDRESS, @length I32; RETURN I32);
+
+  DOC <$ The socket_receive procedure binds the Windows WSARecv socket interface. $>
+  ::socket_receive EXTERN_PROCEDURE["ws2_32":"WSARecv"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @buffers MUT->socket_buffer, @count U32, @transferred MUT->U32, @flags MUT->U32, @overlapped MUT->overlapped, @completion ADDRESS; RETURN I32);
+
+  DOC <$ The socket_send procedure binds the Windows WSASend socket interface. $>
+  ::socket_send EXTERN_PROCEDURE["ws2_32":"WSASend"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @buffers MUT->socket_buffer, @count U32, @transferred MUT->U32, @flags U32, @overlapped MUT->overlapped, @completion ADDRESS; RETURN I32);
+
+  DOC <$ The socket_send_to procedure binds the overlapped Windows datagram send interface. $>
+  ::socket_send_to EXTERN_PROCEDURE["ws2_32":"WSASendTo"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @buffers MUT->socket_buffer,
+      @count U32, @transferred MUT->U32, @flags U32,
+      @destination CONST->socket_address_storage, @length I32,
+      @overlapped MUT->overlapped, @completion ADDRESS; RETURN I32);
+
+  DOC <$ The shutdown procedure binds Windows connection shutdown. $>
+  ::shutdown EXTERN_PROCEDURE["ws2_32":"shutdown"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @direction I32; RETURN I32);
+  DOC <$ Receives a Windows datagram with its source and truncation status. $>
+  ::socket_receive_from EXTERN_PROCEDURE["ws2_32":"WSARecvFrom"]
+    CALLABLE CALLCONV CCALL(@socket UINTPTR, @buffers MUT->socket_buffer, @count U32,
+      @transferred MUT->U32, @flags MUT->U32, @source MUT->socket_address_storage, @length MUT->I32,
+      @overlapped MUT->overlapped, @completion ADDRESS; RETURN I32);
+}

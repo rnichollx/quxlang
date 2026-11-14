@@ -1,0 +1,46 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+PRIVATE(MODULE)
+{
+  DOC <$ Waits for a synchronous socket operation's readiness without consuming data. $>
+  ::wait_socket INCLUDE_IF(OS_LINUX || OS_MACOS) FUNCTION(@handle native_socket_ref, @writing BOOL)
+  {
+    VAR descriptor syscall::poll_descriptor;
+    descriptor.descriptor := handle;
+    descriptor.events := 1;
+    IF (writing) { descriptor.events := 4; }
+    LOOP DO
+    {
+      VAR status I32;
+      STATIC_IF(OS_LINUX)
+      {
+        status := syscall::linux::ppoll(@descriptors descriptor<-, @count 1,
+          @timeout NULL, @signal_mask NULL, @signal_size 0);
+      }
+      STATIC_ELSE { status := syscall::macos::poll(@descriptors descriptor<-, @count 1, @timeout -1); }
+      IF (status > 0) { RETURN; }
+      VAR failure error := translate_socket_error(@code socket_failure_code(@status status AS I64));
+      IF (failure != error::interrupted) { THROW failure; }
+    };
+  }
+
+  DOC <$ Reports the final status of a nonblocking connection after writable readiness. $>
+  ::finish_socket_connect INCLUDE_IF(OS_LINUX || OS_MACOS) FUNCTION(@handle native_socket_ref)
+  {
+    VAR code I32;
+    VAR length U32 := 4;
+    VAR status I32;
+    STATIC_IF(OS_LINUX)
+    {
+      status := syscall::linux::get_socket_option(@socket handle, @level 1, @option 4, @value code<-, @length length<-);
+    }
+    STATIC_ELSE
+    {
+      status := syscall::macos::get_socket_option(@socket handle, @level 65535, @option 4103, @value code<-, @length length<-);
+    }
+    IF (status != 0) { THROW translate_socket_error(@code socket_failure_code(@status status AS I64)); }
+    IF (code != 0) { THROW translate_socket_error(@code code AS I64); }
+  }
+}

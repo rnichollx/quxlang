@@ -504,6 +504,15 @@ PRIVATE(MODULE)
     }
     VAR request_address ADDRESS := completion.user_data.value;
     VAR request MUT->async_request := async_request_at(@address request_address);
+    IF (request->.native??)
+    {
+      VAR failure U32;
+      IF (completion.result < 0) { failure := (0 - completion.result) AS CHECKED U32; }
+      VAR size SZ;
+      IF (completion.result >= 0) { size := completion.result AS CHECKED SZ; }
+      complete_native_operation(@request request, @size size, @error failure);
+      RETURN TRUE;
+    }
     IF (completion.result < 0)
     {
       complete_async_request(@request request, @succeeded FALSE, @size 0);

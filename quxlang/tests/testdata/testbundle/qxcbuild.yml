@@ -17,6 +17,8 @@ targets:
         source: std
       io:
         source: io
+      net:
+        source: net
       foolib:
         source: foolib1_0
       barlib:
@@ -53,6 +55,8 @@ targets:
         source: std
       io:
         source: io
+      net:
+        source: net
       foolib:
         source: foolib1_0
       barlib:
@@ -78,6 +82,8 @@ targets:
         source: std
       io:
         source: io
+      net:
+        source: net
       foolib:
         source: foolib1_0
       barlib:
@@ -105,6 +111,8 @@ targets:
         source: std
       io:
         source: io
+      net:
+        source: net
       foolib:
         source: foolib1_0
       barlib:
@@ -130,6 +138,8 @@ targets:
         source: std
       io:
         source: io
+      net:
+        source: net
       foolib:
         source: foolib1_0
       barlib:
@@ -184,6 +194,8 @@ targets:
         source: std
       io:
         source: io
+      net:
+        source: net
       foolib:
         source: foolib1_0
       barlib:
@@ -213,6 +225,8 @@ targets:
         source: std
       io:
         source: io
+      net:
+        source: net
       foolib:
         source: foolib1_0
       barlib:
@@ -241,7 +255,7 @@ outputs:
     target: linux-x64
     type: unit_test_suite
     build_type: quick
-    test_modules: [syscall, posix, RUNTIME, std, io, foolib, barlib, tests]
+    test_modules: [syscall, posix, RUNTIME, std, io, net, foolib, barlib, tests]
 
   linux-x64-glibc/tests:
     target: linux-x64-glibc
@@ -263,7 +277,7 @@ outputs:
     target: linux-arm64
     type: unit_test_suite
     build_type: quick
-    test_modules: [syscall, posix, RUNTIME, std, io, foolib, barlib, tests]
+    test_modules: [syscall, posix, RUNTIME, std, io, net, foolib, barlib, tests]
 
   linux-x86/tests:
     target: linux-x86

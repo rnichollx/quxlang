@@ -1,0 +1,120 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+IMPORT io;
+IMPORT syscall;
+
+PRIVATE(MODULE)
+{
+  DOC <$ The set_socket_integer_option function sets one integer socket option and returns its native error code. $>
+  ::set_socket_integer_option FUNCTION(@handle native_socket_ref,
+    @level I32, @option I32, @value I32): I64
+  {
+    STATIC_IF(OS_WINDOWS)
+    {
+      IF (syscall::windows::set_socket_option(@socket handle, @level level,
+        @option option, @value IBC_GETADDR(@PTR value<-), @length 4) == 0)
+      {
+          RETURN 0;
+      }
+      RETURN syscall::windows::socket_last_error() AS I64;
+    }
+    STATIC_ELSE STATIC_IF(OS_LINUX)
+    {
+      VAR status I32 := syscall::linux::set_socket_option(@socket handle,
+        @level level, @option option, @value value<-, @length 4);
+      RETURN 0 - (status AS I64);
+    }
+    STATIC_ELSE
+    {
+      IF (syscall::macos::set_socket_option(@socket handle,
+        @level level, @option option, @value value<-, @length 4) == 0)
+      {
+          RETURN 0;
+      }
+      RETURN syscall::macos::errno_location()-> AS I64;
+    }
+  }
+
+  DOC <$ The socket_transfer_size function caps native transfers at a portable signed 32-bit byte count. $>
+  ::socket_transfer_size FUNCTION(@size SZ): U32
+  {
+    IF (size > 2147483647)
+    {
+      RETURN 2147483647;
+    }
+    RETURN size AS CHECKED U32;
+  }
+
+  DOC <$ The bind_socket function binds a socket to a numeric local endpoint. $>
+  ::bind_socket FUNCTION(@handle native_socket_ref, @endpoint CONST& endpoint)
+  {
+    VAR encoded encoded_endpoint := encode_socket_endpoint(@endpoint endpoint);
+    VAR code I64;
+    STATIC_IF(OS_LINUX)
+    {
+      VAR status I32 := syscall::linux::bind(@socket handle, @address encoded.address<-, @length encoded.length);
+      IF (status < 0)
+      {
+        code := 0 - (status AS I64);
+      }
+    }
+    STATIC_ELSE STATIC_IF(OS_MACOS)
+    {
+      IF (syscall::macos::bind(@socket handle, @address encoded.address<-, @length encoded.length) != 0)
+      {
+        code := syscall::macos::errno_location()-> AS I64;
+      }
+    }
+    STATIC_ELSE
+    {
+      IF (syscall::windows::bind(@socket handle, @address encoded.address<-,
+        @length encoded.length AS CHECKED I32) != 0)
+      {
+        code := syscall::windows::socket_last_error() AS I64;
+      }
+    }
+    IF (code != 0)
+    {
+      THROW translate_socket_error(@code code);
+    }
+  }
+
+  DOC <$ The socket_local_endpoint function reads the current local endpoint without retaining resource ownership or an I/O manager. $>
+  ::socket_local_endpoint FUNCTION(@handle native_socket_ref): endpoint
+  {
+    VAR encoded encoded_endpoint;
+    encoded.length := 128;
+    VAR code I64;
+    STATIC_IF(OS_WINDOWS)
+    {
+      VAR length I32 := 128;
+      IF (syscall::windows::socket_name(@socket handle, @address encoded.address<-, @length length<-) != 0)
+      {
+        code := syscall::windows::socket_last_error() AS I64;
+      }
+      encoded.length := length AS CHECKED U32;
+    }
+    STATIC_ELSE STATIC_IF(OS_LINUX)
+    {
+      VAR status I32 := syscall::linux::socket_name(@socket handle,
+        @address encoded.address<-, @length encoded.length<-);
+      IF (status < 0)
+      {
+        code := 0 - (status AS I64);
+      }
+    }
+    STATIC_ELSE
+    {
+      IF (syscall::macos::socket_name(@socket handle, @address encoded.address<-, @length encoded.length<-) != 0)
+      {
+        code := syscall::macos::errno_location()-> AS I64;
+      }
+    }
+    IF (code != 0)
+    {
+      THROW translate_socket_error(@code code);
+    }
+    RETURN decode_socket_endpoint(@encoded encoded);
+  }
+}

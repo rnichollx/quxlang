@@ -53,10 +53,16 @@ DOC <$ Owns a platform completion runtime, completion workers, and a coroutine s
   }
 
   DOC <$ Waits for coroutine cleanup before draining and joining completion workers. $>
-  .DESTRUCTOR FUNCTION() { .scheduler.drain(); .completion_workers.reset(); }
+  .DESTRUCTOR FUNCTION() { .drain(); .completion_workers.reset(); }
 
-  DOC <$ Waits for every scheduled coroutine and its cleanup. External submissions must stop before drain begins. $>
-  .drain FUNCTION() MUT { .scheduler.drain(); }
+  DOC <$ Waits for scheduled coroutines, file-worker operations, native requests, and completion cleanup. External submissions stop before drain begins. $>
+  .drain FUNCTION() MUT { .scheduler.drain(); .stream_workers.drain(); .platform.drain(); }
+
+  DOC <$ Submits an owned operation to the native completion runtime and returns its future. Referenced resources outlive completion. $>
+  .submit FUNCTION(@operation AUTO& AUTO(operation_type)) MUT: std::future#(operation_type::value_type)
+  {
+    RETURN .platform.submit(@operation FORWARD(operation));
+  }
 
   DOC <$ Schedules a cursor-based read on a file worker and returns its result future. The operating system manages the shared file position. $>
   .read FUNCTION(@descriptor io_descriptor_ref, @buffer CONST& buffer_ref) MUT: std::future#transfer_result
@@ -128,7 +134,7 @@ DOC <$ Owns a platform completion runtime, completion workers, and a coroutine s
   }
 }
 
-DOC <$ Extends thread-pool scheduling with controller-selected file transfers. Nested coroutine calls, GO expressions, constructors, and destructors use the same I/O runtime. $>
+DOC <$ Extends thread-pool scheduling with controller-selected I/O operations. Nested coroutine calls, GO expressions, constructors, and destructors use the same I/O runtime. $>
 ::async_controller TEMPLATE(@T TYPE) STRUCT
 {
   .scheduling BASE std::thread_pool_cort_controller#T;
@@ -141,6 +147,12 @@ DOC <$ Extends thread-pool scheduling with controller-selected file transfers. N
 
   DOC <$ Borrows the runtime that owns this invocation. $>
   .CONSTRUCTOR FUNCTION(@runtime MUT& async_runtime) { .runtime := runtime<-; }
+
+  DOC <$ The submit function submits an owned native asynchronous operation through this invocation's runtime. $>
+  .submit FUNCTION(@operation AUTO& AUTO(operation_type)): AUTO
+  {
+    RETURN .runtime->.submit(@operation FORWARD(operation));
+  }
 
   DOC <$ Stages a value until the inner frame has finished cleanup. $>
   .CO_RETURN FUNCTION(@ARG AUTO& AUTO): completed_operation

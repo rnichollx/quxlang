@@ -1,0 +1,248 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT io;
+IMPORT std;
+
+DOC <$ The shutdown_direction type selects the connection directions disabled by shutdown. $>
+::shutdown_direction ENUM [receive, send, both];
+
+PRIVATE(MODULE)
+{
+  DOC <$ The socket_reference type references one socket without managing its lifetime. Copies identify the same socket. The caller serializes operations in each direction and closes the resource once after all pending operations finish. $>
+  ::socket_reference TEMPLATE(@kind VALUE socket_kind) STRUCT
+  {
+    PRIVATE(MODULE)
+    {
+      .handle VAR native_socket_ref;
+      DOC <$ The constructor references a socket whose native transport matches kind. $>
+      .CONSTRUCTOR FUNCTION(@handle native_socket_ref)
+      {
+        .handle := handle;
+      }
+    }
+
+    DOC <$ The constructor creates an invalid socket reference. $>
+    .CONSTRUCTOR FUNCTION()
+    {
+      .handle := invalid_socket_handle();
+    }
+    DOC <$ The is_valid function reports whether this reference contains a socket. External closure invalidates every copy. $>
+    .is_valid FUNCTION() CONST: BOOL
+    {
+      RETURN .handle != invalid_socket_handle();
+    }
+    DOC <$ The local_endpoint function returns the bound address and port. $>
+    .local_endpoint FUNCTION() CONST: endpoint
+    {
+      RETURN socket_local_endpoint(@handle .handle);
+    }
+    DOC <$ The bind function binds the socket to a local endpoint. Port zero selects an ephemeral port. $>
+    .bind FUNCTION(@endpoint CONST& endpoint) CONST
+    {
+      bind_socket(@handle .handle, @endpoint endpoint);
+    }
+    DOC <$ The close function closes the referenced socket once. Every copy becomes invalid for subsequent operations. An invalid reference succeeds without a native call. $>
+    .close FUNCTION() CONST: BOOL
+    {
+      IF (.is_valid() == FALSE)
+      {
+        RETURN TRUE;
+      }
+      RETURN close_native_socket(@handle .handle) == 0;
+    }
+    DOC <$ The listen function starts accepting connections on a bound listener. $>
+    .listen INCLUDE_IF(kind == socket_kind::listener) FUNCTION(@backlog I32 DEFAULT(128)) CONST
+    {
+      listen_socket(@handle .handle, @backlog backlog);
+    }
+    DOC <$ The shutdown function disables the selected connection directions. Shutdown does not close the resource. $>
+    .shutdown INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@direction shutdown_direction) CONST
+    {
+      shutdown_socket(@handle .handle, @direction direction);
+    }
+
+    DOC <$ The connect function executes one synchronous connect operation. Socket failures throw net::error. $>
+    .connect INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@endpoint CONST& endpoint) CONST: VOID
+    {
+      VAR operation connect_operation;
+      operation.handle := .handle;
+      operation.endpoint := endpoint;
+      operation();
+    }
+
+    DOC <$ The async_connect function submits one connect operation and returns its future. The socket and referenced buffers outlive completion. The runtime delivers native completion without occupying a file worker. $>
+    .async_connect INCLUDE_IF(kind == socket_kind::connection)
+      FUNCTION(@runtime MUT& io::async_runtime, @endpoint CONST& endpoint) CONST: std::future#VOID
+    {
+      VAR operation connect_operation;
+      operation.handle := .handle;
+      operation.endpoint := endpoint;
+      RETURN runtime.submit(@operation MOVE(operation));
+    }
+
+    DOC <$ The connect coroutine suspends the current I/O coroutine until the connect operation completes. Nested calls preserve the selected runtime. $>
+    .connect INCLUDE_IF(kind == socket_kind::connection)
+      COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @endpoint CONST& endpoint) CONST: VOID
+    {
+      VAR operation connect_operation;
+      operation.handle := .handle;
+      operation.endpoint := endpoint;
+      AWAIT(CONTROLLER.submit(@operation MOVE(operation)));
+    }
+
+    DOC <$ The accept function executes one synchronous accept operation. Socket failures throw net::error. $>
+    .accept INCLUDE_IF(kind == socket_kind::listener) FUNCTION() CONST: tcp_connection
+    {
+      VAR operation accept_operation;
+      operation.handle := .handle;
+      RETURN operation();
+    }
+
+    DOC <$ The async_accept function submits one accept operation and returns its future. The socket and referenced buffers outlive completion. The runtime delivers native completion without occupying a file worker. $>
+    .async_accept INCLUDE_IF(kind == socket_kind::listener)
+      FUNCTION(@runtime MUT& io::async_runtime) CONST: std::future#tcp_connection
+    {
+      VAR operation accept_operation;
+      operation.handle := .handle;
+      RETURN runtime.submit(@operation MOVE(operation));
+    }
+
+    DOC <$ The accept coroutine suspends the current I/O coroutine until the accept operation completes. Nested calls preserve the selected runtime. $>
+    .accept INCLUDE_IF(kind == socket_kind::listener)
+      COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type)) CONST: tcp_connection
+    {
+      VAR operation accept_operation;
+      operation.handle := .handle;
+      RETURN AWAIT(CONTROLLER.submit(@operation MOVE(operation)));
+    }
+
+    DOC <$ The read function executes one synchronous read operation. Socket failures throw net::error. $>
+    .read INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@buffer CONST& io::buffer_ref) CONST: SZ
+    {
+      VAR operation read_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      RETURN operation();
+    }
+
+    DOC <$ The async_read function submits one read operation and returns its future. The socket and referenced buffers outlive completion. The runtime delivers native completion without occupying a file worker. $>
+    .async_read INCLUDE_IF(kind == socket_kind::connection)
+      FUNCTION(@runtime MUT& io::async_runtime, @buffer CONST& io::buffer_ref) CONST: std::future#SZ
+    {
+      VAR operation read_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      RETURN runtime.submit(@operation MOVE(operation));
+    }
+
+    DOC <$ The read coroutine suspends the current I/O coroutine until the read operation completes. Nested calls preserve the selected runtime. $>
+    .read INCLUDE_IF(kind == socket_kind::connection)
+      COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @buffer CONST& io::buffer_ref) CONST: SZ
+    {
+      VAR operation read_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      RETURN AWAIT(CONTROLLER.submit(@operation MOVE(operation)));
+    }
+
+    DOC <$ The write function executes one synchronous write operation. Socket failures throw net::error. $>
+    .write INCLUDE_IF(kind == socket_kind::connection) FUNCTION(@buffer CONST& io::buffer_ref) CONST: SZ
+    {
+      VAR operation write_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      RETURN operation();
+    }
+
+    DOC <$ The async_write function submits one write operation and returns its future. The socket and referenced buffers outlive completion. The runtime delivers native completion without occupying a file worker. $>
+    .async_write INCLUDE_IF(kind == socket_kind::connection)
+      FUNCTION(@runtime MUT& io::async_runtime, @buffer CONST& io::buffer_ref) CONST: std::future#SZ
+    {
+      VAR operation write_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      RETURN runtime.submit(@operation MOVE(operation));
+    }
+
+    DOC <$ The write coroutine suspends the current I/O coroutine until the write operation completes. Nested calls preserve the selected runtime. $>
+    .write INCLUDE_IF(kind == socket_kind::connection)
+      COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @buffer CONST& io::buffer_ref) CONST: SZ
+    {
+      VAR operation write_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      RETURN AWAIT(CONTROLLER.submit(@operation MOVE(operation)));
+    }
+
+    DOC <$ The send function executes one synchronous send operation. Socket failures throw net::error. $>
+    .send INCLUDE_IF(kind == socket_kind::datagram) FUNCTION(@buffer CONST& io::buffer_ref, @destination CONST& endpoint) CONST: SZ
+    {
+      VAR operation send_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      operation.destination := destination;
+      RETURN operation();
+    }
+
+    DOC <$ The async_send function submits one send operation and returns its future. The socket and referenced buffers outlive completion. The runtime delivers native completion without occupying a file worker. $>
+    .async_send INCLUDE_IF(kind == socket_kind::datagram)
+      FUNCTION(@runtime MUT& io::async_runtime, @buffer CONST& io::buffer_ref, @destination CONST& endpoint) CONST: std::future#SZ
+    {
+      VAR operation send_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      operation.destination := destination;
+      RETURN runtime.submit(@operation MOVE(operation));
+    }
+
+    DOC <$ The send coroutine suspends the current I/O coroutine until the send operation completes. Nested calls preserve the selected runtime. $>
+    .send INCLUDE_IF(kind == socket_kind::datagram)
+      COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @buffer CONST& io::buffer_ref, @destination CONST& endpoint) CONST: SZ
+    {
+      VAR operation send_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      operation.destination := destination;
+      RETURN AWAIT(CONTROLLER.submit(@operation MOVE(operation)));
+    }
+
+    DOC <$ The receive function executes one synchronous receive operation. Socket failures throw net::error. $>
+    .receive INCLUDE_IF(kind == socket_kind::datagram) FUNCTION(@buffer CONST& io::buffer_ref) CONST: datagram_result
+    {
+      VAR operation receive_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      RETURN operation();
+    }
+
+    DOC <$ The async_receive function submits one receive operation and returns its future. The socket and referenced buffers outlive completion. The runtime delivers native completion without occupying a file worker. $>
+    .async_receive INCLUDE_IF(kind == socket_kind::datagram)
+      FUNCTION(@runtime MUT& io::async_runtime, @buffer CONST& io::buffer_ref) CONST: std::future#datagram_result
+    {
+      VAR operation receive_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      RETURN runtime.submit(@operation MOVE(operation));
+    }
+
+    DOC <$ The receive coroutine suspends the current I/O coroutine until the receive operation completes. Nested calls preserve the selected runtime. $>
+    .receive INCLUDE_IF(kind == socket_kind::datagram)
+      COROUTINE(@CONTROLLER io::async_controller#AUTO(result_type), @buffer CONST& io::buffer_ref) CONST: datagram_result
+    {
+      VAR operation receive_operation;
+      operation.handle := .handle;
+      operation.buffer := buffer;
+      RETURN AWAIT(CONTROLLER.submit(@operation MOVE(operation)));
+    }
+  }
+}
+
+DOC <$ The tcp_connection_ref type references a tcp connection without acquiring its closing obligation. $>
+::tcp_connection_ref ALIAS socket_reference#(@kind socket_kind::connection);
+
+DOC <$ The tcp_listener_ref type references a tcp listener without acquiring its closing obligation. $>
+::tcp_listener_ref ALIAS socket_reference#(@kind socket_kind::listener);
+
+DOC <$ The udp_session_ref type references a udp session without acquiring its closing obligation. $>
+::udp_session_ref ALIAS socket_reference#(@kind socket_kind::datagram);
+

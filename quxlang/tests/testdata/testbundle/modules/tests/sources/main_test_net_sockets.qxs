@@ -1,0 +1,276 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT io;
+IMPORT net;
+IMPORT std;
+
+::net_socket_tests NAMESPACE
+{
+  DOC <$ The loopback function returns an IPv4 loopback endpoint with an ephemeral port. $>
+  ::loopback FUNCTION(): net::endpoint
+  {
+    VAR address net::ipv4_address;
+    address.data[0] := 127;
+    address.data[3] := 1;
+    VAR endpoint net::endpoint;
+    endpoint.address := net::ip_address(@OTHER address);
+    RETURN endpoint;
+  }
+
+  DOC <$ Empty references and owners have no closing obligation. $>
+  ::empty_resources DUAL_TEST
+  {
+    VAR connection net::tcp_connection_ref;
+    VAR listener net::tcp_listener_ref;
+    VAR session net::udp_session_ref;
+    TEST_ASSERT(connection.is_valid() == FALSE);
+    TEST_ASSERT(listener.is_valid() == FALSE);
+    TEST_ASSERT(session.is_valid() == FALSE);
+    TEST_ASSERT(connection.close());
+    VAR owner net::tcp_connection;
+    TEST_ASSERT(owner.is_open() == FALSE);
+    TEST_ASSERT(owner.close());
+  }
+
+  DOC <$ Socket references expose no native-handle constructor outside the networking module. $>
+  ::native_handle_is_private STATIC_TEST EXPECT_COMPILATION_FAILURE
+  {
+    VAR connection net::tcp_connection_ref :(@handle 7);
+  }
+
+  DOC <$ The read coroutine reads through the controller-selected socket interface. $>
+  ::read COROUTINE(@connection net::tcp_connection_ref, @buffer io::buffer_ref): SZ
+  {
+    RETURN connection.read(@buffer buffer);
+  }
+
+  DOC <$ The nested_read coroutine preserves the I/O controller through a nested coroutine invocation. $>
+  ::nested_read COROUTINE(@connection net::tcp_connection_ref, @buffer io::buffer_ref): SZ
+  {
+    RETURN read(@connection connection, @buffer buffer);
+  }
+
+  DOC <$ The write coroutine writes through an automatic connection under the I/O controller. $>
+  ::write COROUTINE(@connection MUT& net::tcp_connection, @buffer io::buffer_ref): SZ
+  {
+    RETURN connection.write(@buffer buffer);
+  }
+
+  DOC <$ The connect coroutine establishes and accepts connections through the coroutine-selected owner interfaces. $>
+  ::connect COROUTINE(@connection MUT& net::tcp_connection, @endpoint net::endpoint)
+  {
+    connection.connect(@endpoint endpoint);
+  }
+  DOC <$ The accept coroutine accepts through the controller-selected listener interface. $>
+  ::accept COROUTINE(@listener net::tcp_listener_ref): net::tcp_connection
+  {
+    RETURN listener.accept();
+  }
+
+  DOC <$ The tcp_round_trip test exchanges data with one coroutine scheduler worker and verifies EOF, ownership transfer, and explicit futures. $>
+  ::tcp_round_trip UNIT_TEST
+  {
+    VAR endpoint net::endpoint := loopback();
+    VAR listener net::tcp_listener :(@address endpoint.address);
+    listener.bind(@endpoint endpoint);
+    listener.listen();
+    endpoint := listener.local_endpoint();
+    TEST_ASSERT(endpoint.port != 0);
+    VAR runtime io::async_runtime :(@workers 1, @file_workers 2);
+    VAR accepting := ON(runtime) RUN accept(@listener listener.reference());
+    VAR client net::tcp_connection :(@address endpoint.address);
+    VAR connecting := ON(runtime) RUN connect(@connection client, @endpoint endpoint);
+    connecting.get();
+    VAR server net::tcp_connection := accepting.get();
+    VAR bytes [4]BYTE;
+    bytes[0] := 17; bytes[1] := 29; bytes[2] := 43; bytes[3] := 71;
+    VAR received [4]BYTE;
+    VAR output io::buffer_ref :(@data bytes[&0], @size 4);
+    VAR input io::buffer_ref :(@data received[&0], @size 4);
+    VAR reading := ON(runtime) RUN nested_read(@connection server.reference(), @buffer input);
+    VAR writing := ON(runtime) RUN write(@connection client, @buffer output);
+    TEST_ASSERT(writing.get() == 4);
+    TEST_ASSERT(reading.get() == 4);
+    TEST_ASSERT(received == bytes);
+    VAR returning := client.async_read(@runtime runtime, @buffer input);
+    TEST_ASSERT(server.write(@buffer output) == 4);
+    TEST_ASSERT(returning.get() == 4);
+    client.shutdown(@direction net::shutdown_direction::send);
+    TEST_ASSERT(server.read(@buffer input) == 0);
+    VAR empty io::buffer_ref :(@data bytes[&0], @size 0);
+    TEST_ASSERT(server.read(@buffer empty) == 0);
+    TEST_ASSERT(server.write(@buffer empty) == 0);
+    VAR empty_read := server.async_read(@runtime runtime, @buffer empty);
+    VAR empty_write := server.async_write(@runtime runtime, @buffer empty);
+    TEST_ASSERT(empty_read.get() == 0 && empty_write.get() == 0);
+    VAR moved net::tcp_connection := MOVE(server);
+    TEST_ASSERT(server.is_open() == FALSE && moved.is_open());
+    VAR reference net::tcp_connection_ref := moved.release();
+    TEST_ASSERT(moved.is_open() == FALSE && reference.is_valid());
+    VAR adopted net::tcp_connection :(@reference reference);
+    TEST_ASSERT(adopted.close());
+    TEST_ASSERT(adopted.close());
+    VAR future_accept := listener.async_accept(@runtime runtime);
+    VAR next_client net::tcp_connection :(@address endpoint.address);
+    VAR future_connect := next_client.async_connect(@runtime runtime, @endpoint endpoint);
+    future_connect.get();
+    VAR next_server net::tcp_connection := future_accept.get();
+    VAR future_write := next_server.async_write(@runtime runtime, @buffer output);
+    TEST_ASSERT(next_client.read(@buffer input) == 4);
+    TEST_ASSERT(future_write.get() == 4);
+    runtime.drain();
+  }
+
+  DOC <$ The send coroutine sends a datagram through the selected coroutine controller. $>
+  ::send COROUTINE(@session MUT& net::udp_session, @buffer io::buffer_ref, @destination net::endpoint): SZ
+  {
+    RETURN session.send(@buffer buffer, @destination destination);
+  }
+  DOC <$ Receives a datagram through the selected coroutine controller. $>
+  ::receive COROUTINE(@session net::udp_session_ref, @buffer io::buffer_ref): net::datagram_result
+  {
+    RETURN session.receive(@buffer buffer);
+  }
+
+  DOC <$ UDP preserves message boundaries, sources, truncation, and zero-length messages across coroutine and future calls. $>
+  ::udp_round_trip UNIT_TEST
+  {
+    VAR endpoint net::endpoint := loopback();
+    VAR sender net::udp_session :(@address endpoint.address);
+    VAR receiver net::udp_session :(@address endpoint.address);
+    sender.bind(@endpoint endpoint);
+    receiver.bind(@endpoint endpoint);
+    endpoint := receiver.local_endpoint();
+    VAR bytes [4]BYTE;
+    bytes[0] := 31; bytes[1] := 47; bytes[2] := 59; bytes[3] := 73;
+    VAR received [2]BYTE;
+    VAR output io::buffer_ref :(@data bytes[&0], @size 4);
+    VAR input io::buffer_ref :(@data received[&0], @size 2);
+    VAR runtime io::async_runtime :(@workers 1, @file_workers 2);
+    VAR reading := ON(runtime) RUN receive(@session receiver.reference(), @buffer input);
+    VAR writing := ON(runtime) RUN send(@session sender, @buffer output, @destination endpoint);
+    TEST_ASSERT(writing.get() == 4);
+    VAR result net::datagram_result := reading.get();
+    TEST_ASSERT(result.size == 2 && result.truncated);
+    TEST_ASSERT(result.source.port == sender.local_endpoint().port);
+    TEST_ASSERT(received[0] == 31 && received[1] == 47);
+    VAR empty io::buffer_ref :(@data bytes[&0], @size 0);
+    VAR pending := receiver.async_receive(@runtime runtime, @buffer input);
+    VAR sent := sender.async_send(@runtime runtime, @buffer empty, @destination endpoint);
+    TEST_ASSERT(sent.get() == 0);
+    result := pending.get();
+    TEST_ASSERT(result.size == 0 && result.truncated == FALSE);
+    TEST_ASSERT(sender.send(@buffer output, @destination endpoint) == 4);
+    result := receiver.receive(@buffer empty);
+    TEST_ASSERT(result.size == 0 && result.truncated);
+    TEST_ASSERT(sender.send(@buffer empty, @destination endpoint) == 0);
+    result := receiver.receive(@buffer empty);
+    TEST_ASSERT(result.size == 0 && result.truncated == FALSE);
+    TEST_ASSERT(sender.send(@buffer output, @destination endpoint) == 4);
+    VAR discarded := receiver.async_receive(@runtime runtime, @buffer empty);
+    result := discarded.get();
+    TEST_ASSERT(result.size == 0 && result.truncated);
+    VAR empty_message := receiver.async_receive(@runtime runtime, @buffer empty);
+    TEST_ASSERT(sender.send(@buffer empty, @destination endpoint) == 0);
+    result := empty_message.get();
+    TEST_ASSERT(result.size == 0 && result.truncated == FALSE);
+    runtime.drain();
+  }
+
+  DOC <$ IPv6 endpoints preserve the address and ephemeral local port. $>
+  ::ipv6_datagram UNIT_TEST
+  {
+    VAR address net::ipv6_address;
+    address.data[15] := 1;
+    VAR endpoint net::endpoint;
+    endpoint.address := net::ip_address(@OTHER address);
+    VAR receiver net::udp_session :(@address endpoint.address);
+    receiver.bind(@endpoint endpoint);
+    endpoint := receiver.local_endpoint();
+    TEST_ASSERT(endpoint.address ISA net::ipv6_address);
+    TEST_ASSERT(endpoint.port != 0 && endpoint.scope_id == 0);
+    VAR sender net::udp_session :(@address endpoint.address);
+    VAR bytes [1]BYTE;
+    bytes[0] := 97;
+    VAR buffer io::buffer_ref :(@data bytes[&0], @size 1);
+    TEST_ASSERT(sender.send(@buffer buffer, @destination endpoint) == 1);
+    bytes[0] := 0;
+    VAR result net::datagram_result := receiver.receive(@buffer buffer);
+    TEST_ASSERT(result.size == 1 && bytes[0] == 97 && result.truncated == FALSE);
+  }
+
+  DOC <$ Native failures propagate through futures and nested coroutine calls as portable networking errors. $>
+  ::invalid_socket UNIT_TEST
+  {
+    VAR runtime io::async_runtime :(@workers 1);
+    VAR connection net::tcp_connection_ref;
+    VAR bytes [1]BYTE;
+    VAR buffer io::buffer_ref :(@data bytes[&0], @size 1);
+    VAR pending := connection.async_read(@runtime runtime, @buffer buffer);
+    VAR caught BOOL;
+    TRY
+    {
+      pending.get();
+    }
+    CATCH failure CONST& net::error
+    {
+      caught := failure == net::error::closed;
+    }
+    TEST_ASSERT(caught);
+    caught := FALSE;
+    VAR reading := ON(runtime) RUN nested_read(@connection connection, @buffer buffer);
+    TRY
+    {
+      reading.get();
+    }
+    CATCH failure CONST& net::error
+    {
+      caught := failure == net::error::closed;
+    }
+    TEST_ASSERT(caught);
+    VAR endpoint net::endpoint := loopback();
+    VAR reserved net::tcp_listener :(@address endpoint.address);
+    reserved.bind(@endpoint endpoint);
+    endpoint := reserved.local_endpoint();
+    TEST_ASSERT(reserved.close());
+    VAR client net::tcp_connection :(@address endpoint.address);
+    VAR connecting := client.async_connect(@runtime runtime, @endpoint endpoint);
+    caught := FALSE;
+    TRY { connecting.get(); }
+    CATCH failure CONST& net::error { caught := failure == net::error::connection_refused; }
+    TEST_ASSERT(caught);
+    runtime.drain();
+  }
+  DOC <$ Pending socket receives do not consume file workers or prevent later sends from completing. $>
+  ::pending_receives_progress UNIT_TEST
+  {
+    VAR endpoint net::endpoint := loopback();
+    VAR receivers [8]net::udp_session;
+    VAR bytes [8]BYTE;
+    VAR results std::dynarr#(std::future#net::datagram_result);
+    VAR runtime io::async_runtime :(@workers 1, @completion_workers 2, @file_workers 1);
+    VAR sender net::udp_session :(@address endpoint.address);
+    LOOP VALUE(index SZ) FROM(0) UNTIL(8) DO
+    {
+      receivers[index] := net::udp_session(@address endpoint.address);
+      receivers[index].bind(@endpoint endpoint);
+      VAR buffer io::buffer_ref :(@data bytes[&index], @size 1);
+      results.push_back(receivers[index].async_receive(@runtime runtime, @buffer buffer));
+    };
+    VAR output [1]BYTE;
+    output[0] := 113;
+    VAR buffer io::buffer_ref :(@data output[&0], @size 1);
+    LOOP VALUE(index SZ) FROM(0) UNTIL(8) DO
+    {
+      VAR sent := sender.async_send(@runtime runtime, @buffer buffer, @destination receivers[index].local_endpoint());
+      TEST_ASSERT(sent.get() == 1);
+    };
+    runtime.drain();
+    LOOP VALUE(index SZ) FROM(0) UNTIL(8) DO
+    {
+      TEST_ASSERT(results[index].is_ready());
+      VAR result net::datagram_result := results[index].get();
+      TEST_ASSERT(result.size == 1 && result.truncated == FALSE && bytes[index] == 113);
+    };
+  }
+}

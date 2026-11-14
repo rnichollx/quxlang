@@ -1,0 +1,81 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::macos INCLUDE_IF(OS_MACOS) NAMESPACE
+{
+  DOC <$
+    Matches the 64-bit Darwin sigevent layout used to route POSIX AIO
+    completions into a kqueue.
+    $>
+  ::signal_event
+    IBC_STRUCT
+  {
+    .notification VAR I32;
+    .signal_number VAR I32;
+    .value VAR ADDRESS;
+    .notification_function VAR ADDRESS;
+    .notification_attributes VAR ADDRESS;
+  }
+
+  DOC <$
+    Matches the 64-bit Darwin aiocb layout used by aio_read and aio_write.
+    $>
+  ::async_control_block
+    IBC_STRUCT
+  {
+    .descriptor VAR I32;
+    .offset VAR I64;
+    .buffer VAR MUT=>>BYTE;
+    .byte_count VAR SZ;
+    .request_priority VAR I32;
+    .signal_event VAR signal_event;
+    .operation VAR I32;
+  }
+
+  DOC <$
+    Matches Darwin kevent64_s so AIO completion status and byte counts are
+    available through the extension fields.
+    $>
+  ::kernel_event
+    IBC_STRUCT
+  {
+    .identifier VAR U64;
+    .filter VAR I16;
+    .flags VAR U16;
+    .filter_flags VAR U32;
+    .data VAR I64;
+    .user_data VAR ADDRESS;
+    .extensions VAR [2]U64;
+  }
+
+  DOC <$ Creates a Darwin kernel event queue. $>
+  ::kqueue EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"kqueue"]
+    CALLABLE CALLCONV CCALL(; RETURN I32);
+
+  DOC <$ Updates registrations and receives events from a Darwin kernel event queue. $>
+  ::kevent64 EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"kevent64"]
+    CALLABLE CALLCONV CCALL(
+      @queue_descriptor I32,
+      @change_list CONST->kernel_event,
+      @change_count I32,
+      @event_list MUT->kernel_event,
+      @event_count I32,
+      @flags U32,
+      @timeout CONST->VOID;
+      RETURN I32
+    );
+
+  DOC <$ Submits a positioned Darwin asynchronous read. $>
+  ::aio_read EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"aio_read"]
+    CALLABLE CALLCONV CCALL(
+      @control MUT->async_control_block;
+      RETURN I32
+    );
+
+  DOC <$ Submits a positioned Darwin asynchronous write. $>
+  ::aio_write EXTERN_PROCEDURE["/usr/lib/libSystem.B.dylib":"aio_write"]
+    CALLABLE CALLCONV CCALL(
+      @control MUT->async_control_block;
+      RETURN I32
+    );
+
+}

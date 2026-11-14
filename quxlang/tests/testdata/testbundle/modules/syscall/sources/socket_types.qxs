@@ -1,0 +1,54 @@
+LANGUAGE QUXLANG EN 0.0;
+
+DOC <$ The signed_byte_count type matches the native signed byte-count ABI. $>
+::signed_byte_count INCLUDE_IF(BITS(SZ) == 32) ALIAS I32;
+DOC <$ The signed_byte_count type matches the native signed byte-count ABI. $>
+::signed_byte_count INCLUDE_IF(BITS(SZ) == 64) ALIAS I64;
+
+DOC <$ The socket_address_storage type provides aligned storage for a native sockaddr_storage value. $>
+::socket_address_storage IBC_STRUCT
+{
+  .words VAR [16]U64;
+}
+
+DOC <$ The datagram_vector type matches a POSIX iovec used by recvmsg. $>
+::datagram_vector INCLUDE_IF(OS_LINUX || OS_MACOS) IBC_STRUCT
+{
+  .address VAR ADDRESS;
+  .length VAR SZ;
+}
+
+DOC <$ The datagram_message type matches the target POSIX msghdr socket ABI. $>
+::datagram_message INCLUDE_IF(OS_LINUX || OS_MACOS) IBC_STRUCT
+{
+  .name VAR ADDRESS;
+  .name_length VAR U32;
+  .vectors VAR ADDRESS;
+  .vector_count INCLUDE_IF(OS_LINUX) VAR SZ;
+  .vector_count INCLUDE_IF(OS_MACOS) VAR I32;
+  .control VAR ADDRESS;
+  .control_length INCLUDE_IF(OS_LINUX) VAR SZ;
+  .control_length INCLUDE_IF(OS_MACOS) VAR U32;
+  .flags VAR I32;
+}
+
+DOC <$ Matches the POSIX pollfd readiness descriptor. $>
+::poll_descriptor INCLUDE_IF(OS_LINUX || OS_MACOS) IBC_STRUCT
+{
+  .descriptor VAR I32;
+  .events VAR I16;
+  .returned_events VAR I16;
+}
+
+DOC <$ Verifies native socket storage and POSIX message ABI sizes on each target. $>
+::socket_abi_layout_test STATIC_TEST
+{
+  TEST_ASSERT(SIZEOF(socket_address_storage) == 128);
+  STATIC_IF(OS_LINUX || OS_MACOS)
+  {
+    TEST_ASSERT(SIZEOF(poll_descriptor) == 8);
+    TEST_ASSERT(SIZEOF(datagram_vector) == 2 * SIZEOF(SZ));
+  }
+  STATIC_IF(OS_LINUX) { TEST_ASSERT(SIZEOF(datagram_message) == 7 * SIZEOF(SZ)); }
+  STATIC_IF(OS_MACOS) { TEST_ASSERT(SIZEOF(datagram_message) == 48); }
+}
